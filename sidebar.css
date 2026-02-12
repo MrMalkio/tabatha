@@ -1,0 +1,559 @@
+:root {
+    --bg-color: #0f1115;
+    --panel-bg: rgba(20, 24, 32, 0.7);
+    --text-primary: #e0e6ed;
+    --text-secondary: #94a3b8;
+    --accent-color: #00d2ff;
+    --accent-glow: rgba(0, 210, 255, 0.3);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --danger-color: #ff4d4d;
+    --success-color: #00e676;
+    --warning-color: #ffab00;
+
+    --priority-critical: #ff4d4d;
+    --priority-high: #ff9100;
+    --priority-medium: #ffd600;
+    --priority-low: #00e676;
+    --priority-none: #5f6368;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+        sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    font-size: 13px;
+}
+
+.sidebar-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* HEADER */
+.sidebar-header {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(15, 17, 21, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.brand-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* NAVIGATION */
+.sidebar-nav {
+    display: flex;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--panel-bg);
+}
+
+.nav-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 10px 0;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.nav-tab:hover {
+    color: var(--text-primary);
+}
+.nav-tab.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+/* DASHBOARD */
+.intent-dashboard {
+    padding: 16px;
+    background: linear-gradient(
+        180deg,
+        rgba(0, 210, 255, 0.05) 0%,
+        transparent 100%
+    );
+    border-bottom: 1px solid var(--border-color);
+}
+
+.intent-focus {
+    margin-bottom: 12px;
+}
+
+.intent-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+}
+
+.intent-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.intent-stats {
+    display: flex;
+    justify-content: space-between;
+}
+
+.stat {
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.stat-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+/* PANELS */
+.panels-container {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px;
+    overflow-y: auto;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.panel.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* TAB LIST */
+.panel-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.search-box {
+    flex: 1;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.small-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+}
+
+.small-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.small-btn.accent {
+    background: rgba(0, 210, 255, 0.1);
+    border-color: rgba(0, 210, 255, 0.3);
+    color: var(--accent-color);
+}
+.small-btn.danger {
+    color: var(--danger-color);
+    border-color: rgba(255, 77, 77, 0.3);
+}
+
+.panel-toolbar-row {
+  display: flex;
+  gap: 8px;
+}
+
+.panel-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.mini-select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 11px;
+}
+
+.mini-select:focus {
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+  outline: none;
+}
+
+
+.tab-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+}
+
+.tab-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.tab-item.active {
+    background: rgba(0, 210, 255, 0.1);
+    border-color: rgba(0, 210, 255, 0.2);
+}
+
+.tab-item.locked {
+    border-left: 3px solid var(--accent-color);
+}
+
+.tab-item.url-locked {
+    box-shadow: 0 0 5px rgba(0, 210, 255, 0.2);
+}
+
+.tab-priority-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.tab-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tab-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tab-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.tab-icons {
+    display: flex;
+    gap: 4px;
+}
+
+/* FORMS */
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: none;
+    background: var(--accent-color);
+    color: #000;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.primary-btn:hover {
+    opacity: 0.9;
+}
+.primary-btn.danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+/* MODALS */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: #1a1d24;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 320px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.modal.wide {
+    max-width: 400px;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 14px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    justify-content: flex-end;
+}
+
+.modal-actions button {
+    width: auto;
+}
+
+/* TOAST */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    background: rgba(20, 24, 32, 0.9);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--accent-color);
+    font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slide-up 0.3s ease-out;
+}
+
+@keyframes slide-up {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* GROUPS LIST */
+.group-header {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+}
+
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    margin-bottom: 4px;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Time Chips */
+.tab-time-chips {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.time-chip {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.time-chip.active {
+  color: var(--accent-color);
+  background: rgba(0, 210, 255, 0.05);
+}
+
+.time-chip.open {
+  color: var(--text-secondary);
+}
+
+/* Tab Actions */
+.tab-actions {
+  display: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.tab-item:hover .tab-actions {
+  display: flex;
+}
+
+.tab-item.selected .tab-actions {
+  display: flex;
+}
+
+.tab-close-btn, .tab-edit-btn {
+  opacity: 0.6;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.tab-close-btn:hover, .tab-edit-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}

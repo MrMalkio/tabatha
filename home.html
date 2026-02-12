@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabatha Home</title>
+  <link rel="stylesheet" href="home.css">
+</head>
+<body>
+  <div class="home-container">
+    <div class="welcome-section">
+      <div class="logo">🐱 Tabatha</div>
+      <h1 id="greeting">Welcome back!</h1>
+      <p class="subtitle">Set your intention for this session.</p>
+      
+      <div class="intent-input-container">
+        <input type="text" id="session-intent" placeholder="What is your main goal right now?" autofocus>
+        <button id="start-session" class="primary-btn">Start Session</button>
+      </div>
+    </div>
+
+    <div class="restore-section">
+      <div class="restore-header">
+        <h2>Your Active Threads</h2>
+        <div class="restore-actions">
+          <button id="btn-restore-critical" class="secondary-btn">Restore Critical Only</button>
+          <button id="btn-restore-all" class="secondary-btn">Restore All</button>
+        </div>
+      </div>
+      
+      <div class="threads-grid" id="threads-grid">
+        <!-- Threads render here -->
+        <div class="loading-spinner">Loading session data...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="home.js"></script>
+</body>
+</html>
