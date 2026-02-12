@@ -82,6 +82,13 @@
                                     ☑️
                                 </button>
                                 <button
+                                    id="btn-view-toggle"
+                                    class="small-btn"
+                                    title="Toggle List/Context View"
+                                >
+                                    📑
+                                </button>
+                                <button
                                     id="btn-bulk-close"
                                     class="small-btn danger"
                                     title="Close Selected"
@@ -99,29 +106,43 @@
                                 <option value="title">Aa Title</option>
                                 <option value="priority">🔴 Priority</option>
                             </select>
+                            <button id="btn-sort-dir" class="small-btn" title="Toggle Sort Direction">⬇️</button>
+                            
                             <select id="tab-filter-category" class="mini-select">
                                 <option value="all">All Cats</option>
                                 <!-- Populated dynamically -->
                             </select>
                         </div>
                     </div>
+                    
+                    <!-- Tab List View -->
                     <div class="tab-list" id="tab-list">
-                        <!-- Tabs render here -->
+                        <!-- Populated by JS -->
+                    </div>
+                    
+                    <!-- Context Group View (Hidden by default) -->
+                    <div class="context-list" id="context-list" style="display: none;">
+                        <!-- Populated by JS -->
                     </div>
                 </section>
 
                 <!-- GROUPS PANEL -->
                 <section class="panel" id="panel-groups">
-                    <div class="panel-toolbar">
-                        <button id="btn-create-group" class="small-btn accent">
-                            + New Group
-                        </button>
-                        <button id="btn-create-subgroup" class="small-btn">
-                            + Sub-Group
+                    <div class="panel-header">
+                        <h3>Active Sub-Groups</h3>
+                        <button id="btn-create-subgroup" class="primary-btn small">
+                            + New Project
                         </button>
                     </div>
-                    <div class="groups-list" id="groups-list">
-                        <!-- Groups render here -->
+                    <div class="group-list" id="groups-list">
+                        <!-- Populated by JS -->
+                    </div>
+                    
+                    <div class="panel-header" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                        <h3>Saved / Closed Groups</h3>
+                    </div>
+                    <div class="group-list" id="saved-groups-list">
+                        <!-- Populated by JS -->
                     </div>
                 </section>
 

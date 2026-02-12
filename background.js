@@ -29,6 +29,8 @@ const BUILT_IN_CATEGORIES = {
   reference: { name: 'Reference', icon: '📚', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: false, trackTime: true, timerEnabled: true } },
   messaging: { name: 'Messaging', icon: '💬', builtIn: true, persistent: true,  urlPatterns: ['*://web.whatsapp.com/*', '*://discord.com/*', '*://slack.com/*', '*://telegram.org/*', '*://messages.google.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
   email:     { name: 'Email',     icon: '📧', builtIn: true, persistent: true,  urlPatterns: ['*://mail.google.com/*', '*://outlook.live.com/*', '*://outlook.office365.com/*', '*://mail.yahoo.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
+  learning:  { name: 'Learning',  icon: '🎓', builtIn: true, persistent: false, urlPatterns: ['*://udemy.com/*', '*://coursera.org/*', '*://edx.org/*', '*://stackoverflow.com/*', '*://github.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: true } },
+  entertainment: { name: 'Entertainment', icon: '🎮', builtIn: true, persistent: false, urlPatterns: ['*://twitch.tv/*', '*://netflix.com/*', '*://hulu.com/*', '*://steamcommunity.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
   unknown:   { name: 'Unknown',   icon: '❓', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: true, trackTime: true, timerEnabled: true } }
 };
 
@@ -325,10 +327,33 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
           idleSince: userIdleSince,
           idleDurationMs: idleDuration
         });
+
+        
+        // Notify user to welcome them back (clicking opens sidebar)
+        chrome.notifications.create('welcome-back', {
+            type: 'basic',
+            iconUrl: 'icons/icon128.png',
+            title: 'Welcome Back!',
+            message: `You were away for ${Math.round(idleDuration / 60000)}m. Click to log your offline context.`,
+            requireInteraction: true
+        });
       }
       userIdleSince = null;
     }
   }
+});
+
+chrome.notifications.onClicked.addListener((notificationId) => {
+    if (notificationId === 'welcome-back') {
+        // Open sidebar
+        chrome.sidePanel.setOptions({ enabled: true });
+        chrome.sidePanel.open({ windowId: activeTabId ? undefined : chrome.windows.WINDOW_ID_CURRENT })
+            .catch(() => { 
+                // Fallback if open() fails (needs user gesture - notification click counts but sometimes tricky)
+                // Actually sidePanel.open() is only available in Chrome 114+ and needs user gesture. 
+                // Notification click IS a user gesture.
+            });
+    }
 });
 
 // Set idle detection interval
@@ -381,6 +406,18 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   
   if (alarm.name === 'session-snapshot') {
     await saveSessionSnapshot();
+  }
+  
+  if (alarm.name === 'pomodoro-timer') {
+      // Notify user
+      chrome.notifications.create('pomodoro-done', {
+          type: 'basic',
+          iconUrl: 'icons/icon128.png',
+          title: 'Tabatha — Timer Complete!',
+          message: 'Time is up! Take a break or refocus.',
+          requireInteraction: true
+      });
+      broadcastMessage({ type: 'POMODORO_COMPLETE' });
   }
 });
 
@@ -847,6 +884,16 @@ async function handleMessage(message, sender) {
       return { success: true };
     }
     
+    case 'UPDATE_TAB_TITLE': {
+        const tabs = await getTabData();
+        if (tabs[message.tabId]) {
+            tabs[message.tabId].customTitle = message.title;
+            await setTabData(tabs);
+            broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+        }
+        return { success: true };
+    }
+    
     case 'TOGGLE_URL_LOCK': {
       const tabs = await getTabData();
       if (tabs[message.tabId]) {
@@ -886,13 +933,19 @@ async function handleMessage(message, sender) {
       return await bulkCloseTabs(message.tabIds, message.context, message.intent);
     
     // --- Groups ---
-    case 'CREATE_GROUP':
+    case 'GET_SAVED_GROUPS':
+      // Stub for Phase 1.5
+      return { savedGroups: {} }; 
+
+    case 'CREATE_GROUP': {
       const groupId = await createOrUpdateGroup(message.tabIds, message.name, message.priority);
       return { groupId };
+    }
     
-    case 'CREATE_SUB_GROUP':
-      const subGroupId = await createSubGroup(message.name, message.chromeGroupIds, message.projectId, message.settings);
-      return { subGroupId };
+    case 'CREATE_SUB_GROUP': {
+      const id = await createSubGroup(message.name);
+      return { id };
+    }
     
     case 'GET_SUB_GROUPS':
       return { subGroups: await getSubGroups() };
@@ -921,6 +974,11 @@ async function handleMessage(message, sender) {
     // --- Time Tracking ---
     case 'GET_TIME_TRACKING':
       return { timeTracking: await getTimeTracking() };
+      
+    case 'START_POMODORO':
+        chrome.alarms.create('pomodoro-timer', { delayInMinutes: message.minutes });
+        broadcastMessage({ type: 'POMODORO_STARTED', minutes: message.minutes });
+        return { success: true };
     
     // --- Sessions ---
     case 'GET_SESSIONS':

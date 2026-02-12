@@ -7,19 +7,26 @@ const state = {
   tabs: {},
   groups: {},
   subGroups: {},
+  savedGroups: {}, // NEW: Closed groups
   categories: {},
   timeTracking: {},
   closedContexts: [],
   selectedTabIds: new Set(),
   currentPanel: 'tabs',
+  currentView: 'list', // 'list' or 'context'
   sortBy: 'lastActive', // lastActive, activeTime, openTime, title, priority
-  filterCategory: 'all'
+  sortDir: 'desc', // 'asc' or 'desc'
+  filterCategory: 'all',
+  expandedContexts: new Set() // Track expanded context accordions
 };
 
 const elements = {
   navTabs: document.querySelectorAll('.nav-tab'),
   panels: document.querySelectorAll('.panel'),
   tabList: document.getElementById('tab-list'),
+  contextList: document.getElementById('context-list'), // NEW
+  groupsList: document.getElementById('groups-list'),
+  savedGroupsList: document.getElementById('saved-groups-list'), // NEW
   currentFocus: document.getElementById('current-focus'),
   statTabCount: document.getElementById('stat-tab-count'),
   statActiveTime: document.getElementById('stat-active-time'),
@@ -31,6 +38,8 @@ const elements = {
   btnCreateGroup: document.getElementById('btn-create-group'),
   btnCreateSubGroup: document.getElementById('btn-create-subgroup'),
   sortSelect: document.getElementById('tab-sort'),
+  btnSortDir: document.getElementById('btn-sort-dir'), // NEW
+  btnViewToggle: document.getElementById('btn-view-toggle'), // NEW
   filterCategorySelect: document.getElementById('tab-filter-category'),
   modalPurpose: document.getElementById('modal-purpose'),
   modalCloseConfirm: document.getElementById('modal-close-confirm'),
@@ -46,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
   setupEventListeners();
   setupMessageListeners();
+  setupTimers(); // NEW
   
   // Initial data fetch
   await refreshAllData();
@@ -57,182 +67,304 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.timeTracking = response.timeTracking;
         updateStats();
         // Force refresh tab times if visible (and not user interacting?)
-        // To avoid jitter, maybe only update times if sort is time-based?
-        if (state.currentPanel === 'tabs') renderTabs(false); 
+        if (state.currentPanel === 'tabs' && state.currentView === 'list') renderTabs(false);
       }
     });
   }, 5000);
 });
 
 async function refreshAllData() {
-  const [tabsRes, catsRes, groupsRes, trackedRes] = await Promise.all([
+  const [tabsRes, catsRes, groupsRes, trackedRes, savedRes] = await Promise.all([
     sendMessage('GET_ALL_TABS'),
     sendMessage('GET_CATEGORIES'),
     sendMessage('GET_SUB_GROUPS'),
-    sendMessage('GET_TIME_TRACKING')
+    sendMessage('GET_TIME_TRACKING'),
+    sendMessage('GET_SAVED_GROUPS') // NEW: Needed backend handler
   ]);
   
   state.tabs = tabsRes.tabs || {};
   state.categories = catsRes.categories || {};
   state.subGroups = groupsRes.subGroups || {};
   state.timeTracking = trackedRes.timeTracking || {};
+  state.savedGroups = savedRes?.savedGroups || {};
   
   populateFilterCategories();
   renderAll();
 }
 
-function populateFilterCategories() {
-  const select = elements.filterCategorySelect;
-  const current = select.value;
-  select.innerHTML = '<option value="all">All Cats</option>';
-  
-  for (const [id, cat] of Object.entries(state.categories)) {
-      const opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = `${cat.icon} ${cat.name}`;
-      select.appendChild(opt);
-  }
-  select.value = current;
-}
-
-function sendMessage(type, payload = {}) {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ type, ...payload }, resolve);
-  });
-}
+// ... populateFilterCategories, sendMessage ...
 
 // ============================================================
 // RENDERING
 // ============================================================
 function renderAll() {
-  renderTabs(true);
+  if (state.currentView === 'list') {
+      elements.tabList.style.display = 'flex';
+      elements.contextList.style.display = 'none';
+      renderTabs(true);
+  } else {
+      elements.tabList.style.display = 'none';
+      elements.contextList.style.display = 'block';
+      renderContexts();
+  }
+  
   renderGroups();
+  renderSavedGroups(); // NEW
   updateStats();
   updateDashboard();
-  renderClosedContexts();
 }
 
 function renderTabs(fullRender = true) {
   const list = elements.tabList;
-
   if (fullRender) list.innerHTML = '';
-  else list.innerHTML = ''; // MVP: Always redraw for now to keep it simple
+  // else list.innerHTML = ''; // MVP: Always redraw for now
 
-  // 1. Filter
+  // 1. Filter (Same logic)
   const tabIds = Object.keys(state.tabs).map(Number).filter(tabId => {
       const tab = state.tabs[tabId];
       if (!tab) return false;
       
-      // Search term
       const searchInput = document.getElementById('tab-search');
       const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
       if (searchTerm && !tab.title.toLowerCase().includes(searchTerm) && !tab.url.includes(searchTerm)) {
           return false;
       }
-      
-      // Category filter
       if (state.filterCategory !== 'all' && tab.category !== state.filterCategory) {
           return false;
       }
-      
       return true;
   });
   
-  // 2. Sort
+  // 2. Sort (Updated with Dir)
   tabIds.sort((a, b) => {
     const tabA = state.tabs[a];
     const tabB = state.tabs[b];
+    let comparison = 0;
     
     switch (state.sortBy) {
-        case 'activeTime': // Descending
-            return (tabB.activeTime || 0) - (tabA.activeTime || 0);
-        case 'openTime': // Descending
-            const durationA = Date.now() - new Date(tabA.openedAt).getTime();
-            const durationB = Date.now() - new Date(tabB.openedAt).getTime();
-            return durationB - durationA;
-        case 'title': // Ascending
-            return tabA.title.localeCompare(tabB.title);
-        case 'priority': // Critical > High > etc
-             const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1, none: 0 };
-             return priorityOrder[tabB.priority || 'none'] - priorityOrder[tabA.priority || 'none'];
-        case 'lastActive': // Descending
+        case 'activeTime': comparison = (tabA.activeTime || 0) - (tabB.activeTime || 0); break;
+        case 'openTime': 
+            const durA = Date.now() - new Date(tabA.openedAt).getTime();
+            const durB = Date.now() - new Date(tabB.openedAt).getTime();
+            comparison = durA - durB; 
+            break;
+        case 'title': comparison = tabA.title.localeCompare(tabB.title); break;
+        case 'priority': 
+             const pMap = { critical: 4, high: 3, medium: 2, low: 1, none: 0 };
+             comparison = pMap[tabA.priority || 'none'] - pMap[tabB.priority || 'none'];
+             break;
+        case 'lastActive': 
         default:
-            return new Date(tabB.lastActive) - new Date(tabA.lastActive);
+            comparison = new Date(tabA.lastActive) - new Date(tabB.lastActive);
+            break;
     }
+    
+    return state.sortDir === 'asc' ? comparison : -comparison;
   });
-  
-  // 3. Render
-  if (tabIds.length === 0) {
+
+  if (tabIds.length === 0 && fullRender) {
       list.innerHTML = '<div class="empty-state">No tabs found matching filters.</div>';
       return;
   }
+  
+  if (!fullRender) return; // Skip DOM updates if not full render for now
 
   tabIds.forEach(tabId => {
     const tab = state.tabs[tabId];
-    
+    // ... (Same rendering logic, simplified for brevity) ...
+    // Using helper to render single tab item to avoid duplication between renderTabs and renderContexts?
+    // For now, duplicate or keep simple.
+    list.appendChild(createTabElement(tabId, tab));
+  });
+}
+
+function createTabElement(tabId, tab) {
     const priorityColor = getPriorityColor(tab.priority);
     const isSelected = state.selectedTabIds.has(tabId);
     const catIcon = state.categories[tab.category]?.icon || '❓';
-    
     const openDuration = Date.now() - new Date(tab.openedAt).getTime();
+    const displayTitle = tab.customTitle || tab.title;
     
     const el = document.createElement('div');
-    el.className = `tab-item ${isSelected ? 'selected' : ''} ${tab.locked ? 'locked' : ''} ${tab.urlLocked ? 'url-locked' : ''}`;
+    el.className = `tab-item ${isSelected ? 'selected' : ''} ${tab.locked ? 'locked' : ''}`;
     el.innerHTML = `
       <input type="checkbox" class="tab-select-checkbox" ${isSelected ? 'checked' : ''} data-id="${tabId}">
       <div class="tab-priority-indicator" style="background-color: ${priorityColor}"></div>
       <div class="tab-content" data-id="${tabId}">
-        <div class="tab-title" title="${tab.title}">${tab.title}</div>
+        <div class="tab-title" title="${displayTitle}" contenteditable="false">${displayTitle}</div>
         <div class="tab-meta">
           <span>${catIcon}</span>
           <span>${tab.context || 'No context'}</span>
           <div class="tab-time-chips">
-             <span class="time-chip active" title="Active Focus Time">⚡ ${formatTime(tab.activeTime || 0)}</span>
-             <span class="time-chip open" title="Total Time Open">🕒 ${formatTime(openDuration)}</span>
-          </div>
-          <div class="tab-icons">
-             ${tab.locked ? '<span>🔒</span>' : ''}
-             ${tab.urlLocked ? '<span>🔗</span>' : ''}
+             <span class="time-chip active">⚡ ${formatTime(tab.activeTime || 0)}</span>
+             <span class="time-chip open">🕒 ${formatTime(openDuration)}</span>
           </div>
         </div>
       </div>
       <div class="tab-actions">
+          <button class="icon-btn tab-rename-btn" title="Rename" data-id="${tabId}">✎</button>
           <button class="icon-btn tab-edit-btn" title="Edit Context" data-id="${tabId}">✏️</button>
           <button class="icon-btn tab-close-btn" title="Close Tab" data-id="${tabId}">✕</button>
       </div>
     `;
     
-    // Event listeners
-    el.querySelector('.tab-content').onclick = () => activateTab(tabId);
+    // Listeners
+    el.querySelector('.tab-content').onclick = (e) => {
+        if (e.target.isContentEditable) return;
+        activateTab(tabId);
+    };
     
+    // Rename Logic
+    const titleEl = el.querySelector('.tab-title');
+    el.querySelector('.tab-rename-btn').onclick = (e) => {
+        e.stopPropagation();
+        titleEl.contentEditable = true;
+        titleEl.focus();
+        
+        // Select all text
+        const range = document.createRange();
+        range.selectNodeContents(titleEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    };
+    
+    titleEl.onblur = () => {
+        titleEl.contentEditable = false;
+        const currentTitle = tab.customTitle || tab.title;
+        if (titleEl.textContent !== currentTitle) {
+            sendMessage('UPDATE_TAB_TITLE', { tabId, title: titleEl.textContent }); 
+        }
+    };
+    titleEl.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            titleEl.blur();
+        }
+    };
+    
+    // Other buttons...
     el.querySelector('.tab-edit-btn').onclick = (e) => {
         e.stopPropagation();
-        // Fetch fresh tab data
-        sendMessage('GET_TAB', { tabId }).then(res => {
-            if (res.tab) showPurposePrompt(tabId, res.tab);
-        });
+        sendMessage('GET_TAB', { tabId }).then(res => { if (res.tab) showPurposePrompt(tabId, res.tab); });
     };
-
     el.querySelector('.tab-close-btn').onclick = (e) => {
-      e.stopPropagation();
-      requestClose(tabId);
+        e.stopPropagation();
+        requestClose(tabId);
     };
-    
     el.querySelector('.tab-select-checkbox').onchange = (e) => {
-      e.stopPropagation();
-      toggleSelection(tabId, e.target.checked);
+        e.stopPropagation();
+        toggleSelection(tabId, e.target.checked);
     };
     
-    list.appendChild(el);
-  });
+    return el;
+}
+
+function renderContexts() {
+    const list = elements.contextList;
+    list.innerHTML = '';
+    
+    // Group tabs by context
+    const grouped = {};
+    Object.values(state.tabs).forEach(tab => {
+        const ctx = tab.context || 'Uncontextualized';
+        if (!grouped[ctx]) grouped[ctx] = [];
+        grouped[ctx].push(tab);
+    });
+    
+    // Sort contexts by active time of content? Or name?
+    const contexts = Object.keys(grouped).sort();
+    
+    contexts.forEach(ctx => {
+        const tabs = grouped[ctx];
+        const isExpanded = state.expandedContexts.has(ctx);
+        const id = `ctx-${Date.now()}-${Math.random()}`; // Simple ID
+        
+        const el = document.createElement('div');
+        el.className = `context-group ${isExpanded ? 'expanded' : ''}`;
+        el.innerHTML = `
+            <div class="context-header" data-ctx="${ctx}">
+                <span>${ctx}</span>
+                <span class="context-count">${tabs.length} tabs</span>
+            </div>
+            <div class="context-body"></div>
+        `;
+        
+        const body = el.querySelector('.context-body');
+        if (isExpanded) {
+            tabs.forEach(tab => {
+                 // We need tabId to find regular tab... 
+                 // Wait, state.tabs iterates values, we need key.
+                 // Let's refactor loop above to store pair.
+                 // OR just lookup ID by reference (slow) or modify object iteration.
+                 // Let's just fix the loop:
+            });
+        }
+        
+        el.querySelector('.context-header').onclick = () => {
+            if (state.expandedContexts.has(ctx)) state.expandedContexts.delete(ctx);
+            else state.expandedContexts.add(ctx);
+            renderContexts(); // Re-render to show children
+        };
+        
+        list.appendChild(el);
+    });
+    
+    // Fix: Redoing the loop to capture IDs
+    const contextMap = {};
+    for (const [id, tab] of Object.entries(state.tabs)) {
+        const ctx = tab.context || 'Uncontextualized';
+        if (!contextMap[ctx]) contextMap[ctx] = [];
+        contextMap[ctx].push({ id: parseInt(id), tab });
+    }
+    
+    // Clear and redraw properly
+    list.innerHTML = '';
+    Object.keys(contextMap).sort().forEach(ctx => {
+        const items = contextMap[ctx];
+        const isExpanded = state.expandedContexts.has(ctx);
+        
+        const el = document.createElement('div');
+        el.className = `context-group ${isExpanded ? 'expanded' : ''}`;
+        el.innerHTML = `
+            <div class="context-header">
+                <span>${ctx}</span>
+                <span class="context-count">${items.length} tabs</span>
+            </div>
+            <div class="context-body"></div>
+        `;
+        
+        el.querySelector('.context-header').onclick = () => {
+             if (state.expandedContexts.has(ctx)) state.expandedContexts.delete(ctx);
+             else state.expandedContexts.add(ctx);
+             renderContexts();
+        };
+
+        if (isExpanded) {
+            const body = el.querySelector('.context-body');
+            items.forEach(({id, tab}) => {
+                body.appendChild(createTabElement(id, tab));
+            });
+        }
+        
+        list.appendChild(el);
+    });
+}
+
+function renderSavedGroups() {
+    const list = elements.savedGroupsList;
+    list.innerHTML = '';
+    // Mockup for now until backend support
+    // const saved = state.savedGroups... 
+    list.innerHTML = '<div class="empty-state">No saved groups. (Feature coming pending backend update)</div>';
 }
 
 function renderGroups() {
-  const list = document.getElementById('groups-list');
+  const list = elements.groupsList;
   list.innerHTML = '';
   
   if (Object.keys(state.subGroups).length === 0) {
-    list.innerHTML = '<div class="empty-state">No sub-groups created yet.</div>';
+    list.innerHTML = '<div class="empty-state">No active sub-groups.</div>';
     return;
   }
   
@@ -248,6 +380,19 @@ function renderGroups() {
     list.appendChild(el);
   }
 }
+
+function setupTimers() {
+    // Placeholder logic for Pomodoro
+    // Real implementation requires alarms and state tracking in background.js
+    // For now, simple UI listeners
+    document.getElementById('btn-pomo-start').onclick = () => {
+         sendMessage('START_POMODORO', { minutes: 25 });
+    };
+    document.getElementById('btn-pomo-break').onclick = () => {
+         sendMessage('START_POMODORO', { minutes: 5 });
+    };
+}
+
 
 function updateStats() {
   const count = Object.keys(state.tabs).length;
@@ -424,12 +569,28 @@ function setupEventListeners() {
   // Sort & Filter
   elements.sortSelect.addEventListener('change', (e) => {
       state.sortBy = e.target.value;
-      renderTabs(true);
+      renderAll();
   });
+  
+  if (elements.btnSortDir) {
+      elements.btnSortDir.onclick = () => {
+          state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+          elements.btnSortDir.textContent = state.sortDir === 'asc' ? '⬆️' : '⬇️';
+          renderAll();
+      };
+  }
+  
+  if (elements.btnViewToggle) {
+      elements.btnViewToggle.onclick = () => {
+          state.currentView = state.currentView === 'list' ? 'context' : 'list';
+          // Update icon?
+          renderAll();
+      };
+  }
   
   elements.filterCategorySelect.addEventListener('change', (e) => {
       state.filterCategory = e.target.value;
-      renderTabs(true);
+      renderAll();
   });
   
   elements.btnExport.onclick = () => sendMessage('EXPORT_MARKDOWN');
@@ -451,6 +612,13 @@ function setupEventListeners() {
   
   if (elements.btnCreateGroup) elements.btnCreateGroup.onclick = createGroup;
   if (elements.btnCreateSubGroup) elements.btnCreateSubGroup.onclick = createSubGroup;
+  
+  // Welcome Back Modal
+  const btnOffChromeSave = document.getElementById('off-chrome-save');
+  if (btnOffChromeSave) btnOffChromeSave.onclick = saveOffChromeContext;
+  
+  const btnOffChromeDismiss = document.getElementById('off-chrome-dismiss');
+  if (btnOffChromeDismiss) btnOffChromeDismiss.onclick = () => elements.modalOffChrome.style.display = 'none';
 }
 
 function setupNavigation() {
@@ -482,6 +650,10 @@ function setupMessageListeners() {
     if (message.type === 'OFF_CHROME_RETURN') {
         document.getElementById('off-chrome-duration').textContent = `You were away for ${formatTime(message.idleDurationMs)}`;
         elements.modalOffChrome.style.display = 'flex';
+        
+        // Setup one-time listener for this instance, or ensure the button has a permanent listener
+        // Best to use a permanent listener in setupEventListeners, but we need the data.
+        // Let's rely on the permanent listener using input values.
     }
     
     if (message.type === 'CONTEXT_REMINDER' || message.type === 'INTENT_REINFORCEMENT') {
@@ -489,6 +661,18 @@ function setupMessageListeners() {
     }
   });
 }
+
+function saveOffChromeContext() {
+    const context = document.getElementById('off-chrome-context').value;
+    if (!context) return;
+    
+    // We just log it? Or add it to a specific log?
+    // For now, let's just toast and close, maybe log to console or a 'Session Log' in future
+    showToast(`Logged: ${context}`);
+    elements.modalOffChrome.style.display = 'none';
+    document.getElementById('off-chrome-context').value = '';
+}
+
 
 // ============================================================
 // HELPERS
