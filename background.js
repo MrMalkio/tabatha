@@ -1025,7 +1025,82 @@ async function handleMessage(message, sender) {
         await chrome.tabs.update(message.tabId, { active: true });
       } catch (e) { /* tab may not exist */ }
       return { success: true };
+
+    // --- Gatekeeper ---
+    case 'CHECK_CONTEXT_NEEDED': {
+        const tabs = await getTabData();
+        const tabData = tabs[sender.tab.id];
+        if (!tabData) return { needed: false };
+        
+        // INTERCEPTION LOGIC:
+        // 1. Not from an opener (fresh tab navigation)
+        // 2. No context set yet
+        // 3. Not a built-in page (newtab, extensions, etc.)
+        // 4. Not an "Unloaded" tab being restored (harder to detect, but 'context' should exist)
+        
+        const isBuiltIn = sender.tab.url.startsWith('chrome://') || sender.tab.url.startsWith('chrome-extension://');
+        if (isBuiltIn) return { needed: false };
+        
+        // If it already has context/intent, skip
+        if (tabData.context || tabData.intent) return { needed: false };
+        
+        // If it has a parent tab ID in Tabatha data (even if opener closed), it might inherit?
+        // Current logic: New tabs inherit context. So if context is null, it means no parent context.
+        return { needed: true };
+    }
     
+    case 'SET_TAB_CONTEXT': {
+        const tabs = await getTabData();
+        if (tabs[sender.tab.id]) {
+            tabs[sender.tab.id].context = message.context;
+            tabs[sender.tab.id].category = message.category || 'unknown';
+            tabs[sender.tab.id].intent = message.intent;
+            await setTabData(tabs);
+            broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
+        }
+        return { success: true };
+    }
+    
+    case 'START_SIDE_QUEST': {
+        const tabs = await getTabData();
+        if (tabs[sender.tab.id]) {
+            tabs[sender.tab.id].context = message.context;
+            tabs[sender.tab.id].intent = 'Side Quest';
+            await setTabData(tabs);
+            broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
+            
+            // Start 5m timer
+            chrome.alarms.create(`context-timer-${sender.tab.id}`, { delayInMinutes: message.minutes });
+        }
+        return { success: true };
+    }
+    
+    case 'ADD_TO_SUGAR_BOX': {
+        // Simple storage for now
+        const { sugarBox } = await getStorage('sugarBox');
+        const list = sugarBox || [];
+        list.push({ url: message.url, title: message.title, addedAt: new Date().toISOString() });
+        await setStorage({ sugarBox: list });
+        
+        await chrome.tabs.remove(sender.tab.id);
+        
+        // Notify sidebar?
+        broadcastMessage({ type: 'SUGAR_BOX_UPDATED' });
+        return { success: true };
+    }
+    
+    case 'PARK_TAB': {
+        // Simple storage for now
+        const { parkedTabs } = await getStorage('parkedTabs');
+        const list = parkedTabs || [];
+        list.push({ url: message.url, title: message.title, parkedAt: new Date().toISOString() });
+        await setStorage({ parkedTabs: list });
+        
+        await chrome.tabs.remove(sender.tab.id);
+        broadcastMessage({ type: 'PARKED_TABS_UPDATED' });
+        return { success: true };
+    }
+
     default:
       return { error: 'Unknown message type' };
   }
