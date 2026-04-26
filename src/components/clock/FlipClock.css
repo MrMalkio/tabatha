@@ -1,0 +1,326 @@
+/* ════════════════════════════════════════════
+   Tabatha FlipClock — Ported from Refocus Screensaver
+   Adapted to respect Tabatha theme variables.
+   ════════════════════════════════════════════ */
+
+.tabatha-clock-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ════════════════════════════════════════════
+   Clock / Countdown row containers
+   ════════════════════════════════════════════ */
+.clock-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  transform: scale(var(--clock-scale, 1));
+  filter: brightness(var(--clock-brightness, 1));
+  transform-origin: center center;
+  position: relative;
+}
+
+.countdown-row {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.countdown-row .countdown-digits {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+/* ── Countdown header ── */
+.countdown-header {
+  text-align: center;
+  user-select: none;
+}
+
+.countdown-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--clock-text-color, var(--color-accent-primary, #448aff));
+  opacity: 0.5;
+}
+
+.countdown-subtext {
+  font-family: 'Inter', sans-serif;
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: var(--clock-text-color, var(--color-accent-primary, #448aff));
+  opacity: 0.3;
+  margin-top: 2px;
+}
+
+/* ── Small seconds for MMMMss format ── */
+.countdown-small-seconds {
+  display: flex;
+  gap: 2px;
+  align-self: flex-end;
+  margin-bottom: 4px;
+  margin-left: -8px;
+}
+
+/* ── AM/PM indicator ── */
+.am-pm {
+  position: absolute;
+  right: -65px;
+  bottom: 10px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--clock-text-color, var(--color-text-muted, #666));
+  opacity: 0.5;
+  letter-spacing: 2px;
+}
+
+.flip-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* ════════════════════════════════════════════
+   Pulse red animation for zero digits
+   ════════════════════════════════════════════ */
+.pulse-red .flip-digit {
+  animation: zero-pulse 2s ease-in-out infinite;
+}
+
+@keyframes zero-pulse {
+  0%, 100% {
+    color: var(--clock-text-color, #448aff);
+  }
+  50% {
+    color: #ff3333;
+    text-shadow: 0 0 20px rgba(255, 50, 50, 0.4);
+  }
+}
+
+.pulse-red .digital-top,
+.pulse-red .digital-bottom,
+.pulse-red .flap-top::after,
+.pulse-red .flap-bottom::after {
+  animation: zero-pulse 2s ease-in-out infinite;
+}
+
+/* ════════════════════════════════════════════
+   Individual digit card — FULL SIZE
+   ════════════════════════════════════════════ */
+.flip-digit {
+  position: relative;
+  width: 140px;
+  height: 200px;
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  font-family: 'Bebas Neue', 'Outfit', sans-serif;
+  font-size: 160px;
+  color: var(--clock-text-color, var(--color-text-primary, #e0e0e0));
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  perspective: 800px;
+}
+
+/* ── Small digit variant ── */
+.flip-digit-small {
+  width: 56px;
+  height: 80px;
+  font-size: 64px;
+  line-height: 80px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Horizontal split line */
+.flip-digit::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -5%;
+  width: 110%;
+  height: 2px;
+  background-color: var(--color-bg-base, #0b0b0b);
+  z-index: 10;
+  transform: translateY(-50%);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+/* ── Shared half styles ── */
+.digital-top, .digital-bottom {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  overflow: hidden;
+  border-radius: 12px;
+  color: var(--clock-text-color, var(--color-text-primary, #e0e0e0));
+}
+
+.flip-digit-small .digital-top,
+.flip-digit-small .digital-bottom {
+  border-radius: 6px;
+}
+
+/* Static top half: ALWAYS shows NEW digit */
+.digital-top {
+  top: 0;
+  background: linear-gradient(180deg, #222 0%, #1a1a1a 100%);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  z-index: 1;
+}
+
+/* Static bottom half */
+.digital-bottom {
+  bottom: 0;
+  background: linear-gradient(180deg, #181818 0%, #111 100%);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  z-index: 1;
+}
+
+/* ════════════════════════════════════════════
+   Animated flap pieces
+   ════════════════════════════════════════════ */
+.flap-top,
+.flap-bottom {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  overflow: hidden;
+  color: var(--clock-text-color, var(--color-text-primary, #e0e0e0));
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-digit-small .flap-top,
+.flip-digit-small .flap-bottom {
+  border-radius: 6px;
+}
+
+.flap-top {
+  top: 0;
+  border-radius: 12px 12px 0 0;
+  transform-origin: bottom center;
+  background: linear-gradient(180deg, #222 0%, #1a1a1a 100%);
+}
+
+.flip-digit-small .flap-top {
+  border-radius: 6px 6px 0 0;
+}
+
+.flap-bottom {
+  bottom: 0;
+  border-radius: 0 0 12px 12px;
+  transform-origin: top center;
+  background: linear-gradient(180deg, #181818 0%, #111 100%);
+}
+
+.flip-digit-small .flap-bottom {
+  border-radius: 0 0 6px 6px;
+}
+
+/* Pseudo-elements for text content */
+.digital-top::after,
+.digital-bottom::after,
+.flap-top::after,
+.flap-bottom::after {
+  content: attr(data-content);
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  line-height: 200px;
+  text-align: center;
+  color: var(--clock-text-color, var(--color-text-primary, #e0e0e0));
+}
+
+.flip-digit-small .digital-top::after,
+.flip-digit-small .digital-bottom::after,
+.flip-digit-small .flap-top::after,
+.flip-digit-small .flap-bottom::after {
+  height: 80px;
+  line-height: 80px;
+}
+
+/* Specific position adjustments */
+.digital-top::after,
+.flap-top::after {
+  top: 0;
+}
+
+.digital-bottom::after,
+.flap-bottom::after {
+  bottom: 0;
+}
+
+/* ════════════════════════════════════════════
+   Animation Sequences
+   ════════════════════════════════════════════ */
+.flipping .flap-top {
+  opacity: 1;
+  animation: fold-top var(--flip-speed, 0.6s) linear forwards;
+}
+
+.flipping .flap-bottom {
+  opacity: 1;
+  animation: fold-bottom var(--flip-speed, 0.6s) linear forwards;
+}
+
+@keyframes fold-top {
+  0% {
+    transform: rotateX(0deg);
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+  50% {
+    transform: rotateX(-90deg);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.8);
+  }
+  100% {
+    transform: rotateX(-90deg);
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+}
+
+@keyframes fold-bottom {
+  0% {
+    transform: rotateX(90deg);
+  }
+  50% {
+    transform: rotateX(90deg);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.8);
+  }
+  100% {
+    transform: rotateX(0deg);
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+}
+
+/* ── Colon separator ── */
+.clock-colon {
+  font-family: 'Bebas Neue', 'Outfit', sans-serif;
+  font-size: 120px;
+  color: var(--clock-text-color, var(--color-text-primary, #e0e0e0));
+  line-height: 200px;
+  opacity: 0.6;
+  animation: colon-pulse 1s ease-in-out infinite;
+  user-select: none;
+}
+
+@keyframes colon-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.2; }
+}

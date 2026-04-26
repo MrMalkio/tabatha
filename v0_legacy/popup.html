@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabatha Search</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="Search tabs..." autofocus autocomplete="off">
+            <button id="btn-step-away" class="icon-btn" title="Step Away (Sleep)">🏃‍♂️</button>
+        </div>
+        <ul id="tab-list" class="tab-list">
+            <!-- Tabs will be injected here -->
+        </ul>
+        <div class="footer">
+            <span class="hint">Type to search, <kbd>Enter</kbd> to switch</span>
+            <span id="tab-count">0 tabs</span>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -15,7 +15,8 @@
         "activeTab",
         "idle",
         "sessions",
-        "scripting"
+        "scripting",
+        "topSites"
     ],
     "host_permissions": [
         "<all_urls>"
@@ -38,7 +39,8 @@
         "newtab": "home.html"
     },
     "action": {
-        "default_title": "Tabatha",
+        "default_title": "Tabatha - Search Tabs",
+        "default_popup": "popup.html",
         "default_icon": {
             "16": "icons/icon16.png",
             "48": "icons/icon48.png",

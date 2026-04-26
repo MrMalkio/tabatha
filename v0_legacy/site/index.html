@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabatha — Attention & Context OS for Your Browser</title>
+  <meta name="description" content="Tabatha is a Chrome extension that tracks your time, enforces intentional browsing, and organizes your tabs by context. Free, private, and built for focus.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Nav -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">🐱 Tabatha</a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#tracking">Time Tracking</a>
+        <a href="#roadmap">Roadmap</a>
+      </div>
+      <a href="#install" class="nav-cta">Install Free →</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero" id="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">v0.1.0-alpha · Chrome Extension · Free</div>
+      <h1>Your Browser's<br><span class="gradient-text">Attention Operating System</span></h1>
+      <p class="hero-sub">
+        Tabatha tracks your time, enforces intentional browsing with "Good Friction", and organizes every tab by context. 
+        Know where your hours go — automatically.
+      </p>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary">Add to Chrome — Free</a>
+        <a href="#features" class="btn btn-ghost">See Features ↓</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><strong>100%</strong><span>Automatic Tracking</span></div>
+        <div class="hero-stat"><strong>Opt-in</strong><span>Smart Capture (OFF by default)</span></div>
+        <div class="hero-stat"><strong>∞</strong><span>Free Forever</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="section-inner">
+      <div class="section-label">Current Features</div>
+      <h2>Everything running in Tabatha today</h2>
+      <p class="section-sub">Every feature below is live and working. Tabatha is a lightweight Chrome extension — no desktop app, no signup, no servers.</p>
+
+      <div class="feature-grid">
+        <a href="features/time-tracking.html" class="feature-card">
+          <div class="fc-icon">⏱</div>
+          <h3>Automatic Time Tracking</h3>
+          <p>Active time, open duration, and category breakdown per tab — all tracked silently in the background. No timers to start or stop.</p>
+          <span class="fc-link">Learn more →</span>
+        </a>
+        <div class="feature-card">
+          <div class="fc-icon">🛡️</div>
+          <h3>Gatekeeper Overlay</h3>
+          <p>"Good Friction" — an interstitial overlay on new tabs that asks your context and intent before you browse. Prevents mindless tab-opening.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🏷️</div>
+          <h3>Context & Intent Engine</h3>
+          <p>Every tab gets a named Context ("Q1 Report") and Intent ("Research competitors"). New tabs inherit context from their parent tab.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">📊</div>
+          <h3>Auto-Categorization</h3>
+          <p>9 built-in categories (Work, Media, Learning, etc.) automatically classify every URL. Custom categories supported.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🔒</div>
+          <h3>Tab & URL Locking</h3>
+          <p>Lock a tab to prevent accidental closure. URL Lock jails a tab to its domain — no more "jailbreaking" to YouTube.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🍅</div>
+          <h3>Pomodoro Timer</h3>
+          <p>Built-in 25/5 Pomodoro with system notifications. Focus sessions and breaks managed from the dashboard or sidebar.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">😴</div>
+          <h3>Step Away Mode</h3>
+          <p>One-click pause. Screen goes dark, timers pause, and when you return, Tabatha welcomes you back with context recall.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">💾</div>
+          <h3>Session Snapshots</h3>
+          <p>Automatic snapshots every 5 minutes. "Return to Flow" lets you restore your exact workspace after a crash or restart.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">📝</div>
+          <h3>Markdown Export</h3>
+          <p>One-click export of your entire browsing session as a structured Markdown file — ready for AI agents, journals, or reporting.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🔍</div>
+          <h3>Quick Tab Search</h3>
+          <p>Instant fuzzy search across all open tabs. Switch to any tab in 2 keystrokes from the popup.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">📂</div>
+          <h3>Tab Groups & Projects</h3>
+          <p>Organize tabs into Chrome Tab Groups and sub-groups (Projects). Assign priorities from Critical to None.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🤖</div>
+          <h3>Agent-Ready Data</h3>
+          <p>Structured data exports designed for consumption by AI agents. Your browsing context becomes machine-readable intelligence.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🧠</div>
+          <h3>AI Agent Context System</h3>
+          <p>Securely package your browsing history and intent context into a local Markdown file that your AI Agent (Cursor, Claude, Windsurf) can auto-read. <span class="badge">Next Release</span></p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🔗</div>
+          <h3>Zero-Integration Task Sync</h3>
+          <p>Automatically catalog workspaces, projects, and tasks from URLs (Asana, Jira, etc.) without OAuth. Log browsing sessions directly to assumed tasks.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">📷</div>
+          <h3>Smart Capture (Opt-In)</h3>
+          <p>Optional screenshot timeline and keystroke analytics. OFF by default. Enable per-feature for proof-of-work, visual audit, or activity scoring.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">🔗</div>
+          <h3>Second Brain Connectors</h3>
+          <p>Drop context files into Obsidian, Logseq, Open Brain (OB1), or any Markdown-based system. Your browsing fuels your knowledge graph.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon">👥</div>
+          <h3>Pro Mode — Multi-Profile</h3>
+          <p>Sync Tabatha across Chrome profiles. Track clients, projects, and teams. Admin vs. user profiles. Employer visibility controls.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Time Tracking Deep-Dive -->
+  <section class="section section-dark" id="tracking">
+    <div class="section-inner">
+      <div class="section-label">Core Superpower</div>
+      <h2>Time Tracking — Mind-Numbingly Detailed</h2>
+      <p class="section-sub">Tabatha doesn't just track "time on computer." It tracks time per tab, per context, per category, per group — passively, accurately, and privately.</p>
+
+      <div class="tracking-grid">
+        <div class="track-card">
+          <h4>Per-Tab Active Time</h4>
+          <p>Only the foreground tab accumulates active time. Background tabs track open duration separately. You see both.</p>
+        </div>
+        <div class="track-card">
+          <h4>Per-Category Rollup</h4>
+          <p>Work vs. Media vs. Learning — see the split instantly. 9 auto-assigned categories, or define your own.</p>
+        </div>
+        <div class="track-card">
+          <h4>Per-Context Aggregation</h4>
+          <p>How long did "Q1 Report" take? Tabatha tells you by summing every tab tagged to that context.</p>
+        </div>
+        <div class="track-card">
+          <h4>Idle Detection</h4>
+          <p>When you stop interacting, time stops counting. No inflated numbers. Welcome-back notifications when you return.</p>
+        </div>
+        <div class="track-card">
+          <h4>Context Switch Alerts</h4>
+          <p>Tabatha detects when you jump between unrelated contexts and can nudge you back to your declared intent.</p>
+        </div>
+        <div class="track-card">
+          <h4>Markdown Timesheets</h4>
+          <p>Export your entire day as a structured Markdown file — with time, contexts, and categories — ready for billing or review.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roadmap -->
+  <section class="section" id="roadmap">
+    <div class="section-inner">
+      <div class="section-label">What's Next</div>
+      <h2>Roadmap</h2>
+      <p class="section-sub">Everything we're building next, in order of priority.</p>
+
+      <div class="roadmap">
+        <div class="rm-phase">
+          <div class="rm-label">v0.2.0 — Time Intelligence + Agent Context</div>
+          <div class="rm-items">
+            <div class="rm-item">Time panel with visual breakdown</div>
+            <div class="rm-item">Daily/weekly summary dashboard</div>
+            <div class="rm-item">Time heatmaps (per-hour activity)</div>
+            <div class="rm-item">Deep work scoring & focus metrics</div>
+            <div class="rm-item">Context-switch cost tracking</div>
+            <div class="rm-item">Sugar Box & Parked Tabs UI</div>
+            <div class="rm-item">AI Agent Context File system</div>
+            <div class="rm-item">Agent path auto-detection</div>
+            <div class="rm-item">Persistent history (survives clear)</div>
+          </div>
+        </div>
+        <div class="rm-phase">
+          <div class="rm-label">v0.3.0 — Smart Cataloging + Capture + Pro</div>
+          <div class="rm-items">
+            <div class="rm-item">Daily productivity score</div>
+            <div class="rm-item">Weekly trend analysis</div>
+            <div class="rm-item">AI auto-categorization</div>
+            <div class="rm-item">Distraction blocker</div>
+            <div class="rm-item">Saved Groups (workspace persistence)</div>
+            <div class="rm-item">Fuzzy search (tabs + history + bookmarks)</div>
+            <div class="rm-item">Visual analytics (charts & graphs)</div>
+            <div class="rm-item">Screenshot capture (opt-in)</div>
+            <div class="rm-item">Keystroke analytics (opt-in)</div>
+            <div class="rm-item">Obsidian / Logseq / Open Brain connectors</div>
+            <div class="rm-item">Client & project cataloging</div>
+          </div>
+        </div>
+        <div class="rm-phase">
+          <div class="rm-label">v0.4.0 — Billing & Integration</div>
+          <div class="rm-items">
+            <div class="rm-item">Billable vs. non-billable classification</div>
+            <div class="rm-item">Time reports (PDF/CSV export)</div>
+            <div class="rm-item">Command palette</div>
+            <div class="rm-item">Google Calendar integration</div>
+            <div class="rm-item">Theming (dark/light/system)</div>
+          </div>
+        </div>
+        <div class="rm-phase">
+          <div class="rm-label">v1.0 — Full Parity + Enterprise</div>
+          <div class="rm-items">
+            <div class="rm-item">AI productivity coach</div>
+            <div class="rm-item">MCP server for AI agent queries</div>
+            <div class="rm-item">Invoice generation from time data</div>
+            <div class="rm-item">Cross-device sync</div>
+            <div class="rm-item">Project profitability tracking</div>
+            <div class="rm-item">Staff/employer tracking mode</div>
+            <div class="rm-item">Team dashboard</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install CTA -->
+  <section class="section section-cta" id="install">
+    <div class="section-inner" style="text-align:center;">
+      <h2>Ready to take control of your attention?</h2>
+      <p class="section-sub">Install Tabatha in 10 seconds. No account, no servers, no tracking of you.</p>
+      <a href="#" class="btn btn-primary btn-large">Add to Chrome — Free Forever</a>
+      <p style="margin-top:16px;font-size:13px;color:var(--text-muted);">Works on Chrome, Edge, Brave, and all Chromium browsers.</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>🐱 Tabatha — Attention OS for your browser</span>
+      <span>Privacy-first · No servers · Open source</span>
+    </div>
+  </footer>
+</body>
+</html>

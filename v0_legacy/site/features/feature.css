@@ -1,0 +1,257 @@
+/* ============================================
+   Feature Page Styles (extends ../style.css)
+   ============================================ */
+
+/* ── Feature Hero ── */
+.feature-hero {
+  padding: 140px 24px 60px;
+  text-align: center;
+}
+.feature-hero-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.feature-icon-large {
+  font-size: 56px;
+  margin-bottom: 16px;
+}
+.feature-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-glow);
+  border: 1px solid rgba(0, 212, 170, 0.25);
+  border-radius: 100px;
+  padding: 4px 14px;
+  margin-bottom: 20px;
+  letter-spacing: 0.5px;
+}
+.feature-hero h1 {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 16px;
+}
+.feature-hero-sub {
+  font-size: 17px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+
+/* ── Ease Bar ── */
+.feature-ease {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  font-size: 13px;
+}
+.ease-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ease-bar {
+  width: 120px;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ease-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 1s ease;
+}
+.ease-level {
+  color: var(--accent);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* ── How It Works Grid ── */
+.how-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  margin-top: 36px;
+}
+.how-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+}
+.how-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+.how-step h3 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.how-step p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 24px;
+  max-width: 560px;
+}
+
+/* ── Demo: Active Time ── */
+.how-demo {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+.demo-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.demo-tab {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.demo-tab.active {
+  border-color: var(--accent);
+  background: rgba(0, 200, 150, 0.08);
+}
+.demo-tab-name { font-weight: 500; }
+.demo-tab-time {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.demo-tab.active .demo-tab-time {
+  color: var(--accent);
+}
+.demo-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.demo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.5s ease infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.4); }
+}
+
+/* ── Demo: Open Duration Bars ── */
+.demo-open-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.demo-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.demo-bar-row > span:first-child {
+  width: 80px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+.demo-bar-row > span:last-child {
+  width: 60px;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+.demo-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.demo-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 1.5s ease;
+}
+.demo-bar-fill.stale {
+  background: var(--warning, #ffaa33);
+}
+
+/* ── Demo: Category Breakdown ── */
+.demo-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.demo-cat-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: linear-gradient(90deg, var(--color) 0%, transparent var(--pct));
+  background-size: var(--pct) 100%;
+  background-repeat: no-repeat;
+  position: relative;
+}
+.demo-cat-label { font-weight: 500; }
+.demo-cat-val {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Impact Grid ── */
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.impact-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+}
+.impact-stat {
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.impact-card p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .feature-hero h1 { font-size: 28px; }
+  .demo-tabs { flex-direction: column; }
+  .feature-ease { flex-direction: column; gap: 8px; }
+}

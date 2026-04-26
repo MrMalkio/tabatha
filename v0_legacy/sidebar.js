@@ -92,7 +92,27 @@ async function refreshAllData() {
   renderAll();
 }
 
-// ... populateFilterCategories, sendMessage ...
+async function sendMessage(type, payload = {}) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type, ...payload }, (response) => {
+      resolve(response || {});
+    });
+  });
+}
+
+function populateFilterCategories() {
+  const sel = elements.filterCategorySelect;
+  const current = state.filterCategory;
+  sel.innerHTML = '<option value="all">All Categories</option>';
+
+  Object.entries(state.categories).forEach(([id, cat]) => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `${cat.icon} ${cat.name}`;
+    if (id === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
 
 // ============================================================
 // RENDERING
@@ -382,15 +402,10 @@ function renderGroups() {
 }
 
 function setupTimers() {
-    // Placeholder logic for Pomodoro
-    // Real implementation requires alarms and state tracking in background.js
-    // For now, simple UI listeners
-    document.getElementById('btn-pomo-start').onclick = () => {
-         sendMessage('START_POMODORO', { minutes: 25 });
-    };
-    document.getElementById('btn-pomo-break').onclick = () => {
-         sendMessage('START_POMODORO', { minutes: 5 });
-    };
+    const btnStart = document.getElementById('btn-pomo-start');
+    const btnBreak = document.getElementById('btn-pomo-break');
+    if (btnStart) btnStart.onclick = () => sendMessage('START_POMODORO', { minutes: 25 });
+    if (btnBreak) btnBreak.onclick = () => sendMessage('START_POMODORO', { minutes: 5 });
 }
 
 
@@ -617,8 +632,8 @@ function setupEventListeners() {
   const btnOffChromeSave = document.getElementById('off-chrome-save');
   if (btnOffChromeSave) btnOffChromeSave.onclick = saveOffChromeContext;
   
-  const btnOffChromeDismiss = document.getElementById('off-chrome-dismiss');
-  if (btnOffChromeDismiss) btnOffChromeDismiss.onclick = () => elements.modalOffChrome.style.display = 'none';
+  const btnOffChromeSkip = document.getElementById('off-chrome-skip');
+  if (btnOffChromeSkip) btnOffChromeSkip.onclick = () => elements.modalOffChrome.style.display = 'none';
 }
 
 function setupNavigation() {

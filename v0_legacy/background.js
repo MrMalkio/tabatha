@@ -1110,28 +1110,11 @@ async function handleMessage(message, sender) {
 // EXTENSION INSTALL / STARTUP
 // ============================================================
 
-chrome.runtime.onInstalled.addListener(async (details) => {
-  if (details.reason === 'install') {
-    // Initialize storage with defaults
-    await setStorage({
-      tabs: {},
-      subGroups: {},
-      categories: BUILT_IN_CATEGORIES,
-      closedContexts: [],
-      sessions: [],
-      timeTracking: { byTab: {}, byGroup: {}, bySubGroup: {}, byCategory: {}, byProject: {} },
-      settings: DEFAULT_SETTINGS
-    });
-    
-    // Open side panel behavior
-    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-  }
-});
+// ============================================================
+// EXTENSION INSTALL / STARTUP / RELOAD
+// ============================================================
 
-chrome.runtime.onStartup.addListener(async () => {
-  // Set side panel behavior
-  await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-  
+async function initializeState() {
   // Sync existing tabs into storage
   const existingTabs = await chrome.tabs.query({});
   const tabs = await getTabData();
@@ -1171,7 +1154,37 @@ chrome.runtime.onStartup.addListener(async () => {
   }
   
   await setTabData(tabs);
+  console.log('Tabatha: State initialized', Object.keys(tabs).length, 'tabs');
+}
+
+// Run on Install/Update
+chrome.runtime.onInstalled.addListener(async (details) => {
+    // Initialize defaults if fresh install
+  if (details.reason === 'install') {
+    await setStorage({
+      tabs: {},
+      subGroups: {},
+      categories: BUILT_IN_CATEGORIES,
+      closedContexts: [],
+      sessions: [],
+      timeTracking: { byTab: {}, byGroup: {}, bySubGroup: {}, byCategory: {}, byProject: {} },
+      settings: DEFAULT_SETTINGS
+    });
+  }
+  
+  await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  await initializeState();
 });
+
+// Run on Browser Startup
+chrome.runtime.onStartup.addListener(async () => {
+  await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  await initializeState();
+});
+
+// Run immediately (for development reloads where listeners might not fire exactly as expected)
+initializeState();
+
 
 // ============================================================
 // NOTIFICATION CLICK HANDLER

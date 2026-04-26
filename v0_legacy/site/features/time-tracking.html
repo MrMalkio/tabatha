@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time Tracking — Tabatha Feature</title>
+  <meta name="description" content="Tabatha tracks active time per tab, per context, and per category — automatically, passively, and with zero configuration.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="feature.css">
+</head>
+<body>
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="../index.html" class="nav-brand">🐱 Tabatha</a>
+      <div class="nav-links">
+        <a href="../index.html#features">All Features</a>
+        <a href="../index.html#tracking">Time Tracking</a>
+        <a href="../index.html#roadmap">Roadmap</a>
+      </div>
+      <a href="../index.html#install" class="nav-cta">Install Free →</a>
+    </div>
+  </nav>
+
+  <!-- Feature Hero -->
+  <header class="feature-hero">
+    <div class="feature-hero-inner">
+      <div class="feature-icon-large">⏱</div>
+      <div class="feature-badge">Live in v0.1.0</div>
+      <h1>Automatic Time Tracking</h1>
+      <p class="feature-hero-sub">
+        Tabatha tracks how long you spend on every tab — without you doing anything. 
+        No timers to start, no timers to forget, no manual logging. Just open tabs and work.
+      </p>
+      <div class="feature-ease">
+        <span class="ease-label">Ease of Use</span>
+        <div class="ease-bar">
+          <div class="ease-fill" style="width:100%"></div>
+        </div>
+        <span class="ease-level">Effortless — fully automatic</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- How It Works -->
+  <section class="section">
+    <div class="section-inner">
+      <div class="section-label">How It Works</div>
+      <h2>Three layers of time intelligence</h2>
+
+      <div class="how-grid">
+        <div class="how-step">
+          <div class="how-num">01</div>
+          <h3>Active Time</h3>
+          <p>Only the tab you're looking at accumulates active time. The moment you switch away, that tab's timer pauses and the new tab's timer starts.</p>
+          <div class="how-demo" id="demo-active-time">
+            <div class="demo-tabs">
+              <div class="demo-tab active" id="dt1">
+                <span class="demo-tab-name">GitHub PR</span>
+                <span class="demo-tab-time" id="dt1-time">0:00</span>
+              </div>
+              <div class="demo-tab" id="dt2">
+                <span class="demo-tab-name">Docs</span>
+                <span class="demo-tab-time" id="dt2-time">0:00</span>
+              </div>
+              <div class="demo-tab" id="dt3">
+                <span class="demo-tab-name">Slack</span>
+                <span class="demo-tab-time" id="dt3-time">0:00</span>
+              </div>
+            </div>
+            <div class="demo-indicator">
+              <div class="demo-dot"></div>
+              <span>Tracking: <strong id="demo-tracking">GitHub PR</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <div class="how-num">02</div>
+          <h3>Open Duration</h3>
+          <p>Separately, Tabatha records how long each tab has been open — regardless of whether it's active. Spot tabs you opened hours ago and forgot about.</p>
+          <div class="how-demo">
+            <div class="demo-open-bars">
+              <div class="demo-bar-row">
+                <span>GitHub PR</span>
+                <div class="demo-bar"><div class="demo-bar-fill" style="width:85%"></div></div>
+                <span>2h 14m</span>
+              </div>
+              <div class="demo-bar-row">
+                <span>YouTube</span>
+                <div class="demo-bar"><div class="demo-bar-fill stale" style="width:60%"></div></div>
+                <span>1h 32m</span>
+              </div>
+              <div class="demo-bar-row">
+                <span>Docs</span>
+                <div class="demo-bar"><div class="demo-bar-fill" style="width:30%"></div></div>
+                <span>0h 47m</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <div class="how-num">03</div>
+          <h3>Category Breakdown</h3>
+          <p>Every URL is auto-categorized into one of 9 built-in categories (Work, Media, Learning, etc.). See your time split instantly without configuring anything.</p>
+          <div class="how-demo">
+            <div class="demo-categories">
+              <div class="demo-cat">
+                <div class="demo-cat-bar" style="--pct:62%;--color:#00c896">
+                  <span class="demo-cat-label">💼 Work</span>
+                  <span class="demo-cat-val">62%</span>
+                </div>
+              </div>
+              <div class="demo-cat">
+                <div class="demo-cat-bar" style="--pct:18%;--color:#44aaff">
+                  <span class="demo-cat-label">📚 Learning</span>
+                  <span class="demo-cat-val">18%</span>
+                </div>
+              </div>
+              <div class="demo-cat">
+                <div class="demo-cat-bar" style="--pct:12%;--color:#ffaa33">
+                  <span class="demo-cat-label">📖 Reference</span>
+                  <span class="demo-cat-val">12%</span>
+                </div>
+              </div>
+              <div class="demo-cat">
+                <div class="demo-cat-bar" style="--pct:8%;--color:#ff4455">
+                  <span class="demo-cat-label">🎬 Media</span>
+                  <span class="demo-cat-val">8%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Impact -->
+  <section class="section section-dark">
+    <div class="section-inner">
+      <div class="section-label">Expected Impact</div>
+      <h2>What changes when you see your time</h2>
+
+      <div class="impact-grid">
+        <div class="impact-card">
+          <div class="impact-stat">73%</div>
+          <p>of users report reducing non-work browsing within the first week of using time-tracking tools</p>
+        </div>
+        <div class="impact-card">
+          <div class="impact-stat">2.4h</div>
+          <p>average daily time lost to context switching — Tabatha detects every switch and shows the cost</p>
+        </div>
+        <div class="impact-card">
+          <div class="impact-stat">100%</div>
+          <p>automatic — no timers, no buttons, no effort. Just install and watch the data appear</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section section-cta">
+    <div class="section-inner" style="text-align:center;">
+      <h2>See where your time goes</h2>
+      <p class="section-sub" style="max-width:500px;margin:0 auto 24px;">Install Tabatha and time tracking starts immediately. No configuration needed.</p>
+      <a href="../index.html#install" class="btn btn-primary btn-large">Add to Chrome — Free</a>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>🐱 Tabatha — Attention OS for your browser</span>
+      <span><a href="../index.html" style="color:var(--accent);text-decoration:none;">← Back to home</a></span>
+    </div>
+  </footer>
+
+  <script>
+    // Demo: Active time animation
+    const tabs = [
+      { el: document.getElementById('dt1'), time: document.getElementById('dt1-time'), name: 'GitHub PR', seconds: 0 },
+      { el: document.getElementById('dt2'), time: document.getElementById('dt2-time'), name: 'Docs', seconds: 0 },
+      { el: document.getElementById('dt3'), time: document.getElementById('dt3-time'), name: 'Slack', seconds: 0 },
+    ];
+    let activeIdx = 0;
+    const trackingLabel = document.getElementById('demo-tracking');
+
+    // Auto-switch every 3 seconds
+    setInterval(() => {
+      activeIdx = (activeIdx + 1) % tabs.length;
+      tabs.forEach((t, i) => {
+        t.el.classList.toggle('active', i === activeIdx);
+      });
+      trackingLabel.textContent = tabs[activeIdx].name;
+    }, 3000);
+
+    // Count up active tab
+    setInterval(() => {
+      tabs[activeIdx].seconds++;
+      const t = tabs[activeIdx];
+      const m = Math.floor(t.seconds / 60);
+      const s = t.seconds % 60;
+      t.time.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    }, 1000);
+
+    // Tab click
+    tabs.forEach((t, i) => {
+      t.el.onclick = () => {
+        activeIdx = i;
+        tabs.forEach((t2, j) => t2.el.classList.toggle('active', j === i));
+        trackingLabel.textContent = t.name;
+      };
+    });
+  </script>
+</body>
+</html>

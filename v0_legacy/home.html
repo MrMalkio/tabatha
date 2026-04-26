@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabatha</title>
+  <link rel="stylesheet" href="home.css">
+  <script src="components/flip-clock.js"></script>
+</head>
+<body>
+  <div class="home">
+    <div style="display: flex; justify-content: center; padding: 20px 0;">
+      <flip-clock scale="0.6" color="#ffffff"></flip-clock>
+    </div>
+    <!-- Compact Session Bar -->
+    <header class="session-bar">
+      <span class="brand-mark" title="Tabatha">🐱</span>
+      <div class="intent-wrap">
+        <input type="text" id="session-intent" placeholder="What's your focus right now?" autocomplete="off" spellcheck="false">
+        <button id="start-session" class="session-go" title="Set Focus">→</button>
+      </div>
+      <span class="greeting-text" id="greeting"></span>
+    </header>
+
+    <!-- Quick Access -->
+    <div class="quick-row" id="quick-access-container"></div>
+
+    <!-- Navigation + Stats Bar -->
+    <nav class="nav-bar">
+      <div class="nav-tabs">
+        <div class="nav-tab" data-panel="tabs">Tabs</div>
+        <div class="nav-tab active" data-panel="time">Time</div>
+        <div class="nav-tab" data-panel="groups">Groups</div>
+      </div>
+      <div class="nav-stats">
+        <span class="stat-chip"><span id="stat-tab-count">0</span> tabs</span>
+        <span class="stat-chip">⚡ <span id="stat-active-time">0m</span></span>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content">
+      <!-- TABS PANEL -->
+      <div class="panel" id="panel-tabs">
+        <div class="toolbar">
+          <input type="text" id="tab-search" placeholder="Search..." autocomplete="off">
+          <select id="tab-filter-category" class="tool-select">
+            <option value="all">All</option>
+          </select>
+          <select id="tab-sort" class="tool-select">
+            <option value="lastActive">Recent</option>
+            <option value="activeTime">Active Time</option>
+            <option value="openTime">Open Duration</option>
+            <option value="title">Title</option>
+            <option value="priority">Priority</option>
+          </select>
+          <button id="btn-sort-dir" class="tool-btn" title="Sort direction">↓</button>
+          <button id="btn-view-toggle" class="tool-btn" title="Toggle view">☰</button>
+          <span class="toolbar-spacer"></span>
+          <button id="btn-select-all" class="tool-btn" title="Select all">☑</button>
+          <button id="btn-bulk-close" class="tool-btn danger" title="Close selected" disabled>✕</button>
+          <button id="btn-create-group" class="tool-btn" title="Create group">+</button>
+        </div>
+        <div id="tab-list" class="tab-list"></div>
+        <div id="context-list" class="tab-list" style="display:none;"></div>
+      </div>
+
+      <!-- TIME PANEL -->
+      <div class="panel active" id="panel-time">
+        <div class="time-cards">
+          <div class="time-card">
+            <span class="tc-val" id="time-total-today">0m</span>
+            <span class="tc-label">Total Active Time</span>
+          </div>
+          <div class="time-card">
+            <span class="tc-val" id="time-tab-count">0</span>
+            <span class="tc-label">Open Tabs</span>
+          </div>
+        </div>
+        
+        <div class="active-sessions-section">
+          <h3>Active Sessions & Tasks</h3>
+          <div id="active-sessions-list" class="list-area">
+            <!-- Active sessions will be populated here -->
+          </div>
+        </div>
+        <div class="timer-section">
+          <h3>Focus Timer</h3>
+          <div class="timer-btns">
+            <button id="btn-pomo-start" class="action-btn">Focus 25m</button>
+            <button id="btn-pomo-break" class="action-btn secondary">Break 5m</button>
+          </div>
+        </div>
+        <div class="time-breakdown" id="time-breakdown">
+          <!-- Category breakdown renders here -->
+        </div>
+      </div>
+
+      <!-- GROUPS PANEL -->
+      <div class="panel" id="panel-groups">
+        <div class="section-head">
+          <span>Projects</span>
+          <button id="btn-create-subgroup" class="tool-btn" title="New project">+</button>
+        </div>
+        <div id="groups-list" class="list-area"></div>
+        <div class="section-head" style="margin-top:16px;">
+          <span>Saved</span>
+        </div>
+        <div id="saved-groups-list" class="list-area"></div>
+      </div>
+    </main>
+
+    <!-- Restore Section (inside tabs, rendered by JS) -->
+    <div id="restore-section" style="display:none;">
+      <div id="threads-grid" class="threads-grid"></div>
+    </div>
+  </div>
+
+  <!-- Hidden compat elements -->
+  <div id="modal-purpose" class="modal-overlay" style="display:none;"></div>
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="home.js"></script>
+</body>
+</html>

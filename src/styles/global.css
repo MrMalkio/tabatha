@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  --font-primary: 'Inter', system-ui, sans-serif;
+  --font-display: 'Bebas Neue', 'Outfit', sans-serif;
+}
+
+@layer base {
+  :root {
+    /* Default Concept 1: Pop Art + Glassmorphism */
+    --color-bg-base: #050505;
+    --color-surface: rgba(20, 20, 25, 0.4);
+    --color-surface-hover: rgba(40, 40, 50, 0.6);
+    --color-border: rgba(255, 255, 255, 0.1);
+    
+    --color-text-primary: #FAFAFA;
+    --color-text-muted: #868E96;
+    
+    --color-accent-primary: #00F0FF;
+    --color-accent-secondary: #FF0055;
+    --color-accent-tertiary: #FFD700;
+
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-pop: 4px 4px 0px var(--color-accent-secondary);
+    
+    --surface-blur: blur(16px);
+    
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 16px;
+    --radius-full: 999px;
+  }
+
+  [data-theme="corporate"] {
+    /* Concept 2: Corporate Clean */
+    --color-bg-base: #F8F9FA;
+    --color-surface: #FFFFFF;
+    --color-surface-hover: #F1F3F5;
+    --color-border: #DEE2E6;
+    
+    --color-text-primary: #212529;
+    --color-text-muted: #ADB5BD;
+    
+    --color-accent-primary: #228BE6;
+    --color-accent-secondary: #495057;
+    --color-accent-tertiary: #12B886;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+    --shadow-pop: none;
+    
+    --surface-blur: none;
+  }
+
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-family: var(--font-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    backdrop-filter: var(--surface-blur);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    transition: background-color 0.15s ease-out, border-color 0.15s ease-out;
+  }
+
+  .btn-pop {
+    background-color: var(--color-accent-primary);
+    color: #000;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: 2px solid #000;
+    box-shadow: var(--shadow-pop);
+    border-radius: var(--radius-md);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  [data-theme="corporate"] .btn-pop {
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    letter-spacing: normal;
+    text-transform: none;
+    font-weight: 600;
+  }
+
+  .btn-pop:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-pop);
+  }
+  
+  [data-theme="corporate"] .btn-pop:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+    background-color: #1c7ed6; /* darken accent primary */
+  }
+}
