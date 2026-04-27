@@ -186,6 +186,13 @@
 | 140 | Org Settings Pull (backend → extension, real-time) | Pro | 📋 | v0.3.0 | #138 |
 | 141 | Admin Panel (web app, dashboard, member mgmt) | Pro | 📋 | v0.3.0 | #138 |
 | 142 | Asana URL Parsing (zero-integration GID extraction) | Tasks | 📋 | v0.2.0 | #105, #106 |
+| **— INTENT PRESETS & WORKSPACE INTELLIGENCE (Backlog 2026-04-27)** |
+| 143 | Preset Intent Designs (visual templates for calendar, meetings, calls, etc.) | UI | 📋 | v0.3.0 | #123 |
+| 144 | Google Workspace Integration Suite (Meet, Calendar, Docs, Drive URL parsing) | Integration | 📋 | v0.2.0 | #142 |
+| 145 | AI Chat Context Tracker (Gemini, Claude, ChatGPT, Codex thread/UUID tracking) | Context | 📋 | v0.2.0 | #20, #142, #144 |
+| 146 | HeadBoxes — Cross-App Project Catalog (unified project view across all tools) | Context | 📋 | v0.3.0 | #145, #92 |
+| 147 | Universal URL Mapping Engine (extensible URL→context rules, user-contributed) | Context | 📋 | v0.2.0 | #20, #142, #144, #145 |
+| 148 | Overlock Manager Integration (all intents/activity committable to overlock) | Data | 📋 | v0.2.0 | #132 |
 
 ---
 
@@ -253,6 +260,10 @@ Focus: Make Tabatha the definitive browser time tracker + AI agent bridge.
 - #123 Intent System v2 / Gatekeeper Overhaul (foundation)
 - #124 Floating Tabatha Widget
 - #126 Return-from-Away Intent Reminder
+- #144 Google Workspace Integration Suite (Meet, Calendar, Docs, Drive)
+- #145 AI Chat Context Tracker (thread/UUID tracking)
+- #147 Universal URL Mapping Engine
+- #148 Overlock Manager Integration
 
 ### v0.3.0 — "Smart Cataloging + Capture + Pro"
 - #11 Daily productivity score
@@ -270,6 +281,8 @@ Focus: Make Tabatha the definitive browser time tracker + AI agent bridge.
 - #92-93 Client/project cataloging
 - #113 Voice Dictation Input
 - #114 Voice Notes & Recordings
+- #143 Preset Intent Designs (visual templates)
+- #146 HeadBoxes — Cross-App Project Catalog
 
 ### v0.4.0 — "Billing, Multi-Profile & Integration"
 - #14-15 Billable time classification & reporting
