@@ -1507,6 +1507,16 @@ async function handleMessage(message, sender) {
     case 'UPDATE_FOCUS_TAGS':
       return { focusEngine: await updateFocusTags(message.focusId, message.tags) };
 
+    case 'RENAME_FOCUS': {
+        const engine = await getFocusEngine();
+        if (engine.items[message.focusId]) {
+          engine.items[message.focusId].label = message.newLabel;
+          await setFocusEngine(engine);
+          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        }
+        return { focusEngine: engine };
+    }
+
     default:
       return { error: 'Unknown message type' };
   }

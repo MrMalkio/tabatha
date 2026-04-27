@@ -90,6 +90,20 @@ function Settings() {
                     <option value="corporate">🏢 Corporate (Light/Clean)</option>
                   </select>
                 </div>
+                <div style={sectionLabel}>Identity</div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Your Name</span>
+                  <input type="text" placeholder="e.g. Marcus" value={settings.userName || ''} onChange={e => updateSetting('userName', e.target.value)} style={inputStyle} />
+                </div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Default Realm</span>
+                  <select value={settings.defaultRealm || 'professional'} onChange={e => updateSetting('defaultRealm', e.target.value)} style={selectStyle}>
+                    <option value="business">💼 Business</option>
+                    <option value="professional">👔 Professional</option>
+                    <option value="work">🏗 Work</option>
+                    <option value="personal">🏠 Personal</option>
+                  </select>
+                </div>
               </div>
             )}
 
@@ -98,31 +112,41 @@ function Settings() {
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>FlipClock</h2>
                 <div style={fieldRow}>
                   <span style={fieldLabel}>Time Format</span>
-                  <select value={clockSettings.format || '12'} onChange={e => updateClock('format', e.target.value)} style={selectStyle}>
+                  <select value={clockSettings.is24Hour ? '24' : '12'} onChange={e => updateClock('is24Hour', e.target.value === '24')} style={selectStyle}>
                     <option value="12">12 Hour</option>
                     <option value="24">24 Hour</option>
                   </select>
                 </div>
                 <div style={fieldRow}>
                   <span style={fieldLabel}>Show Seconds</span>
-                  <Toggle value={clockSettings.showSeconds !== false} onChange={v => updateClock('showSeconds', v)} />
+                  <Toggle value={clockSettings.showClockSeconds !== false} onChange={v => updateClock('showClockSeconds', v)} />
                 </div>
                 <div style={fieldRow}>
                   <span style={fieldLabel}>Scale</span>
-                  <input type="range" min="0.3" max="1.5" step="0.1" value={clockSettings.scale || 0.7} onChange={e => updateClock('scale', parseFloat(e.target.value))} style={{ width: '120px' }} />
+                  <input type="range" min="0.3" max="1.5" step="0.1" value={clockSettings.scale || 1.0} onChange={e => updateClock('scale', parseFloat(e.target.value))} style={{ width: '120px' }} />
                 </div>
                 <div style={fieldRow}>
                   <span style={fieldLabel}>Text Color</span>
-                  <input type="color" value={clockSettings.textColor || '#ffffff'} onChange={e => updateClock('textColor', e.target.value)} style={{ width: '40px', height: '24px', border: 'none', cursor: 'pointer' }} />
+                  <input type="color" value={clockSettings.textColor || '#e0e0e0'} onChange={e => updateClock('textColor', e.target.value)} style={{ width: '40px', height: '24px', border: 'none', cursor: 'pointer' }} />
+                </div>
+                <div style={sectionLabel}>Countdown</div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Show Countdown</span>
+                  <Toggle value={!!clockSettings.showCountdown} onChange={v => updateClock('showCountdown', v)} />
                 </div>
                 <div style={fieldRow}>
-                  <span style={fieldLabel}>Countdown Mode</span>
-                  <select value={clockSettings.countdownMode || 'off'} onChange={e => updateClock('countdownMode', e.target.value)} style={selectStyle}>
-                    <option value="off">Off</option>
+                  <span style={fieldLabel}>Mode</span>
+                  <select value={clockSettings.countdownMode || 'daily'} onChange={e => updateClock('countdownMode', e.target.value)} style={selectStyle}>
                     <option value="daily">End of Day</option>
                     <option value="custom">Custom Time</option>
                   </select>
                 </div>
+                {clockSettings.countdownMode === 'custom' && (
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Target Time</span>
+                    <input type="time" value={clockSettings.customCountdownTarget || '17:00'} onChange={e => updateClock('customCountdownTarget', e.target.value)} style={inputStyle} />
+                  </div>
+                )}
               </div>
             )}
 

@@ -210,6 +210,9 @@ function Home() {
   const [tabs] = useChromeStorage('tabs', {});
   const [timeTracking] = useChromeStorage('timeTracking', { byTab: {}, byCategory: {} });
   const [clockSettings] = useChromeStorage('clockSettings', CLOCK_DEFAULTS);
+  const [settings] = useChromeStorage('settings', {});
+  const [parkedTabs] = useChromeStorage('parkedTabs', []);
+  const [sugarBox] = useChromeStorage('sugarBox', []);
   const { activeFocus, allItems, history, actions } = useFocusEngine();
   const [activePanel, setActivePanel] = useState('time');
 
@@ -239,7 +242,7 @@ function Home() {
   }, [tabs, timeTracking]);
 
   const cycleTheme = () => { const themes = ['pop-art', 'corporate']; setTheme(themes[(themes.indexOf(theme) + 1) % themes.length]); };
-  const navTabs = [{ id: 'time', label: '⏱ Time' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Contexts' }];
+  const navTabs = [{ id: 'time', label: '⏱ Time' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Contexts' }, { id: 'stashed', label: '📦 Stashed' }];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 0, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background-color 0.3s ease, color 0.3s ease' }}>
@@ -249,12 +252,22 @@ function Home() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 700, margin: 0, letterSpacing: '0.02em' }}>{getGreeting()}</h1>
+            <h1 style={{ fontSize: '28px', fontWeight: 700, margin: 0, letterSpacing: '0.02em' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
             <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: '4px 0 0' }}>
               {tabCount} tab{tabCount !== 1 ? 's' : ''} open · {formatTime(totalActiveTime)} active today
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {sugarBox.length > 0 && (
+              <Tooltip text={`${sugarBox.length} item${sugarBox.length !== 1 ? 's' : ''} in Sugar Box`}>
+                <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '4px 8px', fontSize: '12px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🍬 {sugarBox.length}</button>
+              </Tooltip>
+            )}
+            {parkedTabs.length > 0 && (
+              <Tooltip text={`${parkedTabs.length} parked tab${parkedTabs.length !== 1 ? 's' : ''}`}>
+                <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '4px 8px', fontSize: '12px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
+              </Tooltip>
+            )}
             <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.7 }}>v1.0.0-α</span>
             <Tooltip text="Switch theme">
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '6px 10px', fontSize: '14px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
@@ -363,6 +376,48 @@ function Home() {
                     <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{session.tabCount} tab{session.tabCount !== 1 ? 's' : ''} · {session.category}</div>
                   </GlassCard>
                 ))
+              )}
+            </motion.div>
+          )}
+          {activePanel === 'stashed' && (
+            <motion.div key="stashed" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+              {parkedTabs.length === 0 && sugarBox.length === 0 ? (
+                <GlassCard style={{ padding: '24px', textAlign: 'center' }}><p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Nothing stashed. Stay focused! 🎯</p></GlassCard>
+              ) : (
+                <>
+                  {parkedTabs.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '8px' }}>🅿️ Parked Tabs ({parkedTabs.length})</div>
+                      {parkedTabs.map((tab, i) => (
+                        <GlassCard key={i} style={{ padding: '10px 14px', marginBottom: '6px', cursor: 'pointer' }} onClick={() => window.open(tab.url, '_blank')}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title || tab.url}</div>
+                              <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Parked {new Date(tab.parkedAt).toLocaleDateString()}</div>
+                            </div>
+                            <span style={{ fontSize: '12px', color: 'var(--color-accent-primary)', flexShrink: 0, marginLeft: '8px' }}>↗ Open</span>
+                          </div>
+                        </GlassCard>
+                      ))}
+                    </div>
+                  )}
+                  {sugarBox.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '8px' }}>🍬 Sugar Box ({sugarBox.length})</div>
+                      {sugarBox.map((item, i) => (
+                        <GlassCard key={i} style={{ padding: '10px 14px', marginBottom: '6px', cursor: 'pointer' }} onClick={() => window.open(item.url, '_blank')}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🍬 {item.title || item.url}</div>
+                              <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Saved {new Date(item.addedAt).toLocaleDateString()}</div>
+                            </div>
+                            <span style={{ fontSize: '12px', color: 'var(--color-accent-primary)', flexShrink: 0, marginLeft: '8px' }}>↗ Enjoy</span>
+                          </div>
+                        </GlassCard>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </motion.div>
           )}
