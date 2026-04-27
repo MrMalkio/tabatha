@@ -193,6 +193,29 @@ function Settings() {
                   <span style={fieldLabel}>Inherit items shown</span>
                   <input type="number" min="0" max="10" value={settings.inheritItemCount || 3} onChange={e => updateSetting('inheritItemCount', parseInt(e.target.value))} style={inputStyle} />
                 </div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Strict mode (blocks page until intent set)</span>
+                  <Toggle value={settings.inpopStrictMode !== false} onChange={v => updateSetting('inpopStrictMode', v)} />
+                </div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Background blur strength</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input type="range" min="0" max="30" value={settings.inpopBlurStrength ?? 10} onChange={e => updateSetting('inpopBlurStrength', parseInt(e.target.value))} style={{ flex: 1 }} />
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', minWidth: '30px', textAlign: 'right' }}>{settings.inpopBlurStrength ?? 10}px</span>
+                  </div>
+                </div>
+                <div style={sectionLabel}>Intent Bar (InBar)</div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Show Intent Bar on pages</span>
+                  <Toggle value={settings.inbarEnabled !== false} onChange={v => updateSetting('inbarEnabled', v)} />
+                </div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Position</span>
+                  <select value={settings.inbarPosition || 'bottom'} onChange={e => updateSetting('inbarPosition', e.target.value)} style={inputStyle}>
+                    <option value="bottom">Bottom</option>
+                    <option value="top">Top</option>
+                  </select>
+                </div>
                 <div style={sectionLabel}>Skipped Domains</div>
                 {skippedDomains.length === 0 ? (
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>No domains skipped yet.</p>

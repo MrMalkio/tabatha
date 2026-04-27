@@ -149,7 +149,8 @@ async function startFocus(label, timerMinutes = 15, tags = {}) {
     associatedTabIds,
     tags: { realm: '', client: '', project: '', task: '', ...tags },
     parentFocusId: engine.activeFocusId || null,
-    contextSwitchCount: 0
+    contextSwitchCount: 0,
+    priority: 5  // 1 (highest) to 10 (lowest), default middle
   };
   
   engine.activeFocusId = id;
@@ -1596,6 +1597,93 @@ async function handleMessage(message, sender) {
         }
         
         return { sites };
+    }
+
+    // --- InBar data ---
+    case 'GET_INBAR_DATA': {
+        const { settings: ibSettings } = await getStorage('settings');
+        const tabs = await getTabData();
+        const tabId = sender.tab ? sender.tab.id : null;
+        const tabContext = tabId ? tabs[tabId] : null;
+        const engine = await getFocusEngine();
+        const activeFocus = engine.activeFocusId ? engine.items[engine.activeFocusId] : null;
+        
+        // Calculate total task time from all associated tabs
+        let totalTimeMs = 0;
+        if (activeFocus) {
+          const { timeTracking } = await getStorage('timeTracking');
+          if (timeTracking?.byTab) {
+            for (const tid of activeFocus.associatedTabIds) {
+              totalTimeMs += timeTracking.byTab[tid] || 0;
+            }
+          }
+          activeFocus.totalTimeMs = totalTimeMs;
+        }
+        
+        const show = !!(tabContext || activeFocus) && (ibSettings?.inbarEnabled !== false);
+        return { show, tabContext, activeFocus, settings: ibSettings || {} };
+    }
+    
+    // --- Clock In/Out ---
+    case 'CLOCK_IN': {
+        const { clockSession } = await getStorage('clockSession');
+        if (clockSession?.active) return { error: 'Already clocked in', session: clockSession };
+        const session = {
+          active: true,
+          clockedInAt: new Date().toISOString(),
+          clockedOutAt: null,
+          breaks: [],
+          onBreak: false,
+          breakStartedAt: null
+        };
+        await setStorage({ clockSession: session });
+        broadcastMessage({ type: 'CLOCK_SESSION_UPDATED' });
+        return { session };
+    }
+    
+    case 'CLOCK_OUT': {
+        const { clockSession } = await getStorage('clockSession');
+        if (!clockSession?.active) return { error: 'Not clocked in' };
+        // End any active break
+        if (clockSession.onBreak && clockSession.breakStartedAt) {
+          clockSession.breaks.push({ start: clockSession.breakStartedAt, end: new Date().toISOString() });
+        }
+        clockSession.active = false;
+        clockSession.clockedOutAt = new Date().toISOString();
+        clockSession.onBreak = false;
+        clockSession.breakStartedAt = null;
+        
+        // Archive to history
+        const { clockHistory } = await getStorage('clockHistory');
+        const history = clockHistory || [];
+        history.unshift({ ...clockSession });
+        await setStorage({ clockSession, clockHistory: history.slice(0, 365) });
+        broadcastMessage({ type: 'CLOCK_SESSION_UPDATED' });
+        return { session: clockSession };
+    }
+    
+    case 'GET_CLOCK_STATUS': {
+        const { clockSession } = await getStorage('clockSession');
+        return { session: clockSession || { active: false } };
+    }
+    
+    case 'TOGGLE_BREAK': {
+        const { clockSession } = await getStorage('clockSession');
+        if (!clockSession?.active) return { error: 'Not clocked in' };
+        
+        if (clockSession.onBreak) {
+          // End break
+          clockSession.breaks.push({ start: clockSession.breakStartedAt, end: new Date().toISOString() });
+          clockSession.onBreak = false;
+          clockSession.breakStartedAt = null;
+        } else {
+          // Start break
+          clockSession.onBreak = true;
+          clockSession.breakStartedAt = new Date().toISOString();
+        }
+        await setStorage({ clockSession });
+        broadcastMessage({ type: 'CLOCK_SESSION_UPDATED' });
+        return { session: clockSession };
     }
 
     default:

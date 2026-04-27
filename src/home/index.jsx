@@ -399,48 +399,148 @@ function Home() {
 
   const cycleTheme = () => { const themes = ['pop-art', 'corporate']; setTheme(themes[(themes.indexOf(theme) + 1) % themes.length]); };
   const [intentHistory] = useChromeStorage('intentHistory', []);
+  const [clockSession, setClockSession] = useChromeStorage('clockSession', { active: false });
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'time', label: '⏱ Time' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Contexts' }, { id: 'stashed', label: '📦 Stashed' }];
+
+  // Clock-in/out helpers
+  const handleClockIn = async () => { const res = await sendMessage('CLOCK_IN'); if (res?.session) setClockSession(res.session); };
+  const handleClockOut = async () => { const res = await sendMessage('CLOCK_OUT'); if (res?.session) setClockSession(res.session); };
+  const handleToggleBreak = async () => { const res = await sendMessage('TOGGLE_BREAK'); if (res?.session) setClockSession(res.session); };
+
+  // Live clock session timer
+  const [clockElapsed, setClockElapsed] = useState('');
+  useEffect(() => {
+    if (!clockSession?.active) { setClockElapsed(''); return; }
+    const tick = () => {
+      const start = new Date(clockSession.clockedInAt).getTime();
+      let breakMs = 0;
+      for (const b of clockSession.breaks || []) {
+        breakMs += new Date(b.end).getTime() - new Date(b.start).getTime();
+      }
+      if (clockSession.onBreak && clockSession.breakStartedAt) {
+        breakMs += Date.now() - new Date(clockSession.breakStartedAt).getTime();
+      }
+      const worked = Date.now() - start - breakMs;
+      const h = Math.floor(worked / 3600000);
+      const m = Math.floor((worked % 3600000) / 60000);
+      const s = Math.floor((worked % 60000) / 1000);
+      setClockElapsed(`${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [clockSession]);
+
+  // Current highest priority focus item for NowBar
+  const nowItem = useMemo(() => {
+    if (!allItems || allItems.length === 0) return null;
+    const active = allItems.filter(i => i.focusState === 'active' || i.focusState === 'paused');
+    if (active.length === 0) return null;
+    // Sort by priority (1=highest) then by active first
+    return active.sort((a, b) => ((a.priority || 10) - (b.priority || 10)) || (a.focusState === 'active' ? -1 : 1))[0];
+  }, [allItems]);
+
+  const clockScale = clockSettings?.scale || 1;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 0, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background-color 0.3s ease, color 0.3s ease' }}>
       {theme === 'pop-art' && (<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.03, backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '12px 12px' }} />)}
 
-      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1100px', padding: '24px 32px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 700, margin: 0, letterSpacing: '0.02em' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
-            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: '4px 0 0' }}>
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1100px', padding: '16px 32px' }}>
+        {/* Header Row — Greeting + Clock + Icons */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ flex: '0 0 auto' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '0.02em' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
+            <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '2px 0 0' }}>
               {tabCount} tab{tabCount !== 1 ? 's' : ''} open · {formatTime(totalActiveTime)} active today
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+
+          {/* Center — FlipClock */}
+          <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ transform: `scale(${clockScale})`, transformOrigin: 'center' }}>
+              <FlipClock settings={clockSettings} />
+            </div>
+          </div>
+
+          {/* Right — Badges + Buttons */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flex: '0 0 auto' }}>
             {sugarBox.length > 0 && (
               <Tooltip text={`${sugarBox.length} item${sugarBox.length !== 1 ? 's' : ''} in Sugar Box`}>
-                <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '4px 8px', fontSize: '12px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🍬 {sugarBox.length}</button>
+                <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🍬 {sugarBox.length}</button>
               </Tooltip>
             )}
             {parkedTabs.length > 0 && (
               <Tooltip text={`${parkedTabs.length} parked tab${parkedTabs.length !== 1 ? 's' : ''}`}>
-                <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '4px 8px', fontSize: '12px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
+                <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
-            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.7 }}>v1.0.0-α</span>
+            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.1-α</span>
             <Tooltip text="Switch theme">
-              <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '6px 10px', fontSize: '14px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
+              <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
                 {theme === 'pop-art' ? '🎨' : '🏢'}
               </button>
             </Tooltip>
             <Tooltip text="Open settings">
-              <button onClick={() => { if (chrome?.runtime?.openOptionsPage) chrome.runtime.openOptionsPage(); }} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '6px 10px', fontSize: '14px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>⚙️</button>
+              <button onClick={() => { if (chrome?.runtime?.openOptionsPage) chrome.runtime.openOptionsPage(); }} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>⚙️</button>
             </Tooltip>
           </div>
         </div>
 
-        {/* FlipClock */}
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} style={{ marginBottom: '24px' }}>
-          <FlipClock settings={clockSettings} />
-        </motion.div>
+        {/* Clock In/Out Bar */}
+        <GlassCard style={{ padding: '8px 14px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Tooltip text={clockSession?.active ? 'Currently clocked in' : 'Clock in to start tracking work time'}>
+              <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                {clockSession?.active ? '🟢 Clocked In' : '⚪ Clocked Out'}
+              </span>
+            </Tooltip>
+            {clockSession?.active && clockElapsed && (
+              <span style={{ fontSize: '14px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: clockSession.onBreak ? '#ffa726' : 'var(--color-accent-primary)' }}>
+                {clockElapsed}
+              </span>
+            )}
+            {clockSession?.onBreak && (
+              <span style={{ fontSize: '9px', background: '#ffa72622', color: '#ffa726', padding: '1px 6px', borderRadius: '3px', fontWeight: 600 }}>ON BREAK</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {clockSession?.active && (
+              <Tooltip text={clockSession.onBreak ? 'End break and resume' : 'Start a break — pause work timer'}>
+                <button onClick={handleToggleBreak} style={{ background: clockSession.onBreak ? '#ffa72622' : 'var(--color-surface)', border: `1px solid ${clockSession.onBreak ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+                  {clockSession.onBreak ? '▶ Resume' : '☕ Break'}
+                </button>
+              </Tooltip>
+            )}
+            <Tooltip text={clockSession?.active ? 'Clock out — end work session' : 'Clock in — start work session'}>
+              <button onClick={clockSession?.active ? handleClockOut : handleClockIn} style={{ background: clockSession?.active ? '#ef535022' : '#66bb6a22', border: `1px solid ${clockSession?.active ? '#ef5350' : '#66bb6a'}`, borderRadius: 'var(--radius-sm)', color: clockSession?.active ? '#ef5350' : '#66bb6a', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+                {clockSession?.active ? '⏹ Clock Out' : '▶ Clock In'}
+              </button>
+            </Tooltip>
+          </div>
+        </GlassCard>
+
+        {/* Now Bar — Current Priority */}
+        {nowItem && (
+          <GlassCard style={{ padding: '8px 14px', marginBottom: '8px', borderLeft: '3px solid var(--color-accent-primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-accent-primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>NOW</span>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>{nowItem.label}</span>
+                {nowItem.priority && nowItem.priority <= 10 && (
+                  <Tooltip text={`Priority ${nowItem.priority} of 10`}>
+                    <span style={{ fontSize: '9px', background: nowItem.priority <= 3 ? '#ff6b6b22' : nowItem.priority <= 6 ? '#ffa72622' : '#66bb6a22', color: nowItem.priority <= 3 ? '#ff6b6b' : nowItem.priority <= 6 ? '#ffa726' : '#66bb6a', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>P{nowItem.priority}</span>
+                  </Tooltip>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                  {FUNNEL_STAGES[nowItem.funnelStage]?.icon} {FUNNEL_STAGES[nowItem.funnelStage]?.label}
+                </span>
+              </div>
+            </div>
+          </GlassCard>
+        )}
 
         {/* Focus Engine */}
         {activeFocus ? (

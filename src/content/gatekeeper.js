@@ -4,7 +4,10 @@
 
 (async () => {
   // 1. Check if we need to intercept
-  const response = await chrome.runtime.sendMessage({ type: 'CHECK_CONTEXT_NEEDED' });
+  let response;
+  try {
+    response = await chrome.runtime.sendMessage({ type: 'CHECK_CONTEXT_NEEDED' });
+  } catch (e) { return; } // Extension context invalidated
   if (!response || !response.needed) return;
 
   // 2. Gather data: focus items, recent intents, settings
@@ -12,6 +15,8 @@
   let recentIntents = [];
   let persistentIntents = [];
   let inheritCount = 3;
+  let strictMode = true;
+  let blurStrength = 10;
 
   try {
     const feRes = await chrome.runtime.sendMessage({ type: 'GET_FOCUS_ENGINE' });
@@ -25,12 +30,13 @@
   try {
     const stored = await chrome.storage.local.get(['intentHistory', 'intentPresets', 'settings']);
     inheritCount = stored.settings?.inheritItemCount || 3;
+    strictMode = stored.settings?.inpopStrictMode !== false; // default true
+    blurStrength = stored.settings?.inpopBlurStrength ?? 10;
 
     // Build recent from history (unique by context, today only, max 5)
     if (stored.intentHistory) {
       const today = new Date().toDateString();
       const seen = new Set();
-      // Also track active focus labels to deduplicate
       const activeLabels = new Set(focusItems.map(f => f.label.toLowerCase()));
       for (const entry of stored.intentHistory) {
         if (entry.context && new Date(entry.timestamp).toDateString() === today && !seen.has(entry.context.toLowerCase()) && !activeLabels.has(entry.context.toLowerCase())) {
@@ -52,19 +58,35 @@
 
   focusItems = focusItems.slice(0, inheritCount);
 
-  // 3. Create Shadow DOM Overlay
+  // 3. Wait for body to exist (document_start may fire before body)
+  const waitForBody = () => new Promise(resolve => {
+    if (document.body) return resolve();
+    const obs = new MutationObserver(() => {
+      if (document.body) { obs.disconnect(); resolve(); }
+    });
+    obs.observe(document.documentElement, { childList: true });
+    // Safety timeout
+    setTimeout(() => { obs.disconnect(); resolve(); }, 3000);
+  });
+  await waitForBody();
+  if (!document.body) return; // Still no body — abort
+
+  // 4. Create Shadow DOM Overlay
   const host = document.createElement('div');
   host.id = 'tabatha-gatekeeper-host';
   Object.assign(host.style, {
     position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-    zIndex: '2147483647', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)'
+    zIndex: '2147483647',
+    backgroundColor: `rgba(0,0,0,${strictMode ? 0.85 : 0.6})`,
+    backdropFilter: `blur(${blurStrength}px)`,
+    pointerEvents: strictMode ? 'auto' : 'auto'
   });
 
   const shadow = host.attachShadow({ mode: 'closed' });
   document.documentElement.appendChild(host);
-  document.body.style.overflow = 'hidden';
+  if (strictMode) document.body.style.overflow = 'hidden';
 
-  // 4. Styles
+  // 5. Styles
   const style = document.createElement('style');
   style.textContent = `
     :host {
@@ -86,6 +108,9 @@
     }
     h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: 0.02em; }
     .subtitle { color: #888; margin: 0 0 18px; font-size: 12px; }
+    .mode-badge { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; font-weight: 600; }
+    .mode-strict { background: #ff6b6b22; color: #ff6b6b; }
+    .mode-relaxed { background: #66bb6a22; color: #66bb6a; }
 
     input, select {
       width: 100%;
@@ -124,7 +149,6 @@
     .preset-item .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .preset-item .badge { font-size: 8px; background: #333; padding: 1px 5px; border-radius: 3px; color: #888; }
 
-    /* Size variants */
     .preset-item.active-item { font-size: 12px; padding: 8px 10px; }
     .preset-item.recent-item { font-size: 11px; padding: 5px 9px; color: #aaa; }
     .preset-item.common-item { font-size: 10px; padding: 4px 8px; color: #888; background: #222; border-color: #2a2a2a; }
@@ -153,12 +177,14 @@
     .btn-danger { background: #3c1f1f; color: #ff6b6b; border: 1px solid #5c2b2b; }
     .btn-later { background: #1f2f3c; color: #6bb3ff; border: 1px solid #2b3f5c; }
     .btn-nevermind { background: transparent; color: #888; border: 1px solid #444; grid-column: span 2; }
+    .btn-dismiss { background: transparent; color: #66bb6a; border: 1px solid #66bb6a44; grid-column: span 2; font-size: 11px; padding: 7px; }
 
     .btn-primary:hover { opacity: 0.9; }
     .btn-secondary:hover { background: #444; }
     .btn-danger:hover { background: #4a2626; }
     .btn-later:hover { background: #2a3f5c; }
     .btn-nevermind:hover { color: #66bb6a; border-color: #66bb6a; }
+    .btn-dismiss:hover { background: #66bb6a11; }
 
     .actions-subtext {
       grid-column: span 2;
@@ -179,7 +205,6 @@
     }
     .skip-link:hover { color: #888; text-decoration: underline; }
 
-    /* Tooltip */
     [data-tip] { position: relative; }
     [data-tip]:hover::after {
       content: attr(data-tip);
@@ -193,9 +218,8 @@
       font-weight: 400;
       padding: 4px 8px;
       border-radius: 4px;
-      white-space: nowrap;
-      max-width: 250px;
       white-space: normal;
+      max-width: 250px;
       pointer-events: none;
       z-index: 10;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
@@ -206,11 +230,10 @@
   `;
   shadow.appendChild(style);
 
-  // 5. Build HTML
+  // 6. Build HTML
   const container = document.createElement('div');
   container.className = 'container';
 
-  // Active focus items
   let activeHTML = '';
   if (focusItems.length > 0) {
     activeHTML = `<div class="preset-list">${focusItems.map(item => `
@@ -222,17 +245,15 @@
     `).join('')}</div>`;
   }
 
-  // Recent intents
   let recentHTML = '';
   if (recentIntents.length > 0) {
     recentHTML = `<div class="section-label">Recent</div><div class="preset-list">${recentIntents.map(label => `
-      <div class="preset-item recent-item" data-preset="${label}" data-tip="Click to reuse this intent, or type above first to nest under it">
+      <div class="preset-item recent-item" data-preset="${label}" data-tip="Click to reuse this intent">
         <span class="label">${label}</span>
       </div>
     `).join('')}</div>`;
   }
 
-  // Persistent / common intents
   let commonHTML = '';
   if (persistentIntents.length > 0) {
     commonHTML = `<div class="section-label">Common</div><div class="preset-list">${persistentIntents.map(label => `
@@ -242,8 +263,16 @@
     `).join('')}</div>`;
   }
 
+  const modeBadge = strictMode
+    ? '<span class="mode-badge mode-strict">Strict</span>'
+    : '<span class="mode-badge mode-relaxed">Relaxed</span>';
+
+  const dismissBtn = !strictMode
+    ? '<button class="btn-dismiss" id="dismiss" data-tip="Continue without setting intent — page will be accessible but untracked">Dismiss — browse without intent</button>'
+    : '';
+
   container.innerHTML = `
-    <h1>Why are you here?</h1>
+    <h1>Why are you here?${modeBadge}</h1>
     <p class="subtitle" data-tip="Tabatha helps you browse with intention">Define your intent to proceed.</p>
 
     <input type="text" id="context" placeholder="What are you working on?" autofocus data-tip="Type a new intent, or skip and click a preset below">
@@ -256,9 +285,10 @@
       <button class="btn-primary" id="continue" data-tip="Set intent and proceed to the site">Continue</button>
       <button class="btn-secondary" id="side-quest" data-tip="Quick detour — Tabatha will remind you when time is up">⚔️ Side Quest</button>
       <button class="btn-danger" id="sugar-box" data-tip="Save this site for later as a reward — tab will close">🍬 Sugar Box</button>
-      <button class="btn-secondary" id="park" data-tip="Save tab to Parked list — tab will close, find in Settings">🅿️ Park</button>
+      <button class="btn-secondary" id="park" data-tip="Save tab to Parked list — tab will close">🅿️ Park</button>
       <button class="btn-later" id="later" data-tip="Save this intent for future action — tab will close">🔖 Later</button>
-      <button class="btn-nevermind" id="nevermind" data-tip="Close tab — logs a focus win! You chose not to proceed.">🚫 Nevermind</button>
+      <button class="btn-nevermind" id="nevermind" data-tip="Close tab — logs a focus win!">🚫 Nevermind</button>
+      ${dismissBtn}
       <div class="actions-subtext">Any button proceeds — each classifies your decision differently</div>
     </div>
 
@@ -266,12 +296,12 @@
   `;
   shadow.appendChild(container);
 
-  // 6. Logic
+  // 7. Logic
   const ctxInput = shadow.getElementById('context');
 
   const closeOverlay = () => {
     host.remove();
-    document.body.style.overflow = '';
+    if (document.body) document.body.style.overflow = '';
   };
 
   const logAction = (action, extra = {}) =>
@@ -279,29 +309,21 @@
       type: 'LOG_INTENT_ACTION', action,
       url: window.location.href, domain: location.hostname,
       ...extra
-    });
+    }).catch(() => {});
 
-  // Helper: process preset click (handles threading if text is in input)
   const handlePresetClick = async (presetLabel, focusId = null) => {
     const typed = ctxInput.value.trim();
     let context = presetLabel;
-
-    if (typed) {
-      // Threading: typed text becomes sub-intent under the clicked preset
-      context = `${presetLabel} — ${typed}`;
-    }
+    if (typed) context = `${presetLabel} — ${typed}`;
 
     await chrome.runtime.sendMessage({
-      type: 'SET_TAB_CONTEXT',
-      context,
-      category: 'work',
-      intent: focusId ? 'inherited_from_focus' : 'preset'
-    });
+      type: 'SET_TAB_CONTEXT', context,
+      category: 'work', intent: focusId ? 'inherited_from_focus' : 'preset'
+    }).catch(() => {});
 
     if (focusId) {
-      await chrome.runtime.sendMessage({ type: 'ASSOCIATE_TAB_WITH_FOCUS', focusId });
+      await chrome.runtime.sendMessage({ type: 'ASSOCIATE_TAB_WITH_FOCUS', focusId }).catch(() => {});
     }
-
     await logAction(focusId ? 'inherit' : 'continue', { context, focusId });
     closeOverlay();
   };
@@ -314,10 +336,7 @@
       ctxInput.placeholder = 'Please describe your intent...';
       return;
     }
-    await chrome.runtime.sendMessage({
-      type: 'SET_TAB_CONTEXT', context,
-      category: 'work', intent: 'user_defined'
-    });
+    await chrome.runtime.sendMessage({ type: 'SET_TAB_CONTEXT', context, category: 'work', intent: 'user_defined' }).catch(() => {});
     await logAction('continue', { context });
     closeOverlay();
   };
@@ -325,27 +344,27 @@
   // Side Quest
   shadow.getElementById('side-quest').onclick = async () => {
     const context = ctxInput.value.trim() || 'Side Quest';
-    await chrome.runtime.sendMessage({ type: 'START_SIDE_QUEST', context, minutes: 5 });
+    await chrome.runtime.sendMessage({ type: 'START_SIDE_QUEST', context, minutes: 5 }).catch(() => {});
     await logAction('side_quest', { context });
     closeOverlay();
   };
 
   // Sugar Box
   shadow.getElementById('sugar-box').onclick = async () => {
-    await chrome.runtime.sendMessage({ type: 'ADD_TO_SUGAR_BOX', url: window.location.href, title: document.title });
+    await chrome.runtime.sendMessage({ type: 'ADD_TO_SUGAR_BOX', url: window.location.href, title: document.title }).catch(() => {});
     await logAction('sugar_box');
   };
 
   // Park
   shadow.getElementById('park').onclick = async () => {
-    await chrome.runtime.sendMessage({ type: 'PARK_TAB', url: window.location.href, title: document.title });
+    await chrome.runtime.sendMessage({ type: 'PARK_TAB', url: window.location.href, title: document.title }).catch(() => {});
     await logAction('park');
   };
 
   // Later
   shadow.getElementById('later').onclick = async () => {
     const context = ctxInput.value.trim() || document.title;
-    await chrome.runtime.sendMessage({ type: 'PARK_TAB', url: window.location.href, title: document.title, context });
+    await chrome.runtime.sendMessage({ type: 'PARK_TAB', url: window.location.href, title: document.title, context }).catch(() => {});
     await logAction('later', { context });
   };
 
@@ -358,29 +377,32 @@
     } catch (e) { window.close(); }
   };
 
+  // Dismiss (non-strict only)
+  const dismissBtn_ = shadow.getElementById('dismiss');
+  if (dismissBtn_) {
+    dismissBtn_.onclick = async () => {
+      await logAction('dismiss');
+      closeOverlay();
+    };
+  }
+
   // Skip domain
   shadow.getElementById('skip-domain').onclick = async () => {
-    await chrome.runtime.sendMessage({ type: 'SKIP_DOMAIN', domain: location.hostname });
+    await chrome.runtime.sendMessage({ type: 'SKIP_DOMAIN', domain: location.hostname }).catch(() => {});
     await logAction('skip_domain');
     closeOverlay();
   };
 
-  // Active focus items (inherit)
+  // Inherit clicks
   shadow.querySelectorAll('[data-inherit-id]').forEach(el => {
-    el.onclick = () => handlePresetClick(
-      el.querySelector('.label').textContent,
-      el.getAttribute('data-inherit-id')
-    );
+    el.onclick = () => handlePresetClick(el.querySelector('.label').textContent, el.getAttribute('data-inherit-id'));
   });
 
-  // Recent + common presets
+  // Preset clicks
   shadow.querySelectorAll('[data-preset]').forEach(el => {
     el.onclick = () => handlePresetClick(el.getAttribute('data-preset'));
   });
 
   // Enter key
-  ctxInput.onkeydown = (e) => {
-    if (e.key === 'Enter') shadow.getElementById('continue').click();
-  };
-
+  ctxInput.onkeydown = (e) => { if (e.key === 'Enter') shadow.getElementById('continue').click(); };
 })();

@@ -86,3 +86,62 @@ ADD_TO_SUGAR_BOX, PARK_TAB
 
 ### Category IDs
 `work`, `media`, `meeting`, `reference`, `messaging`, `email`, `learning`, `entertainment`, `unknown`
+
+---
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 0 | Status: active          -->
+<!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+
+## Project State
+
+- **Current version:** 1.0.0-alpha
+- **Current focus:** Phase 2 — Rapid Access & Management (React migration complete)
+- **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension
+- **Dev command:** `npm run dev`
+- **Build command:** `npm run build`
+- **Port:** 5173
+
+---
+
+## Workspace Map
+
+See `.headbox/workspace-map.md` for the full project file tree.
+
+---
+
+## Global Rules
+
+1. **Always commit before ending a session** — use `wip:` prefix if incomplete.
+2. **Follow Conventional Commits** — `{type}({scope}): {description}`
+3. **Never push directly to `master`** — always via PR or explicit human approval.
+4. **When in doubt — always ask.**
+5. **Stay on task.** If you notice something unrelated, add it to `.headbox/parking_lot.md`.
+6. **On `checkpoint`** — update any known task(s) with progress.
+7. **Check `.headbox/sticky-notes/`** at session start.
+
+---
+
+## Local Rules
+
+- **Update `docs/progress.md`** at the end of every session.
+- **Update `Tabatha_Changelog.md`** when shipping version changes.
+- **Legacy code in `v0_legacy/`** — reference only. Do not modify.
+
+---
+
+## Session Handoff Protocol
+
+**After every session, update the Session Log in `AGENTS.md`.**
+
+- Append a new entry. Never delete previous entries.
+- Increment the usage counter in the headbox header by 1.
+- On every 20th use: ask the user if anything should be updated.
+
+---
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- END HEADBOX                                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+

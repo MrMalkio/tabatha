@@ -16,7 +16,8 @@ export default defineConfig({
         settings: resolve(__dirname, 'settings.html'),
         background: resolve(__dirname, 'src/background/background.js'),
         gatekeeper: resolve(__dirname, 'src/content/gatekeeper.js'),
-        blockgate: resolve(__dirname, 'src/content/blockgate.js')
+        blockgate: resolve(__dirname, 'src/content/blockgate.js'),
+        inbar: resolve(__dirname, 'src/content/inbar.js')
       },
       output: {
         entryFileNames: `assets/[name].js`,
