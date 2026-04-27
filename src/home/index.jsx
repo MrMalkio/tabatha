@@ -203,6 +203,162 @@ function FocusInput({ onStart }) {
 }
 
 // ════════════════════════════════════════════
+// IntentsPanel — All intents (separate from tabs)
+// ════════════════════════════════════════════
+
+function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions }) {
+  const [expanded, setExpanded] = useState({});
+  const [editingId, setEditingId] = useState(null);
+  const [editLabel, setEditLabel] = useState('');
+
+  // Build intents from focus items + history
+  const intents = useMemo(() => {
+    const map = {};
+
+    // 1. Focus items are the primary source
+    allItems.forEach(item => {
+      map[item.id] = {
+        id: item.id,
+        label: item.label,
+        funnelStage: item.funnelStage || 'unsorted',
+        focusState: item.focusState,
+        createdAt: item.createdAt,
+        isFocusItem: true,
+        associatedTabIds: item.associatedTabIds || [],
+        tags: item.tags || {},
+      };
+    });
+
+    // 2. History intents that aren't already focus items
+    if (intentHistory) {
+      const focusLabels = new Set(allItems.map(i => i.label.toLowerCase()));
+      const seen = new Set();
+      intentHistory.forEach(entry => {
+        if (entry.context && !focusLabels.has(entry.context.toLowerCase()) && !seen.has(entry.context.toLowerCase())) {
+          seen.add(entry.context.toLowerCase());
+          const histId = `hist_${entry.context.replace(/\s/g, '_').slice(0, 20)}`;
+          if (!map[histId]) {
+            map[histId] = {
+              id: histId,
+              label: entry.context,
+              funnelStage: 'unsorted',
+              focusState: null,
+              createdAt: entry.timestamp,
+              isFocusItem: false,
+              associatedTabIds: [],
+              tags: {},
+            };
+          }
+        }
+      });
+    }
+
+    return Object.values(map).sort((a, b) => {
+      // Active first, then by creation date
+      if (a.focusState === 'active' && b.focusState !== 'active') return -1;
+      if (b.focusState === 'active' && a.focusState !== 'active') return 1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+  }, [allItems, intentHistory]);
+
+  const toggle = (id) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const handleRename = async (id) => {
+    if (editLabel.trim()) {
+      await sendMessage('RENAME_FOCUS', { focusId: id, newLabel: editLabel.trim() });
+    }
+    setEditingId(null);
+  };
+
+  return (
+    <motion.div key="intents" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+      {intents.length === 0 ? (
+        <GlassCard style={{ padding: '24px', textAlign: 'center' }}>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No intents yet. Set a focus or navigate with intention.</p>
+        </GlassCard>
+      ) : (
+        intents.map(intent => {
+          const funnel = FUNNEL_STAGES[intent.funnelStage] || FUNNEL_STAGES.unsorted;
+          const assocTabs = intent.associatedTabIds
+            .map(tid => ({ id: tid, ...(tabs[tid] || {}) }))
+            .filter(t => t.title || t.url);
+          const totalTime = intent.associatedTabIds.reduce((sum, tid) => sum + ((timeTracking.byTab || {})[tid] || 0), 0);
+          const isExpanded = expanded[intent.id];
+
+          return (
+            <GlassCard key={intent.id} style={{ padding: '12px 14px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => toggle(intent.id)}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: '14px' }}>
+                    {intent.focusState === 'active' ? '🎯' : intent.focusState === 'paused' ? '⏸' : '📝'}
+                  </span>
+                  {editingId === intent.id ? (
+                    <input
+                      autoFocus
+                      value={editLabel}
+                      onChange={e => setEditLabel(e.target.value)}
+                      onBlur={() => handleRename(intent.id)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleRename(intent.id); if (e.key === 'Escape') setEditingId(null); }}
+                      onClick={e => e.stopPropagation()}
+                      style={{ background: 'transparent', border: '1px solid var(--color-accent-primary)', borderRadius: '4px', color: 'var(--color-text-primary)', fontSize: '13px', padding: '2px 6px', outline: 'none', flex: 1 }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{intent.label}</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '9px', background: funnel.color + '22', color: funnel.color, padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>{funnel.icon} {funnel.label}</span>
+                  {assocTabs.length > 0 && <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{assocTabs.length} tab{assocTabs.length !== 1 ? 's' : ''}</span>}
+                  {totalTime > 0 && <span style={{ fontSize: '10px', color: 'var(--color-accent-primary)', fontWeight: 600 }}>{formatTime(totalTime)}</span>}
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{isExpanded ? '▼' : '▶'}</span>
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
+                  {intent.isFocusItem && (
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                      <Tooltip text="Edit intent label">
+                        <button onClick={() => { setEditingId(intent.id); setEditLabel(intent.label); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✏️ Rename</button>
+                      </Tooltip>
+                      {intent.focusState !== 'active' && (
+                        <Tooltip text="Switch to this focus">
+                          <button onClick={() => actions.switchFocus(intent.id)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🎯 Focus</button>
+                        </Tooltip>
+                      )}
+                      <Tooltip text="Mark as complete">
+                        <button onClick={() => actions.completeFocus(intent.id)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✅ Done</button>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {assocTabs.length > 0 ? (
+                    assocTabs.map(tab => (
+                      <div key={tab.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '11px' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, color: 'var(--color-text-muted)' }}>
+                          {tab.favIconUrl && <img src={tab.favIconUrl} style={{ width: 12, height: 12, marginRight: 4, verticalAlign: 'middle' }} alt="" />}
+                          {tab.title || tab.url || `Tab ${tab.id}`}
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'var(--color-accent-primary)', fontWeight: 600, flexShrink: 0, marginLeft: '8px' }}>{formatTime((timeTracking.byTab || {})[tab.id] || 0)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '4px 0' }}>No tabs associated yet.</p>
+                  )}
+                  <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+                    Created: {new Date(intent.createdAt).toLocaleString()}
+                    {intent.tags?.realm && <span> · {intent.tags.realm}</span>}
+                  </div>
+                </div>
+              )}
+            </GlassCard>
+          );
+        })
+      )}
+    </motion.div>
+  );
+}
+
+// ════════════════════════════════════════════
 // Main Home Component
 // ════════════════════════════════════════════
 function Home() {
@@ -242,7 +398,8 @@ function Home() {
   }, [tabs, timeTracking]);
 
   const cycleTheme = () => { const themes = ['pop-art', 'corporate']; setTheme(themes[(themes.indexOf(theme) + 1) % themes.length]); };
-  const navTabs = [{ id: 'time', label: '⏱ Time' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Contexts' }, { id: 'stashed', label: '📦 Stashed' }];
+  const [intentHistory] = useChromeStorage('intentHistory', []);
+  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'time', label: '⏱ Time' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Contexts' }, { id: 'stashed', label: '📦 Stashed' }];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 0, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background-color 0.3s ease, color 0.3s ease' }}>
@@ -307,6 +464,9 @@ function Home() {
 
         {/* Panels */}
         <AnimatePresence mode="wait">
+          {activePanel === 'intents' && (
+            <IntentsPanel intentHistory={intentHistory} allItems={allItems} tabs={tabs} timeTracking={timeTracking} actions={actions} />
+          )}
           {activePanel === 'time' && (
             <motion.div key="time" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>

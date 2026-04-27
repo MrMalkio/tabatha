@@ -52,6 +52,7 @@ function Settings() {
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [skippedDomains, setSkippedDomains] = useChromeStorage('skippedDomains', []);
   const [intentHistory] = useChromeStorage('intentHistory', []);
+  const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
 
   const updateSetting = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
   const updateClock = (key, val) => setClockSettings(prev => ({ ...prev, [key]: val }));
@@ -201,6 +202,27 @@ function Settings() {
                     </div>
                   ))
                 )}
+                <div style={sectionLabel}>Persistent Presets</div>
+                <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '0 0 6px' }}>Pinned intents that always appear in InPop under "Common"</p>
+                {(intentPresets.persistent || []).map((p, i) => (
+                  <div key={i} style={{ ...fieldRow, padding: '4px 0' }}>
+                    <span style={{ fontSize: '12px' }}>📌 {p.label}</span>
+                    <button onClick={() => {
+                      const updated = { ...intentPresets, persistent: intentPresets.persistent.filter((_, j) => j !== i) };
+                      setIntentPresets(updated);
+                    }} style={{ background: 'transparent', border: '1px solid #ef5350', color: '#ef5350', borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>Remove</button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                  <input type="text" id="new-preset" placeholder="Add persistent intent..." style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+                    onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { const label = e.target.value.trim(); setIntentPresets(prev => ({ ...prev, persistent: [...(prev.persistent || []), { label, pinned: true }] })); e.target.value = ''; }}} />
+                  <button onClick={() => { const el = document.getElementById('new-preset'); if (el && el.value.trim()) { const label = el.value.trim(); setIntentPresets(prev => ({ ...prev, persistent: [...(prev.persistent || []), { label, pinned: true }] })); el.value = ''; } }}
+                    style={{ background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>Add</button>
+                </div>
+                <div style={fieldRow}>
+                  <span style={fieldLabel}>Recent intents shown</span>
+                  <input type="number" min="1" max="10" value={settings.recentIntentCount || 5} onChange={e => updateSetting('recentIntentCount', parseInt(e.target.value))} style={inputStyle} />
+                </div>
               </div>
             )}
 
