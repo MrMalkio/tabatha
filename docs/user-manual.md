@@ -13,14 +13,17 @@
 3. [Quick Start](#quick-start)
 4. [The Home Dashboard](#the-home-dashboard)
 5. [The Intent-Popup (InPop)](#the-intent-popup-inpop)
-6. [Focus Engine](#focus-engine)
-7. [The Sidebar](#the-sidebar)
-8. [The QuickSwitch Popup](#the-quickswitch-popup)
-9. [Settings Hub](#settings-hub)
-10. [Keyboard Shortcuts](#keyboard-shortcuts)
-11. [Glossary](#glossary)
-12. [FAQ](#faq)
-13. [Changelog](#changelog)
+6. [The Intent Bar (InBar)](#the-intent-bar-inbar)
+7. [BlockGate (Site Blocking)](#blockgate-site-blocking)
+8. [Focus Engine](#focus-engine)
+9. [Clock In/Out](#clock-inout)
+10. [The Sidebar](#the-sidebar)
+11. [The QuickSwitch Popup](#the-quickswitch-popup)
+12. [Settings Hub](#settings-hub)
+13. [Keyboard Shortcuts](#keyboard-shortcuts)
+14. [Glossary](#glossary)
+15. [FAQ](#faq)
+16. [Changelog](#changelog)
 
 ---
 
@@ -64,19 +67,23 @@ Tabatha is part of the **Flux ecosystem** — a family of apps designed to help 
 
 Access: Open a new tab or navigate to Tabatha's home page.
 
-### Header
-- Displays a personalized greeting with your name (set in Settings > Profiles)
-- Shows open tab count and total active time today
-- **Theme toggle** button — switches between Pop Art and Corporate themes
-- **Settings** button — opens the Settings Hub
-- Quick-access badges: Sugar Box count, Parked Tabs count
+### Header Row
+The header is a single dense row:
+- **Left:** Greeting with name, tab count, active time
+- **Center:** FlipClock (scalable via settings)
+- **Right:** Sugar Box/Parked badges, version, theme toggle, settings
 
-### FlipClock
-A retro-styled digital clock at the top of the dashboard. Configurable:
-- 12/24 hour format
-- Show/hide seconds
-- Adjustable scale and text color
-- Countdown mode (end-of-day or custom time)
+### Clock In/Out Bar
+Directly below the header:
+- **🟢 Clocked In / ⚪ Clocked Out** status with live timer (H:MM:SS)
+- **☕ Break** button — pauses work timer, shows ON BREAK badge
+- **▶ Clock In / ⏹ Clock Out** buttons
+- Break time is deducted from work hours
+
+### Now Bar
+When a focus is active, displays the highest-priority item:
+- **NOW** label + focus label + priority badge (P1–P10)
+- Color coded: P1-3 🔴 red, P4-6 🟠 orange, P7-10 🟢 green
 
 ### Focus Bar
 When a focus is active, the FocusBar shows:
@@ -105,6 +112,12 @@ When a focus is active, the FocusBar shows:
 
 ### Header
 "**Why are you here?**" — prompts you to define your intent before proceeding.
+
+### Mode
+- **Strict (default):** Page is fully blocked until intent is set. Page scroll disabled.
+- **Relaxed:** Overlay appears but includes a **Dismiss** button — browse without intent.
+- Configurable in Settings > Intent-Popup > Strict mode toggle.
+- **Blur strength** is adjustable (0–30px) via Settings slider.
 
 ### Layout (top to bottom)
 
@@ -139,6 +152,30 @@ Click the edit icon on any intent to expand it into a full form:
 - **Description** — detailed notes, what to do when returning
 - **Linked Task** — connect to an existing task or create a new one
 - **Checkbox:** "Make this a task" — promotes the intent to the Tasks funnel
+
+---
+
+## The Intent Bar (InBar)
+
+**Trigger:** Appears on every page when an intent or focus is active.
+
+A slim bar (24px) that slides up from the bottom (or top) of the screen.
+
+### What It Shows
+- **Left:** Two count-up timers:
+  - 🔵 **Intent timer** — time on current tab's intent
+  - 🟢 **Task timer** — total time on all tabs associated with the related task
+- **Center:** Current intent label + focus label (if different)
+  - 🎯 badge when focus is active
+  - "No intent set" badge when blank
+- **Right:** Focus countdown timer (turns red when drifted, shows +MM:SS)
+- **✕ Close** button — hides InBar for the current tab
+
+### Behavior
+- Pushes page content by its height — nothing is hidden or covered
+- Timers update every second
+- Listens for focus updates and refreshes live
+- Position (top/bottom) configurable in Settings > Intent-Popup > InBar
 
 ---
 
@@ -226,7 +263,7 @@ Every component has a **live preview** alongside its controls.
 | **Appearance** | Theme selection, Your Name (for greeting), Default Realm (Business/Professional/Work/Personal) |
 | **FlipClock** | Format (12/24h), seconds, scale, text color, show countdown, countdown mode (daily/custom), custom target time |
 | **Focus Engine** | Default timer, auto-associate tabs, drift notifications, funnel stage reference |
-| **Intent-Popup** | Enable/disable, side quest duration, inherit items shown, recent intents count, skipped domains (remove), persistent presets (add/remove) |
+| **Intent-Popup** | Enable/disable, strict/relaxed mode, blur strength (slider), side quest duration, inherit items shown, recent intents count, skipped domains (remove), persistent presets (add/remove), InBar enable/position |
 | **Blocked Sites** | Add/remove blocked domains with wildcard support. View currently blocked list. |
 | **Time Tracking** | Idle threshold, context timer |
 | **Export & Agents** | Auto-export, interval, path |
@@ -260,7 +297,11 @@ Every component has a **live preview** alongside its controls.
 | **Park** | Save a tab for later retrieval |
 | **Funnel Stage** | Progress: Unsorted through Roadblocked |
 | **Realm** | Classification: Business, Professional, Work, or Personal |
+| **InBar** | Intent Bar — slim bottom/top bar showing current intent, task, and timers |
 | **BlockGate** | Site blocking overlay — requires justification and timer to access blocked sites |
+| **Clock In/Out** | Work session tracking with break support |
+| **NowBar** | Homepage bar showing current highest-priority focus item |
+| **Priority** | Task/focus importance ranking from P1 (critical) to P10 (lowest) |
 | **Task Link** | Connection between a Tabatha intent and an Asana/ClickUp task |
 | **AMR** | Application Model Reference — Settings as live component catalog |
 
