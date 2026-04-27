@@ -25,6 +25,7 @@ const SECTIONS = [
   { id: 'clock', label: '🕐 FlipClock' },
   { id: 'focus', label: '🎯 Focus Engine' },
   { id: 'intent', label: '🚪 Intent-Popup' },
+  { id: 'blocked', label: '🚫 Blocked Sites' },
   { id: 'time', label: '⏱ Time Tracking' },
   { id: 'export', label: '📤 Export & Agents' },
   { id: 'tags', label: '🏷 Tags & Associations' },
@@ -53,6 +54,7 @@ function Settings() {
   const [skippedDomains, setSkippedDomains] = useChromeStorage('skippedDomains', []);
   const [intentHistory] = useChromeStorage('intentHistory', []);
   const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
+  const [blockedSites, setBlockedSites] = useChromeStorage('blockedSites', []);
 
   const updateSetting = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
   const updateClock = (key, val) => setClockSettings(prev => ({ ...prev, [key]: val }));
@@ -223,6 +225,32 @@ function Settings() {
                   <span style={fieldLabel}>Recent intents shown</span>
                   <input type="number" min="1" max="10" value={settings.recentIntentCount || 5} onChange={e => updateSetting('recentIntentCount', parseInt(e.target.value))} style={inputStyle} />
                 </div>
+              </div>
+            )}
+
+            {activeSection === 'blocked' && (
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Blocked Sites</h2>
+                <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
+                  Blocked sites show a gate requiring a 50+ character justification and timer before access. Supports wildcards like <code>*.reddit.com</code>.
+                </p>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                  <input type="text" id="new-blocked" placeholder="e.g. reddit.com or *.tiktok.com" style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+                    onKeyDown={async e => { if (e.key === 'Enter' && e.target.value.trim()) { await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: e.target.value.trim() }); e.target.value = ''; setBlockedSites(prev => [...prev, e.target.value]); }}} />
+                  <button onClick={async () => { const el = document.getElementById('new-blocked'); if (el && el.value.trim()) { const d = el.value.trim(); await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: d }); setBlockedSites(prev => [...prev, d]); el.value = ''; } }}
+                    style={{ background: '#ff6b6b', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>Block</button>
+                </div>
+                <div style={sectionLabel}>Currently Blocked</div>
+                {blockedSites.length === 0 ? (
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>No sites blocked yet.</p>
+                ) : (
+                  blockedSites.map((d, i) => (
+                    <div key={i} style={{ ...fieldRow, padding: '4px 0' }}>
+                      <span style={{ fontSize: '12px' }}>🚫 {d}</span>
+                      <button onClick={async () => { await sendMessage('MANAGE_BLOCKED_SITES', { action: 'remove', domain: d }); setBlockedSites(prev => prev.filter((_, j) => j !== i)); }} style={{ background: 'transparent', border: '1px solid #ef5350', color: '#ef5350', borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>Unblock</button>
+                    </div>
+                  ))
+                )}
               </div>
             )}
 

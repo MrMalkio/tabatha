@@ -1354,6 +1354,10 @@ async function handleMessage(message, sender) {
 
     // --- Gatekeeper ---
     case 'CHECK_CONTEXT_NEEDED': {
+        // Check if gatekeeper is globally disabled
+        const { settings: gkSettings } = await getStorage('settings');
+        if (gkSettings && gkSettings.gatekeeperEnabled === false) return { needed: false };
+        
         const tabs = await getTabData();
         const tabData = tabs[sender.tab.id];
         if (!tabData) return { needed: false };
@@ -1362,7 +1366,7 @@ async function handleMessage(message, sender) {
         // 1. Not from an opener (fresh tab navigation)
         // 2. No context set yet
         // 3. Not a built-in page (newtab, extensions, etc.)
-        // 4. Not an "Unloaded" tab being restored (harder to detect, but 'context' should exist)
+        // 4. Not an "Unloaded" tab being restored
         
         const isBuiltIn = sender.tab.url.startsWith('chrome://') || sender.tab.url.startsWith('chrome-extension://');
         if (isBuiltIn) return { needed: false };
@@ -1376,6 +1380,18 @@ async function handleMessage(message, sender) {
           const { skippedDomains } = await getStorage('skippedDomains');
           if (skippedDomains && skippedDomains.includes(domain)) return { needed: false };
         } catch (e) { /* invalid URL */ }
+        
+        // Auto-associate tab with active focus if setting enabled
+        if (!gkSettings || gkSettings.autoAssociateTabs !== false) {
+          const engine = await getFocusEngine();
+          if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+            const focus = engine.items[engine.activeFocusId];
+            if (!focus.associatedTabIds.includes(sender.tab.id)) {
+              focus.associatedTabIds.push(sender.tab.id);
+              await setFocusEngine(engine);
+            }
+          }
+        }
         
         return { needed: true };
     }
@@ -1515,6 +1531,71 @@ async function handleMessage(message, sender) {
           broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
         }
         return { focusEngine: engine };
+    }
+
+    // --- Site Blocking ---
+    case 'CHECK_BLOCKED_SITE': {
+        const { blockedSites, tempUnblocked } = await getStorage(['blockedSites', 'tempUnblocked']);
+        const sites = blockedSites || [];
+        const temp = tempUnblocked || {};
+        const domain = new URL(sender.tab.url).hostname;
+        
+        // Check if domain matches a blocked pattern
+        const isBlocked = sites.some(s => {
+          if (s === domain) return true;
+          // Wildcard: *.example.com matches sub.example.com
+          if (s.startsWith('*.') && domain.endsWith(s.slice(2))) return true;
+          // Suffix match: example.com matches www.example.com
+          if (domain.endsWith('.' + s)) return true;
+          return false;
+        });
+        
+        if (!isBlocked) return { blocked: false };
+        
+        // Check temp unblock
+        if (temp[domain] && new Date(temp[domain].expiresAt) > new Date()) {
+          return { blocked: false };
+        }
+        
+        return { blocked: true };
+    }
+    
+    case 'UNBLOCK_SITE_TEMPORARILY': {
+        const { tempUnblocked } = await getStorage('tempUnblocked');
+        const temp = tempUnblocked || {};
+        const expiresAt = new Date(Date.now() + message.minutes * 60 * 1000).toISOString();
+        temp[message.domain] = {
+          expiresAt,
+          why: message.why,
+          intent: message.intent,
+          unlockedAt: new Date().toISOString()
+        };
+        await setStorage({ tempUnblocked: temp });
+        
+        // Set alarm to re-block
+        chrome.alarms.create(`blockgate-${message.domain}`, { delayInMinutes: message.minutes });
+        
+        return { success: true, expiresAt };
+    }
+    
+    case 'MANAGE_BLOCKED_SITES': {
+        const { blockedSites } = await getStorage('blockedSites');
+        const sites = blockedSites || [];
+        
+        if (message.action === 'add' && message.domain) {
+          if (!sites.includes(message.domain)) {
+            sites.push(message.domain);
+            await setStorage({ blockedSites: sites });
+          }
+        } else if (message.action === 'remove' && message.domain) {
+          const filtered = sites.filter(s => s !== message.domain);
+          await setStorage({ blockedSites: filtered });
+          return { sites: filtered };
+        } else if (message.action === 'list') {
+          return { sites };
+        }
+        
+        return { sites };
     }
 
     default:

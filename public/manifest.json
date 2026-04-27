@@ -26,6 +26,11 @@
             "matches": ["<all_urls>"],
             "js": ["assets/gatekeeper.js"],
             "run_at": "document_start"
+        },
+        {
+            "matches": ["<all_urls>"],
+            "js": ["assets/blockgate.js"],
+            "run_at": "document_start"
         }
     ],
     "background": {
