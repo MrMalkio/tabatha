@@ -1,6 +1,6 @@
 # Tabatha User Manual
 
-**Version:** v0.2.0-alpha  
+**Version:** v0.2.1-alpha  
 **Last Updated:** 2026-04-27  
 **Codename:** Attention Operating System
 
@@ -142,6 +142,32 @@ Click the edit icon on any intent to expand it into a full form:
 
 ---
 
+## BlockGate (Site Blocking)
+
+**Trigger:** Automatically appears when navigating to a blocked domain.
+
+### How It Works
+1. Add domains to the blocked list via **Settings > Blocked Sites**
+2. When visiting a blocked site, a red overlay appears: **"🚫 Blocked Site"**
+3. To proceed, you must:
+   - **Write a justification** (minimum 50 characters)
+   - **Set a timer** (5/10/15/30/60 minutes)
+   - Optionally link to a task/intent
+4. After the timer expires, the block re-activates
+
+### Actions
+| Button | What It Does |
+|--------|-------------|
+| **Proceed** | Unlocked after 50+ chars — grants temporary access |
+| **Leave** | Closes tab — logs as a "focus win" |
+
+### Wildcard Support
+- `reddit.com` — blocks exact domain
+- `*.tiktok.com` — blocks all subdomains
+- `example.com` also matches `www.example.com`
+
+---
+
 ## Focus Engine
 
 ### Focus States
@@ -201,6 +227,7 @@ Every component has a **live preview** alongside its controls.
 | **FlipClock** | Format (12/24h), seconds, scale, text color, show countdown, countdown mode (daily/custom), custom target time |
 | **Focus Engine** | Default timer, auto-associate tabs, drift notifications, funnel stage reference |
 | **Intent-Popup** | Enable/disable, side quest duration, inherit items shown, recent intents count, skipped domains (remove), persistent presets (add/remove) |
+| **Blocked Sites** | Add/remove blocked domains with wildcard support. View currently blocked list. |
 | **Time Tracking** | Idle threshold, context timer |
 | **Export & Agents** | Auto-export, interval, path |
 | **Tags** | Tag preview, registry |
@@ -233,6 +260,8 @@ Every component has a **live preview** alongside its controls.
 | **Park** | Save a tab for later retrieval |
 | **Funnel Stage** | Progress: Unsorted through Roadblocked |
 | **Realm** | Classification: Business, Professional, Work, or Personal |
+| **BlockGate** | Site blocking overlay — requires justification and timer to access blocked sites |
+| **Task Link** | Connection between a Tabatha intent and an Asana/ClickUp task |
 | **AMR** | Application Model Reference — Settings as live component catalog |
 
 ---
@@ -250,6 +279,9 @@ A: No. Personal profiles never report to employer accounts.
 
 **Q: Where do parked tabs go?**  
 A: Settings > Parked Tabs. Click any to reopen.
+
+**Q: How do I block distracting sites?**  
+A: Settings > Blocked Sites > add the domain. Supports wildcards (e.g. `*.reddit.com`). You'll need to justify access in 50+ characters and set a timer.
 
 ---
 
