@@ -197,10 +197,10 @@ Every component has a **live preview** alongside its controls.
 
 | Section | Controls |
 |---------|----------|
-| **Appearance** | Theme selection |
-| **FlipClock** | Format, seconds, scale, color, countdown |
-| **Focus Engine** | Default timer, auto-associate, drift notifications |
-| **Intent-Popup** | Enable/disable, side quest duration, inherit count, skipped domains |
+| **Appearance** | Theme selection, Your Name (for greeting), Default Realm (Business/Professional/Work/Personal) |
+| **FlipClock** | Format (12/24h), seconds, scale, text color, show countdown, countdown mode (daily/custom), custom target time |
+| **Focus Engine** | Default timer, auto-associate tabs, drift notifications, funnel stage reference |
+| **Intent-Popup** | Enable/disable, side quest duration, inherit items shown, recent intents count, skipped domains (remove), persistent presets (add/remove) |
 | **Time Tracking** | Idle threshold, context timer |
 | **Export & Agents** | Auto-export, interval, path |
 | **Tags** | Tag preview, registry |
