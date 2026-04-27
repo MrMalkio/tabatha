@@ -76,6 +76,47 @@ Tabatha/
 
 ---
 
+## Session 012 — 2026-04-27 (InPop 2.0 + Intents Dashboard)
+
+**Agent:** Antigravity  
+**Goal:** InPop overhaul, Intents panel, preset management, settings wiring
+
+### What Was Done
+- [x] InPop 2.0 rewrite (presets, threading, Later button, action subtext, tooltips)
+- [x] Intents tab on homepage (expand/collapse, rename, focus actions)
+- [x] Persistent preset management in Settings > Intent-Popup
+- [x] Settings wiring: gatekeeperEnabled, autoAssociateTabs
+- [x] BlockGate site blocking (content script + backend + settings panel)
+- [x] Unified Task URL Resolver (Asana V0+V1 + ClickUp — 23 patterns)
+- [x] Supabase schema migration (8 tables + RLS)
+- [x] User Manual created at `docs/user-manual.md`
+
+---
+
+## Session 013 — 2026-04-27 (InBar + Clock In/Out + Bug Fixes)
+
+**Agent:** Antigravity  
+**Goal:** InBar, InPop bug fix + strict mode, Clock In/Out, NowBar, homepage layout
+
+### What Was Done
+- [x] **Bug fix:** InPop blur-without-popup on pages where body doesn't exist at document_start
+- [x] **InPop strict/relaxed mode** — strict blocks page, relaxed adds Dismiss
+- [x] **Blur strength config** — 0-30px slider in settings
+- [x] **InBar (Intent Bar)** — 24px bottom/top bar showing intent, task, timers, pushes page
+- [x] **Clock In/Out** — homepage module with live H:MM:SS timer, break toggle, history
+- [x] **NowBar** — shows highest-priority focus item on homepage
+- [x] **Homepage layout** — clock moved to header center, reduced whitespace
+- [x] **Priority ranking** — 1-10 scale on focus items, color-coded badges
+- [x] **Settings:** Strict mode, blur slider, InBar enable/position
+
+### Next Steps
+- [ ] Expanded Intent View (title, description, linked task, "make task" checkbox)
+- [ ] Drift notifications
+- [ ] Desktop parity research
+- [ ] Supabase: unpause project + deploy schema
+
+---
+
 ## Version History
 
 | Version | Date | Milestone |
@@ -83,4 +124,6 @@ Tabatha/
 | v0.1.0 | 2026-02-10 | Phase 1 — Core Foundation |
 | v0.1.5 | 2026-02-12 | Phase 1.5 — User Enhancements |
 | v0.1.0-alpha | 2026-04-23 | Flip Clock, Active Sessions, Zero-Integration |
-| **v1.0.0-alpha** | **2026-04-24** | **React + Vite migration, Pop Art/Glassmorphism UI, full component build** |
+| v1.0.0-alpha | 2026-04-24 | React + Vite migration, Pop Art/Glassmorphism UI, full component build |
+| **v0.2.0-alpha** | **2026-04-27** | **InPop 2.0, Intents panel, BlockGate, Supabase schema** |
+| **v0.2.1-alpha** | **2026-04-27** | **InBar, Clock In/Out, NowBar, strict mode, priority system** |
