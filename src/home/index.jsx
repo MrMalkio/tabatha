@@ -274,7 +274,14 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions }) 
     <motion.div key="intents" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
       {intents.length === 0 ? (
         <GlassCard style={{ padding: '24px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No intents yet. Set a focus or navigate with intention.</p>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎯</div>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', margin: '0 0 8px' }}>No intents yet.</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>
+            Intents appear here when you:<br/>
+            • <strong>Set a focus</strong> from the input above<br/>
+            • <strong>Navigate to a site</strong> and fill out the Intent-Popup<br/>
+            • <strong>Inherit</strong> an active focus when visiting a new page
+          </p>
         </GlassCard>
       ) : (
         intents.map(intent => {
@@ -371,6 +378,7 @@ function Home() {
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const { activeFocus, allItems, history, actions } = useFocusEngine();
   const [activePanel, setActivePanel] = useState('time');
+  const [expandedSession, setExpandedSession] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => { sendMessage('GET_TIME_TRACKING'); }, 5000);
@@ -384,9 +392,10 @@ function Home() {
     const contextMap = {};
     Object.entries(tabs).forEach(([id, tab]) => {
       const ctx = tab.context || tab.category || 'unknown';
-      if (!contextMap[ctx]) { contextMap[ctx] = { id: ctx, context: tab.context, category: tab.category || 'unknown', icon: CATEGORY_ICONS[tab.category] || '📄', title: tab.context || (tab.category ? tab.category.charAt(0).toUpperCase() + tab.category.slice(1) : 'Uncategorized'), tabCount: 0, totalTime: 0, active: false }; }
+      if (!contextMap[ctx]) { contextMap[ctx] = { id: ctx, context: tab.context, category: tab.category || 'unknown', icon: CATEGORY_ICONS[tab.category] || '📄', title: tab.context || (tab.category ? tab.category.charAt(0).toUpperCase() + tab.category.slice(1) : 'Uncategorized'), tabCount: 0, totalTime: 0, active: false, tabIds: [] }; }
       contextMap[ctx].tabCount++;
       contextMap[ctx].totalTime += (timeTracking.byTab || {})[id] || 0;
+      contextMap[ctx].tabIds.push(id);
     });
     return Object.values(contextMap).map(s => ({ ...s, timeStr: formatTime(s.totalTime), active: s.totalTime > 0 })).sort((a, b) => b.totalTime - a.totalTime);
   }, [tabs, timeTracking]);
@@ -397,7 +406,9 @@ function Home() {
     return Object.entries(byCat).map(([cat, time]) => ({ cat, icon: CATEGORY_ICONS[cat] || '📄', name: cat.charAt(0).toUpperCase() + cat.slice(1), time, timeStr: formatTime(time) })).sort((a, b) => b.time - a.time);
   }, [tabs, timeTracking]);
 
-  const cycleTheme = () => { const themes = ['pop-art', 'corporate']; setTheme(themes[(themes.indexOf(theme) + 1) % themes.length]); };
+  const THEMES = ['pop-art', 'corporate', 'midnight', 'matcha', 'terminal', 'sakura', 'blueprint'];
+  const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐' };
+  const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const [intentHistory] = useChromeStorage('intentHistory', []);
   const [clockSession, setClockSession] = useChromeStorage('clockSession', { active: false });
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'time', label: '⏱ Time' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Contexts' }, { id: 'stashed', label: '📦 Stashed' }];
@@ -476,9 +487,9 @@ function Home() {
               </Tooltip>
             )}
             <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.1-α</span>
-            <Tooltip text="Switch theme">
+            <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
-                {theme === 'pop-art' ? '🎨' : '🏢'}
+                {THEME_ICONS[theme] || '🎨'}
               </button>
             </Tooltip>
             <Tooltip text="Open settings">
@@ -597,7 +608,14 @@ function Home() {
           {activePanel === 'tabs' && (
             <motion.div key="tabs" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
               {Object.entries(tabs).length === 0 ? (
-                <GlassCard style={{ padding: '24px', textAlign: 'center' }}><p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No tracked tabs yet.</p></GlassCard>
+                <GlassCard style={{ padding: '24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>📑</div>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', margin: '0 0 8px' }}>No tracked tabs yet.</p>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>
+                    Tabs appear here when Tabatha detects your open browser tabs.<br/>
+                    Make sure the extension is loaded and you have tabs open.
+                  </p>
+                </GlassCard>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {Object.entries(tabs).map(([id, tab]) => (
@@ -625,15 +643,46 @@ function Home() {
           {activePanel === 'contexts' && (
             <motion.div key="contexts" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
               {sessions.length === 0 ? (
-                <GlassCard style={{ padding: '24px', textAlign: 'center' }}><p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No active contexts.</p></GlassCard>
+                <GlassCard style={{ padding: '24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>🗂</div>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', margin: '0 0 8px' }}>No active contexts.</p>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>
+                    Contexts group tabs by their assigned intent or category.<br/>
+                    Set context on tabs via the Intent-Popup when visiting sites.
+                  </p>
+                </GlassCard>
               ) : (
                 sessions.map(session => (
-                  <GlassCard key={session.id} style={{ padding: '16px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <GlassCard key={session.id} style={{ padding: '16px', marginBottom: '10px', cursor: 'pointer' }} onClick={() => setExpandedSession(prev => prev === session.id ? null : session.id)}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: expandedSession === session.id ? '10px' : 0 }}>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>{session.icon} {session.title}</div>
-                      <span style={{ fontSize: '12px', color: 'var(--color-accent-primary)', fontWeight: 600 }}>{session.timeStr}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--color-accent-primary)', fontWeight: 600 }}>{session.timeStr}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{expandedSession === session.id ? '▲' : '▼'}</span>
+                      </div>
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{session.tabCount} tab{session.tabCount !== 1 ? 's' : ''} · {session.category}</div>
+                    {expandedSession === session.id && session.tabIds && (
+                      <div style={{ marginTop: '10px', borderTop: '1px solid var(--color-border)', paddingTop: '8px' }} onClick={e => e.stopPropagation()}>
+                        {session.tabIds.map(tabId => {
+                          const tab = tabs[tabId];
+                          if (!tab) return null;
+                          return (
+                            <div key={tabId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid var(--color-border)', fontSize: '12px' }}>
+                              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {CATEGORY_ICONS[tab.category] || '📄'} {tab.title || 'Untitled'}
+                              </div>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0, marginLeft: '8px' }}>
+                                <span style={{ fontSize: '10px', color: 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{formatTime((timeTracking.byTab || {})[tabId] || 0)}</span>
+                                <Tooltip text="Focus this tab">
+                                  <button onClick={() => sendMessage('FOCUS_TAB', { tabId: parseInt(tabId) })} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 5px', fontSize: '11px', cursor: 'pointer' }}>↗</button>
+                                </Tooltip>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </GlassCard>
                 ))
               )}
@@ -642,7 +691,15 @@ function Home() {
           {activePanel === 'stashed' && (
             <motion.div key="stashed" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
               {parkedTabs.length === 0 && sugarBox.length === 0 ? (
-                <GlassCard style={{ padding: '24px', textAlign: 'center' }}><p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Nothing stashed. Stay focused! 🎯</p></GlassCard>
+                <GlassCard style={{ padding: '24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>📦</div>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', margin: '0 0 8px' }}>Nothing stashed yet.</p>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>
+                    Items appear here when you:<br/>
+                    • Click <strong>🅿️ Park</strong> in the Intent-Popup to save a tab for later<br/>
+                    • Click <strong>🍬 Sugar Box</strong> to save a site as a reward
+                  </p>
+                </GlassCard>
               ) : (
                 <>
                   {parkedTabs.length > 0 && (

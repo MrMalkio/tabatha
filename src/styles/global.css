@@ -7,50 +7,126 @@
 
 @layer base {
   :root {
-    /* Default Concept 1: Pop Art + Glassmorphism */
+    /* Theme 1: Pop Art (default) — Bold neon on black, glassmorphism */
     --color-bg-base: #050505;
     --color-surface: rgba(20, 20, 25, 0.4);
     --color-surface-hover: rgba(40, 40, 50, 0.6);
     --color-border: rgba(255, 255, 255, 0.1);
-    
     --color-text-primary: #FAFAFA;
     --color-text-muted: #868E96;
-    
     --color-accent-primary: #00F0FF;
     --color-accent-secondary: #FF0055;
     --color-accent-tertiary: #FFD700;
-
     --shadow-sm: none;
     --shadow-md: none;
     --shadow-pop: 4px 4px 0px var(--color-accent-secondary);
-    
     --surface-blur: blur(16px);
-    
     --radius-sm: 4px;
     --radius-md: 8px;
     --radius-lg: 16px;
     --radius-full: 999px;
   }
 
+  /* Theme 2: Corporate — High contrast professional */
   [data-theme="corporate"] {
-    /* Concept 2: Corporate Clean */
-    --color-bg-base: #F8F9FA;
+    --color-bg-base: #FAFBFC;
     --color-surface: #FFFFFF;
-    --color-surface-hover: #F1F3F5;
-    --color-border: #DEE2E6;
-    
-    --color-text-primary: #212529;
-    --color-text-muted: #ADB5BD;
-    
-    --color-accent-primary: #228BE6;
-    --color-accent-secondary: #495057;
-    --color-accent-tertiary: #12B886;
-
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-    --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+    --color-surface-hover: #EEF0F2;
+    --color-border: #C9CDD2;
+    --color-text-primary: #1A1D21;
+    --color-text-muted: #6B7280;
+    --color-accent-primary: #1D4ED8;
+    --color-accent-secondary: #1A1D21;
+    --color-accent-tertiary: #059669;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.12);
     --shadow-pop: none;
-    
     --surface-blur: none;
+  }
+
+  /* Theme 3: Midnight — Deep navy, warm amber accents */
+  [data-theme="midnight"] {
+    --color-bg-base: #0B1120;
+    --color-surface: rgba(15, 23, 42, 0.7);
+    --color-surface-hover: rgba(30, 41, 59, 0.7);
+    --color-border: rgba(100, 116, 139, 0.25);
+    --color-text-primary: #E2E8F0;
+    --color-text-muted: #64748B;
+    --color-accent-primary: #F59E0B;
+    --color-accent-secondary: #8B5CF6;
+    --color-accent-tertiary: #10B981;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-pop: none;
+    --surface-blur: blur(20px);
+  }
+
+  /* Theme 4: Matcha — Soft cream + green, organic warmth */
+  [data-theme="matcha"] {
+    --color-bg-base: #F5F0E8;
+    --color-surface: rgba(255, 252, 245, 0.85);
+    --color-surface-hover: rgba(230, 225, 212, 0.7);
+    --color-border: #D4C9B0;
+    --color-text-primary: #2D3118;
+    --color-text-muted: #7C8255;
+    --color-accent-primary: #4A7C59;
+    --color-accent-secondary: #8B6914;
+    --color-accent-tertiary: #2E6B50;
+    --shadow-sm: 0 1px 3px rgba(45,49,24,0.06);
+    --shadow-md: 0 4px 8px rgba(45,49,24,0.08);
+    --shadow-pop: none;
+    --surface-blur: blur(8px);
+  }
+
+  /* Theme 5: Terminal — Monochrome hacker green on black */
+  [data-theme="terminal"] {
+    --color-bg-base: #0A0A0A;
+    --color-surface: rgba(0, 20, 0, 0.4);
+    --color-surface-hover: rgba(0, 40, 0, 0.5);
+    --color-border: rgba(0, 255, 65, 0.15);
+    --color-text-primary: #00FF41;
+    --color-text-muted: #008F11;
+    --color-accent-primary: #00FF41;
+    --color-accent-secondary: #FFB000;
+    --color-accent-tertiary: #00FF41;
+    --shadow-sm: none;
+    --shadow-md: 0 0 12px rgba(0,255,65,0.1);
+    --shadow-pop: none;
+    --surface-blur: none;
+  }
+
+  /* Theme 6: Sakura — Soft pink + purple, pastel dreamy */
+  [data-theme="sakura"] {
+    --color-bg-base: #1A1020;
+    --color-surface: rgba(40, 20, 50, 0.5);
+    --color-surface-hover: rgba(60, 30, 70, 0.5);
+    --color-border: rgba(219, 112, 170, 0.2);
+    --color-text-primary: #F8E8F0;
+    --color-text-muted: #A07090;
+    --color-accent-primary: #F472B6;
+    --color-accent-secondary: #A855F7;
+    --color-accent-tertiary: #FB923C;
+    --shadow-sm: 0 1px 4px rgba(244,114,182,0.1);
+    --shadow-md: 0 4px 12px rgba(168,85,247,0.15);
+    --shadow-pop: none;
+    --surface-blur: blur(16px);
+  }
+
+  /* Theme 7: Blueprint — Technical drafting on blue-gray */
+  [data-theme="blueprint"] {
+    --color-bg-base: #1E293B;
+    --color-surface: rgba(30, 41, 59, 0.6);
+    --color-surface-hover: rgba(51, 65, 85, 0.6);
+    --color-border: rgba(148, 163, 184, 0.2);
+    --color-text-primary: #CBD5E1;
+    --color-text-muted: #64748B;
+    --color-accent-primary: #38BDF8;
+    --color-accent-secondary: #F97316;
+    --color-accent-tertiary: #34D399;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.3);
+    --shadow-pop: none;
+    --surface-blur: blur(12px);
   }
 
   body {
@@ -83,7 +159,8 @@
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  [data-theme="corporate"] .btn-pop {
+  [data-theme="corporate"] .btn-pop,
+  [data-theme="matcha"] .btn-pop {
     color: #fff;
     border: none;
     border-radius: var(--radius-md);
@@ -93,14 +170,22 @@
     font-weight: 600;
   }
 
+  [data-theme="terminal"] .btn-pop {
+    color: #0A0A0A;
+    border: 1px solid #00FF41;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
   .btn-pop:hover {
     transform: translate(-2px, -2px);
     box-shadow: var(--shadow-pop);
   }
   
-  [data-theme="corporate"] .btn-pop:hover {
+  [data-theme="corporate"] .btn-pop:hover,
+  [data-theme="matcha"] .btn-pop:hover {
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
-    background-color: #1c7ed6; /* darken accent primary */
   }
 }

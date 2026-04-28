@@ -62,7 +62,7 @@ function Settings() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', fontFamily: "'Inter', system-ui, sans-serif", display: 'flex' }}>
       {/* Left Nav */}
-      <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)' }}>
+      <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '8px 16px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>⚙️ Settings</div>
           <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v1.0.0-alpha</div>
@@ -75,6 +75,9 @@ function Settings() {
             padding: '8px 16px', fontSize: '12px', cursor: 'pointer', fontWeight: activeSection === s.id ? 600 : 400, transition: 'all 0.15s',
           }}>{s.label}</button>
         ))}
+        <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid var(--color-border)', textAlign: 'center' }}>
+          <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', letterSpacing: '0.08em', fontWeight: 500 }}>Made by <strong style={{ color: 'var(--color-accent-primary)', fontWeight: 700 }}>Malkio</strong></span>
+        </div>
       </nav>
 
       {/* Main Content */}
