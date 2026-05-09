@@ -14,6 +14,7 @@ import { LogsPanel } from './LogsPanel';
 import { LinkMergeModal } from '../components/ui/LinkMergeModal';
 
 import { formatTime } from '../utils/formatTime';
+import { logger } from '../services/logger';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -469,16 +470,19 @@ function Home() {
     setClockDebug('Sending CLOCK_IN...');
     const res = await sendMessage('CLOCK_IN');
     setClockDebug('CLOCK_IN → ' + JSON.stringify(res));
+    if (res?.error) logger.error('CLOCK', 'Clock-in failed', res);
   };
   const handleClockOut = async () => {
     setClockDebug('Sending CLOCK_OUT...');
     const res = await sendMessage('CLOCK_OUT');
     setClockDebug('CLOCK_OUT → ' + JSON.stringify(res));
+    if (res?.error) logger.error('CLOCK', 'Clock-out failed', res);
   };
   const handleToggleBreak = async () => {
     setClockDebug('Sending TOGGLE_BREAK...');
     const res = await sendMessage('TOGGLE_BREAK');
     setClockDebug('TOGGLE_BREAK → ' + JSON.stringify(res));
+    if (res?.error) logger.error('CLOCK', 'Toggle-break failed', res);
   };
 
   // Live clock session timer
@@ -549,7 +553,7 @@ function Home() {
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
-            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.5-α</span>
+            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.6-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
                 {THEME_ICONS[theme] || '🎨'}
@@ -594,11 +598,13 @@ function Home() {
           </div>
         </GlassCard>
 
-        {/* 🔧 TEMPORARY DEBUG — remove after fixing clock */}
-        <div style={{ background: '#1a1a2e', color: '#0f0', fontFamily: 'monospace', fontSize: '10px', padding: '6px 10px', marginBottom: '8px', borderRadius: '4px', wordBreak: 'break-all' }}>
-          <div>clockSession: {JSON.stringify(clockSession)}</div>
-          <div>lastAction: {clockDebug}</div>
-        </div>
+        {/* Debug Bar — only visible when debug mode is ON in settings */}
+        {settings.debugMode && (
+          <div style={{ background: '#1a1a2e', color: '#0f0', fontFamily: 'monospace', fontSize: '10px', padding: '6px 10px', marginBottom: '8px', borderRadius: '4px', wordBreak: 'break-all' }}>
+            <div>clockSession: {JSON.stringify(clockSession)}</div>
+            <div>lastAction: {clockDebug}</div>
+          </div>
+        )}
 
         {/* Now Bar — Current Priority */}
         {nowItem && (

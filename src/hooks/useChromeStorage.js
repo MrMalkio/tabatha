@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { logger } from '../services/logger';
 
 /**
  * useChromeStorage – Reactive hook for chrome.storage.local
@@ -70,14 +71,14 @@ export function sendMessage(type, payload = {}) {
       chrome.runtime.sendMessage({ type, ...payload }, (response) => {
         // MUST check lastError or Chrome silently swallows the error
         if (chrome.runtime.lastError) {
-          console.error(`[Tabatha] sendMessage('${type}') error:`, chrome.runtime.lastError.message);
+          logger.warn('MSG', `sendMessage('${type}') error: ${chrome.runtime.lastError.message}`);
           resolve({ error: chrome.runtime.lastError.message });
           return;
         }
         resolve(response || {});
       });
     } catch (err) {
-      console.error(`[Tabatha] sendMessage('${type}') threw:`, err);
+      logger.error('MSG', `sendMessage('${type}') threw: ${err.message}`, { type });
       resolve({ error: err.message });
     }
   });

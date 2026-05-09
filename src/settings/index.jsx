@@ -9,6 +9,9 @@ import { PopButton } from '../components/ui/PopButton';
 import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
 import { FUNNEL_STAGES } from '../hooks/useFocusEngine';
+import { supabase, redeemInviteToken } from '../services/supabaseClient';
+import { useAuth } from '../hooks/useAuth';
+import { getLogs, clearLogs } from '../services/logger';
 
 // ── Styles ──
 const NAV_WIDTH = 220;
@@ -28,11 +31,14 @@ const SECTIONS = [
   { id: 'blocked', label: '🚫 Blocked Sites' },
   { id: 'time', label: '⏱ Time Tracking' },
   { id: 'export', label: '📤 Export & Agents' },
+  { id: 'workclock', label: '⏱️ Work Clock' },
   { id: 'tags', label: '🏷 Tags & Associations' },
   { id: 'parked', label: '🅿️ Parked Tabs' },
   { id: 'sugarbox', label: '🍬 Sugar Box' },
   { id: 'stats', label: '📊 Stats & History' },
+  { id: 'sync', label: '☁️ Sync & Supabase' },
   { id: 'privacy', label: '🔒 Privacy & Capture' },
+  { id: 'developer', label: '🛠 Developer' },
   { id: 'about', label: 'ℹ️ About' },
 ];
 
@@ -41,6 +47,76 @@ function Toggle({ value, onChange }) {
     <button onClick={() => onChange(!value)} style={toggleStyle(value)}>
       <span style={toggleDot(value)} />
     </button>
+  );
+}
+
+const LOG_COLORS = { error: '#ef5350', warn: '#ffa726', info: '#42a5f5', debug: '#66bb6a' };
+
+function DeveloperPanel({ settings, updateSetting }) {
+  const [logs, setLogs] = useState([]);
+  const [logFilter, setLogFilter] = useState('all');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const refreshLogs = async () => {
+    const filter = logFilter === 'all' ? undefined : { level: logFilter };
+    const result = await getLogs(filter);
+    setLogs(result.reverse()); // newest first
+  };
+
+  useEffect(() => {
+    refreshLogs();
+    if (!autoRefresh) return;
+    const iv = setInterval(refreshLogs, 2000);
+    return () => clearInterval(iv);
+  }, [logFilter, autoRefresh]);
+
+  return (
+    <div>
+      <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>🛠 Developer</h2>
+
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Debug Mode</span>
+        <Toggle value={!!settings.debugMode} onChange={v => updateSetting('debugMode', v)} />
+      </div>
+      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '4px 0 16px', lineHeight: 1.5 }}>
+        Shows a diagnostic bar on the Dashboard with raw state and message responses. Useful for debugging service worker communication.
+      </p>
+
+      <div style={{ ...sectionLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>Event Log ({logs.length})</span>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <select value={logFilter} onChange={e => setLogFilter(e.target.value)} style={{ ...inputStyle, width: '90px', fontSize: '10px', padding: '2px 4px' }}>
+            <option value="all">All</option>
+            <option value="error">Errors</option>
+            <option value="warn">Warnings</option>
+            <option value="info">Info</option>
+            <option value="debug">Debug</option>
+          </select>
+          <button onClick={refreshLogs} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-primary)', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>↻</button>
+          <button onClick={async () => { await clearLogs(); setLogs([]); }} style={{ background: '#ef535022', border: '1px solid #ef5350', borderRadius: 'var(--radius-sm)', color: '#ef5350', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>Clear</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+        <Toggle value={autoRefresh} onChange={setAutoRefresh} />
+        <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Auto-refresh (2s)</span>
+      </div>
+
+      <div style={{ maxHeight: '400px', overflowY: 'auto', background: '#0d0d0d', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontFamily: 'monospace', fontSize: '10px' }}>
+        {logs.length === 0 ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: '#555' }}>No logs yet</div>
+        ) : logs.map((entry, i) => (
+          <div key={i} style={{ padding: '4px 8px', borderBottom: '1px solid #1a1a1a', color: LOG_COLORS[entry.level] || '#ccc', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+            <span style={{ color: '#555', flexShrink: 0, minWidth: '60px' }}>{new Date(entry.timestamp).toLocaleTimeString()}</span>
+            <span style={{ fontWeight: 700, minWidth: '36px', textTransform: 'uppercase', flexShrink: 0 }}>{entry.level}</span>
+            <span style={{ color: '#888', minWidth: '70px', flexShrink: 0 }}>[{entry.source}]</span>
+            <span style={{ color: '#ddd', flex: 1 }}>
+              {entry.message}
+              {entry.data && <span style={{ color: '#666', marginLeft: '6px' }}>{JSON.stringify(entry.data).slice(0, 120)}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -56,6 +132,72 @@ function Settings() {
   const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
   const [blockedSites, setBlockedSites] = useChromeStorage('blockedSites', []);
 
+  // Supabase Auth State (via useAuth hook)
+  const { session, profile, orgs, teams, loading: authLoading, signIn, signOut, refreshProfile, isSignedIn } = useAuth();
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [inviteToken, setInviteToken] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [authError, setAuthError] = useState(null);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    try {
+      await signIn('password', { email: authEmail, password: authPassword });
+    } catch (err) {
+      setAuthError(err.message);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+    if (error) setAuthError(error.message);
+    else setAuthError('✓ Check your email for the confirmation link!');
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+    try {
+      await signIn('google');
+    } catch (err) {
+      setAuthError('Google login failed: ' + err.message);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    if (!authEmail) return setAuthError('Enter your email first.');
+    setAuthError(null);
+    try {
+      await signIn('magic_link', { email: authEmail });
+      setAuthError('✓ Magic link sent! Check your email.');
+    } catch (err) {
+      setAuthError('Magic link failed: ' + err.message);
+    }
+  };
+
+  const handleRedeemToken = async (e) => {
+    e.preventDefault();
+    if (!inviteToken.trim()) return;
+    setInviteLoading(true);
+    setAuthError(null);
+    try {
+      const res = await redeemInviteToken(inviteToken.trim());
+      if (res.success) {
+        setInviteToken('');
+        await refreshProfile();
+        setAuthError('✓ Successfully joined organization!');
+      } else {
+        setAuthError('Failed: ' + res.error);
+      }
+    } catch (err) {
+      setAuthError(err.message);
+    }
+    setInviteLoading(false);
+  };
+
   const updateSetting = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
   const updateClock = (key, val) => setClockSettings(prev => ({ ...prev, [key]: val }));
 
@@ -65,7 +207,7 @@ function Settings() {
       <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '8px 16px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>⚙️ Settings</div>
-          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v1.0.0-alpha</div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v0.2.6-α</div>
         </div>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
@@ -89,64 +231,242 @@ function Settings() {
             {activeSection === 'appearance' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Appearance</h2>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Theme</span>
-                  <select value={theme} onChange={e => setTheme(e.target.value)} style={selectStyle}>
-                    <option value="pop-art">🎨 Pop Art (Dark/Neon)</option>
-                    <option value="corporate">🏢 Corporate (Light/Clean)</option>
-                  </select>
-                </div>
+                <Tooltip text="When: You want to change the visual vibe of Tabatha. How: Select a theme from the dropdown. Affects: Dashboard, sidebar, and all extension windows." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Theme</span>
+                    <select value={theme} onChange={e => setTheme(e.target.value)} style={selectStyle}>
+                      <option value="pop-art">🎨 Pop Art (Dark/Neon)</option>
+                      <option value="corporate">🏢 Corporate (Light/High Contrast)</option>
+                      <option value="midnight">🌙 Midnight (Deep Dark)</option>
+                      <option value="matcha">🍵 Matcha (Soft Green)</option>
+                      <option value="terminal">📟 Terminal (Hacker)</option>
+                      <option value="sakura">🌸 Sakura (Pink/Soft)</option>
+                      <option value="blueprint">📐 Blueprint (Technical)</option>
+                      <option value="neo-brutalism">🟨 Neo-Brutalism (Harsh/Bright)</option>
+                      <option value="glass-ocean">🌊 Glass Ocean (Translucent Blue)</option>
+                      <option value="retro-pixel">👾 Retro Pixel (8-Bit/Warm)</option>
+                      <option value="solarized-warm">📖 Solarized Warm (Sepia)</option>
+                      <option value="high-contrast-dark">⚫ High Contrast Dark (Black/White)</option>
+                    </select>
+                  </div>
+                </Tooltip>
                 <div style={sectionLabel}>Identity</div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Your Name</span>
-                  <input type="text" placeholder="e.g. Marcus" value={settings.userName || ''} onChange={e => updateSetting('userName', e.target.value)} style={inputStyle} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Default Realm</span>
-                  <select value={settings.defaultRealm || 'professional'} onChange={e => updateSetting('defaultRealm', e.target.value)} style={selectStyle}>
-                    <option value="business">💼 Business</option>
-                    <option value="professional">👔 Professional</option>
-                    <option value="work">🏗 Work</option>
-                    <option value="personal">🏠 Personal</option>
-                  </select>
-                </div>
+                <Tooltip text="When: First setting up. How: Type your name. Affects: The dashboard greeting message." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Your Name</span>
+                    <input type="text" placeholder="e.g. Marcus" value={settings.userName || ''} onChange={e => updateSetting('userName', e.target.value)} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Setting up your default work context. How: Select your primary realm. Affects: Default realm used in Intents and Tags." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Default Realm</span>
+                    <select value={settings.defaultRealm || 'professional'} onChange={e => updateSetting('defaultRealm', e.target.value)} style={selectStyle}>
+                      <option value="business">💼 Business</option>
+                      <option value="professional">👔 Professional</option>
+                      <option value="work">🏗 Work</option>
+                      <option value="personal">🏠 Personal</option>
+                    </select>
+                  </div>
+                </Tooltip>
+              </div>
+            )}
+
+            {activeSection === 'sync' && (
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Sync & Account</h2>
+
+                {/* Inline feedback banner */}
+                {authError && (
+                  <div style={{ padding: '8px 12px', marginBottom: '12px', borderRadius: 'var(--radius-sm)', fontSize: '12px', fontWeight: 500, background: authError.startsWith('✓') ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)', color: authError.startsWith('✓') ? '#34A853' : '#EA4335', border: `1px solid ${authError.startsWith('✓') ? '#34A85333' : '#EA433533'}` }}>
+                    {authError}
+                  </div>
+                )}
+                
+                {authLoading ? (
+                  <div style={{ color: 'var(--color-text-muted)', padding: '24px 0', textAlign: 'center' }}>
+                    <div style={{ fontSize: '20px', marginBottom: '8px' }}>⏳</div>
+                    Loading auth state...
+                  </div>
+                ) : isSignedIn ? (
+                  <div>
+                    {/* ── Profile Card ── */}
+                    <div style={{ padding: '16px', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--color-accent-primary)' }} />
+                        ) : (
+                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--color-accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, color: '#000' }}>
+                            {(profile?.display_name || session.user.email)?.[0]?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{profile?.display_name || 'Tabatha User'}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{session.user.email}</div>
+                        </div>
+                        <div style={{ marginLeft: 'auto', padding: '3px 8px', background: 'rgba(52,168,83,0.15)', color: '#34A853', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>Connected</div>
+                      </div>
+                      
+                      {/* Linked identities */}
+                      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Linked Accounts</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {session.user.identities?.map((id) => (
+                            <div key={id.identity_id} style={{ fontSize: '12px', background: 'var(--color-bg-base)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '14px' }}>{id.provider === 'google' ? '🔵' : id.provider === 'email' ? '✉️' : '🔗'}</span>
+                              <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{id.provider}</span>
+                              <span style={{ color: 'var(--color-text-muted)' }}>{id.identity_data?.email || id.identity_data?.name || id.id}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <button onClick={async () => {
+                          setAuthError(null);
+                          try {
+                            const { linkChromeIdentity } = await import('../services/supabaseClient');
+                            await linkChromeIdentity();
+                            await refreshProfile();
+                            setAuthError('✓ Google account linked!');
+                          } catch (err) {
+                            setAuthError('Failed to link: ' + err.message);
+                          }
+                        }} style={{ marginTop: '8px', padding: '6px 12px', background: 'transparent', color: 'var(--color-text-primary)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px', width: '100%' }}>
+                          + Link another Google Account
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ── Organizations ── */}
+                    <div style={sectionLabel}>Organizations</div>
+                    {orgs.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                        {orgs.map(o => (
+                          <div key={o.org_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', fontSize: '12px' }}>
+                            <span style={{ fontWeight: 600 }}>🏢 {o.org_name}</span>
+                            <span style={{ padding: '2px 8px', background: 'var(--color-bg-base)', borderRadius: '10px', fontSize: '10px', textTransform: 'capitalize', color: 'var(--color-text-muted)' }}>{o.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No organizations yet. Use an invite token to join one.</p>
+                    )}
+
+                    {/* ── Teams ── */}
+                    <div style={sectionLabel}>Teams</div>
+                    {teams.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                        {teams.map(t => (
+                          <div key={t.team_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', fontSize: '12px' }}>
+                            <span style={{ fontWeight: 600 }}>👥 {t.team_name}</span>
+                            <span style={{ padding: '2px 8px', background: 'var(--color-bg-base)', borderRadius: '10px', fontSize: '10px', textTransform: 'capitalize', color: 'var(--color-text-muted)' }}>{t.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No teams yet.</p>
+                    )}
+
+                    {/* ── Invite Token ── */}
+                    <div style={sectionLabel}>Team Invite Token</div>
+                    <form onSubmit={handleRedeemToken} style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '16px' }}>
+                      <input type="text" placeholder="Paste invite token..." value={inviteToken} onChange={e => setInviteToken(e.target.value)} style={{ ...inputStyle, flex: 1 }} required />
+                      <button type="submit" disabled={inviteLoading} style={{ padding: '4px 12px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
+                        {inviteLoading ? '...' : 'Join'}
+                      </button>
+                    </form>
+
+                    {/* ── Sync Info ── */}
+                    <div style={sectionLabel}>Sync Details</div>
+                    <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: '16px' }}>
+                      Focus items, intents, and time data sync automatically every 5 minutes.
+                    </p>
+
+                    <button onClick={signOut} style={{ ...inputStyle, width: '100%', background: 'var(--color-bg-base)', cursor: 'pointer', textAlign: 'center', padding: '8px', fontWeight: 500 }}>Sign Out</button>
+                  </div>
+                ) : (
+                  /* ── Login Form (not signed in) ── */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                    <button onClick={handleGoogleSignIn} disabled={authLoading} style={{ padding: '10px', background: '#fff', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                      </svg>
+                      Continue with Google
+                    </button>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '11px' }}>
+                      <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }}></div>
+                      <span style={{ padding: '0 8px' }}>or</span>
+                      <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }}></div>
+                    </div>
+
+                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Email</label>
+                        <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} required />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '4px' }}>Password</label>
+                        <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} required />
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <button type="submit" disabled={authLoading} style={{ flex: 1, padding: '8px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600 }}>Log In</button>
+                        <button type="button" onClick={handleRegister} disabled={authLoading} style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>Register</button>
+                      </div>
+                      
+                      <button type="button" onClick={handleMagicLink} disabled={authLoading} style={{ width: '100%', padding: '8px', background: 'transparent', color: 'var(--color-text-primary)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px' }}>Send Magic Link to Email</button>
+                    </form>
+                  </div>
+                )}
               </div>
             )}
 
             {activeSection === 'clock' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>FlipClock</h2>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Time Format</span>
-                  <select value={clockSettings.is24Hour ? '24' : '12'} onChange={e => updateClock('is24Hour', e.target.value === '24')} style={selectStyle}>
-                    <option value="12">12 Hour</option>
-                    <option value="24">24 Hour</option>
-                  </select>
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Show Seconds</span>
-                  <Toggle value={clockSettings.showClockSeconds !== false} onChange={v => updateClock('showClockSeconds', v)} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Scale</span>
-                  <input type="range" min="0.3" max="1.5" step="0.1" value={clockSettings.scale || 1.0} onChange={e => updateClock('scale', parseFloat(e.target.value))} style={{ width: '120px' }} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Text Color</span>
-                  <input type="color" value={clockSettings.textColor || '#e0e0e0'} onChange={e => updateClock('textColor', e.target.value)} style={{ width: '40px', height: '24px', border: 'none', cursor: 'pointer' }} />
-                </div>
+                <Tooltip text="When: Customizing clock display. How: Toggle 12h or 24h format. Affects: The main FlipClock component." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Time Format</span>
+                    <select value={clockSettings.is24Hour ? '24' : '12'} onChange={e => updateClock('is24Hour', e.target.value === '24')} style={selectStyle}>
+                      <option value="12">12 Hour</option>
+                      <option value="24">24 Hour</option>
+                    </select>
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Customizing clock details. How: Toggle seconds visibility. Affects: Main FlipClock component." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Show Seconds</span>
+                    <Toggle value={clockSettings.showClockSeconds !== false} onChange={v => updateClock('showClockSeconds', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Adjusting clock size. How: Drag the slider. Affects: The scale of the FlipClock in the settings preview." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Scale</span>
+                    <input type="range" min="0.3" max="1.5" step="0.1" value={clockSettings.scale || 1.0} onChange={e => updateClock('scale', parseFloat(e.target.value))} style={{ width: '120px' }} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Customizing clock colors. How: Pick a color. Affects: Font color of the clock digits." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Text Color</span>
+                    <input type="color" value={clockSettings.textColor || '#e0e0e0'} onChange={e => updateClock('textColor', e.target.value)} style={{ width: '40px', height: '24px', border: 'none', cursor: 'pointer' }} />
+                  </div>
+                </Tooltip>
                 <div style={sectionLabel}>Countdown</div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Show Countdown</span>
-                  <Toggle value={!!clockSettings.showCountdown} onChange={v => updateClock('showCountdown', v)} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Mode</span>
-                  <select value={clockSettings.countdownMode || 'daily'} onChange={e => updateClock('countdownMode', e.target.value)} style={selectStyle}>
-                    <option value="daily">End of Day</option>
-                    <option value="custom">Custom Time</option>
-                  </select>
-                </div>
+                <Tooltip text="When: Setting up a daily focus countdown. How: Toggle the countdown block. Affects: Displays a countdown timer below the FlipClock." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Show Countdown</span>
+                    <Toggle value={!!clockSettings.showCountdown} onChange={v => updateClock('showCountdown', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Customizing countdown target. How: Choose End of Day or Custom. Affects: The target time for the countdown." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Mode</span>
+                    <select value={clockSettings.countdownMode || 'daily'} onChange={e => updateClock('countdownMode', e.target.value)} style={selectStyle}>
+                      <option value="daily">End of Day</option>
+                      <option value="custom">Custom Time</option>
+                    </select>
+                  </div>
+                </Tooltip>
                 {clockSettings.countdownMode === 'custom' && (
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Target Time</span>
@@ -159,18 +479,24 @@ function Settings() {
             {activeSection === 'focus' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Focus Engine</h2>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Default Timer (minutes)</span>
-                  <input type="number" min="1" max="120" value={settings.focusTimerMinutes || 15} onChange={e => updateSetting('focusTimerMinutes', parseInt(e.target.value))} style={inputStyle} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Auto-associate tabs</span>
-                  <Toggle value={settings.autoAssociateTabs !== false} onChange={v => updateSetting('autoAssociateTabs', v)} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Drift notification</span>
-                  <Toggle value={settings.driftNotification !== false} onChange={v => updateSetting('driftNotification', v)} />
-                </div>
+                <Tooltip text="When: Setting the default duration for a new Focus. How: Change the number of minutes. Affects: The initial countdown timer when a Focus is started." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Default Timer (minutes)</span>
+                    <input type="number" min="1" max="120" value={settings.focusTimerMinutes || 15} onChange={e => updateSetting('focusTimerMinutes', parseInt(e.target.value))} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Tab behavior when opening a new tab. How: Toggle auto-associate. Affects: New tabs opened from an intent context are automatically assigned to that intent." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Auto-associate tabs</span>
+                    <Toggle value={settings.autoAssociateTabs !== false} onChange={v => updateSetting('autoAssociateTabs', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Focus drifts and tab is not active. How: Toggle notification. Affects: A notification is shown when you stray from the intended tab." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Drift notification</span>
+                    <Toggle value={settings.driftNotification !== false} onChange={v => updateSetting('driftNotification', v)} />
+                  </div>
+                </Tooltip>
                 <div style={sectionLabel}>Funnel Stages</div>
                 {Object.entries(FUNNEL_STAGES).map(([key, stage]) => (
                   <div key={key} style={{ ...fieldRow, padding: '4px 0' }}>
@@ -184,41 +510,86 @@ function Settings() {
             {activeSection === 'intent' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Intent-Popup (Gatekeeper)</h2>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Enable overlay</span>
-                  <Toggle value={settings.gatekeeperEnabled !== false} onChange={v => updateSetting('gatekeeperEnabled', v)} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Side Quest default (min)</span>
-                  <input type="number" min="1" max="30" value={settings.sideQuestMinutes || 5} onChange={e => updateSetting('sideQuestMinutes', parseInt(e.target.value))} style={inputStyle} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Inherit items shown</span>
-                  <input type="number" min="0" max="10" value={settings.inheritItemCount || 3} onChange={e => updateSetting('inheritItemCount', parseInt(e.target.value))} style={inputStyle} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Strict mode (blocks page until intent set)</span>
-                  <Toggle value={settings.inpopStrictMode !== false} onChange={v => updateSetting('inpopStrictMode', v)} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Background blur strength</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input type="range" min="0" max="30" value={settings.inpopBlurStrength ?? 10} onChange={e => updateSetting('inpopBlurStrength', parseInt(e.target.value))} style={{ flex: 1 }} />
-                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', minWidth: '30px', textAlign: 'right' }}>{settings.inpopBlurStrength ?? 10}px</span>
+                <Tooltip text="When: Enabling the Intent-Popup on new sites. How: Toggle the overlay. Affects: The Gatekeeper popup asking for intent." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Enable overlay</span>
+                    <Toggle value={settings.gatekeeperEnabled !== false} onChange={v => updateSetting('gatekeeperEnabled', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Setting a quick side quest duration. How: Change the minutes. Affects: The default duration when selecting 'Side Quest' in the Gatekeeper." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Side Quest default (min)</span>
+                    <input type="number" min="1" max="30" value={settings.sideQuestMinutes || 5} onChange={e => updateSetting('sideQuestMinutes', parseInt(e.target.value))} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Inheriting focus from another tab. How: Change count. Affects: The number of recently used intents shown in Gatekeeper." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Inherit items shown</span>
+                    <input type="number" min="0" max="10" value={settings.inheritItemCount || 3} onChange={e => updateSetting('inheritItemCount', parseInt(e.target.value))} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Enforcing intent capture. How: Toggle strict mode. Affects: Whether the page is completely blurred out until an intent is chosen." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Strict mode (blocks page until intent set)</span>
+                    <Toggle value={settings.inpopStrictMode !== false} onChange={v => updateSetting('inpopStrictMode', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Customizing Gatekeeper background. How: Slide to adjust. Affects: The blur intensity behind the Gatekeeper modal." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Background blur strength</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input type="range" min="0" max="30" value={settings.inpopBlurStrength ?? 10} onChange={e => updateSetting('inpopBlurStrength', parseInt(e.target.value))} style={{ flex: 1 }} />
+                      <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', minWidth: '30px', textAlign: 'right' }}>{settings.inpopBlurStrength ?? 10}px</span>
+                    </div>
+                  </div>
+                </Tooltip>
+                <div style={sectionLabel}>Intent Bar (InBar)</div>
+                <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '-6px 0 8px', lineHeight: 1.5 }}>
+                  The InBar appears on every page as a thin status bar. When no focus or intent is set, it shows a prompt to set one. You can collapse it to a tiny nub toggle.
+                </p>
+                {/* Visual Preview */}
+                <div style={{ marginBottom: '12px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+                  <div style={{ fontSize: '9px', color: '#666', padding: '4px 8px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--color-border)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Preview</div>
+                  {/* Full bar preview */}
+                  <div style={{ background: '#0d0d0d', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '26px', padding: '0 10px', gap: '8px', fontFamily: "'Segoe UI', system-ui, sans-serif", fontSize: '11px', color: '#ccc' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: '10px', fontWeight: 600, color: '#00e5ff' }}>03:42</span>
+                      <span style={{ width: '1px', height: '10px', background: 'rgba(255,255,255,0.12)' }}></span>
+                      <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: '10px', fontWeight: 600, color: '#66bb6a' }}>12:15</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
+                      <span style={{ fontSize: '7px', padding: '1px 4px', borderRadius: '3px', fontWeight: 700, background: '#00e5ff18', color: '#00e5ff', border: '1px solid #00e5ff33' }}>🎯 focus</span>
+                      <span style={{ fontWeight: 500, color: '#eee', fontSize: '11px' }}>Ship Tabatha v1.0</span>
+                      <span style={{ width: '1px', height: '10px', background: 'rgba(255,255,255,0.12)' }}></span>
+                      <span style={{ fontSize: '10px', color: '#777' }}>📋 Deploy alpha</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: '10px', fontWeight: 600, color: '#ff6b6b' }}>08:33</span>
+                      <span style={{ fontSize: '11px', color: '#555', cursor: 'default' }}>📝</span>
+                      <span style={{ fontSize: '11px', color: '#555', cursor: 'default' }}>▾</span>
+                    </div>
+                  </div>
+                  {/* Nub preview */}
+                  <div style={{ background: '#0a0a0a', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '9px', color: '#555' }}>Collapsed state →</span>
+                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#00e5ff', boxShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>◉</div>
                   </div>
                 </div>
-                <div style={sectionLabel}>Intent Bar (InBar)</div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Show Intent Bar on pages</span>
-                  <Toggle value={settings.inbarEnabled !== false} onChange={v => updateSetting('inbarEnabled', v)} />
-                </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Position</span>
-                  <select value={settings.inbarPosition || 'bottom'} onChange={e => updateSetting('inbarPosition', e.target.value)} style={inputStyle}>
-                    <option value="bottom">Bottom</option>
-                    <option value="top">Top</option>
-                  </select>
-                </div>
+                <Tooltip text="When: Seeing current intent on standard pages. How: Toggle the Intent Bar. Affects: Renders a sticky status bar across active tabs." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Show Intent Bar on pages</span>
+                    <Toggle value={settings.inbarEnabled !== false} onChange={v => updateSetting('inbarEnabled', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Adjusting the Intent Bar's location. How: Select Top or Bottom. Affects: Where the Intent Bar is fixed on the screen." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Position</span>
+                    <select value={settings.inbarPosition || 'bottom'} onChange={e => updateSetting('inbarPosition', e.target.value)} style={inputStyle}>
+                      <option value="bottom">Bottom</option>
+                      <option value="top">Top</option>
+                    </select>
+                  </div>
+                </Tooltip>
                 <div style={sectionLabel}>Skipped Domains</div>
                 {skippedDomains.length === 0 ? (
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>No domains skipped yet.</p>
@@ -247,10 +618,12 @@ function Settings() {
                   <button onClick={() => { const el = document.getElementById('new-preset'); if (el && el.value.trim()) { const label = el.value.trim(); setIntentPresets(prev => ({ ...prev, persistent: [...(prev.persistent || []), { label, pinned: true }] })); el.value = ''; } }}
                     style={{ background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>Add</button>
                 </div>
-                <div style={fieldRow}>
-                  <span style={fieldLabel}>Recent intents shown</span>
-                  <input type="number" min="1" max="10" value={settings.recentIntentCount || 5} onChange={e => updateSetting('recentIntentCount', parseInt(e.target.value))} style={inputStyle} />
-                </div>
+                <Tooltip text="When: Selecting an intent from recent history. How: Change count. Affects: Number of recent intents to show as shortcuts." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Recent intents shown</span>
+                    <input type="number" min="1" max="10" value={settings.recentIntentCount || 5} onChange={e => updateSetting('recentIntentCount', parseInt(e.target.value))} style={inputStyle} />
+                  </div>
+                </Tooltip>
               </div>
             )}
 
@@ -260,12 +633,14 @@ function Settings() {
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
                   Blocked sites show a gate requiring a 50+ character justification and timer before access. Supports wildcards like <code>*.reddit.com</code>.
                 </p>
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                  <input type="text" id="new-blocked" placeholder="e.g. reddit.com or *.tiktok.com" style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
-                    onKeyDown={async e => { if (e.key === 'Enter' && e.target.value.trim()) { await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: e.target.value.trim() }); e.target.value = ''; setBlockedSites(prev => [...prev, e.target.value]); }}} />
-                  <button onClick={async () => { const el = document.getElementById('new-blocked'); if (el && el.value.trim()) { const d = el.value.trim(); await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: d }); setBlockedSites(prev => [...prev, d]); el.value = ''; } }}
-                    style={{ background: '#ff6b6b', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>Block</button>
-                </div>
+                <Tooltip text="When: Adding a new blocked domain. How: Type domain and press Block. Affects: Sites that trigger the BlockGate screen." position="bottom">
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                    <input type="text" id="new-blocked" placeholder="e.g. reddit.com or *.tiktok.com" style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+                      onKeyDown={async e => { if (e.key === 'Enter' && e.target.value.trim()) { await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: e.target.value.trim() }); e.target.value = ''; setBlockedSites(prev => [...prev, e.target.value]); }}} />
+                    <button onClick={async () => { const el = document.getElementById('new-blocked'); if (el && el.value.trim()) { const d = el.value.trim(); await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: d }); setBlockedSites(prev => [...prev, d]); el.value = ''; } }}
+                      style={{ background: '#ff6b6b', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>Block</button>
+                  </div>
+                </Tooltip>
                 <div style={sectionLabel}>Currently Blocked</div>
                 {blockedSites.length === 0 ? (
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>No sites blocked yet.</p>
@@ -291,6 +666,33 @@ function Settings() {
                   <span style={fieldLabel}>Context timer (minutes)</span>
                   <input type="number" min="1" max="120" value={settings.globalTimerMinutes || 15} onChange={e => updateSetting('globalTimerMinutes', parseInt(e.target.value))} style={inputStyle} />
                 </div>
+              </div>
+            )}
+
+            {activeSection === 'workclock' && (
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Work Clock</h2>
+                <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
+                  The Work Clock tracks your total working time via Clock In/Out. Available on the Dashboard and Sidebar.
+                </p>
+                <Tooltip text="When: You want Tabatha to auto-clock you in. How: Toggle on. Affects: Automatically clocks you in when you start browsing." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Auto clock-in on launch</span>
+                    <Toggle value={!!settings.autoClockIn} onChange={v => updateSetting('autoClockIn', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: You want break reminders. How: Set minutes (0 = disabled). Affects: Notification after continuous work without a break." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Break reminder (min)</span>
+                    <input type="number" min="0" max="120" value={settings.breakReminderMinutes || 0} onChange={e => updateSetting('breakReminderMinutes', parseInt(e.target.value))} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: You want to log completed sessions. How: Toggle on. Affects: Stores clock history in local storage for review." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Save clock history</span>
+                    <Toggle value={settings.saveClockHistory !== false} onChange={v => updateSetting('saveClockHistory', v)} />
+                  </div>
+                </Tooltip>
               </div>
             )}
 
@@ -425,13 +827,17 @@ function Settings() {
             {activeSection === 'about' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>About Tabatha</h2>
-                <div style={fieldRow}><span style={fieldLabel}>Version</span><span>v1.0.0-alpha</span></div>
+                <div style={fieldRow}><span style={fieldLabel}>Version</span><span>v0.2.6-α</span></div>
                 <div style={fieldRow}><span style={fieldLabel}>Codename</span><span>Attention Operating System</span></div>
                 <div style={fieldRow}><span style={fieldLabel}>Ecosystem</span><span>Flux Family</span></div>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '16px', lineHeight: 1.5 }}>
                   Tabatha is a context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions. Part of the Flux ecosystem.
                 </p>
               </div>
+            )}
+
+            {activeSection === 'developer' && (
+              <DeveloperPanel settings={settings} updateSetting={updateSetting} />
             )}
           </motion.div>
         </div>
