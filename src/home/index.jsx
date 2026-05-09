@@ -420,38 +420,19 @@ function Home() {
     
     fetchRecentlyClosed();
     
-    // Fetch clock status from background on mount
-    sendMessage('GET_CLOCK_STATUS').then(res => {
-      if (res?.session) setClockSession(res.session);
-    });
-    
     // Listen for changes to recently closed tabs
     const handleClosed = () => fetchRecentlyClosed();
     if (chrome?.tabs?.onRemoved) {
       chrome.tabs.onRemoved.addListener(handleClosed);
     }
     
-    // Time tracking data arrives reactively via useChromeStorage — no polling needed
+    // Clock session and time tracking data arrive reactively via useChromeStorage — no polling needed
     return () => {
       // cleanup
       if (chrome?.tabs?.onRemoved) {
         chrome.tabs.onRemoved.removeListener(handleClosed);
       }
     };
-  }, []);
-
-  // Listen for clock session updates from background
-  useEffect(() => {
-    if (!chrome?.runtime?.onMessage) return;
-    const listener = (message) => {
-      if (message.type === 'CLOCK_SESSION_UPDATED') {
-        sendMessage('GET_CLOCK_STATUS').then(res => {
-          if (res?.session) setClockSession(res.session);
-        });
-      }
-    };
-    chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
   const tabCount = Object.keys(tabs).length;
@@ -479,32 +460,13 @@ function Home() {
   const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐', 'neo-brutalism':'🟨', 'glass-ocean':'🌊', 'retro-pixel':'👾', 'solarized-warm':'📖', 'high-contrast-dark':'⚫' };
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const [intentHistory] = useChromeStorage('intentHistory', []);
-  const [clockSession, setClockSession] = useChromeStorage('clockSession', { active: false });
+  const [clockSession] = useChromeStorage('clockSession', { active: false });
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
-  // Clock-in/out helpers
-  const refreshClockStatus = async () => {
-    const status = await sendMessage('GET_CLOCK_STATUS');
-    if (status?.session) setClockSession(status.session);
-  };
-  const handleClockIn = async () => {
-    const res = await sendMessage('CLOCK_IN');
-    console.log('[Tabatha] CLOCK_IN response:', res);
-    // Don't call setClockSession here — let useChromeStorage's onChanged listener
-    // reactively pick up the background's storage write to avoid race conditions.
-    // Fallback refetch if the listener hasn't fired yet:
-    await refreshClockStatus();
-  };
-  const handleClockOut = async () => {
-    const res = await sendMessage('CLOCK_OUT');
-    console.log('[Tabatha] CLOCK_OUT response:', res);
-    await refreshClockStatus();
-  };
-  const handleToggleBreak = async () => {
-    const res = await sendMessage('TOGGLE_BREAK');
-    console.log('[Tabatha] TOGGLE_BREAK response:', res);
-    await refreshClockStatus();
-  };
+  // Clock-in/out helpers — just fire the message; useChromeStorage reactively updates the UI
+  const handleClockIn = () => sendMessage('CLOCK_IN');
+  const handleClockOut = () => sendMessage('CLOCK_OUT');
+  const handleToggleBreak = () => sendMessage('TOGGLE_BREAK');
 
   // Live clock session timer
   const [clockElapsed, setClockElapsed] = useState('');
