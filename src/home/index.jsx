@@ -463,10 +463,19 @@ function Home() {
   const [clockSession] = useChromeStorage('clockSession', { active: false });
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
-  // Clock-in/out helpers — just fire the message; useChromeStorage reactively updates the UI
-  const handleClockIn = () => sendMessage('CLOCK_IN');
-  const handleClockOut = () => sendMessage('CLOCK_OUT');
-  const handleToggleBreak = () => sendMessage('TOGGLE_BREAK');
+  // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
+  const handleClockIn = async () => {
+    const res = await sendMessage('CLOCK_IN');
+    if (res?.error) console.error('[Tabatha] Clock-in failed:', res.error);
+  };
+  const handleClockOut = async () => {
+    const res = await sendMessage('CLOCK_OUT');
+    if (res?.error) console.error('[Tabatha] Clock-out failed:', res.error);
+  };
+  const handleToggleBreak = async () => {
+    const res = await sendMessage('TOGGLE_BREAK');
+    if (res?.error) console.error('[Tabatha] Toggle-break failed:', res.error);
+  };
 
   // Live clock session timer
   const [clockElapsed, setClockElapsed] = useState('');
@@ -536,7 +545,7 @@ function Home() {
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
-            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.1-α</span>
+            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.5-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
                 {THEME_ICONS[theme] || '🎨'}
