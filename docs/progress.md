@@ -127,3 +127,156 @@ Tabatha/
 | v1.0.0-alpha | 2026-04-24 | React + Vite migration, Pop Art/Glassmorphism UI, full component build |
 | **v0.2.0-alpha** | **2026-04-27** | **InPop 2.0, Intents panel, BlockGate, Supabase schema** |
 | **v0.2.1-alpha** | **2026-04-27** | **InBar, Clock In/Out, NowBar, strict mode, priority system** |
+
+---
+
+## Session 011 — 2026-04-27 (Logs Panel & Theme Refactor)
+
+**Agent:** Antigravity
+**Goal:** Finalize Link/Merge modal, Tabs actions, Logs Panel deep filtering, and Theme expansion.
+
+### What Was Done
+- [x] **Link/Merge Modal**: Implemented UI for linking tabs to intents and merging intents.
+- [x] **Dashboard Tab Actions**: Added Link and Close buttons to active tabs.
+- [x] **Theme System Expansion**: Updated Corporate theme for high contrast and added 5 new drastically different themes (Neo-Brutalism, Glass Ocean, Retro Pixel, Solarized Warm, High Contrast Dark).
+- [x] **Settings Walkthrough**: Finished wrapping all settings in the tooltips.
+
+### Next Steps
+- Address the general backlog (Sync logic, Supabase backend integration).
+
+---
+
+## Session 012 - 2026-04-29 (Auth UI, Clock Fix, Full Audit)
+
+**Agent:** Antigravity
+**Goal:** Complete auth UI, fix clock handlers, audit homepage/sidebar/settings parity, investigate InBar.
+
+### What Was Done
+- [x] **useAuth hook**: Created src/hooks/useAuth.js with reactive Supabase session, auto-profile provisioning, org/team membership tracking.
+- [x] **Settings Sync section**: Full refactor to useAuth — profile card, linked identities, org/team display, invite token redemption with inline banners.
+- [x] **Duplicate clock handlers removed**: Deleted inferior CLOCK_IN/CLOCK_OUT/TOGGLE_BREAK (~L1606); kept robust versions (~L1822) with break archiving.
+- [x] **Homepage theme sync**: Theme cycle now includes all 12 themes (was only 7).
+- [x] **Dead polling removed**: Removed unused GET_TIME_TRACKING intervals from homepage and sidebar.
+- [x] **Work Clock settings**: Added new settings section with auto-clock-in, break reminder, and clock history toggles.
+- [x] **InBar investigation**: Traced full injection chain (manifest ? content script ? background handler). InBar works but only appears when focus/context is active.
+- [x] **InBar discoverability**: Added helper text in Settings explaining activation requirements.
+- [x] **Cross-representation audit**: Verified all Settings toggles have backend support and all features have Settings representation.
+
+### Key Findings
+- InBar is fully wired (manifest, build, content script, background) but silently invisible without active focus/context.
+- Sidebar is feature-complete for its compact form factor.
+- Export and Privacy backend handlers need deeper audit.
+
+### Next Steps
+- Consider making InBar show a minimal "No intent" prompt for discoverability.
+- Audit Export backend handlers.
+- Verify Privacy capture toggles have backend support.
+- Add GET_AUTH_STATUS message handler for cross-page auth queries.
+
+### Session 012 Addendum (continued work)
+
+- [x] **InBar visual preview**: Added interactive preview in Settings showing both the full bar and collapsed nub states
+- [x] **InBar "No intent" fallback**: InBar now always shows when enabled, displaying "No intent set — click to set" prompt when no focus/context is active
+- [x] **InBar nub toggle**: Close button now collapses to a tiny 20px circle nub instead of fully removing; click to re-expand
+- [x] **InBar notes panel**: Added ?? button that expands a quick-note panel for jotting thoughts about the current focus/task/intent — auto-saves with debounce
+- [x] **Background handlers**: Added SAVE_INBAR_NOTE and GET_INBAR_NOTES message handlers for persistent note storage
+- [x] **Tabs layout fix**: Active tabs now in 2-column grid at top; recently closed moved to compact list below with trimmed domains
+- [x] **Clock container fix**: Changed from flex: 1 1 auto to 0 0 auto with minimal padding — container now shrinks with clock scale
+- [x] **Focus input feedback**: Added pending/loading state to Set Focus button so users see feedback when clicking
+
+---
+
+## Session 015 — 2026-04-29
+
+### Goal
+Build the Asana Time Tracker Widget (Flux plugin) — end-to-end from spec to working server.
+
+### Work Done
+- [x] **Design spec created**: Full v1 spec covering Asana widget API constraints, 3 widget states (tracking/idle/empty), modal form designs, and data architecture
+- [x] **Express server built** (`flux-asana-widget/`): Routes for widget metadata, form metadata, form submit, and OAuth auth
+- [x] **Supabase schema** (migration 004): `flux_time_entries` table with computed duration, uniqueness constraints, and performance indexes
+- [x] **Migration applied** via Supabase CLI (`npx supabase db push`)
+- [x] **SSL certs generated** for HTTPS (required by Asana)
+- [x] **Lazy Supabase init**: Server boots cleanly even without `.env` configured (mock mode)
+- [x] **Security middleware**: Request expiry validation and optional HMAC-SHA256 signature verification
+- [x] **CORS**: Locked to `app.asana.com` origin
+- [x] **End-to-end tested**: Start timer (Alice), start timer (Bob), stop timer (Alice), verify multi-user widget state — all passing against live Supabase
+
+### Key Findings
+- Asana widgets are JSON-only — one template (`summary_with_details_v0`), no custom HTML/CSS/JS
+- Interactions happen via Modal Forms (entry point click), not widget buttons
+- `datetime_with_icon` fields auto-format relative time in Asana UI
+- Computed `duration_s` column avoids needing to calculate in application code
+
+### Next Steps
+- Register the app in Asana Developer Console (https://app.asana.com/0/my-apps)
+- Configure Widget Metadata URL, Form URLs, and Entry Point label
+- Add proper user name resolution via Asana API (currently uses GID suffix)
+- Consider v1.1: manual time entry form for retroactive logging
+- v1.2: Tabatha browser integration — auto-track from browser focus state
+
+### 2026-04-29 — InPop/InBar/Asana Fixes
+**Goal:** Fix InPop common list clicks, InBar visibility, and Asana URL auto-intent
+
+**What was done:**
+- [x] Fixed SET_TAB_CONTEXT — now auto-creates tab entry if missing (InPop preset clicks were silently failing)
+- [x] Fixed SAVE_INBAR_NOTE — corrected equest vs message variable name bug
+- [x] Rebuilt extension — InBar build was stale (old version without nub/notes/discovery state)
+- [x] Added Asana URL auto-intent in CHECK_CONTEXT_NEEDED — detects app.asana.com task URLs and extracts task name from page title
+- [x] Added Asana auto-intent in onTabUpdated — catches the race condition where gatekeeper fires before title loads
+- [x] Verified all InPop message handlers exist in background.js switch statement
+
+**Key findings:**
+- InBar was invisible because dist/assets/inbar.js was stale (old build without nub/notes)
+- InPop common preset clicks DID call closeOverlay() but SET_TAB_CONTEXT silently failed if tab data wasn't created yet
+- SAVE_INBAR_NOTE used equest instead of message — would always crash
+
+**Next steps:**
+- Reload extension in chrome://extensions and test all 3 features
+- Consider adding Asana API integration (via personal access token) for richer task details beyond just the title
+
+---
+
+## Session 016 - 2026-05-09
+
+### Goal
+Fix all issues identified in the full diagnostic report (16 issues across critical/high/medium/low severity).
+
+### Work Done
+- [x] **Critical #1**: Merged duplicate 
+otifications.onClicked listeners into single unified handler
+- [x] **Critical #2**: Fixed undefined ctiveTabId ReferenceError - replaced with WINDOW_ID_CURRENT
+- [x] **Critical #3**: Removed export from 	riggerSync() preventing service worker module loading failure
+- [x] **High #4**: Fixed clock-in/out race condition - removed double-writes to clockSession storage
+- [x] **High #6**: Passed explicit ctiveFocus.id to completeFocus/extendTimer in home + sidebar
+- [x] **Medium #8**: Bridged 	imeTracking.byTab gap - added updateTimeTrackingAggregates() to populate UI data
+- [x] **Medium #9**: Fixed Gatekeeper Sugar Box/Park/Later buttons to close overlay + tab
+- [x] **Medium #10**: Fixed useChromeStorage stale closure bug using useRef
+- [x] **Low #12**: Wrapped 
+ew URL() in popup with try/catch
+- [x] **Low #14**: Added auth session guard to 	riggerSync to avoid unnecessary Supabase calls
+- [x] **Low #15**: Extracted shared ormatTime utility to src/utils/formatTime.js
+- [x] **Low #16**: Fixed patternToRegex double-escape edge case
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| src/background/background.js | #1, #2, #3, #14, #16 |
+| src/home/index.jsx | #4, #6, #15 |
+| src/sidebar/index.jsx | #6, #15 |
+| src/popup/index.jsx | #12, #15 |
+| src/hooks/useChromeStorage.js | #10 |
+| src/content/gatekeeper.js | #9 |
+| src/services/timeTracking.js | #8 |
+| src/utils/formatTime.js | #15 (new) |
+
+### Key Decisions
+- Skipped #11 (FlipClock magic numbers) - cosmetic, needs design review
+- Skipped #13 (Supabase anon key) - anon keys are public by design
+- #5 (FocusInput stuck) already had adequate error handling
+- #7 (sidebar clock buttons) resolved by fixing #10 (the hook itself)
+
+### Next Steps
+- Reload extension in chrome://extensions and verify Service Worker console is error-free
+- Test clock-in/out flow, focus set/complete, and gatekeeper buttons end-to-end
+- Monitor time tracking data populating in the UI

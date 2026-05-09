@@ -2,6 +2,7 @@
 
 > This project uses **Headbox** for standardized agent instructions.
 > All agents (Claude, Gemini, Codex, Cursor, Copilot, etc.) follow the same rules below.
+> **Canonical session log is in `AGENTS.md`.** This file mirrors the headbox section.
 
 ---
 
@@ -37,7 +38,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 | File | Purpose | When to read |
 |------|---------|-------------|
-| This file (`AGENTS.md`) | Project state, rules, session log | Always — first thing |
+| `AGENTS.md` | Project state, rules, session log (canonical) | Always — first thing |
 | `.gemini/agent.md` | Gemini-specific instructions (known bugs, architecture, message types) | When working with Gemini |
 | `docs/progress.md` | Session progress log | Before starting work — check last session's next steps |
 | `ROADMAP.md` | 6-phase feature roadmap | When planning features |
@@ -119,7 +120,7 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 
 ## Session Handoff Protocol
 
-**After every session, update the Session Log below.**
+**After every session, update the Session Log in `AGENTS.md`.**
 
 - **Append** a new entry. **Never delete** previous entries.
 - **Increment the usage counter** in the headbox header by 1.

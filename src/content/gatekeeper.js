@@ -353,12 +353,22 @@
   shadow.getElementById('sugar-box').onclick = async () => {
     await chrome.runtime.sendMessage({ type: 'ADD_TO_SUGAR_BOX', url: window.location.href, title: document.title }).catch(() => {});
     await logAction('sugar_box');
+    closeOverlay();
+    try {
+      const tab = await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' });
+      if (tab?.tabId) await chrome.runtime.sendMessage({ type: 'CLOSE_TAB', tabId: tab.tabId });
+    } catch (e) { window.close(); }
   };
 
   // Park
   shadow.getElementById('park').onclick = async () => {
     await chrome.runtime.sendMessage({ type: 'PARK_TAB', url: window.location.href, title: document.title }).catch(() => {});
     await logAction('park');
+    closeOverlay();
+    try {
+      const tab = await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' });
+      if (tab?.tabId) await chrome.runtime.sendMessage({ type: 'CLOSE_TAB', tabId: tab.tabId });
+    } catch (e) { window.close(); }
   };
 
   // Later
@@ -366,6 +376,11 @@
     const context = ctxInput.value.trim() || document.title;
     await chrome.runtime.sendMessage({ type: 'PARK_TAB', url: window.location.href, title: document.title, context }).catch(() => {});
     await logAction('later', { context });
+    closeOverlay();
+    try {
+      const tab = await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' });
+      if (tab?.tabId) await chrome.runtime.sendMessage({ type: 'CLOSE_TAB', tabId: tab.tabId });
+    } catch (e) { window.close(); }
   };
 
   // Nevermind

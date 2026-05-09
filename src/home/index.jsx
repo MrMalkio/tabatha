@@ -10,16 +10,10 @@ import { PopButton } from '../components/ui/PopButton';
 import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
 import { SessionList } from './SessionList';
+import { LogsPanel } from './LogsPanel';
+import { LinkMergeModal } from '../components/ui/LinkMergeModal';
 
-function formatTime(ms) {
-  if (!ms || ms < 1000) return '0s';
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
-}
+import { formatTime } from '../utils/formatTime';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -84,10 +78,10 @@ function FocusBar({ activeFocus, actions, onAddAnother }) {
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
         <Tooltip text="Mark as done">
-          <button onClick={() => actions.completeFocus()} style={btnStyle('#66bb6a')}>✓ Complete</button>
+          <button onClick={() => actions.completeFocus(activeFocus.id)} style={btnStyle('#66bb6a')}>✓ Complete</button>
         </Tooltip>
         <Tooltip text="Add 5 more minutes">
-          <button onClick={() => actions.extendTimer(null, 5)} style={btnStyle('var(--color-accent-primary)')}>+5m</button>
+          <button onClick={() => actions.extendTimer(activeFocus.id, 5)} style={btnStyle('var(--color-accent-primary)')}>+5m</button>
         </Tooltip>
         <Tooltip text="Tag with client/project">
           <button onClick={() => setShowTags(!showTags)} style={btnStyle('var(--color-text-muted)')}>🏷</button>
@@ -180,9 +174,27 @@ function FocusHistory({ history }) {
 function FocusInput({ onStart }) {
   const [input, setInput] = useState('');
   const [shake, setShake] = useState(false);
-  const handleSubmit = () => {
-    if (input.trim()) { onStart(input.trim()); setInput(''); }
-    else { setShake(true); setTimeout(() => setShake(false), 600); }
+  const [pending, setPending] = useState(false);
+  const handleSubmit = async () => {
+    if (!input.trim()) {
+      setShake(true);
+      setTimeout(() => setShake(false), 600);
+      return;
+    }
+    setPending(true);
+    try {
+      const result = await onStart(input.trim());
+      console.log('[Tabatha] FocusInput startFocus result:', result);
+      if (result?.error) {
+        console.error('[Tabatha] FocusInput error:', result.error);
+      }
+      setInput('');
+    } catch(e) {
+      console.error('[Tabatha] FocusInput exception:', e);
+    } finally {
+      // Always clear pending — don't rely on unmount
+      setTimeout(() => setPending(false), 500);
+    }
   };
   return (
     <motion.div animate={shake ? { x: [0, -8, 8, -8, 8, 0] } : {}} transition={{ duration: 0.4 }} style={{ marginBottom: '16px' }}>
@@ -193,9 +205,10 @@ function FocusInput({ onStart }) {
         <div style={{ display: 'flex', gap: '10px' }}>
           <input type="text" placeholder="e.g. Ship Tabatha v1.0" value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            style={{ flex: 1, background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', color: 'var(--color-text-primary)', fontSize: '14px', outline: 'none' }}
+            disabled={pending}
+            style={{ flex: 1, background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', color: 'var(--color-text-primary)', fontSize: '14px', outline: 'none', opacity: pending ? 0.5 : 1 }}
           />
-          <PopButton onClick={handleSubmit} size="sm">Set Focus</PopButton>
+          <PopButton onClick={handleSubmit} size="sm" disabled={pending}>{pending ? '⏳ Setting…' : 'Set Focus'}</PopButton>
         </div>
       </GlassCard>
     </motion.div>
@@ -206,7 +219,7 @@ function FocusInput({ onStart }) {
 // IntentsPanel — All intents (separate from tabs)
 // ════════════════════════════════════════════
 
-function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions }) {
+function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, onLinkRequest }) {
   const [expanded, setExpanded] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editLabel, setEditLabel] = useState('');
@@ -326,15 +339,25 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions }) 
                   {intent.isFocusItem && (
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
                       <Tooltip text="Edit intent label">
-                        <button onClick={() => { setEditingId(intent.id); setEditLabel(intent.label); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✏️ Rename</button>
+                        <button onClick={(e) => { e.stopPropagation(); setEditingId(intent.id); setEditLabel(intent.label); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✏️ Rename</button>
+                      </Tooltip>
+                      <Tooltip text="Link to Task or Merge Intent">
+                        <button onClick={(e) => { e.stopPropagation(); onLinkRequest?.(intent, 'intent'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🔗 Link/Merge</button>
                       </Tooltip>
                       {intent.focusState !== 'active' && (
                         <Tooltip text="Switch to this focus">
-                          <button onClick={() => actions.switchFocus(intent.id)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🎯 Focus</button>
+                          <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🎯 Focus</button>
                         </Tooltip>
                       )}
                       <Tooltip text="Mark as complete">
-                        <button onClick={() => actions.completeFocus(intent.id)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✅ Done</button>
+                        <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✅ Done</button>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {!intent.isFocusItem && (
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                      <Tooltip text="Link to Task or Merge Intent">
+                        <button onClick={(e) => { e.stopPropagation(); onLinkRequest?.(intent, 'intent'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🔗 Link/Merge</button>
                       </Tooltip>
                     </div>
                   )}
@@ -377,12 +400,58 @@ function Home() {
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const { activeFocus, allItems, history, actions } = useFocusEngine();
-  const [activePanel, setActivePanel] = useState('time');
+  const [activePanel, setActivePanel] = useState('logs');
   const [expandedSession, setExpandedSession] = useState(null);
+  const [linkModalConfig, setLinkModalConfig] = useState({ isOpen: false, targetItem: null, type: null });
+  const [recentlyClosed, setRecentlyClosed] = useState([]);
+
+  const handleLinkRequest = (targetItem, type) => {
+    setLinkModalConfig({ isOpen: true, targetItem, type });
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => { sendMessage('GET_TIME_TRACKING'); }, 5000);
-    return () => clearInterval(interval);
+    const fetchRecentlyClosed = () => {
+      if (chrome?.sessions?.getRecentlyClosed) {
+        chrome.sessions.getRecentlyClosed({ maxResults: 10 }, (sessions) => {
+          setRecentlyClosed(sessions.filter(s => s.tab).map(s => s.tab));
+        });
+      }
+    };
+    
+    fetchRecentlyClosed();
+    
+    // Fetch clock status from background on mount
+    sendMessage('GET_CLOCK_STATUS').then(res => {
+      if (res?.session) setClockSession(res.session);
+    });
+    
+    // Listen for changes to recently closed tabs
+    const handleClosed = () => fetchRecentlyClosed();
+    if (chrome?.tabs?.onRemoved) {
+      chrome.tabs.onRemoved.addListener(handleClosed);
+    }
+    
+    // Time tracking data arrives reactively via useChromeStorage — no polling needed
+    return () => {
+      // cleanup
+      if (chrome?.tabs?.onRemoved) {
+        chrome.tabs.onRemoved.removeListener(handleClosed);
+      }
+    };
+  }, []);
+
+  // Listen for clock session updates from background
+  useEffect(() => {
+    if (!chrome?.runtime?.onMessage) return;
+    const listener = (message) => {
+      if (message.type === 'CLOCK_SESSION_UPDATED') {
+        sendMessage('GET_CLOCK_STATUS').then(res => {
+          if (res?.session) setClockSession(res.session);
+        });
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
   const tabCount = Object.keys(tabs).length;
@@ -406,17 +475,36 @@ function Home() {
     return Object.entries(byCat).map(([cat, time]) => ({ cat, icon: CATEGORY_ICONS[cat] || '📄', name: cat.charAt(0).toUpperCase() + cat.slice(1), time, timeStr: formatTime(time) })).sort((a, b) => b.time - a.time);
   }, [tabs, timeTracking]);
 
-  const THEMES = ['pop-art', 'corporate', 'midnight', 'matcha', 'terminal', 'sakura', 'blueprint'];
-  const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐' };
+  const THEMES = ['pop-art', 'corporate', 'midnight', 'matcha', 'terminal', 'sakura', 'blueprint', 'neo-brutalism', 'glass-ocean', 'retro-pixel', 'solarized-warm', 'high-contrast-dark'];
+  const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐', 'neo-brutalism':'🟨', 'glass-ocean':'🌊', 'retro-pixel':'👾', 'solarized-warm':'📖', 'high-contrast-dark':'⚫' };
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const [intentHistory] = useChromeStorage('intentHistory', []);
   const [clockSession, setClockSession] = useChromeStorage('clockSession', { active: false });
-  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'time', label: '⏱ Time' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Contexts' }, { id: 'stashed', label: '📦 Stashed' }];
+  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
   // Clock-in/out helpers
-  const handleClockIn = async () => { const res = await sendMessage('CLOCK_IN'); if (res?.session) setClockSession(res.session); };
-  const handleClockOut = async () => { const res = await sendMessage('CLOCK_OUT'); if (res?.session) setClockSession(res.session); };
-  const handleToggleBreak = async () => { const res = await sendMessage('TOGGLE_BREAK'); if (res?.session) setClockSession(res.session); };
+  const refreshClockStatus = async () => {
+    const status = await sendMessage('GET_CLOCK_STATUS');
+    if (status?.session) setClockSession(status.session);
+  };
+  const handleClockIn = async () => {
+    const res = await sendMessage('CLOCK_IN');
+    console.log('[Tabatha] CLOCK_IN response:', res);
+    // Don't call setClockSession here — let useChromeStorage's onChanged listener
+    // reactively pick up the background's storage write to avoid race conditions.
+    // Fallback refetch if the listener hasn't fired yet:
+    await refreshClockStatus();
+  };
+  const handleClockOut = async () => {
+    const res = await sendMessage('CLOCK_OUT');
+    console.log('[Tabatha] CLOCK_OUT response:', res);
+    await refreshClockStatus();
+  };
+  const handleToggleBreak = async () => {
+    const res = await sendMessage('TOGGLE_BREAK');
+    console.log('[Tabatha] TOGGLE_BREAK response:', res);
+    await refreshClockStatus();
+  };
 
   // Live clock session timer
   const [clockElapsed, setClockElapsed] = useState('');
@@ -468,7 +556,7 @@ function Home() {
           </div>
 
           {/* Center — FlipClock */}
-          <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', height: `${((clockSettings.showClock ? 100 : 0) + (clockSettings.showCountdown ? 65 : 0) + (clockSettings.showClock && clockSettings.showCountdown ? (clockSettings.elementSpacing || 30) / 2 : 0)) * clockScale}px`, overflow: 'visible' }}>
             <div style={{ transform: `scale(${clockScale})`, transformOrigin: 'center' }}>
               <FlipClock settings={clockSettings} />
             </div>
@@ -576,37 +664,20 @@ function Home() {
         {/* Panels */}
         <AnimatePresence mode="wait">
           {activePanel === 'intents' && (
-            <IntentsPanel intentHistory={intentHistory} allItems={allItems} tabs={tabs} timeTracking={timeTracking} actions={actions} />
+            <IntentsPanel intentHistory={intentHistory} allItems={allItems} tabs={tabs} timeTracking={timeTracking} actions={actions} onLinkRequest={handleLinkRequest} />
           )}
-          {activePanel === 'time' && (
-            <motion.div key="time" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-                <GlassCard style={{ padding: '16px' }}>
-                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Active Today</div>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatTime(totalActiveTime)}</div>
-                </GlassCard>
-                <GlassCard style={{ padding: '16px' }}>
-                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Open Tabs</div>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-accent-tertiary)', fontVariantNumeric: 'tabular-nums' }}>{tabCount}</div>
-                </GlassCard>
-              </div>
-              {categoryBreakdown.length > 0 && (
-                <GlassCard style={{ padding: '16px', marginBottom: '20px' }}>
-                  <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)', marginBottom: '12px', fontWeight: 600 }}>Time by Category</div>
-                  {categoryBreakdown.map(cat => (
-                    <div key={cat.cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--color-border)', fontSize: '13px' }}>
-                      <span>{cat.icon} {cat.name}</span>
-                      <span style={{ color: 'var(--color-accent-primary)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{cat.timeStr}</span>
-                    </div>
-                  ))}
-                </GlassCard>
-              )}
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)', marginBottom: '10px', fontWeight: 600 }}>Active Sessions</div>
-              <SessionList sessions={sessions} timeTracking={timeTracking} />
-            </motion.div>
+          {activePanel === 'logs' && (
+            <LogsPanel 
+              intentHistory={intentHistory} 
+              tabs={tabs} 
+              timeTracking={timeTracking} 
+              allItems={allItems} 
+            />
           )}
           {activePanel === 'tabs' && (
             <motion.div key="tabs" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+              {/* Active Tabs — 2-column grid */}
+              <h3 style={{ fontSize: '13px', margin: '0 0 10px 0', color: 'var(--color-text-muted)' }}>Active Tabs ({Object.entries(tabs).length})</h3>
               {Object.entries(tabs).length === 0 ? (
                 <GlassCard style={{ padding: '24px', textAlign: 'center' }}>
                   <div style={{ fontSize: '24px', marginBottom: '8px' }}>📑</div>
@@ -617,25 +688,57 @@ function Home() {
                   </p>
                 </GlassCard>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '16px' }}>
                   {Object.entries(tabs).map(([id, tab]) => (
-                    <GlassCard key={id} style={{ padding: '12px', cursor: 'pointer' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <GlassCard key={id} style={{ padding: '8px 10px', cursor: 'pointer', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                             {CATEGORY_ICONS[tab.category] || '📄'} {tab.title || 'Untitled'}
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{tab.context || 'No context'} {tab.locked ? '🔒' : ''}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.context || 'No context'} {tab.locked ? '🔒' : ''}</div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, marginLeft: '12px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatTime((timeTracking.byTab || {})[id] || 0)}</span>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatTime((timeTracking.byTab || {})[id] || 0)}</span>
                           <Tooltip text="Focus this tab">
-                            <button onClick={() => sendMessage('FOCUS_TAB', { tabId: parseInt(id) })} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '2px 6px', fontSize: '12px', cursor: 'pointer' }}>↗</button>
+                            <button onClick={() => sendMessage('FOCUS_TAB', { tabId: parseInt(id) })} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 4px', fontSize: '11px', cursor: 'pointer' }}>↗</button>
+                          </Tooltip>
+                          <Tooltip text="Link tab to an intent">
+                            <button onClick={() => handleLinkRequest(tab, 'tab')} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 4px', fontSize: '11px', cursor: 'pointer' }}>🔗</button>
+                          </Tooltip>
+                          <Tooltip text="Close this tab">
+                            <button onClick={() => chrome.tabs.remove(parseInt(id))} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
                           </Tooltip>
                         </div>
                       </div>
                     </GlassCard>
                   ))}
+                </div>
+              )}
+
+              {/* Recently Closed — compact list below */}
+              {recentlyClosed.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: '11px', margin: '0 0 6px 0', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recently Closed ({recentlyClosed.length})</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {recentlyClosed.map(tab => {
+                      let domain = '';
+                      try { domain = new URL(tab.url).hostname.replace(/^www\./, ''); } catch(e) { domain = tab.url; }
+                      return (
+                        <div key={tab.sessionId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface)', border: '1px solid var(--color-border)', cursor: 'pointer', gap: '8px' }} onClick={() => chrome.sessions.restore(tab.sessionId)}>
+                          <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                              {tab.title || 'Untitled'}
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', flexShrink: 0, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {domain}
+                            </span>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); chrome.sessions.restore(tab.sessionId); }} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', fontSize: '11px', cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}>↩</button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -740,6 +843,13 @@ function Home() {
           )}
         </AnimatePresence>
       </div>
+
+      <LinkMergeModal 
+        isOpen={linkModalConfig.isOpen} 
+        onClose={() => setLinkModalConfig({ ...linkModalConfig, isOpen: false })} 
+        targetItem={linkModalConfig.targetItem} 
+        type={linkModalConfig.type} 
+      />
     </div>
   );
 }

@@ -2,6 +2,9 @@
 // Core orchestrator for tab tracking, context/intent, priority, locking, 
 // groups, categories, time tracking, and markdown export.
 
+import { supabase } from '../services/supabaseClient';
+import * as timeTracker from '../services/timeTracking.js';
+
 // ============================================================
 // CONSTANTS & DEFAULTS
 // ============================================================
@@ -57,7 +60,9 @@ async function getTabData() {
 }
 
 async function setTabData(tabs) {
-  return setStorage({ tabs });
+  const result = await setStorage({ tabs });
+  triggerSync();
+  return result;
 }
 
 async function getSubGroups() {
@@ -95,13 +100,133 @@ const DEFAULT_FOCUS_ENGINE = {
   history: []
 };
 
+// ============================================================
+// SUPABASE SYNC
+// ============================================================
+
+async function syncToSupabase() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      // Not authenticated with Supabase. Skip sync for now.
+      return;
+    }
+    
+    // Fetch profile_id for this user
+    const { data: profile } = await supabase
+      .schema('tabatha')
+      .from('profiles')
+      .select('id, default_org_id, default_team_id')
+      .eq('auth_user_id', session.user.id)
+      .single();
+      
+    if (!profile) {
+      console.warn('Tabatha: No profile found for user. Skipping sync.');
+      return;
+    }
+    
+    const profileId = profile.id;
+    const orgId = profile.default_org_id;
+    const teamId = profile.default_team_id;
+    
+    // Sync Focus Items
+    const engine = await getFocusEngine();
+    if (engine && engine.items) {
+      const focusUpserts = Object.values(engine.items).map(item => ({
+        profile_id: profileId,
+        org_id: orgId || null,
+        team_id: teamId || null,
+        client_id: item.id,
+        label: item.label,
+        funnel_stage: item.funnelStage || 'unsorted',
+        focus_state: item.focusState || 'paused',
+        timer_minutes: item.timerMinutes || 15,
+        tags: item.tags || {},
+        completed_at: item.completedAt || null,
+        synced_at: new Date().toISOString()
+      }));
+      
+      if (focusUpserts.length > 0) {
+        const { error } = await supabase
+          .schema('tabatha')
+          .from('focus_items')
+          .upsert(focusUpserts, { onConflict: 'profile_id, client_id' });
+        if (error) console.error('Tabatha: Error syncing focus items:', error);
+      }
+    }
+
+    // Sync Intent History
+    const { intentHistory } = await getStorage('intentHistory');
+    if (intentHistory && intentHistory.length > 0) {
+      // Get the last synced timestamp from local storage
+      const { lastIntentSync } = await getStorage('lastIntentSync');
+      const lastSyncTime = lastIntentSync ? new Date(lastIntentSync).getTime() : 0;
+      
+      // Filter out already synced intents
+      const newIntents = intentHistory.filter(i => new Date(i.timestamp).getTime() > lastSyncTime);
+      
+      if (newIntents.length > 0) {
+        const intentInserts = newIntents.map(intent => ({
+          profile_id: profileId,
+          org_id: orgId || null,
+          team_id: teamId || null,
+          action: intent.action || 'unknown',
+          context: intent.context || null,
+          focus_id: intent.focusId || null,
+          url: intent.url || null,
+          domain: intent.domain || null,
+          timestamp: intent.timestamp
+        }));
+
+        const { error } = await supabase
+          .schema('tabatha')
+          .from('intent_history')
+          .insert(intentInserts);
+          
+        if (error) {
+          console.error('Tabatha: Error syncing intent history:', error);
+        } else {
+          // Update last sync time to the newest intent's timestamp
+          const newest = Math.max(...newIntents.map(i => new Date(i.timestamp).getTime()));
+          await setStorage({ lastIntentSync: new Date(newest).toISOString() });
+        }
+      }
+    }
+    
+  } catch (err) {
+    console.error('Tabatha: Supabase sync failed:', err);
+  }
+}
+
+// Debounced wrapper for sync
+let syncTimeout = null;
+function triggerSync() {
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async () => {
+    // Quick-check: skip sync attempt if no Supabase session exists
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+    } catch { return; }
+    syncToSupabase();
+  }, 10000); // 10s debounce
+}
+
 async function getFocusEngine() {
   const { focusEngine } = await getStorage('focusEngine');
-  return focusEngine || { ...DEFAULT_FOCUS_ENGINE };
+  if (!focusEngine) return { ...DEFAULT_FOCUS_ENGINE };
+  
+  // Ensure critical fields exist to prevent TypeError if storage is corrupted
+  if (!focusEngine.items) focusEngine.items = {};
+  if (!focusEngine.history) focusEngine.history = [];
+  
+  return focusEngine;
 }
 
 async function setFocusEngine(engine) {
-  return setStorage({ focusEngine: engine });
+  const result = await setStorage({ focusEngine: engine });
+  triggerSync();
+  return result;
 }
 
 function generateFocusId() {
@@ -408,10 +533,10 @@ function detectCategory(url, audible, categories) {
 
 function patternToRegex(pattern) {
   try {
-    const escaped = pattern
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-      .replace(/\\\*/g, '.*');
-    return new RegExp('^' + escaped + '$');
+    // Split on wildcards first, escape each segment, then rejoin with .*
+    const parts = pattern.split('*');
+    const escaped = parts.map(p => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&'));
+    return new RegExp('^' + escaped.join('.*') + '$');
   } catch {
     return null;
   }
@@ -508,6 +633,8 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
     await setTabData(tabs);
   }
   
+  await timeTracker.stopTracking(tabId);
+  
   // Clear alarm
   chrome.alarms.clear(`context-timer-${tabId}`);
   
@@ -519,6 +646,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (!tabs[tabId]) return;
   
   if (changeInfo.url) {
+    await timeTracker.stopTracking(tabId);
     tabs[tabId].url = changeInfo.url;
     // Re-detect category on URL change
     const categories = await getCategories();
@@ -526,8 +654,27 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (tabs[tabId].category === 'unknown') {
       tabs[tabId].category = newCat;
     }
+    await timeTracker.startTracking(tabId, changeInfo.url, tabs[tabId]);
   }
-  if (changeInfo.title) tabs[tabId].title = changeInfo.title;
+  if (changeInfo.title) {
+    tabs[tabId].title = changeInfo.title;
+    
+    // Asana auto-intent: when an Asana task page title loads, auto-set context
+    if (!tabs[tabId].context && !tabs[tabId].intent) {
+      try {
+        const asanaMatch = (tabs[tabId].url || '').match(/app\.asana\.com\/0\/\d+\/(\d+)/);
+        if (asanaMatch && changeInfo.title && changeInfo.title !== 'Asana' && changeInfo.title !== 'Loading...') {
+          const taskName = changeInfo.title.replace(/\s*[-\u2013\u2014]\s*Asana\s*$/i, '').replace(/\s*[-\u2013\u2014]\s*[^-\u2013\u2014]+$/, '').trim();
+          if (taskName) {
+            tabs[tabId].context = taskName;
+            tabs[tabId].intent = 'asana_auto';
+            tabs[tabId].category = 'work';
+            tabs[tabId].asanaTaskGid = asanaMatch[1];
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
   if (changeInfo.audible !== undefined) {
     const categories = await getCategories();
     const detected = detectCategory(tabs[tabId].url, changeInfo.audible, categories);
@@ -541,64 +688,26 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 });
 
 // ============================================================
-// TIME TRACKING
+// TIME TRACKING DELEGATED TO SERVICE
 // ============================================================
 
-let activeTabId = null;
-let activeTabStart = null;
-
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  const now = Date.now();
-  
-  // Record time on previous active tab
-  if (activeTabId !== null && activeTabStart !== null) {
-    await recordActiveTime(activeTabId, now - activeTabStart);
-  }
-  
-  activeTabId = activeInfo.tabId;
-  activeTabStart = now;
-  
   const tabs = await getTabData();
-  if (tabs[activeTabId]) {
-    tabs[activeTabId].lastActive = new Date().toISOString();
-    await setTabData(tabs);
-  }
-  
-  broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeTabId });
-  
-  // Auto-associate activated tab with current focus
-  tryAssociateTab(activeTabId);
-});
-
-async function recordActiveTime(tabId, durationMs) {
-  if (durationMs < 0 || durationMs > 3600000) return; // Sanity: max 1 hour chunk
-  
-  const tabs = await getTabData();
-  if (tabs[tabId]) {
-    tabs[tabId].activeTime = (tabs[tabId].activeTime || 0) + durationMs;
-    await setTabData(tabs);
-  }
-  
-  // Update aggregated time tracking
-  const timeTracking = await getTimeTracking();
-  const tabData = tabs[tabId];
+  const tabData = tabs[activeInfo.tabId];
   
   if (tabData) {
-    timeTracking.byTab[tabId] = (timeTracking.byTab[tabId] || 0) + durationMs;
+    tabData.lastActive = new Date().toISOString();
+    await setTabData(tabs);
     
-    if (tabData.groupId) {
-      timeTracking.byGroup[tabData.groupId] = (timeTracking.byGroup[tabData.groupId] || 0) + durationMs;
-    }
-    if (tabData.subGroupId) {
-      timeTracking.bySubGroup[tabData.subGroupId] = (timeTracking.bySubGroup[tabData.subGroupId] || 0) + durationMs;
-    }
-    if (tabData.category) {
-      timeTracking.byCategory[tabData.category] = (timeTracking.byCategory[tabData.category] || 0) + durationMs;
-    }
+    // Start tracking the new active tab
+    await timeTracker.startTracking(activeInfo.tabId, tabData.url, tabData);
   }
   
-  await setStorage({ timeTracking });
-}
+  broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
+  
+  // Auto-associate activated tab with current focus
+  tryAssociateTab(activeInfo.tabId);
+});
 
 // ============================================================
 // IDLE / OFF-CHROME CONTEXT
@@ -609,14 +718,20 @@ let userIdleSince = null;
 chrome.idle.onStateChanged.addListener(async (newState) => {
   if (newState === 'idle' || newState === 'locked') {
     // User left Chrome
-    if (activeTabId !== null && activeTabStart !== null) {
-      await recordActiveTime(activeTabId, Date.now() - activeTabStart);
-      activeTabStart = null;
-    }
+    await timeTracker.stopAllTracking();
     userIdleSince = new Date().toISOString();
   } else if (newState === 'active') {
     // User returned
-    activeTabStart = Date.now();
+    // Restart tracking on currently active tab
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (activeTabs) => {
+      if (activeTabs && activeTabs.length > 0) {
+        const tId = activeTabs[0].id;
+        const tabs = await getTabData();
+        if (tabs[tId]) {
+          await timeTracker.startTracking(tId, tabs[tId].url, tabs[tId]);
+        }
+      }
+    });
     
     if (userIdleSince) {
       const idleDuration = Date.now() - new Date(userIdleSince).getTime();
@@ -644,16 +759,24 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
   }
 });
 
-chrome.notifications.onClicked.addListener((notificationId) => {
+chrome.notifications.onClicked.addListener(async (notificationId) => {
     if (notificationId === 'welcome-back') {
         // Open sidebar
         chrome.sidePanel.setOptions({ enabled: true });
-        chrome.sidePanel.open({ windowId: activeTabId ? undefined : chrome.windows.WINDOW_ID_CURRENT })
-            .catch(() => { 
-                // Fallback if open() fails (needs user gesture - notification click counts but sometimes tricky)
-                // Actually sidePanel.open() is only available in Chrome 114+ and needs user gesture. 
-                // Notification click IS a user gesture.
+        chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT })
+            .catch(() => {
+                // sidePanel.open() requires user gesture — notification click qualifies
+                // but may still fail in edge cases; swallow gracefully.
             });
+    } else if (notificationId.startsWith('context-')) {
+        // Context reminder notification — focus the tab and prompt for intent
+        const tabId = parseInt(notificationId.replace('context-', ''));
+        try {
+            const tab = await chrome.tabs.get(tabId);
+            await chrome.windows.update(tab.windowId, { focused: true });
+            await chrome.tabs.update(tabId, { active: true });
+        } catch (e) { /* tab may not exist */ }
+        broadcastMessage({ type: 'PROMPT_PURPOSE', tabId });
     }
 });
 
@@ -707,6 +830,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   
   if (alarm.name === 'session-snapshot') {
     await saveSessionSnapshot();
+  }
+  
+  if (alarm.name === 'supabase-sync') {
+    await syncToSupabase();
   }
   
   if (alarm.name === 'pomodoro-timer') {
@@ -1043,6 +1170,9 @@ async function saveSessionSnapshot() {
 // Save a snapshot every 5 minutes
 chrome.alarms.create('session-snapshot', { periodInMinutes: 5 });
 
+// Sync to Supabase every 5 minutes
+chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
+
 // ============================================================
 // MARKDOWN EXPORT
 // ============================================================
@@ -1143,7 +1273,12 @@ function broadcastMessage(message) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender).then(sendResponse);
+  handleMessage(message, sender)
+    .then(sendResponse)
+    .catch(err => {
+      console.error('[Tabatha] handleMessage Error:', err);
+      sendResponse({ error: err.message || 'Unknown error' });
+    });
   return true; // Async response
 });
 
@@ -1375,6 +1510,57 @@ async function handleMessage(message, sender) {
         // If it already has context/intent, skip
         if (tabData.context || tabData.intent) return { needed: false };
         
+        // --- Asana URL auto-intent ---
+        // Detect Asana task URLs and auto-set context from the task title
+        try {
+          const asanaMatch = sender.tab.url.match(/app\.asana\.com\/0\/\d+\/(\d+)/);
+          if (asanaMatch) {
+            // Use the page title which Asana sets to the task name
+            const pageTitle = sender.tab.title || '';
+            // Asana titles follow pattern: "Task Name - Project - Asana" or just "Task Name"
+            const taskName = pageTitle.replace(/\s*[-–—]\s*Asana\s*$/i, '').replace(/\s*[-–—]\s*[^-–—]+$/, '').trim();
+            if (taskName && taskName !== 'Asana' && taskName !== 'Loading...') {
+              tabData.context = taskName;
+              tabData.intent = 'asana_auto';
+              tabData.category = 'work';
+              tabData.asanaTaskGid = asanaMatch[1];
+              tabs[sender.tab.id] = tabData;
+              await setTabData(tabs);
+              broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData });
+              // Auto-associate with active focus
+              if (!gkSettings || gkSettings.autoAssociateTabs !== false) {
+                const engine = await getFocusEngine();
+                if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+                  const focus = engine.items[engine.activeFocusId];
+                  if (!focus.associatedTabIds.includes(sender.tab.id)) {
+                    focus.associatedTabIds.push(sender.tab.id);
+                    await setFocusEngine(engine);
+                  }
+                }
+              }
+              return { needed: false };
+            }
+          }
+        } catch (e) { /* not an Asana URL or title parsing failed */ }
+        
+        // Check if restoring a parked tab
+        try {
+          const { parkedTabs } = await getStorage('parkedTabs');
+          if (parkedTabs) {
+            const parkedIdx = parkedTabs.findIndex(t => t.url === sender.tab.url);
+            if (parkedIdx !== -1) {
+              const parkedData = parkedTabs[parkedIdx];
+              tabData.intent = parkedData.context || 'Restored from Parked';
+              tabs[sender.tab.id] = tabData;
+              await setTabData(tabs);
+              parkedTabs.splice(parkedIdx, 1);
+              await setStorage({ parkedTabs });
+              broadcastMessage({ type: 'PARKED_TABS_UPDATED' });
+              return { needed: false };
+            }
+          }
+        } catch (e) { /* ignore */ }
+        
         // Check if domain is skipped
         try {
           const domain = new URL(sender.tab.url).hostname;
@@ -1399,13 +1585,34 @@ async function handleMessage(message, sender) {
     
     case 'SET_TAB_CONTEXT': {
         const tabs = await getTabData();
-        if (tabs[sender.tab.id]) {
-            tabs[sender.tab.id].context = message.context;
-            tabs[sender.tab.id].category = message.category || 'unknown';
-            tabs[sender.tab.id].intent = message.intent;
-            await setTabData(tabs);
-            broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
+        // Create tab entry if it doesn't exist yet (gatekeeper can fire before onTabCreated)
+        if (!tabs[sender.tab.id]) {
+            tabs[sender.tab.id] = {
+                url: sender.tab.url || '',
+                title: sender.tab.title || 'Untitled',
+                openedAt: new Date().toISOString(),
+                lastActive: new Date().toISOString(),
+                activeTime: 0,
+                context: null,
+                intent: null,
+                priority: 'none',
+                locked: false,
+                urlLocked: false,
+                urlLockScope: null,
+                groupId: null,
+                subGroupId: null,
+                category: 'unknown',
+                parentTabId: sender.tab.openerTabId || null,
+                timerOverrideMinutes: null,
+                ignored: false,
+                persistent: false
+            };
         }
+        tabs[sender.tab.id].context = message.context;
+        tabs[sender.tab.id].category = message.category || tabs[sender.tab.id].category || 'unknown';
+        tabs[sender.tab.id].intent = message.intent;
+        await setTabData(tabs);
+        broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
         return { success: true };
     }
     
@@ -1438,14 +1645,15 @@ async function handleMessage(message, sender) {
     }
     
     case 'PARK_TAB': {
-        // Simple storage for now
         const { parkedTabs } = await getStorage('parkedTabs');
         const list = parkedTabs || [];
-        list.push({ url: message.url, title: message.title, parkedAt: new Date().toISOString() });
-        await setStorage({ parkedTabs: list });
-        
-        await chrome.tabs.remove(sender.tab.id);
-        broadcastMessage({ type: 'PARKED_TABS_UPDATED' });
+        const exists = list.find(t => t.url === message.url);
+        if (!exists) {
+            list.push({ url: message.url, title: message.title, context: message.context || null, parkedAt: new Date().toISOString() });
+            await setStorage({ parkedTabs: list });
+            broadcastMessage({ type: 'PARKED_TABS_UPDATED' });
+        }
+        try { await chrome.tabs.remove(sender.tab.id); } catch(e) { /* ignore */ }
         return { success: true };
     }
     
@@ -1473,6 +1681,7 @@ async function handleMessage(message, sender) {
         // Keep last 500
         await setStorage({ intentHistory: history.slice(0, 500) });
         broadcastMessage({ type: 'INTENT_HISTORY_UPDATED' });
+        triggerSync();
         return { success: true };
     }
     
@@ -1489,13 +1698,94 @@ async function handleMessage(message, sender) {
         }
         return { success: true };
     }
-    
+
     case 'GET_CURRENT_TAB_ID': {
         return { tabId: sender.tab ? sender.tab.id : null };
     }
     
     case 'CLOSE_TAB': {
         try { await chrome.tabs.remove(message.tabId); } catch(e) { /* tab may not exist */ }
+        return { success: true };
+    }
+
+    // --- Link/Merge Actions ---
+    case 'LINK_TAB_TO_INTENT': {
+        const engine = await getFocusEngine();
+        const tabs = await getTabData();
+        const { tabId, targetIntentId } = message;
+
+        if (engine.items[targetIntentId]) {
+          // Remove from other intents
+          Object.values(engine.items).forEach(intent => {
+            intent.associatedTabIds = intent.associatedTabIds.filter(id => id !== tabId);
+          });
+          // Add to new intent
+          if (!engine.items[targetIntentId].associatedTabIds.includes(tabId)) {
+            engine.items[targetIntentId].associatedTabIds.push(tabId);
+          }
+          await setFocusEngine(engine);
+          
+          // Update tab's internal context/intent if applicable
+          if (tabs[tabId]) {
+            tabs[tabId].intent = engine.items[targetIntentId].label;
+            await setTabData(tabs);
+            broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+          }
+          
+          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        }
+        return { success: true };
+    }
+
+    case 'LINK_INTENT_TO_TASK': {
+        const engine = await getFocusEngine();
+        const { intentId, taskId, newTaskName } = message;
+        
+        let finalTaskId = taskId;
+        if (newTaskName) {
+           const { tasks } = await getStorage('tasks') || { tasks: [] };
+           finalTaskId = `task_${Date.now()}`;
+           tasks.push({ id: finalTaskId, name: newTaskName, createdAt: new Date().toISOString() });
+           await setStorage({ tasks });
+           // Ideally we'd broadcast TASKS_UPDATED if UI expects it
+           broadcastMessage({ type: 'TASKS_UPDATED', tasks }); 
+        }
+        
+        if (engine.items[intentId]) {
+          engine.items[intentId].tags = engine.items[intentId].tags || {};
+          engine.items[intentId].tags.task = finalTaskId;
+          await setFocusEngine(engine);
+          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        }
+        return { success: true };
+    }
+
+    case 'MERGE_INTENTS': {
+        const engine = await getFocusEngine();
+        const { sourceIntentId, targetIntentId } = message;
+        
+        if (engine.items[sourceIntentId] && engine.items[targetIntentId]) {
+          const source = engine.items[sourceIntentId];
+          const target = engine.items[targetIntentId];
+          
+          // Merge tabs
+          const newTabs = [...new Set([...target.associatedTabIds, ...source.associatedTabIds])];
+          target.associatedTabIds = newTabs;
+          
+          // Merge elapsed time
+          target.elapsedMs = (target.elapsedMs || 0) + (source.elapsedMs || 0);
+          
+          // Delete old intent
+          delete engine.items[sourceIntentId];
+          
+          // Fix active focus if it was the source
+          if (engine.activeFocusId === sourceIntentId) {
+            engine.activeFocusId = targetIntentId;
+          }
+          
+          await setFocusEngine(engine);
+          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        }
         return { success: true };
     }
 
@@ -1620,8 +1910,23 @@ async function handleMessage(message, sender) {
           activeFocus.totalTimeMs = totalTimeMs;
         }
         
-        const show = !!(tabContext || activeFocus) && (ibSettings?.inbarEnabled !== false);
+        const show = ibSettings?.inbarEnabled !== false;
         return { show, tabContext, activeFocus, settings: ibSettings || {} };
+    }
+
+    case 'SAVE_INBAR_NOTE': {
+        const { note, tabId: noteTabId } = message;
+        const { inbarNotes = {} } = await getStorage('inbarNotes');
+        const noteKey = noteTabId || (sender.tab ? sender.tab.id : 'global');
+        inbarNotes[noteKey] = { text: note, updatedAt: new Date().toISOString() };
+        await setStorage({ inbarNotes });
+        return { success: true };
+    }
+
+    case 'GET_INBAR_NOTES': {
+        const { inbarNotes = {} } = await getStorage('inbarNotes');
+        const tabId = sender.tab ? sender.tab.id : null;
+        return { note: inbarNotes[tabId]?.text || inbarNotes['global']?.text || '' };
     }
     
     // --- Clock In/Out ---
@@ -1769,20 +2074,4 @@ chrome.runtime.onStartup.addListener(async () => {
 initializeState();
 
 
-// ============================================================
-// NOTIFICATION CLICK HANDLER
-// ============================================================
-
-chrome.notifications.onClicked.addListener(async (notificationId) => {
-  if (notificationId.startsWith('context-')) {
-    const tabId = parseInt(notificationId.replace('context-', ''));
-    try {
-      const tab = await chrome.tabs.get(tabId);
-      await chrome.windows.update(tab.windowId, { focused: true });
-      await chrome.tabs.update(tabId, { active: true });
-    } catch (e) { /* tab may not exist */ }
-    
-    // Signal sidebar to open context form for this tab
-    broadcastMessage({ type: 'PROMPT_PURPOSE', tabId });
-  }
-});
+// Notification click handler merged into single listener above (L757)

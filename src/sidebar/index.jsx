@@ -7,14 +7,7 @@ import { useFocusEngine, formatTimer, formatElapsed, FUNNEL_STAGES } from '../ho
 import { GlassCard } from '../components/ui/GlassCard';
 import { Tooltip } from '../components/ui/Tooltip';
 
-function formatTime(ms) {
-  if (!ms || ms < 1000) return '0s';
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
-}
+import { formatTime } from '../utils/formatTime';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -40,10 +33,7 @@ function Sidebar() {
   const [search, setSearch] = useState('');
   const [focusInput, setFocusInput] = useState('');
 
-  useEffect(() => {
-    const iv = setInterval(() => sendMessage('GET_TIME_TRACKING'), 5000);
-    return () => clearInterval(iv);
-  }, []);
+  // Time tracking data arrives reactively via useChromeStorage — no polling needed
 
   const tabCount = Object.keys(tabs).length;
   const totalTime = useMemo(() => Object.values(timeTracking.byTab || {}).reduce((a,b) => a+b, 0), [timeTracking]);
@@ -202,8 +192,8 @@ function Sidebar() {
                     </div>
                   </div>
                   <div style={{ display:'flex', gap:'4px', marginTop:'8px', flexWrap:'wrap' }}>
-                    <Tooltip text="Complete focus"><button onClick={() => actions.completeFocus()} style={btn('#66bb6a')}>✓ Done</button></Tooltip>
-                    <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(null,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
+                    <Tooltip text="Complete focus"><button onClick={() => actions.completeFocus(activeFocus.id)} style={btn('#66bb6a')}>✓ Done</button></Tooltip>
+                    <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                   </div>
                 </GlassCard>
               ) : (

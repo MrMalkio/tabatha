@@ -12,15 +12,7 @@ const CATEGORY_ICONS = {
   messaging: '💬', email: '📧', learning: '🎓', entertainment: '🎮', unknown: '❓',
 };
 
-function formatTime(ms) {
-  if (!ms || ms < 1000) return '0s';
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
-}
+import { formatTime } from '../utils/formatTime';
 
 // ════════════════════════════════════════════
 // Popup Component — Quick Search & Switch
@@ -109,7 +101,7 @@ function Popup() {
                     {tab.title || 'Untitled'}
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {tab.context || new URL(tab.url || 'about:blank').hostname}
+                    {tab.context || (() => { try { return new URL(tab.url || 'about:blank').hostname; } catch { return tab.url || 'Unknown'; } })()}
                   </div>
                 </div>
                 <span style={{

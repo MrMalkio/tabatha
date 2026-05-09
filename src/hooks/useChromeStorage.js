@@ -39,8 +39,12 @@ export function useChromeStorage(key, defaultValue) {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, [key]);
 
+  // Track latest value in a ref so the update callback never captures stale state
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
+
   const update = useCallback((newValue) => {
-    const resolved = typeof newValue === 'function' ? newValue(value) : newValue;
+    const resolved = typeof newValue === 'function' ? newValue(valueRef.current) : newValue;
     setValue(resolved);
 
     if (isChromeExtension) {
@@ -48,7 +52,7 @@ export function useChromeStorage(key, defaultValue) {
     } else {
       localStorage.setItem(`tabatha_${key}`, JSON.stringify(resolved));
     }
-  }, [key, value]);
+  }, [key]);
 
   return [value, update];
 }
@@ -62,9 +66,20 @@ export function sendMessage(type, payload = {}) {
     return Promise.resolve({});
   }
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type, ...payload }, (response) => {
-      resolve(response || {});
-    });
+    try {
+      chrome.runtime.sendMessage({ type, ...payload }, (response) => {
+        // MUST check lastError or Chrome silently swallows the error
+        if (chrome.runtime.lastError) {
+          console.error(`[Tabatha] sendMessage('${type}') error:`, chrome.runtime.lastError.message);
+          resolve({ error: chrome.runtime.lastError.message });
+          return;
+        }
+        resolve(response || {});
+      });
+    } catch (err) {
+      console.error(`[Tabatha] sendMessage('${type}') threw:`, err);
+      resolve({ error: err.message });
+    }
   });
 }
 

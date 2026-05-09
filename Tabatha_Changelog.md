@@ -16,6 +16,42 @@ file.
 
 ---
 
+## [v0.2.5-alpha] - Diagnostic Fix Sweep - _2026-05-09_
+
+### Fixed
+- **Critical: Duplicate notification listeners** merged into single handler; eliminated service worker unpredictability.
+- **Critical: `activeTabId` ReferenceError** in welcome-back notification handler — replaced with `WINDOW_ID_CURRENT`.
+- **Critical: `export` keyword on `triggerSync()`** removed — prevented potential service worker module loading failure.
+- **Clock-In/Out race condition** — eliminated double-writes to `clockSession` storage key; UI now relies on reactive `useChromeStorage` listener.
+- **Focus actions fragility** — `completeFocus()` and `extendTimer()` now receive explicit `focusId` in home and sidebar.
+- **Time tracking shows 0s** — added `updateTimeTrackingAggregates()` to bridge `pendingTimeLogs` and the `timeTracking.byTab` storage key the UI reads.
+- **Gatekeeper Sugar Box/Park/Later** — buttons now close overlay and tab as tooltips promised.
+- **`useChromeStorage` stale closure** — `update` callback uses `useRef` to avoid capturing stale `value`.
+- **Popup `new URL()` crash** — wrapped in try/catch for `chrome://` and malformed URLs.
+- **`triggerSync` excessive firing** — added auth session guard to skip Supabase calls when unauthenticated.
+- **`patternToRegex` double-escape** — rewrote to split on `*` first, escape segments individually.
+
+### Changed
+- **Shared `formatTime` utility** — extracted from 3 duplicate definitions into `src/utils/formatTime.js`.
+
+---
+
+
+## [v0.2.4-alpha] - Phase 3/4 Refinements - _2026-04-28_
+
+### Added
+- **Logs Panel**: Replaced simple Time view with deep filtering (Date, Intent, Category, Duration) for historical activity tracking.
+- **Link/Merge Modal**: Universal modal to link Tabs to Intents, or merge Intents into Tasks.
+- **Settings Walkthrough**: In-app educational tooltips describing "When", "How", and "Affects" for all configuration options.
+- **Theme Expansion**: High contrast corporate theme, plus 5 new distinct themes (Neo-Brutalism, Glass Ocean, Retro Pixel, Solarized Warm, High Contrast Dark).
+- **Background Handlers**: Automated logic for `CLOCK_IN`, `CLOCK_OUT`, and `TOGGLE_BREAK`.
+
+### Changed
+- **Gatekeeper Parked Tabs**: Automatically restores session context for parked tabs, preventing redundant Gatekeeper prompts.
+- **Dashboard Refinement**: Renamed "Contexts" to "Sessions" and added "Link/Close" actions to tab listings.
+
+---
+
 ## [v0.1.5] - Phase 1.5 (User Enhancements) - _2026-02-12_
 
 ### Added
