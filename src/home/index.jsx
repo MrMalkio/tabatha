@@ -464,17 +464,21 @@ function Home() {
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
+  const [clockDebug, setClockDebug] = useState('(no action yet)');
   const handleClockIn = async () => {
+    setClockDebug('Sending CLOCK_IN...');
     const res = await sendMessage('CLOCK_IN');
-    if (res?.error) console.error('[Tabatha] Clock-in failed:', res.error);
+    setClockDebug('CLOCK_IN → ' + JSON.stringify(res));
   };
   const handleClockOut = async () => {
+    setClockDebug('Sending CLOCK_OUT...');
     const res = await sendMessage('CLOCK_OUT');
-    if (res?.error) console.error('[Tabatha] Clock-out failed:', res.error);
+    setClockDebug('CLOCK_OUT → ' + JSON.stringify(res));
   };
   const handleToggleBreak = async () => {
+    setClockDebug('Sending TOGGLE_BREAK...');
     const res = await sendMessage('TOGGLE_BREAK');
-    if (res?.error) console.error('[Tabatha] Toggle-break failed:', res.error);
+    setClockDebug('TOGGLE_BREAK → ' + JSON.stringify(res));
   };
 
   // Live clock session timer
@@ -589,6 +593,12 @@ function Home() {
             </Tooltip>
           </div>
         </GlassCard>
+
+        {/* 🔧 TEMPORARY DEBUG — remove after fixing clock */}
+        <div style={{ background: '#1a1a2e', color: '#0f0', fontFamily: 'monospace', fontSize: '10px', padding: '6px 10px', marginBottom: '8px', borderRadius: '4px', wordBreak: 'break-all' }}>
+          <div>clockSession: {JSON.stringify(clockSession)}</div>
+          <div>lastAction: {clockDebug}</div>
+        </div>
 
         {/* Now Bar — Current Priority */}
         {nowItem && (
