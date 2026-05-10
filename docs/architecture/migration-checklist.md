@@ -22,7 +22,7 @@
 | storageService | — | ✅ | ✅ | Moved to `src/background/services/storageService.js`; build passes |
 | clockService | 7 | ✅ | ⬜ | Moved to `src/background/services/clockService.js`; build passes; manual tests pending |
 | focusService | 14 | ⬜ | ⬜ | Not started |
-| tabService | 17 | ⬜ | ⬜ | Not started |
+| tabService | 17 | ✅ | ⬜ | Extracted to `src/background/services/tabService.js`; build passes; manual tests pending |
 | tabTrackingService | 2+ | ⬜ | ⬜ | Not started |
 | taskService | 4 | ✅ | ⬜ | Extracted to `src/background/services/taskService.js`; build passes; manual tests pending |
 | groupService | 4 | ✅ | ⬜ | Extracted to `src/background/services/groupService.js`; build passes; manual tests pending |
@@ -34,7 +34,7 @@
 | Router refactor | — | ⬜ | ⬜ | Not started |
 | fluxApi | — | ⬜ | ⬜ | Not started |
 
-**Overall: 30 / 62 handlers migrated**
+**Overall: 47 / 62 handlers migrated**
 
 ---
 
@@ -63,23 +63,23 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_ALL_TABS` | ⬜ | ⬜ | ⬜ | |
-| 2 | `GET_TAB` | ⬜ | ⬜ | ⬜ | |
-| 3 | `GET_CURRENT_TAB_ID` | ⬜ | ⬜ | ⬜ | |
-| 4 | `UPDATE_TAB` | ⬜ | ⬜ | ⬜ | |
-| 5 | `UPDATE_TAB_TITLE` | ⬜ | ⬜ | ⬜ | |
-| 6 | `SET_TAB_CONTEXT` | ⬜ | ⬜ | ⬜ | |
-| 7 | `LINK_TAB_TO_INTENT` | ⬜ | ⬜ | ⬜ | |
-| 8 | `BATCH_UPDATE_CONTEXT` | ⬜ | ⬜ | ⬜ | |
-| 9 | `CHECK_CONTEXT_NEEDED` | ⬜ | ⬜ | ⬜ | |
-| 10 | `SKIP_DOMAIN` | ⬜ | ⬜ | ⬜ | |
-| 11 | `TOGGLE_LOCK` | ⬜ | ⬜ | ⬜ | |
-| 12 | `TOGGLE_URL_LOCK` | ⬜ | ⬜ | ⬜ | |
-| 13 | `FOCUS_TAB` | ⬜ | ⬜ | ⬜ | |
-| 14 | `CLOSE_TAB` | ⬜ | ⬜ | ⬜ | |
-| 15 | `BULK_CLOSE` | ⬜ | ⬜ | ⬜ | |
-| 16 | `REQUEST_CLOSE` | ⬜ | ⬜ | ⬜ | |
-| 17 | `CANCEL_CLOSE` | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_ALL_TABS` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 2 | `GET_TAB` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 3 | `GET_CURRENT_TAB_ID` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 4 | `UPDATE_TAB` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 5 | `UPDATE_TAB_TITLE` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 6 | `SET_TAB_CONTEXT` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 7 | `LINK_TAB_TO_INTENT` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 8 | `BATCH_UPDATE_CONTEXT` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 9 | `CHECK_CONTEXT_NEEDED` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 10 | `SKIP_DOMAIN` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 11 | `TOGGLE_LOCK` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 12 | `TOGGLE_URL_LOCK` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 13 | `FOCUS_TAB` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 14 | `CLOSE_TAB` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 15 | `BULK_CLOSE` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 16 | `REQUEST_CLOSE` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
+| 17 | `CANCEL_CLOSE` | ✅ | ✅ | ⬜ | Extracted to tabService; manual test pending |
 
 ---
 
