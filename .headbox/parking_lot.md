@@ -20,3 +20,12 @@
   1. Create a single `src/version.js` that exports the version, import everywhere ← **suggested**
   2. Use a build-time replacement plugin to inject version from `package.json`
   3. Keep manual and add to release checklist
+
+## 2026-05-09 — Debug Bar Expansion (System-Wide)
+- **Noticed while:** Clock extraction + InPop fix
+- **What:** Debug bar currently only shows clockSession + last message result. User wants it to show system-wide state (focus engine, tabs, settings, etc.) and be positioned at the bottom of the home page instead of under the clock bar.
+- **Why it matters:** Better debugging experience — currently limited to clock state only.
+- **Options:**
+  1. Expand debug bar to show all storage keys with collapsible sections, pin to page bottom ← **suggested**
+  2. Create a dedicated debug page (like workshifts.html) with full state inspector
+  3. Both — expandable bottom bar + dedicated page for deep inspection

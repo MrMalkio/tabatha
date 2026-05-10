@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 0.2.6-alpha
+- **Current version:** 0.2.7-alpha
 - **Current focus:** Phase 3/4 — Deep Customization & Sync (InPop 2.0, InBar, BlockGate, and Supabase integration complete)
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
@@ -139,6 +139,7 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 | 2026-04-28 | Antigravity | Supabase Sync Engine | Pushed Supabase schema, configured client, and hooked up debounced sync wrapper to background focus & intent mutations. | Implement user authentication (Auth Refinement) |
 | 2026-04-29 | Antigravity | Asana Time Tracker Widget | Built Flux Asana widget server (Express/HTTPS), migration 004 (flux_time_entries), full e2e test passing. | Register app in Asana Developer Console, add user name resolution |
 | 2026-05-09 | Antigravity | Diagnostic Fix Sweep | Fixed 14/16 diagnostic issues + root cause (missing type:module in manifest). Added logger service, debug mode setting, Developer panel in settings. All sendMessage errors now logged. | Architecture refactor (background.js monolith), version automation |
+| 2026-05-09 | Antigravity | Clock Extraction + InPop + Work Shifts | Fixed InPop (contextSource tracking, inherited vs user contexts). Extracted clock.js + storage.js from monolith. Built Work Shifts page (3 views, stubbed analytics). Added last session + work logs to home. | Phase B: focus editing, sidebar parity, groups sync, URL analysis |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
