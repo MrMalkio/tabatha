@@ -487,6 +487,19 @@ function Home() {
 
   // Live clock session timer
   const [clockElapsed, setClockElapsed] = useState('');
+  const [lastSession, setLastSession] = useState(null);
+  const [recentShifts, setRecentShifts] = useState([]);
+
+  // Fetch last session and recent shifts
+  useEffect(() => {
+    sendMessage('GET_LAST_SESSION').then(res => {
+      if (res?.lastSession) setLastSession(res.lastSession);
+    }).catch(() => {});
+    sendMessage('GET_CLOCK_HISTORY').then(res => {
+      if (res?.history) setRecentShifts(res.history.slice(0, 5));
+    }).catch(() => {});
+  }, [clockSession?.active]); // refresh when clock state changes
+
   useEffect(() => {
     if (!clockSession?.active) { setClockElapsed(''); return; }
     const tick = () => {
@@ -597,6 +610,36 @@ function Home() {
             </Tooltip>
           </div>
         </GlassCard>
+
+        {/* Last Session + Work Logs Mini */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          {lastSession && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--color-text-muted)', padding: '4px 10px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+              <span>Last shift:</span>
+              <span style={{ fontWeight: 700, color: 'var(--color-accent-primary)' }}>{(() => { const h = Math.floor(lastSession.workMs / 3600000); const m = Math.floor((lastSession.workMs % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
+              <span style={{ color: 'var(--color-text-muted)' }}>({new Date(lastSession.clockedInAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })})</span>
+            </div>
+          )}
+          <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-accent-primary)', padding: '4px 10px', fontSize: '10px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            ⏱️ Work Shifts →
+          </button>
+        </div>
+
+        {/* Recent Work Logs (mini) */}
+        {recentShifts.length > 0 && (
+          <GlassCard style={{ padding: '8px 12px', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recent Shifts</span>
+              <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'none', border: 'none', color: 'var(--color-accent-primary)', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}>View All →</button>
+            </div>
+            {recentShifts.slice(0, 3).map((s, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', padding: '3px 0', borderBottom: i < 2 ? '1px solid var(--color-border)' : 'none' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>{new Date(s.clockedInAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                <span style={{ fontWeight: 600, color: 'var(--color-accent-primary)' }}>{(() => { const h = Math.floor((s.workMs||0) / 3600000); const m = Math.floor(((s.workMs||0) % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
+              </div>
+            ))}
+          </GlassCard>
+        )}
 
         {/* Debug Bar — only visible when debug mode is ON in settings */}
         {settings.debugMode && (

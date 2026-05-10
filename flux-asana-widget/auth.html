@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Flux Time Tracker — Connected</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+      .card {
+        text-align: center;
+        padding: 2rem 3rem;
+        background: rgba(255,255,255,0.15);
+        border-radius: 16px;
+        backdrop-filter: blur(10px);
+      }
+      h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+      p { opacity: 0.85; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>✅ Connected!</h1>
+      <p>Flux Time Tracker is now linked to Asana.</p>
+      <p>This window will close automatically.</p>
+    </div>
+    <script>
+      // Signal to Asana that auth is complete
+      window.opener.postMessage("success", "https://app.asana.com");
+      setTimeout(() => window.close(), 1500);
+    </script>
+  </body>
+</html>

@@ -4,6 +4,7 @@
 
 import { supabase } from '../services/supabaseClient';
 import * as timeTracker from '../services/timeTracking.js';
+import { createClockService } from './clock.js';
 
 // ============================================================
 // CONSTANTS & DEFAULTS
@@ -576,6 +577,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
     activeTime: 0,
     context: inheritedContext,
     intent: inheritedIntent,
+    contextSource: inheritedContext ? 'inherited' : null,
     priority: 'none',
     locked: false,
     urlLocked: false,
@@ -668,6 +670,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
           if (taskName) {
             tabs[tabId].context = taskName;
             tabs[tabId].intent = 'asana_auto';
+            tabs[tabId].contextSource = 'asana_auto';
             tabs[tabId].category = 'work';
             tabs[tabId].asanaTaskGid = asanaMatch[1];
           }
@@ -1272,6 +1275,9 @@ function broadcastMessage(message) {
   });
 }
 
+// ── Service instances ──
+const clockService = createClockService(getStorage, setStorage, broadcastMessage);
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
     .then(sendResponse)
@@ -1507,8 +1513,9 @@ async function handleMessage(message, sender) {
         const isBuiltIn = sender.tab.url.startsWith('chrome://') || sender.tab.url.startsWith('chrome-extension://');
         if (isBuiltIn) return { needed: false };
         
-        // If it already has context/intent, skip
-        if (tabData.context || tabData.intent) return { needed: false };
+        // If it already has USER-EXPLICIT context/intent, skip.
+        // Inherited and auto-detected contexts should still prompt.
+        if ((tabData.context || tabData.intent) && tabData.contextSource === 'user') return { needed: false };
         
         // --- Asana URL auto-intent ---
         // Detect Asana task URLs and auto-set context from the task title
@@ -1522,6 +1529,7 @@ async function handleMessage(message, sender) {
             if (taskName && taskName !== 'Asana' && taskName !== 'Loading...') {
               tabData.context = taskName;
               tabData.intent = 'asana_auto';
+              tabData.contextSource = 'asana_auto';
               tabData.category = 'work';
               tabData.asanaTaskGid = asanaMatch[1];
               tabs[sender.tab.id] = tabData;
@@ -1580,7 +1588,12 @@ async function handleMessage(message, sender) {
           }
         }
         
-        return { needed: true };
+        return {
+          needed: true,
+          inheritedContext: tabData.context || null,
+          inheritedIntent: tabData.intent || null,
+          contextSource: tabData.contextSource || null,
+        };
     }
     
     case 'SET_TAB_CONTEXT': {
@@ -1611,6 +1624,7 @@ async function handleMessage(message, sender) {
         tabs[sender.tab.id].context = message.context;
         tabs[sender.tab.id].category = message.category || tabs[sender.tab.id].category || 'unknown';
         tabs[sender.tab.id].intent = message.intent;
+        tabs[sender.tab.id].contextSource = 'user';
         await setTabData(tabs);
         broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
         return { success: true };
@@ -1930,66 +1944,23 @@ async function handleMessage(message, sender) {
     }
     
     // --- Clock In/Out ---
-    case 'CLOCK_IN': {
-        const { clockSession } = await getStorage('clockSession');
-        if (clockSession?.active) return { error: 'Already clocked in', session: clockSession };
-        const session = {
-          active: true,
-          clockedInAt: new Date().toISOString(),
-          clockedOutAt: null,
-          breaks: [],
-          onBreak: false,
-          breakStartedAt: null
-        };
-        await setStorage({ clockSession: session });
-        broadcastMessage({ type: 'CLOCK_SESSION_UPDATED' });
-        return { session };
-    }
+    case 'CLOCK_IN':
+        return await clockService.clockIn();
     
-    case 'CLOCK_OUT': {
-        const { clockSession } = await getStorage('clockSession');
-        if (!clockSession?.active) return { error: 'Not clocked in' };
-        // End any active break
-        if (clockSession.onBreak && clockSession.breakStartedAt) {
-          clockSession.breaks.push({ start: clockSession.breakStartedAt, end: new Date().toISOString() });
-        }
-        clockSession.active = false;
-        clockSession.clockedOutAt = new Date().toISOString();
-        clockSession.onBreak = false;
-        clockSession.breakStartedAt = null;
-        
-        // Archive to history
-        const { clockHistory } = await getStorage('clockHistory');
-        const history = clockHistory || [];
-        history.unshift({ ...clockSession });
-        await setStorage({ clockSession, clockHistory: history.slice(0, 365) });
-        broadcastMessage({ type: 'CLOCK_SESSION_UPDATED' });
-        return { session: clockSession };
-    }
+    case 'CLOCK_OUT':
+        return await clockService.clockOut();
     
-    case 'GET_CLOCK_STATUS': {
-        const { clockSession } = await getStorage('clockSession');
-        return { session: clockSession || { active: false } };
-    }
+    case 'GET_CLOCK_STATUS':
+        return await clockService.getClockStatus();
     
-    case 'TOGGLE_BREAK': {
-        const { clockSession } = await getStorage('clockSession');
-        if (!clockSession?.active) return { error: 'Not clocked in' };
-        
-        if (clockSession.onBreak) {
-          // End break
-          clockSession.breaks.push({ start: clockSession.breakStartedAt, end: new Date().toISOString() });
-          clockSession.onBreak = false;
-          clockSession.breakStartedAt = null;
-        } else {
-          // Start break
-          clockSession.onBreak = true;
-          clockSession.breakStartedAt = new Date().toISOString();
-        }
-        await setStorage({ clockSession });
-        broadcastMessage({ type: 'CLOCK_SESSION_UPDATED' });
-        return { session: clockSession };
-    }
+    case 'TOGGLE_BREAK':
+        return await clockService.toggleBreak();
+
+    case 'GET_LAST_SESSION':
+        return await clockService.getLastSession();
+
+    case 'GET_CLOCK_HISTORY':
+        return await clockService.getClockHistory();
 
     default:
       return { error: 'Unknown message type' };

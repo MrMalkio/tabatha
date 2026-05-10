@@ -1,0 +1,16 @@
+{
+  "name": "flux-asana-time-tracker",
+  "version": "1.0.0",
+  "description": "Asana App Component — Flux Time Tracker Widget",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "@supabase/supabase-js": "^2.49.0",
+    "dotenv": "^16.4.5"
+  }
+}

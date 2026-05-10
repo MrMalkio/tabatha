@@ -10,6 +10,11 @@
   } catch (e) { return; } // Extension context invalidated
   if (!response || !response.needed) return;
 
+  // Capture inherited context for pre-filling the form
+  const inheritedContext = response.inheritedContext || '';
+  const inheritedIntent = response.inheritedIntent || '';
+  const contextSource = response.contextSource || null;
+
   // 2. Gather data: focus items, recent intents, settings
   let focusItems = [];
   let recentIntents = [];
@@ -274,8 +279,8 @@
   container.innerHTML = `
     <h1>Why are you here?${modeBadge}</h1>
     <p class="subtitle" data-tip="Tabatha helps you browse with intention">Define your intent to proceed.</p>
-
-    <input type="text" id="context" placeholder="What are you working on?" autofocus data-tip="Type a new intent, or skip and click a preset below">
+    ${contextSource === 'inherited' ? `<div style="font-size:10px;color:#888;margin-bottom:6px;text-align:left;">Inherited from parent tab — confirm or change:</div>` : ''}
+    <input type="text" id="context" placeholder="What are you working on?" value="${inheritedContext.replace(/"/g, '&quot;')}" autofocus data-tip="Type a new intent, or skip and click a preset below">
 
     ${activeHTML}
     ${recentHTML}

@@ -14,6 +14,7 @@ export default defineConfig({
         sidebar: resolve(__dirname, 'sidebar.html'),
         home: resolve(__dirname, 'home.html'),
         settings: resolve(__dirname, 'settings.html'),
+        workshifts: resolve(__dirname, 'workshifts.html'),
         background: resolve(__dirname, 'src/background/background.js'),
         gatekeeper: resolve(__dirname, 'src/content/gatekeeper.js'),
         blockgate: resolve(__dirname, 'src/content/blockgate.js'),

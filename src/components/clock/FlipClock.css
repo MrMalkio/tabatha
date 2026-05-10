@@ -139,13 +139,37 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* Side dials/hinges */
+.flip-digit::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -4px;
+  width: calc(100% + 8px);
+  height: 16px;
+  background-color: transparent;
+  border-left: 4px solid #333;
+  border-right: 4px solid #333;
+  border-radius: 2px;
+  z-index: 11;
+  transform: translateY(-50%);
+  box-shadow: inset 2px 0 2px rgba(0,0,0,0.5), inset -2px 0 2px rgba(0,0,0,0.5);
+}
+
+.flip-digit-small::before {
+  left: -2px;
+  width: calc(100% + 4px);
+  height: 8px;
+  border-width: 2px;
+}
+
 /* Horizontal split line */
 .flip-digit::after {
   content: '';
   position: absolute;
   top: 50%;
-  left: -5%;
-  width: 110%;
+  left: 0;
+  width: 100%;
   height: 2px;
   background-color: var(--color-bg-base, #0b0b0b);
   z-index: 10;

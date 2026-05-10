@@ -120,6 +120,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 5. **Stay on task.** If you notice something unrelated, add it to `.headbox/parking_lot.md`.
 6. **On `checkpoint`** — update any known task(s) with progress.
 7. **Check `.headbox/sticky-notes/`** at session start.
+8. **Number Implementation Plans** — Always uniquely name your implementation plans with a version number (e.g. `implementation_plan_011.md`). Not uniquely naming them will overwrite other files in the same project.
 
 ---
 
@@ -135,9 +136,11 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 **After every session, update the Session Log in `AGENTS.md`.**
 
-- Append a new entry. Never delete previous entries.
-- Increment the usage counter in the headbox header by 1.
-- On every 20th use: ask the user if anything should be updated.
+- **Append** a new entry. **Never delete** previous entries.
+- **Increment the usage counter** in the headbox header by 1.
+- **On every 20th use**: ask the user if anything should be updated.
+- You MAY update `Current version` and `Current focus` in Project State.
+- **Sync all vendor files** — after updating `AGENTS.md`, ensure `CLAUDE.md`, `GEMINI.md`, and `.gemini/agent.md` have the same headbox section.
 
 ---
 

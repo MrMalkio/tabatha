@@ -29,17 +29,17 @@
 
   /* Theme 2: Corporate — High contrast professional */
   [data-theme="corporate"] {
-    --color-bg-base: #FAFBFC;
-    --color-surface: #FFFFFF;
-    --color-surface-hover: #EEF0F2;
-    --color-border: #C9CDD2;
-    --color-text-primary: #1A1D21;
-    --color-text-muted: #6B7280;
-    --color-accent-primary: #1D4ED8;
-    --color-accent-secondary: #1A1D21;
-    --color-accent-tertiary: #059669;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.08);
-    --shadow-md: 0 4px 8px rgba(0,0,0,0.12);
+    --color-bg-base: #FFFFFF;
+    --color-surface: #F3F4F6;
+    --color-surface-hover: #E5E7EB;
+    --color-border: #6B7280;
+    --color-text-primary: #000000;
+    --color-text-muted: #374151;
+    --color-accent-primary: #1E3A8A;
+    --color-accent-secondary: #000000;
+    --color-accent-tertiary: #065F46;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.15);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.25);
     --shadow-pop: none;
     --surface-blur: none;
   }
@@ -127,6 +127,91 @@
     --shadow-md: 0 4px 8px rgba(0,0,0,0.3);
     --shadow-pop: none;
     --surface-blur: blur(12px);
+  }
+
+  /* Theme 8: Neo-Brutalism — Harsh colors, hard shadows, thick borders */
+  [data-theme="neo-brutalism"] {
+    --color-bg-base: #FFDF00;
+    --color-surface: #FFFFFF;
+    --color-surface-hover: #F3F4F6;
+    --color-border: #000000;
+    --color-text-primary: #000000;
+    --color-text-muted: #374151;
+    --color-accent-primary: #FF00FF;
+    --color-accent-secondary: #00FFFF;
+    --color-accent-tertiary: #00FF00;
+    --shadow-sm: 2px 2px 0px #000000;
+    --shadow-md: 4px 4px 0px #000000;
+    --shadow-pop: 6px 6px 0px #000000;
+    --surface-blur: none;
+  }
+
+  /* Theme 9: Glass-Ocean — Deep underwater, heavily frosted glass */
+  [data-theme="glass-ocean"] {
+    --color-bg-base: #020617;
+    --color-surface: rgba(14, 165, 233, 0.1);
+    --color-surface-hover: rgba(14, 165, 233, 0.2);
+    --color-border: rgba(56, 189, 248, 0.3);
+    --color-text-primary: #E0F2FE;
+    --color-text-muted: #7DD3FC;
+    --color-accent-primary: #0EA5E9;
+    --color-accent-secondary: #3B82F6;
+    --color-accent-tertiary: #2DD4BF;
+    --shadow-sm: 0 4px 12px rgba(2, 132, 199, 0.1);
+    --shadow-md: 0 8px 24px rgba(2, 132, 199, 0.2);
+    --shadow-pop: none;
+    --surface-blur: blur(24px);
+  }
+
+  /* Theme 10: Retro-Pixel — 8-bit style, warm CRT glow */
+  [data-theme="retro-pixel"] {
+    --color-bg-base: #2D1B2E;
+    --color-surface: #4B3B4C;
+    --color-surface-hover: #5C4C5D;
+    --color-border: #D9A066;
+    --color-text-primary: #E6D69B;
+    --color-text-muted: #B3A380;
+    --color-accent-primary: #D9A066;
+    --color-accent-secondary: #8C4450;
+    --color-accent-tertiary: #4A6B63;
+    --shadow-sm: 2px 2px 0px rgba(0,0,0,0.5);
+    --shadow-md: 4px 4px 0px rgba(0,0,0,0.5);
+    --shadow-pop: none;
+    --surface-blur: none;
+  }
+
+  /* Theme 11: Solarized-Warm — Sepia reading mode */
+  [data-theme="solarized-warm"] {
+    --color-bg-base: #FDF6E3;
+    --color-surface: #EEE8D5;
+    --color-surface-hover: #E6DFCB;
+    --color-border: #93A1A1;
+    --color-text-primary: #657B83;
+    --color-text-muted: #93A1A1;
+    --color-accent-primary: #B58900;
+    --color-accent-secondary: #CB4B16;
+    --color-accent-tertiary: #859900;
+    --shadow-sm: 0 1px 2px rgba(101,123,131,0.1);
+    --shadow-md: 0 4px 8px rgba(101,123,131,0.15);
+    --shadow-pop: none;
+    --surface-blur: none;
+  }
+
+  /* Theme 12: High-Contrast Dark — Pitch black, stark white, yellow alert */
+  [data-theme="high-contrast-dark"] {
+    --color-bg-base: #000000;
+    --color-surface: #111111;
+    --color-surface-hover: #222222;
+    --color-border: #FFFFFF;
+    --color-text-primary: #FFFFFF;
+    --color-text-muted: #AAAAAA;
+    --color-accent-primary: #FFFF00;
+    --color-accent-secondary: #FF0000;
+    --color-accent-tertiary: #00FFFF;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-pop: none;
+    --surface-blur: none;
   }
 
   body {
