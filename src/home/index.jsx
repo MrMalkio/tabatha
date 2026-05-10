@@ -303,6 +303,8 @@ function TasksPanel({ actions, allItems }) {
   };
 
   const handleDelete = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!window.confirm(`Delete task "${task?.name || 'this task'}"? This cannot be undone.`)) return;
     await sendMessage('DELETE_TASK', { taskId });
   };
 
@@ -792,8 +794,8 @@ function Home() {
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1100px', padding: '16px 32px' }}>
         {/* Header Row — Greeting + Clock + Icons */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ flex: '0 0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ flex: '1 1 180px', minWidth: '180px' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '0.02em' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
             <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '2px 0 0' }}>
               {tabCount} tab{tabCount !== 1 ? 's' : ''} open · {formatTime(totalActiveTime)} active today
@@ -801,7 +803,7 @@ function Home() {
           </div>
 
           {/* Center — FlipClock */}
-          <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', height: `${((clockSettings.showClock ? 100 : 0) + (clockSettings.showCountdown ? 65 : 0) + (clockSettings.showClock && clockSettings.showCountdown ? (clockSettings.elementSpacing || 30) / 2 : 0)) * clockScale}px`, overflow: 'visible' }}>
+          <div style={{ flex: '0 1 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '5px 0', overflow: 'hidden', maxWidth: '100%', height: `${((clockSettings.showClock ? 100 : 0) + (clockSettings.showCountdown ? 65 : 0) + (clockSettings.showClock && clockSettings.showCountdown ? (clockSettings.elementSpacing || 30) / 2 : 0)) * clockScale}px` }}>
             <div style={{ transform: `scale(${clockScale})`, transformOrigin: 'center' }}>
               <FlipClock settings={clockSettings} />
             </div>

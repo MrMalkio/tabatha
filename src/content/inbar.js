@@ -82,7 +82,7 @@
   pushPage(BAR_HEIGHT);
 
   // 5. Styles
-  const intentLabel = tabContext?.context || tabContext?.intent || null;
+  const intentLabel = tabContext?.context || tabContext?.intent || activeFocus?.label || null;
   const focusLabel = activeFocus?.label || null;
   const hasFocus = !!activeFocus;
   const hasContext = !!intentLabel;
