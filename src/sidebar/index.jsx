@@ -47,6 +47,67 @@ function GroupsList({ tabs }) {
 }
 
 // ═══════════════════════════════════════
+// SidebarTasksPanel — compact task CRUD
+// ═══════════════════════════════════════
+function SidebarTasksPanel() {
+  const [tasks] = useChromeStorage('tasks', []);
+  const [newName, setNewName] = useState('');
+
+  const active = useMemo(() => (tasks || []).filter(t => t.status !== 'completed'), [tasks]);
+  const completed = useMemo(() => (tasks || []).filter(t => t.status === 'completed'), [tasks]);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    await sendMessage('CREATE_TASK', { name: newName.trim() });
+    setNewName('');
+  };
+
+  const handleComplete = (taskId) => sendMessage('UPDATE_TASK', { taskId, updates: { status: 'completed', completedAt: new Date().toISOString() } });
+  const handleReopen = (taskId) => sendMessage('UPDATE_TASK', { taskId, updates: { status: 'active', completedAt: null } });
+
+  return (
+    <motion.div key="tasks" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.12}}>
+      {/* Quick create */}
+      <div style={{ display:'flex', gap:'4px', marginBottom:'6px' }}>
+        <input type="text" placeholder="New task..." value={newName} onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleCreate()}
+          style={{ flex:1, background:'var(--color-surface)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', padding:'5px 8px', fontSize:'11px', color:'var(--color-text-primary)', outline:'none', boxSizing:'border-box' }}
+        />
+        <Tooltip text="Create task"><button onClick={handleCreate} style={btn('var(--color-accent-primary)')}>+</button></Tooltip>
+      </div>
+
+      {/* Active tasks */}
+      <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Active ({active.length})</div>
+      {active.length === 0 ? (
+        <div style={{ fontSize:'10px', color:'var(--color-text-muted)', padding:'8px 0' }}>No active tasks.</div>
+      ) : active.map(task => (
+        <div key={task.id} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'4px 6px', marginBottom:'2px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)' }}>
+          <Tooltip text="Mark complete">
+            <button onClick={() => handleComplete(task.id)} style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'3px', width:'14px', height:'14px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'8px', color:'var(--color-text-muted)', padding:0 }}>○</button>
+          </Tooltip>
+          <span style={{ fontSize:'11px', fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{task.name}</span>
+        </div>
+      ))}
+
+      {/* Completed — collapsed */}
+      {completed.length > 0 && (
+        <div style={{ marginTop:'8px' }}>
+          <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Done ({completed.length})</div>
+          {completed.slice(0, 5).map(task => (
+            <div key={task.id} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'3px 6px', marginBottom:'2px', opacity:0.5 }}>
+              <Tooltip text="Reopen">
+                <button onClick={() => handleReopen(task.id)} style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'3px', width:'14px', height:'14px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'8px', color:'#66bb6a', padding:0 }}>✓</button>
+              </Tooltip>
+              <span style={{ fontSize:'10px', textDecoration:'line-through', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{task.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ═══════════════════════════════════════
 // Sidebar
 // ═══════════════════════════════════════
 function Sidebar() {
@@ -105,6 +166,7 @@ function Sidebar() {
 
   const panels = [
     { id:'focus', label:'🎯' },
+    { id:'tasks', label:'📋' },
     { id:'tabs', label:'📑' },
     { id:'groups', label:'📌' },
     { id:'stash', label:'📦' },
@@ -279,6 +341,11 @@ function Sidebar() {
                 </div>
               )}
             </motion.div>
+          )}
+
+          {/* ── TASKS PANEL ── */}
+          {panel === 'tasks' && (
+            <SidebarTasksPanel />
           )}
 
           {/* ── TABS PANEL ── */}
