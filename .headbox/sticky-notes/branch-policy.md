@@ -1,32 +1,32 @@
-# 🌿 Branch Policy — May 10, 2026
+# 🌿 Branch & Worktree Policy — May 10, 2026
 
-**From:** Malkio (via Antigravity)  
+**From:** Malkio (via Antigravity + Codex)  
 **For:** All agents  
 
 ## Rule: Nobody works directly on `master`
 
 All work happens on feature/refactor branches. Promote to master via merge only.
 
+## Worktree Layout
+
+Each agent has its own isolated directory. **No branch switching in shared repos.**
+
+```
+c:\Users\mrmal\Le Dev\Tabatha\                ← Antigravity (feat/follow-through-engine)
+c:\Users\mrmal\Le Dev\Tabatha-service-arch\   ← Codex (codex/service-arch)
+```
+
 ## Active Branches
 
-| Branch | Owner | Purpose | Status |
-|--------|-------|---------|--------|
-| `master` | — | Stable release. Merge-only. | Protected |
-| `refactor/service-arch` | Codex | Monolith decomposition | Active |
-| `feat/follow-through-engine` | Antigravity | Phases 1-6 of the Follow-Through Engine | Active |
+| Branch | Owner | Worktree | Purpose |
+|--------|-------|----------|---------|
+| `master` | — | (Tabatha, when idle) | Stable release. Merge-only. |
+| `feat/follow-through-engine` | Antigravity | `Tabatha\` | Phases 1-6: Follow-Through Engine |
+| `codex/service-arch` | Codex | `Tabatha-service-arch\` | Monolith decomposition |
 
-## Workflow
+## Rules
 
-1. Create a branch from `master` for your work track
-2. Commit to YOUR branch only
-3. Periodically `git rebase master` to stay current
-4. When ready to promote → merge to `master` (with user approval)
-5. After merge, delete the feature branch
-
-## If you find yourself on the wrong branch
-
-```bash
-git stash --include-untracked
-git checkout <your-branch>
-git stash pop
-```
+1. **NEVER `git checkout` to another branch** — you'll stomp the other agent's files
+2. Work ONLY in your assigned worktree directory
+3. When ready to promote → tell user, merge to `master` (with approval)
+4. To sync with master: `git rebase master` from your branch (not checkout)
