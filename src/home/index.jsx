@@ -217,6 +217,146 @@ function FocusInput({ onStart }) {
 }
 
 // ════════════════════════════════════════════
+// TasksPanel — Task management
+// ════════════════════════════════════════════
+
+function TasksPanel({ actions, allItems }) {
+  const [tasks, setTasks] = useChromeStorage('tasks', []);
+  const [newName, setNewName] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [filter, setFilter] = useState('active'); // 'active' | 'completed' | 'all'
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    await sendMessage('CREATE_TASK', { name: newName.trim(), description: newDesc.trim() });
+    setNewName('');
+    setNewDesc('');
+    setShowCreate(false);
+  };
+
+  const handleComplete = async (taskId) => {
+    await sendMessage('UPDATE_TASK', { taskId, updates: { status: 'completed', completedAt: new Date().toISOString() } });
+  };
+
+  const handleReopen = async (taskId) => {
+    await sendMessage('UPDATE_TASK', { taskId, updates: { status: 'active', completedAt: null } });
+  };
+
+  const handleDelete = async (taskId) => {
+    await sendMessage('DELETE_TASK', { taskId });
+  };
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return tasks;
+    return tasks.filter(t => t.status === filter);
+  }, [tasks, filter]);
+
+  // Find linked intents for each task
+  const getLinkedIntents = (taskId) => {
+    return (allItems || []).filter(item => item.tags?.task === taskId);
+  };
+
+  const btnStyle = (active) => ({
+    background: active ? 'var(--color-accent-primary)' : 'transparent',
+    color: active ? '#000' : 'var(--color-text-muted)',
+    border: '1px solid var(--color-border)', borderRadius: '4px',
+    padding: '2px 8px', fontSize: '10px', cursor: 'pointer', fontWeight: 600,
+  });
+
+  return (
+    <motion.div key="tasks" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {['active', 'completed', 'all'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={btnStyle(filter === f)}>
+              {f === 'active' ? '📋' : f === 'completed' ? '✅' : '📁'} {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setShowCreate(!showCreate)} style={{
+          background: 'var(--color-accent-primary)', border: 'none', color: '#000',
+          borderRadius: '4px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600,
+        }}>+ New Task</button>
+      </div>
+
+      {/* Create form */}
+      <AnimatePresence>
+        {showCreate && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden', marginBottom: '10px' }}>
+            <GlassCard style={{ padding: '12px' }}>
+              <input type="text" placeholder="Task name..." value={newName} onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                autoFocus
+                style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '6px 10px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none', marginBottom: '6px', boxSizing: 'border-box' }}
+              />
+              <input type="text" placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)}
+                style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '4px 10px', color: 'var(--color-text-primary)', fontSize: '11px', outline: 'none', marginBottom: '8px', boxSizing: 'border-box' }}
+              />
+              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowCreate(false)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleCreate} disabled={!newName.trim()} style={{ background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '4px', padding: '3px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600, opacity: newName.trim() ? 1 : 0.5 }}>Create</button>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Task list */}
+      {filtered.length === 0 ? (
+        <GlassCard style={{ padding: '24px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📋</div>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', margin: 0 }}>
+            {filter === 'completed' ? 'No completed tasks yet.' : 'No tasks yet. Create one to organize your intents.'}
+          </p>
+        </GlassCard>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {filtered.map(task => {
+            const linked = getLinkedIntents(task.id);
+            const isCompleted = task.status === 'completed';
+            return (
+              <GlassCard key={task.id} style={{ padding: '10px 14px', opacity: isCompleted ? 0.65 : 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                    <button onClick={() => isCompleted ? handleReopen(task.id) : handleComplete(task.id)}
+                      style={{ background: 'transparent', border: `1.5px solid ${isCompleted ? '#66bb6a' : 'var(--color-border)'}`, borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: '#66bb6a', padding: 0, flexShrink: 0 }}>
+                      {isCompleted ? '✓' : ''}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 500, textDecoration: isCompleted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</div>
+                      {task.description && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{task.description}</div>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    {linked.length > 0 && (
+                      <Tooltip text={`${linked.length} linked intent${linked.length !== 1 ? 's' : ''}`}>
+                        <span style={{ fontSize: '9px', background: 'var(--color-accent-primary)22', color: 'var(--color-accent-primary)', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>🔗 {linked.length}</span>
+                      </Tooltip>
+                    )}
+                    <Tooltip text="Delete task">
+                      <button onClick={() => handleDelete(task.id)} style={{ background: 'transparent', border: 'none', color: '#ef535088', fontSize: '11px', cursor: 'pointer', padding: '0 2px' }}>🗑</button>
+                    </Tooltip>
+                  </div>
+                </div>
+                {linked.length > 0 && (
+                  <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {linked.map(intent => (
+                      <span key={intent.id} style={{ fontSize: '9px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', padding: '1px 6px', borderRadius: '3px' }}>🎯 {intent.label}</span>
+                    ))}
+                  </div>
+                )}
+              </GlassCard>
+            );
+          })}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ════════════════════════════════════════════
 // IntentsPanel — All intents (separate from tabs)
 // ════════════════════════════════════════════
 
@@ -504,7 +644,7 @@ function Home() {
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const [intentHistory] = useChromeStorage('intentHistory', []);
   const [clockSession] = useChromeStorage('clockSession', { active: false });
-  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
+  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
@@ -737,6 +877,9 @@ function Home() {
         <AnimatePresence mode="wait">
           {activePanel === 'intents' && (
             <IntentsPanel intentHistory={intentHistory} allItems={allItems} tabs={tabs} timeTracking={timeTracking} actions={actions} onLinkRequest={handleLinkRequest} />
+          )}
+          {activePanel === 'tasks' && (
+            <TasksPanel actions={actions} allItems={allItems} />
           )}
           {activePanel === 'logs' && (
             <LogsPanel 

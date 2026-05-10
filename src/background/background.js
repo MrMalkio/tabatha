@@ -1980,6 +1980,48 @@ async function handleMessage(message, sender) {
         return { success: true };
     }
 
+    // --- Tasks CRUD ---
+    case 'GET_TASKS': {
+      const { tasks } = await getStorage('tasks') || {};
+      return { tasks: tasks || [] };
+    }
+    case 'CREATE_TASK': {
+      const { tasks: existing } = await getStorage('tasks') || {};
+      const taskList = existing || [];
+      const newTask = {
+        id: `task_${Date.now()}`,
+        name: message.name,
+        description: message.description || '',
+        status: 'active', // active | completed | archived
+        linkedIntents: [],
+        createdAt: new Date().toISOString(),
+        completedAt: null,
+      };
+      taskList.push(newTask);
+      await setStorage({ tasks: taskList });
+      broadcastMessage({ type: 'TASKS_UPDATED', tasks: taskList });
+      return { success: true, task: newTask };
+    }
+    case 'UPDATE_TASK': {
+      const { tasks: all } = await getStorage('tasks') || {};
+      const taskArr = all || [];
+      const idx = taskArr.findIndex(t => t.id === message.taskId);
+      if (idx >= 0) {
+        taskArr[idx] = { ...taskArr[idx], ...message.updates };
+        await setStorage({ tasks: taskArr });
+        broadcastMessage({ type: 'TASKS_UPDATED', tasks: taskArr });
+        return { success: true };
+      }
+      return { error: 'Task not found' };
+    }
+    case 'DELETE_TASK': {
+      const { tasks: tAll } = await getStorage('tasks') || {};
+      const filtered = (tAll || []).filter(t => t.id !== message.taskId);
+      await setStorage({ tasks: filtered });
+      broadcastMessage({ type: 'TASKS_UPDATED', tasks: filtered });
+      return { success: true };
+    }
+
     // --- Focus Engine ---
     case 'GET_FOCUS_ENGINE':
       return { focusEngine: await getFocusEngine() };
