@@ -106,6 +106,12 @@ export function useFocusEngine() {
     
     updateTags: (focusId, tags) =>
       sendMessage('UPDATE_FOCUS_TAGS', { focusId, tags }),
+
+    updateFocus: (focusId, updates) =>
+      sendMessage('UPDATE_FOCUS', { focusId, ...updates }),
+
+    renameFocus: (focusId, newLabel) =>
+      sendMessage('RENAME_FOCUS', { focusId, newLabel }),
   }), []);
 
   return { activeFocus, allItems, history, actions, engine };

@@ -713,6 +713,75 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 // ============================================================
+// CHROME TAB GROUPS — BIDIRECTIONAL SYNC
+// ============================================================
+
+// When Chrome creates or updates a tab group, sync to Tabatha's tab data
+chrome.tabGroups.onUpdated.addListener(async (group) => {
+  try {
+    // Get all tabs in this group
+    const tabsInGroup = await chrome.tabs.query({ groupId: group.id });
+    const tabs = await getTabData();
+    let changed = false;
+    for (const tab of tabsInGroup) {
+      if (tabs[tab.id]) {
+        tabs[tab.id].groupId = group.id;
+        tabs[tab.id].groupTitle = group.title || null;
+        tabs[tab.id].groupColor = group.color || null;
+        changed = true;
+      }
+    }
+    if (changed) {
+      await setTabData(tabs);
+      broadcastMessage({ type: 'GROUPS_UPDATED' });
+    }
+  } catch (e) { /* group may be stale */ }
+});
+
+// When a tab group is removed, clear groupId from affected tabs
+chrome.tabGroups.onRemoved.addListener(async (group) => {
+  try {
+    const tabs = await getTabData();
+    let changed = false;
+    for (const [tabId, data] of Object.entries(tabs)) {
+      if (data.groupId === group.id) {
+        data.groupId = null;
+        data.groupTitle = null;
+        data.groupColor = null;
+        changed = true;
+      }
+    }
+    if (changed) {
+      await setTabData(tabs);
+      broadcastMessage({ type: 'GROUPS_UPDATED' });
+    }
+  } catch (e) { /* ignore */ }
+});
+
+// When a tab moves into/out of a group, update its data
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.groupId !== undefined) {
+    const tabs = await getTabData();
+    if (tabs[tabId]) {
+      const noGroup = changeInfo.groupId === chrome.tabGroups?.TAB_GROUP_ID_NONE || changeInfo.groupId === -1;
+      tabs[tabId].groupId = noGroup ? null : changeInfo.groupId;
+      if (noGroup) {
+        tabs[tabId].groupTitle = null;
+        tabs[tabId].groupColor = null;
+      } else {
+        try {
+          const group = await chrome.tabGroups.get(changeInfo.groupId);
+          tabs[tabId].groupTitle = group.title || null;
+          tabs[tabId].groupColor = group.color || null;
+        } catch (e) { /* group may not exist yet */ }
+      }
+      await setTabData(tabs);
+      broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+    }
+  }
+});
+
+// ============================================================
 // IDLE / OFF-CHROME CONTEXT
 // ============================================================
 
@@ -1401,9 +1470,27 @@ async function handleMessage(message, sender) {
       return await bulkCloseTabs(message.tabIds, message.context, message.intent);
     
     // --- Groups ---
-    case 'GET_SAVED_GROUPS':
-      // Stub for Phase 1.5
-      return { savedGroups: {} }; 
+    case 'GET_SAVED_GROUPS': {
+      try {
+        const allGroups = await chrome.tabGroups.query({});
+        const tabs = await getTabData();
+        const savedGroups = {};
+        for (const group of allGroups) {
+          const groupTabs = await chrome.tabs.query({ groupId: group.id });
+          savedGroups[group.id] = {
+            id: group.id,
+            title: group.title || 'Untitled Group',
+            color: group.color,
+            collapsed: group.collapsed,
+            tabIds: groupTabs.map(t => t.id),
+            tabCount: groupTabs.length,
+          };
+        }
+        return { savedGroups };
+      } catch (e) {
+        return { savedGroups: {} };
+      }
+    }
 
     case 'CREATE_GROUP': {
       const groupId = await createOrUpdateGroup(message.tabIds, message.name, message.priority);
@@ -1838,6 +1925,19 @@ async function handleMessage(message, sender) {
         return { focusEngine: engine };
     }
 
+    case 'UPDATE_FOCUS': {
+        const engine = await getFocusEngine();
+        const item = engine.items[message.focusId];
+        if (!item) return { error: 'Focus not found', focusEngine: engine };
+        if (message.label !== undefined) item.label = message.label;
+        if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
+        if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
+        if (message.funnelStage !== undefined) item.funnelStage = message.funnelStage;
+        await setFocusEngine(engine);
+        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        return { focusEngine: engine };
+    }
+
     // --- Site Blocking ---
     case 'CHECK_BLOCKED_SITE': {
         const { blockedSites, tempUnblocked } = await getStorage(['blockedSites', 'tempUnblocked']);
@@ -1943,6 +2043,28 @@ async function handleMessage(message, sender) {
         return { note: inbarNotes[tabId]?.text || inbarNotes['global']?.text || '' };
     }
     
+    // --- Open InPop on current tab (from InBar "Set intent" button) ---
+    case 'OPEN_POPUP': {
+        const tabId = sender?.tab?.id || message.tabId;
+        if (!tabId) return { error: 'No tab ID' };
+        // Clear any existing context so gatekeeper will fire
+        const tabs = await getTabData();
+        if (tabs[tabId]) {
+          tabs[tabId].contextSource = null;
+          await setTabData(tabs);
+        }
+        // Inject gatekeeper content script
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['assets/gatekeeper.js']
+          });
+          return { success: true };
+        } catch (e) {
+          return { error: 'Could not inject gatekeeper: ' + e.message };
+        }
+    }
+
     // --- Clock In/Out ---
     case 'CLOCK_IN':
         return await clockService.clockIn();
