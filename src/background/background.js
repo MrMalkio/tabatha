@@ -5,6 +5,7 @@
 import { supabase } from '../services/supabaseClient';
 import * as timeTracker from '../services/timeTracking.js';
 import { createClockService } from './clock.js';
+import { companionBridge } from './companion-bridge.js';
 
 // ============================================================
 // CONSTANTS & DEFAULTS
@@ -817,6 +818,24 @@ chrome.idle.setDetectionInterval(60);
 
 chrome.idle.onStateChanged.addListener(async (newState) => {
   if (newState === 'idle' || newState === 'locked') {
+    // Check if companion reports the user is active in another app
+    const activeApp = companionBridge.activeApp;
+    if (companionBridge.isConnected && activeApp) {
+      const offChromeSince = new Date(activeApp.timestamp);
+      const offChromeMs = Date.now() - offChromeSince.getTime();
+      // If user switched to another app recently (<2min ago), don't treat as idle
+      if (offChromeMs < 120000) {
+        console.log('[idle] Suppressed — user active in:', activeApp.displayName);
+        broadcastMessage({
+          type: 'OFF_CHROME_ACTIVE',
+          app: activeApp.displayName,
+          category: activeApp.category,
+          since: activeApp.timestamp,
+        });
+        return; // Don't trigger idle
+      }
+    }
+
     // User went idle
     await timeTracker.stopAllTracking();
     userIdleSince = new Date().toISOString();
@@ -2026,8 +2045,15 @@ async function handleMessage(message, sender) {
     case 'GET_FOCUS_ENGINE':
       return { focusEngine: await getFocusEngine() };
     
-    case 'START_FOCUS':
-      return { focusEngine: await startFocus(message.label, message.timerMinutes, message.tags) };
+    case 'START_FOCUS': {
+      const result = await startFocus(message.label, message.timerMinutes, message.tags);
+      // Notify desktop companion of new focus
+      if (companionBridge.isConnected && result.activeId) {
+        const active = result.items[result.activeId];
+        companionBridge.sendFocusUpdate(result.activeId, active?.label);
+      }
+      return { focusEngine: result };
+    }
     
     case 'ADD_FOCUS':
       return { focusEngine: await addFocus(message.label, message.timerMinutes, message.tags) };
@@ -2215,6 +2241,43 @@ async function handleMessage(message, sender) {
 
     case 'GET_CLOCK_HISTORY':
         return await clockService.getClockHistory();
+
+    // --- Desktop Companion ---
+    case 'GET_COMPANION_STATUS':
+        return {
+          connected: companionBridge.isConnected,
+          status: companionBridge.status,
+          activeApp: companionBridge.activeApp,
+          clock: companionBridge.clockState,
+        };
+
+    case 'GET_COMPANION_SUMMARY':
+        if (companionBridge.isConnected) {
+          companionBridge.requestSummary(message.date);
+          return { requested: true };
+        }
+        return { connected: false };
+
+    case 'COMPANION_CLOCK_IN':
+        if (companionBridge.isConnected) {
+          companionBridge.sendClockIn(message.label);
+          return { sent: true };
+        }
+        return { connected: false };
+
+    case 'COMPANION_CLOCK_OUT':
+        if (companionBridge.isConnected) {
+          companionBridge.sendClockOut();
+          return { sent: true };
+        }
+        return { connected: false };
+
+    case 'COMPANION_TOGGLE_BREAK':
+        if (companionBridge.isConnected) {
+          companionBridge.sendToggleBreak();
+          return { sent: true };
+        }
+        return { connected: false };
 
     default:
       return { error: 'Unknown message type' };
