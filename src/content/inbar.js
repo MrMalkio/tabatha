@@ -2,6 +2,7 @@
 // Non-intrusive bottom/top bar showing current intent, task, and timers
 // Collapses to a persistent nub toggle when dismissed
 // Supports inline note-taking for current focus/task/intent
+// Supports pause + sticky note overlay for "where I left off" context
 
 (async () => {
   // 1. Get current tab's context and active focus
@@ -38,6 +39,24 @@
   // State
   let isCollapsed = false;
   let isNotesOpen = false;
+  let isPaused = false;
+  let isPausePromptOpen = false;
+  let pauseNote = '';
+  let pausedAt = null;
+
+  // Restore pause state from storage
+  try {
+    const tabId = (await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }))?.tabId;
+    if (tabId) {
+      const stored = await chrome.storage.local.get('pausedIntents');
+      const pauseData = stored.pausedIntents?.[tabId];
+      if (pauseData) {
+        isPaused = true;
+        pauseNote = pauseData.note || '';
+        pausedAt = pauseData.pausedAt;
+      }
+    }
+  } catch (e) { /* no stored pause state */ }
 
   // 3. Create host container
   const host = document.createElement('div');
@@ -202,44 +221,112 @@
       transition: opacity 0.3s;
     }
     .notes-saved.show { opacity: 1; }
+
+    /* === PAUSE FEATURE === */
+    .bar-btn.pause-btn { color: #888; }
+    .bar-btn.pause-btn:hover { color: #ffc107; background: rgba(255,193,7,0.1); }
+    .bar-btn.pause-btn.is-paused { color: #66bb6a; }
+    .bar-btn.pause-btn.is-paused:hover { color: #81c784; background: rgba(102,187,106,0.1); }
+    .bar.paused { background: linear-gradient(90deg, #1a1400 0%, #0d0d0d 40%); border-color: rgba(255,193,7,0.15); }
+    .pause-label { font-size: 10px; color: #ffc107; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .pause-label .note-preview { color: #bbb; font-weight: 400; font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .resume-btn-inline { background: #66bb6a22; color: #66bb6a; border: 1px solid #66bb6a44; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .resume-btn-inline:hover { background: #66bb6a33; border-color: #66bb6a66; }
+
+    /* Pause mini-prompt */
+    .pause-prompt { position: absolute; ${position === 'bottom' ? 'bottom' : 'top'}: ${BAR_HEIGHT}px; right: 40px; width: 300px; background: #1a1a0a; border: 1px solid rgba(255,193,7,0.2); border-radius: 8px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); padding: 10px 12px; pointer-events: auto; transform: scaleY(0); transform-origin: ${position === 'bottom' ? 'bottom' : 'top'}; transition: transform 0.2s ease; }
+    .pause-prompt.open { transform: scaleY(1); }
+    .pause-prompt-title { font-size: 10px; font-weight: 700; color: #ffc107; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .pause-prompt-input { width: 100%; background: #0d0d00; border: 1px solid rgba(255,193,7,0.15); border-radius: 4px; color: #ddd; font-family: inherit; font-size: 11px; padding: 6px 8px; resize: none; outline: none; height: 48px; line-height: 1.4; }
+    .pause-prompt-input:focus { border-color: #ffc10744; }
+    .pause-prompt-input::placeholder { color: #555; }
+    .pause-prompt-actions { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+    .pause-prompt-btn { padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+    .pause-confirm { background: #ffc107; color: #000; }
+    .pause-confirm:hover { background: #ffd54f; }
+    .pause-cancel { background: #333; color: #aaa; }
+    .pause-cancel:hover { background: #444; }
+
+    /* Sticky note overlay */
+    .sticky-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2147483645; display: flex; align-items: center; justify-content: center; }
+    .sticky-overlay.hidden { display: none; }
+    .sticky-note { pointer-events: auto; width: min(440px, 85vw); padding: 28px 32px 20px; background: linear-gradient(135deg, #fff9c4 0%, #fff59d 30%, #ffee58 100%); border-radius: 3px; box-shadow: 2px 4px 24px rgba(0,0,0,0.25), 0 1px 4px rgba(0,0,0,0.15), inset 0 -2px 6px rgba(0,0,0,0.04); color: #3e2723; font-family: 'Segoe Script', 'Comic Sans MS', 'Patrick Hand', cursive; position: relative; cursor: default; transition: transform 0.3s ease; }
+    .sticky-note::before { content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 60px; height: 16px; background: rgba(200,200,200,0.6); border-radius: 0 0 3px 3px; }
+    .sticky-tape { position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-1deg); width: 70px; height: 20px; background: rgba(255,255,255,0.5); border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .sticky-header { font-size: 11px; color: #795548; font-family: 'Segoe UI', system-ui, sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .sticky-time { font-size: 10px; color: #8d6e63; font-family: 'Segoe UI', system-ui, sans-serif; font-weight: 400; }
+    .sticky-intent { font-size: 12px; color: #5d4037; font-family: 'Segoe UI', system-ui, sans-serif; margin-bottom: 10px; opacity: 0.8; }
+    .sticky-body { font-size: 18px; line-height: 1.5; color: #3e2723; min-height: 40px; word-wrap: break-word; margin: 8px 0 16px; }
+    .sticky-body:empty::after { content: '(no note)'; color: #a1887f; font-style: italic; }
+    .sticky-actions { display: flex; gap: 8px; justify-content: center; }
+    .sticky-resume { background: #43a047; color: #fff; border: none; padding: 8px 24px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Segoe UI', system-ui, sans-serif; transition: all 0.15s; box-shadow: 0 2px 8px rgba(67,160,71,0.3); }
+    .sticky-resume:hover { background: #388e3c; transform: translateY(-1px); box-shadow: 0 3px 12px rgba(67,160,71,0.4); }
+    .sticky-edit { background: transparent; color: #795548; border: 1px solid #bcaaa4; padding: 6px 14px; border-radius: 6px; font-size: 11px; cursor: pointer; font-family: 'Segoe UI', system-ui, sans-serif; transition: all 0.15s; }
+    .sticky-edit:hover { background: rgba(121,85,72,0.08); border-color: #8d6e63; }
+    .nub.is-paused { color: #ffc107; border-color: #ffc10744; }
+    .nub.is-paused:hover { box-shadow: 0 0 8px rgba(255,193,7,0.3); }
+
+    @keyframes stickyDrop { from { opacity: 0; transform: rotate(var(--tilt)) translateY(-30px) scale(0.9); } to { opacity: 1; transform: rotate(var(--tilt)) translateY(0) scale(1); } }
   `;
   shadow.appendChild(style);
 
   // 6. Build bar content
   const bar = document.createElement('div');
-  bar.className = 'bar';
+  bar.className = isPaused ? 'bar paused' : 'bar';
 
   let intentStartTime = tabContext?.startedAt ? new Date(tabContext.startedAt).getTime() : Date.now();
   let focusEndTime = activeFocus?.timerEndAt ? new Date(activeFocus.timerEndAt).getTime() : null;
   let taskTotalMs = activeFocus?.totalTimeMs || 0;
 
-  bar.innerHTML = `
-    <div class="left">
-      ${hasContext || hasFocus ? `
-        <span class="timer timer-up" id="intent-timer" title="Time on current intent">00:00</span>
-        <span class="divider"></span>
-        <span class="timer timer-task" id="task-timer" title="Total time on related task">00:00</span>
-      ` : `
-        <span style="font-size:10px;color:#555;">—</span>
-      `}
-    </div>
-    <div class="center">
-      ${hasFocus ? `<span class="badge badge-focus">🎯 focus</span>` : ''}
-      ${intentLabel
-        ? `<span class="intent-label" title="${intentLabel}">${intentLabel}</span>`
-        : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent via Tabatha popup">No intent set — click to set</span>`
-      }
-      ${focusLabel && focusLabel !== intentLabel
-        ? `<span class="divider"></span><span class="task-label" title="${focusLabel}">📋 ${focusLabel}</span>`
-        : ''
-      }
-    </div>
-    <div class="right">
-      ${focusEndTime ? `<span class="timer timer-down" id="focus-countdown" title="Focus countdown">--:--</span>` : ''}
-      <button class="bar-btn note-btn" id="note-btn" title="Add note">📝</button>
-      <button class="bar-btn" id="hide-bar" title="Collapse to nub">▾</button>
-    </div>
-  `;
+  const buildBarHTML = () => {
+    if (isPaused) {
+      const preview = pauseNote ? `"${pauseNote.slice(0, 40)}${pauseNote.length > 40 ? '…' : ''}"` : '';
+      return `
+        <div class="left">
+          <span style="font-size:10px;color:#ffc107;">⏸</span>
+        </div>
+        <div class="center">
+          <span class="pause-label">⏸ PAUSED ${preview ? `<span class="note-preview">— ${preview}</span>` : ''}</span>
+          <button class="resume-btn-inline" id="resume-inline">▶ Resume</button>
+        </div>
+        <div class="right">
+          <button class="bar-btn pause-btn is-paused" id="pause-btn" title="Resume intent">▶</button>
+          <button class="bar-btn note-btn" id="note-btn" title="Add note">📝</button>
+          <button class="bar-btn" id="hide-bar" title="Collapse to nub">▾</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="left">
+        ${hasContext || hasFocus ? `
+          <span class="timer timer-up" id="intent-timer" title="Time on current intent">00:00</span>
+          <span class="divider"></span>
+          <span class="timer timer-task" id="task-timer" title="Total time on related task">00:00</span>
+        ` : `
+          <span style="font-size:10px;color:#555;">—</span>
+        `}
+      </div>
+      <div class="center">
+        ${hasFocus ? `<span class="badge badge-focus">🎯 focus</span>` : ''}
+        ${intentLabel
+          ? `<span class="intent-label" title="${intentLabel}">${intentLabel}</span>`
+          : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent via Tabatha popup">No intent set — click to set</span>`
+        }
+        ${focusLabel && focusLabel !== intentLabel
+          ? `<span class="divider"></span><span class="task-label" title="${focusLabel}">📋 ${focusLabel}</span>`
+          : ''
+        }
+      </div>
+      <div class="right">
+        ${focusEndTime ? `<span class="timer timer-down" id="focus-countdown" title="Focus countdown">--:--</span>` : ''}
+        <button class="bar-btn pause-btn" id="pause-btn" title="Pause — leave a note about where you left off">⏸</button>
+        <button class="bar-btn note-btn" id="note-btn" title="Add note">📝</button>
+        <button class="bar-btn" id="hide-bar" title="Collapse to nub">▾</button>
+      </div>
+    `;
+  };
+
+  bar.innerHTML = buildBarHTML();
   shadow.appendChild(bar);
 
   // 7. Notes panel
@@ -259,15 +346,55 @@
 
   // 8. Nub (collapsed toggle)
   const nub = document.createElement('div');
-  nub.className = `nub${currentNote ? ' has-note' : ''}`;
-  nub.innerHTML = '◉';
-  nub.title = 'Show Tabatha InBar';
+  nub.className = `nub${currentNote ? ' has-note' : ''}${isPaused ? ' is-paused' : ''}`;
+  nub.innerHTML = isPaused ? '⏸' : '◉';
+  nub.title = isPaused ? 'Paused — click to expand InBar' : 'Show Tabatha InBar';
   shadow.appendChild(nub);
 
+  // 8b. Pause mini-prompt
+  const pausePrompt = document.createElement('div');
+  pausePrompt.className = 'pause-prompt';
+  pausePrompt.innerHTML = `
+    <div class="pause-prompt-title">⏸ Where did you leave off?</div>
+    <textarea class="pause-prompt-input" id="pause-input" placeholder="e.g. Was debugging line 234, check the race condition…"></textarea>
+    <div class="pause-prompt-actions">
+      <button class="pause-prompt-btn pause-cancel" id="pause-cancel">Cancel</button>
+      <button class="pause-prompt-btn pause-confirm" id="pause-confirm">Pause</button>
+    </div>
+  `;
+  shadow.appendChild(pausePrompt);
+
+  // 8c. Sticky note overlay
+  const stickyTilt = (Math.random() * 6 - 3).toFixed(1); // -3° to +3°
+  const stickyOverlay = document.createElement('div');
+  stickyOverlay.className = `sticky-overlay${isPaused ? '' : ' hidden'}`;
+  const fmtPauseTime = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  const buildStickyHTML = () => `
+    <div class="sticky-note" style="--tilt: ${stickyTilt}deg; transform: rotate(${stickyTilt}deg); animation: stickyDrop 0.4s ease-out;">
+      <div class="sticky-tape"></div>
+      <div class="sticky-header">
+        <span>📌 Paused</span>
+        <span class="sticky-time">${pausedAt ? fmtPauseTime(pausedAt) : ''}</span>
+      </div>
+      <div class="sticky-intent">${intentLabel || focusLabel || 'Current work'}</div>
+      <div class="sticky-body" id="sticky-body-text">${pauseNote || ''}</div>
+      <div class="sticky-actions">
+        <button class="sticky-edit" id="sticky-edit">✏️ Edit Note</button>
+        <button class="sticky-resume" id="sticky-resume">▶ Resume</button>
+      </div>
+    </div>
+  `;
+  stickyOverlay.innerHTML = buildStickyHTML();
+  shadow.appendChild(stickyOverlay);
+
   // 9. Timer logic
-  const intentTimerEl = shadow.getElementById('intent-timer');
-  const taskTimerEl = shadow.getElementById('task-timer');
-  const countdownEl = shadow.getElementById('focus-countdown');
+  let intentTimerEl = shadow.getElementById('intent-timer');
+  let taskTimerEl = shadow.getElementById('task-timer');
+  let countdownEl = shadow.getElementById('focus-countdown');
 
   const fmt = (ms) => {
     const s = Math.floor(Math.abs(ms) / 1000);
@@ -280,7 +407,7 @@
   };
 
   const tick = () => {
-    if (isCollapsed) return;
+    if (isCollapsed || isPaused) return;
     const now = Date.now();
     if (intentTimerEl) intentTimerEl.textContent = fmt(now - intentStartTime);
     if (taskTimerEl) taskTimerEl.textContent = fmt(taskTotalMs + (now - intentStartTime));
@@ -294,12 +421,138 @@
   tick();
   const interval = setInterval(tick, 1000);
 
+  // === PAUSE / RESUME HELPERS ===
+
+  const savePauseState = async (note) => {
+    try {
+      const tabId = (await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }))?.tabId;
+      if (!tabId) return;
+      const stored = await chrome.storage.local.get('pausedIntents');
+      const pausedIntents = stored.pausedIntents || {};
+      pausedIntents[tabId] = {
+        note,
+        pausedAt: new Date().toISOString(),
+        intentLabel: intentLabel || '',
+        focusLabel: focusLabel || '',
+      };
+      await chrome.storage.local.set({ pausedIntents });
+    } catch (e) { /* storage write failed */ }
+  };
+
+  const clearPauseState = async () => {
+    try {
+      const tabId = (await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }))?.tabId;
+      if (!tabId) return;
+      const stored = await chrome.storage.local.get('pausedIntents');
+      const pausedIntents = stored.pausedIntents || {};
+      delete pausedIntents[tabId];
+      await chrome.storage.local.set({ pausedIntents });
+    } catch (e) { /* storage write failed */ }
+  };
+
+  // Re-render bar and rebind events after pause/resume
+  const refreshBar = () => {
+    bar.innerHTML = buildBarHTML();
+    bar.className = isPaused ? 'bar paused' : 'bar';
+    nub.className = `nub${currentNote ? ' has-note' : ''}${isPaused ? ' is-paused' : ''}`;
+    nub.innerHTML = isPaused ? '⏸' : '◉';
+    nub.title = isPaused ? 'Paused — click to expand InBar' : 'Show Tabatha InBar';
+    stickyOverlay.classList.toggle('hidden', !isPaused);
+    if (isPaused) {
+      stickyOverlay.innerHTML = buildStickyHTML();
+    }
+    // Re-query timer elements (they only exist when not paused)
+    intentTimerEl = shadow.getElementById('intent-timer');
+    taskTimerEl = shadow.getElementById('task-timer');
+    countdownEl = shadow.getElementById('focus-countdown');
+    bindBarEvents();
+  };
+
+  const doPause = (note) => {
+    isPaused = true;
+    isPausePromptOpen = false;
+    pauseNote = note;
+    pausedAt = new Date().toISOString();
+    pausePrompt.classList.remove('open');
+    savePauseState(note);
+    refreshBar();
+  };
+
+  const doResume = () => {
+    isPaused = false;
+    pauseNote = '';
+    pausedAt = null;
+    clearPauseState();
+    refreshBar();
+  };
+
+  // === EVENT BINDING (called on init and after refreshBar) ===
+
+  const bindBarEvents = () => {
+    // Collapse / Expand
+    const hideBtn = shadow.getElementById('hide-bar');
+    if (hideBtn) hideBtn.onclick = collapse;
+
+    // Notes toggle
+    const noteBtn = shadow.getElementById('note-btn');
+    if (noteBtn) noteBtn.onclick = toggleNotes;
+
+    // Set intent
+    const setIntentBtn = shadow.getElementById('set-intent-btn');
+    if (setIntentBtn) {
+      setIntentBtn.onclick = () => {
+        chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }).catch(() => {});
+      };
+    }
+
+    // Pause button
+    const pauseBtn = shadow.getElementById('pause-btn');
+    if (pauseBtn) {
+      pauseBtn.onclick = () => {
+        if (isPaused) {
+          doResume();
+        } else {
+          // Open pause prompt
+          isPausePromptOpen = !isPausePromptOpen;
+          pausePrompt.classList.toggle('open', isPausePromptOpen);
+          if (isPausePromptOpen) {
+            const input = shadow.getElementById('pause-input');
+            if (input) input.focus();
+          }
+        }
+      };
+    }
+
+    // Inline resume button (in paused bar)
+    const resumeInline = shadow.getElementById('resume-inline');
+    if (resumeInline) resumeInline.onclick = doResume;
+
+    // Sticky note resume
+    const stickyResume = shadow.getElementById('sticky-resume');
+    if (stickyResume) stickyResume.onclick = doResume;
+
+    // Sticky note edit
+    const stickyEdit = shadow.getElementById('sticky-edit');
+    if (stickyEdit) {
+      stickyEdit.onclick = () => {
+        // Expand bar if collapsed, open pause prompt with current note for editing
+        if (isCollapsed) expand();
+        isPausePromptOpen = true;
+        pausePrompt.classList.add('open');
+        const input = shadow.getElementById('pause-input');
+        if (input) { input.value = pauseNote; input.focus(); }
+      };
+    }
+  };
+
   // 10. Collapse / Expand
   const collapse = () => {
     isCollapsed = true;
     isNotesOpen = false;
+    isPausePromptOpen = false;
     bar.classList.add('hidden');
     notesPanel.classList.remove('open');
+    pausePrompt.classList.remove('open');
     pushPage(0);
     host.style.height = '0';
     setTimeout(() => nub.classList.add('visible'), 150);
@@ -315,7 +568,6 @@
     }, 100);
   };
 
-  shadow.getElementById('hide-bar').onclick = collapse;
   nub.onclick = expand;
 
   // 11. Notes toggle
@@ -331,9 +583,7 @@
     if (isNotesOpen) noteTextarea.focus();
   };
 
-  shadow.getElementById('note-btn').onclick = toggleNotes;
   shadow.getElementById('close-notes').onclick = toggleNotes;
-
   // Auto-save notes with debounce
   noteTextarea.addEventListener('input', () => {
     clearTimeout(saveTimeout);
@@ -342,19 +592,32 @@
       chrome.runtime.sendMessage({ type: 'SAVE_INBAR_NOTE', note: text }).then(() => {
         noteSaved.classList.add('show');
         nub.classList.toggle('has-note', !!text);
-        shadow.getElementById('note-btn').style.color = text ? '#ffc107' : '#555';
+        const nb = shadow.getElementById('note-btn');
+        if (nb) nb.style.color = text ? '#ffc107' : '#555';
         setTimeout(() => noteSaved.classList.remove('show'), 1500);
       }).catch(() => {});
     }, 600);
   });
 
-  // 12. "Set intent" click — open Tabatha popup
-  const setIntentBtn = shadow.getElementById('set-intent-btn');
-  if (setIntentBtn) {
-    setIntentBtn.onclick = () => {
-      chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }).catch(() => {});
-    };
-  }
+  // 11b. Pause prompt confirm/cancel
+  shadow.getElementById('pause-confirm').onclick = () => {
+    const input = shadow.getElementById('pause-input');
+    doPause(input?.value?.trim() || '');
+  };
+  shadow.getElementById('pause-cancel').onclick = () => {
+    isPausePromptOpen = false;
+    pausePrompt.classList.remove('open');
+  };
+  // Enter key in pause prompt
+  shadow.getElementById('pause-input').onkeydown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      shadow.getElementById('pause-confirm').click();
+    }
+  };
+
+  // Initial event binding
+  bindBarEvents();
 
   // 13. Listen for updates
   chrome.runtime.onMessage.addListener((msg) => {
