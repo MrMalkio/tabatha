@@ -6,7 +6,7 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 3 | Status: active          -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 4 | Status: active          -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
@@ -141,6 +141,7 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 | 2026-05-09 | Antigravity | Diagnostic Fix Sweep | Fixed 14/16 diagnostic issues + root cause (missing type:module in manifest). Added logger service, debug mode setting, Developer panel in settings. All sendMessage errors now logged. | Architecture refactor (background.js monolith), version automation |
 | 2026-05-09 | Antigravity | Clock Extraction + InPop + Work Shifts | Fixed InPop (contextSource tracking, inherited vs user contexts). Extracted clock.js + storage.js from monolith. Built Work Shifts page (3 views, stubbed analytics). Added last session + work logs to home. Fixed InBar "set intent" button (OPEN_POPUP handler). Added UPDATE_FOCUS editing. Implemented Chrome tab groups bidirectional sync. Built URL Rules settings section (3 tabs: rules, domain groups, intent changelog). URL rules auto-apply on tab creation. Sidebar parity (groups panel, work shifts link). | BlockGate enhancements, InBar customization, debug bar expansion |
 | 2026-05-10 | Antigravity | Intent Bugs + Tasks + Idle | Fixed tab-to-intent association (label matching). Rewrote LinkMergeModal. Added funnel stage editor. Built TasksPanel with full CRUD. Compact LogsPanel filter bar. Idle auto-break (5min→break, auto-resume). Welcome Back flash overlay. Work schedule view. Break notes. Bumped to v0.2.8. | Sidebar tasks parity, InBar customization settings, BlockGate reason/guard |
+| 2026-05-10 | Codex | Background Service Decomposition | Used isolated worktree for `refactor/service-arch`; extracted mapped handlers/listeners into background services, added `fluxApi` facade, updated migration checklist, and verified final build. | Chrome extension manual reload/service worker verification |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

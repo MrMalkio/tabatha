@@ -1,11 +1,11 @@
-# Tabatha — Progress & Worklog
+﻿# Tabatha â€” Progress & Worklog
 
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
 
 ---
 
-## Session 006/007 — 2026-04-24 (React Migration & Full Build)
+## Session 006/007 â€” 2026-04-24 (React Migration & Full Build)
 
 **Agent:** Antigravity (Claude Opus 4.6 Thinking)
 **Duration:** ~45 min
@@ -16,7 +16,7 @@
 - [x] **Repository Reorganization**: Moved entire vanilla JS codebase to `v0_legacy/` folder
 - [x] **Vite + React Setup**: Initialized fresh Vite + React project in root
 - [x] **Dependencies Installed**: React 19, TailwindCSS v4, Framer Motion
-- [x] **Design System**: Created `docs/design.md` — formal protocol with Pop Art + Corporate themes
+- [x] **Design System**: Created `docs/design.md` â€” formal protocol with Pop Art + Corporate themes
 - [x] **Theme Architecture**: Built CSS variable system with `[data-theme]` switching
 - [x] **Multi-page Config**: `vite.config.js` configured for Home, Sidebar, Popup, Background, and Gatekeeper entry points
 - [x] **Manifest v3**: Updated `public/manifest.json` to v1.0.0 targeting Vite output paths
@@ -26,7 +26,7 @@
 - [x] **Home Dashboard**: Complete rebuild with FlipClock at top, intent/focus bar with shake animation, 3 nav panels (Time, Tabs, Contexts), category breakdown, active sessions list
 - [x] **Sidebar**: Full tab list with priority dots, search, context groups, Framer Motion transitions
 - [x] **Popup**: Quick-switch panel with fuzzy search, MRU sorting, staggered entry animations
-- [x] **Build Verified**: `npm run build` succeeds cleanly — all assets compile to `dist/`
+- [x] **Build Verified**: `npm run build` succeeds cleanly â€” all assets compile to `dist/`
 - [x] **Dev Server**: `npm run dev` runs on localhost:5173
 - [x] **Roadmap Updated**: Added Phase 5 (Flux Ecosystem) to ROADMAP.md
 
@@ -49,36 +49,36 @@
 ### Architecture
 ```
 Tabatha/
-├── dist/                    # Built extension (load unpacked here)
-├── public/manifest.json     # Chrome Extension manifest
-├── src/
-│   ├── hooks/               # React hooks (storage, theme)
-│   ├── components/
-│   │   ├── ui/              # GlassCard, PopButton
-│   │   └── clock/           # FlipClock + CSS
-│   ├── home/                # New Tab override
-│   ├── sidebar/             # Side panel
-│   ├── popup/               # Toolbar popup
-│   ├── background/          # Service worker
-│   ├── content/             # Content scripts
-│   └── styles/              # Global CSS + themes
-├── v0_legacy/               # Frozen v0.1.x codebase
-├── docs/                    # Design system + progress
-└── vite.config.js           # Multi-page build config
+â”œâ”€â”€ dist/                    # Built extension (load unpacked here)
+â”œâ”€â”€ public/manifest.json     # Chrome Extension manifest
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ hooks/               # React hooks (storage, theme)
+â”‚   â”œâ”€â”€ components/
+â”‚   â”‚   â”œâ”€â”€ ui/              # GlassCard, PopButton
+â”‚   â”‚   â””â”€â”€ clock/           # FlipClock + CSS
+â”‚   â”œâ”€â”€ home/                # New Tab override
+â”‚   â”œâ”€â”€ sidebar/             # Side panel
+â”‚   â”œâ”€â”€ popup/               # Toolbar popup
+â”‚   â”œâ”€â”€ background/          # Service worker
+â”‚   â”œâ”€â”€ content/             # Content scripts
+â”‚   â””â”€â”€ styles/              # Global CSS + themes
+â”œâ”€â”€ v0_legacy/               # Frozen v0.1.x codebase
+â”œâ”€â”€ docs/                    # Design system + progress
+â””â”€â”€ vite.config.js           # Multi-page build config
 ```
 
 ### Next Steps
 - [ ] Load `dist/` as unpacked extension in Chrome and verify all pages mount
-- [ ] Test theme switching (Pop Art ↔ Corporate)
+- [ ] Test theme switching (Pop Art â†” Corporate)
 - [ ] Wire live `chrome.storage` data to the background service worker
 - [ ] Build Settings page for clock configuration
 - [ ] Implement Zero-Integration URL parsing engine
 
 ---
 
-## Session 012 — 2026-04-27 (InPop 2.0 + Intents Dashboard)
+## Session 012 â€” 2026-04-27 (InPop 2.0 + Intents Dashboard)
 
-**Agent:** Antigravity  
+**Agent:** Antigravity
 **Goal:** InPop overhaul, Intents panel, preset management, settings wiring
 
 ### What Was Done
@@ -87,26 +87,26 @@ Tabatha/
 - [x] Persistent preset management in Settings > Intent-Popup
 - [x] Settings wiring: gatekeeperEnabled, autoAssociateTabs
 - [x] BlockGate site blocking (content script + backend + settings panel)
-- [x] Unified Task URL Resolver (Asana V0+V1 + ClickUp — 23 patterns)
+- [x] Unified Task URL Resolver (Asana V0+V1 + ClickUp â€” 23 patterns)
 - [x] Supabase schema migration (8 tables + RLS)
 - [x] User Manual created at `docs/user-manual.md`
 
 ---
 
-## Session 013 — 2026-04-27 (InBar + Clock In/Out + Bug Fixes)
+## Session 013 â€” 2026-04-27 (InBar + Clock In/Out + Bug Fixes)
 
-**Agent:** Antigravity  
+**Agent:** Antigravity
 **Goal:** InBar, InPop bug fix + strict mode, Clock In/Out, NowBar, homepage layout
 
 ### What Was Done
 - [x] **Bug fix:** InPop blur-without-popup on pages where body doesn't exist at document_start
-- [x] **InPop strict/relaxed mode** — strict blocks page, relaxed adds Dismiss
-- [x] **Blur strength config** — 0-30px slider in settings
-- [x] **InBar (Intent Bar)** — 24px bottom/top bar showing intent, task, timers, pushes page
-- [x] **Clock In/Out** — homepage module with live H:MM:SS timer, break toggle, history
-- [x] **NowBar** — shows highest-priority focus item on homepage
-- [x] **Homepage layout** — clock moved to header center, reduced whitespace
-- [x] **Priority ranking** — 1-10 scale on focus items, color-coded badges
+- [x] **InPop strict/relaxed mode** â€” strict blocks page, relaxed adds Dismiss
+- [x] **Blur strength config** â€” 0-30px slider in settings
+- [x] **InBar (Intent Bar)** â€” 24px bottom/top bar showing intent, task, timers, pushes page
+- [x] **Clock In/Out** â€” homepage module with live H:MM:SS timer, break toggle, history
+- [x] **NowBar** â€” shows highest-priority focus item on homepage
+- [x] **Homepage layout** â€” clock moved to header center, reduced whitespace
+- [x] **Priority ranking** â€” 1-10 scale on focus items, color-coded badges
 - [x] **Settings:** Strict mode, blur slider, InBar enable/position
 
 ### Next Steps
@@ -121,8 +121,8 @@ Tabatha/
 
 | Version | Date | Milestone |
 |---------|------|-----------|
-| v0.1.0 | 2026-02-10 | Phase 1 — Core Foundation |
-| v0.1.5 | 2026-02-12 | Phase 1.5 — User Enhancements |
+| v0.1.0 | 2026-02-10 | Phase 1 â€” Core Foundation |
+| v0.1.5 | 2026-02-12 | Phase 1.5 â€” User Enhancements |
 | v0.1.0-alpha | 2026-04-23 | Flip Clock, Active Sessions, Zero-Integration |
 | v1.0.0-alpha | 2026-04-24 | React + Vite migration, Pop Art/Glassmorphism UI, full component build |
 | **v0.2.0-alpha** | **2026-04-27** | **InPop 2.0, Intents panel, BlockGate, Supabase schema** |
@@ -130,7 +130,7 @@ Tabatha/
 
 ---
 
-## Session 011 � 2026-04-27 (Logs Panel & Theme Refactor)
+## Session 011 — 2026-04-27 (Logs Panel & Theme Refactor)
 
 **Agent:** Antigravity
 **Goal:** Finalize Link/Merge modal, Tabs actions, Logs Panel deep filtering, and Theme expansion.
@@ -153,7 +153,7 @@ Tabatha/
 
 ### What Was Done
 - [x] **useAuth hook**: Created src/hooks/useAuth.js with reactive Supabase session, auto-profile provisioning, org/team membership tracking.
-- [x] **Settings Sync section**: Full refactor to useAuth � profile card, linked identities, org/team display, invite token redemption with inline banners.
+- [x] **Settings Sync section**: Full refactor to useAuth — profile card, linked identities, org/team display, invite token redemption with inline banners.
 - [x] **Duplicate clock handlers removed**: Deleted inferior CLOCK_IN/CLOCK_OUT/TOGGLE_BREAK (~L1606); kept robust versions (~L1822) with break archiving.
 - [x] **Homepage theme sync**: Theme cycle now includes all 12 themes (was only 7).
 - [x] **Dead polling removed**: Removed unused GET_TIME_TRACKING intervals from homepage and sidebar.
@@ -176,20 +176,20 @@ Tabatha/
 ### Session 012 Addendum (continued work)
 
 - [x] **InBar visual preview**: Added interactive preview in Settings showing both the full bar and collapsed nub states
-- [x] **InBar "No intent" fallback**: InBar now always shows when enabled, displaying "No intent set � click to set" prompt when no focus/context is active
+- [x] **InBar "No intent" fallback**: InBar now always shows when enabled, displaying "No intent set — click to set" prompt when no focus/context is active
 - [x] **InBar nub toggle**: Close button now collapses to a tiny 20px circle nub instead of fully removing; click to re-expand
-- [x] **InBar notes panel**: Added ?? button that expands a quick-note panel for jotting thoughts about the current focus/task/intent � auto-saves with debounce
+- [x] **InBar notes panel**: Added ?? button that expands a quick-note panel for jotting thoughts about the current focus/task/intent — auto-saves with debounce
 - [x] **Background handlers**: Added SAVE_INBAR_NOTE and GET_INBAR_NOTES message handlers for persistent note storage
 - [x] **Tabs layout fix**: Active tabs now in 2-column grid at top; recently closed moved to compact list below with trimmed domains
-- [x] **Clock container fix**: Changed from flex: 1 1 auto to 0 0 auto with minimal padding � container now shrinks with clock scale
+- [x] **Clock container fix**: Changed from flex: 1 1 auto to 0 0 auto with minimal padding — container now shrinks with clock scale
 - [x] **Focus input feedback**: Added pending/loading state to Set Focus button so users see feedback when clicking
 
 ---
 
-## Session 015 � 2026-04-29
+## Session 015 — 2026-04-29
 
 ### Goal
-Build the Asana Time Tracker Widget (Flux plugin) � end-to-end from spec to working server.
+Build the Asana Time Tracker Widget (Flux plugin) — end-to-end from spec to working server.
 
 ### Work Done
 - [x] **Design spec created**: Full v1 spec covering Asana widget API constraints, 3 widget states (tracking/idle/empty), modal form designs, and data architecture
@@ -200,10 +200,10 @@ Build the Asana Time Tracker Widget (Flux plugin) � end-to-end from spec to work
 - [x] **Lazy Supabase init**: Server boots cleanly even without `.env` configured (mock mode)
 - [x] **Security middleware**: Request expiry validation and optional HMAC-SHA256 signature verification
 - [x] **CORS**: Locked to `app.asana.com` origin
-- [x] **End-to-end tested**: Start timer (Alice), start timer (Bob), stop timer (Alice), verify multi-user widget state � all passing against live Supabase
+- [x] **End-to-end tested**: Start timer (Alice), start timer (Bob), stop timer (Alice), verify multi-user widget state — all passing against live Supabase
 
 ### Key Findings
-- Asana widgets are JSON-only � one template (`summary_with_details_v0`), no custom HTML/CSS/JS
+- Asana widgets are JSON-only — one template (`summary_with_details_v0`), no custom HTML/CSS/JS
 - Interactions happen via Modal Forms (entry point click), not widget buttons
 - `datetime_with_icon` fields auto-format relative time in Asana UI
 - Computed `duration_s` column avoids needing to calculate in application code
@@ -213,23 +213,23 @@ Build the Asana Time Tracker Widget (Flux plugin) � end-to-end from spec to work
 - Configure Widget Metadata URL, Form URLs, and Entry Point label
 - Add proper user name resolution via Asana API (currently uses GID suffix)
 - Consider v1.1: manual time entry form for retroactive logging
-- v1.2: Tabatha browser integration � auto-track from browser focus state
+- v1.2: Tabatha browser integration — auto-track from browser focus state
 
-### 2026-04-29 � InPop/InBar/Asana Fixes
+### 2026-04-29 — InPop/InBar/Asana Fixes
 **Goal:** Fix InPop common list clicks, InBar visibility, and Asana URL auto-intent
 
 **What was done:**
-- [x] Fixed SET_TAB_CONTEXT � now auto-creates tab entry if missing (InPop preset clicks were silently failing)
-- [x] Fixed SAVE_INBAR_NOTE � corrected equest vs message variable name bug
-- [x] Rebuilt extension � InBar build was stale (old version without nub/notes/discovery state)
-- [x] Added Asana URL auto-intent in CHECK_CONTEXT_NEEDED � detects app.asana.com task URLs and extracts task name from page title
-- [x] Added Asana auto-intent in onTabUpdated � catches the race condition where gatekeeper fires before title loads
+- [x] Fixed SET_TAB_CONTEXT — now auto-creates tab entry if missing (InPop preset clicks were silently failing)
+- [x] Fixed SAVE_INBAR_NOTE — corrected equest vs message variable name bug
+- [x] Rebuilt extension — InBar build was stale (old version without nub/notes/discovery state)
+- [x] Added Asana URL auto-intent in CHECK_CONTEXT_NEEDED — detects app.asana.com task URLs and extracts task name from page title
+- [x] Added Asana auto-intent in onTabUpdated — catches the race condition where gatekeeper fires before title loads
 - [x] Verified all InPop message handlers exist in background.js switch statement
 
 **Key findings:**
 - InBar was invisible because dist/assets/inbar.js was stale (old build without nub/notes)
 - InPop common preset clicks DID call closeOverlay() but SET_TAB_CONTEXT silently failed if tab data wasn't created yet
-- SAVE_INBAR_NOTE used equest instead of message � would always crash
+- SAVE_INBAR_NOTE used equest instead of message — would always crash
 
 **Next steps:**
 - Reload extension in chrome://extensions and test all 3 features
@@ -243,7 +243,7 @@ Build the Asana Time Tracker Widget (Flux plugin) � end-to-end from spec to work
 Fix all issues identified in the full diagnostic report (16 issues across critical/high/medium/low severity).
 
 ### Work Done
-- [x] **Critical #1**: Merged duplicate 
+- [x] **Critical #1**: Merged duplicate
 otifications.onClicked listeners into single unified handler
 - [x] **Critical #2**: Fixed undefined ctiveTabId ReferenceError - replaced with WINDOW_ID_CURRENT
 - [x] **Critical #3**: Removed export from 	riggerSync() preventing service worker module loading failure
@@ -252,7 +252,7 @@ otifications.onClicked listeners into single unified handler
 - [x] **Medium #8**: Bridged 	imeTracking.byTab gap - added updateTimeTrackingAggregates() to populate UI data
 - [x] **Medium #9**: Fixed Gatekeeper Sugar Box/Park/Later buttons to close overlay + tab
 - [x] **Medium #10**: Fixed useChromeStorage stale closure bug using useRef
-- [x] **Low #12**: Wrapped 
+- [x] **Low #12**: Wrapped
 ew URL() in popup with try/catch
 - [x] **Low #14**: Added auth session guard to 	riggerSync to avoid unnecessary Supabase calls
 - [x] **Low #15**: Extracted shared ormatTime utility to src/utils/formatTime.js
@@ -280,3 +280,27 @@ ew URL() in popup with try/catch
 - Reload extension in chrome://extensions and verify Service Worker console is error-free
 - Test clock-in/out flow, focus set/complete, and gatekeeper buttons end-to-end
 - Monitor time tracking data populating in the UI
+
+---
+
+## Session 017 - 2026-05-10
+
+### Goal
+Complete behavior-identical background service decomposition on `refactor/service-arch` from an isolated worktree.
+
+### Work Done
+- [x] Created/used isolated worktree at `c:\Users\mrmal\Le Dev\Tabatha-service-arch` to avoid Antigravity branch collisions.
+- [x] Extracted all mapped message handlers into `src/background/services/*` and routed through service `handleMessage` functions.
+- [x] Added `src/background/api/fluxApi.js` service facade.
+- [x] Moved tab lifecycle, tab group sync, idle auto-break, and alarm routing listeners into services.
+- [x] Updated `docs/architecture/migration-checklist.md` after each extraction and final verification pass.
+- [x] Ran `npm run build` after each extraction batch; final build passes.
+
+### Key Findings
+- The checklist contains 69 mapped handler rows, so the progress total is tracked as 69/69.
+- Manual Chrome extension reload/service worker console verification is still pending.
+- The original repo retains a safety stash from the branch-collision handoff.
+
+### Next Steps
+- Load `dist/` unpacked in Chrome and verify service worker startup plus core flows: tab create/update/remove, focus timers, idle auto-break, groups, BlockGate, and InBar messages.
+- Drop the old safety stash from the original checkout after confirming the worktree branch is safely committed.

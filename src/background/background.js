@@ -3,17 +3,21 @@
 // groups, categories, time tracking, and markdown export.
 
 import { supabase } from '../services/supabaseClient';
-import * as timeTracker from '../services/timeTracking.js';
 import { BUILT_IN_CATEGORIES, DEFAULT_FOCUS_ENGINE, DEFAULT_SETTINGS } from './constants.js';
 import { patternToRegex } from './helpers.js';
+import { configureAlarmService, registerAlarmListeners } from './services/alarmService.js';
 import { configureBlockgateService, handleMessage as handleBlockgateMessage } from './services/blockgateService.js';
-import { createClockService, handleMessage as handleClockMessage } from './services/clockService.js';
+import { handleMessage as handleClockMessage, registerIdleListeners } from './services/clockService.js';
 import {
   configureFocusService,
   handleMessage as handleFocusMessage,
   tryAssociateTab,
 } from './services/focusService.js';
-import { configureGroupService, handleMessage as handleGroupMessage } from './services/groupService.js';
+import {
+  configureGroupService,
+  handleMessage as handleGroupMessage,
+  registerGroupListeners,
+} from './services/groupService.js';
 import {
   broadcastMessage,
   configureNotificationService,
@@ -22,7 +26,11 @@ import {
 import { handleMessage as handleCategoryMessage } from './services/categoryService.js';
 import { configureSessionService, handleMessage as handleSessionMessage } from './services/sessionService.js';
 import { handleMessage as handleSettingsMessage } from './services/settingsService.js';
-import { configureTabService, handleMessage as handleTabMessage } from './services/tabService.js';
+import {
+  configureTabService,
+  handleMessage as handleTabMessage,
+  registerTabLifecycleListeners,
+} from './services/tabService.js';
 import {
   configureTabTrackingService,
   handleMessage as handleTabTrackingMessage,
@@ -246,333 +254,16 @@ function detectCategory(url, audible, categories) {
 // TAB LIFECYCLE TRACKING
 // ============================================================
 
-chrome.tabs.onCreated.addListener(async (tab) => {
-  const tabs = await getTabData();
-  const categories = await getCategories();
-  const settings = await getSettings();
-  
-  const isFromOpener = !!tab.openerTabId;
-  let inheritedContext = null;
-  let inheritedIntent = null;
-  let inheritedSubGroupId = null;
-  let parentCategory = null;
-  
-  // If opened from a parent tab, inherit context
-  if (isFromOpener && tabs[tab.openerTabId]) {
-    const parent = tabs[tab.openerTabId];
-    inheritedContext = parent.context;
-    inheritedIntent = parent.intent;
-    inheritedSubGroupId = parent.subGroupId;
-    parentCategory = parent.category;
-  }
-  
-  const detectedCategory = detectCategory(tab.url || tab.pendingUrl || '', false, categories);
-  
-  tabs[tab.id] = {
-    url: tab.url || tab.pendingUrl || '',
-    title: tab.title || 'New Tab',
-    openedAt: new Date().toISOString(),
-    lastActive: new Date().toISOString(),
-    activeTime: 0,
-    context: inheritedContext,
-    intent: inheritedIntent,
-    contextSource: inheritedContext ? 'inherited' : null,
-    priority: 'none',
-    locked: false,
-    urlLocked: false,
-    urlLockScope: null,
-    groupId: tab.groupId !== chrome.tabGroups?.TAB_GROUP_ID_NONE ? tab.groupId : null,
-    subGroupId: inheritedSubGroupId,
-    category: parentCategory || detectedCategory,
-    parentTabId: tab.openerTabId || null,
-    timerOverrideMinutes: null,
-    ignored: false,
-    persistent: false
-  };
 
-  // Auto-apply URL rules
-  try {
-    const { urlRules } = await getStorage('urlRules');
-    if (urlRules && urlRules.length > 0) {
-      const tabUrl = (tab.url || tab.pendingUrl || '').toLowerCase();
-      for (const rule of urlRules) {
-        if (!rule.autoApply) continue;
-        const pattern = rule.pattern.toLowerCase();
-        // Simple matching: domain contains or URL contains pattern
-        if (tabUrl.includes(pattern)) {
-          if (rule.defaultIntent) {
-            tabs[tab.id].intent = rule.defaultIntent;
-            tabs[tab.id].contextSource = 'url_rule';
-          }
-          if (rule.defaultContext) {
-            tabs[tab.id].context = rule.defaultContext;
-            if (!tabs[tab.id].contextSource) tabs[tab.id].contextSource = 'url_rule';
-          }
-          break; // first match wins
-        }
-      }
-    }
-  } catch (e) { /* non-critical */ }
-  
-  await setTabData(tabs);
-  
-  // Set context timer
-  const timerMinutes = settings.globalTimerMinutes;
-  if (timerMinutes > 0) {
-    chrome.alarms.create(`context-timer-${tab.id}`, { delayInMinutes: timerMinutes });
-  }
-  
-  // If this is a scratch-opened tab (no opener, no inherited context), notify sidebar to prompt
-  if (!isFromOpener && detectedCategory === 'unknown') {
-    broadcastMessage({ type: 'PROMPT_PURPOSE', tabId: tab.id });
-  }
-  
-  broadcastMessage({ type: 'TAB_CREATED', tabId: tab.id, tabData: tabs[tab.id] });
-});
 
-chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-  const tabs = await getTabData();
-  const tabData = tabs[tabId];
-  
-  if (tabData) {
-    // Save to closed contexts if it had context
-    if (tabData.context || tabData.intent) {
-      const closedContexts = await getClosedContexts();
-      closedContexts.unshift({
-        url: tabData.url,
-        title: tabData.title,
-        context: tabData.context,
-        intent: tabData.intent,
-        priority: tabData.priority,
-        closedAt: new Date().toISOString(),
-        activeTime: tabData.activeTime,
-        groupName: null, // Will be resolved from group data
-        subGroupId: tabData.subGroupId,
-        category: tabData.category
-      });
-      // Keep last 500 closed contexts
-      await setStorage({ closedContexts: closedContexts.slice(0, 500) });
-    }
-    
-    delete tabs[tabId];
-    await setTabData(tabs);
-  }
-  
-  // Clear alarm
-  chrome.alarms.clear(`context-timer-${tabId}`);
-  
-  broadcastMessage({ type: 'TAB_REMOVED', tabId });
-});
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  const tabs = await getTabData();
-  if (!tabs[tabId]) return;
-  
-  if (changeInfo.url) {
-    await timeTracker.stopTracking(tabId);
-    tabs[tabId].url = changeInfo.url;
-    // Re-detect category on URL change
-    const categories = await getCategories();
-    const newCat = detectCategory(changeInfo.url, tab.audible, categories);
-    if (tabs[tabId].category === 'unknown') {
-      tabs[tabId].category = newCat;
-    }
-    await timeTracker.startTracking(tabId, changeInfo.url, tabs[tabId]);
-  }
-  if (changeInfo.title) {
-    tabs[tabId].title = changeInfo.title;
-    
-    // Asana auto-intent: when an Asana task page title loads, auto-set context
-    if (!tabs[tabId].context && !tabs[tabId].intent) {
-      try {
-        const asanaMatch = (tabs[tabId].url || '').match(/app\.asana\.com\/0\/\d+\/(\d+)/);
-        if (asanaMatch && changeInfo.title && changeInfo.title !== 'Asana' && changeInfo.title !== 'Loading...') {
-          const taskName = changeInfo.title.replace(/\s*[-\u2013\u2014]\s*Asana\s*$/i, '').replace(/\s*[-\u2013\u2014]\s*[^-\u2013\u2014]+$/, '').trim();
-          if (taskName) {
-            tabs[tabId].context = taskName;
-            tabs[tabId].intent = 'asana_auto';
-            tabs[tabId].contextSource = 'asana_auto';
-            tabs[tabId].category = 'work';
-            tabs[tabId].asanaTaskGid = asanaMatch[1];
-          }
-        }
-      } catch (e) { /* ignore */ }
-    }
-  }
-  if (changeInfo.audible !== undefined) {
-    const categories = await getCategories();
-    const detected = detectCategory(tabs[tabId].url, changeInfo.audible, categories);
-    if (detected !== 'unknown' && tabs[tabId].category === 'unknown') {
-      tabs[tabId].category = detected;
-    }
-  }
-  
-  await setTabData(tabs);
-  broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-});
 
 // ============================================================
 // CHROME TAB GROUPS — BIDIRECTIONAL SYNC
 // ============================================================
 
-// When Chrome creates or updates a tab group, sync to Tabatha's tab data
-chrome.tabGroups.onUpdated.addListener(async (group) => {
-  try {
-    // Get all tabs in this group
-    const tabsInGroup = await chrome.tabs.query({ groupId: group.id });
-    const tabs = await getTabData();
-    let changed = false;
-    for (const tab of tabsInGroup) {
-      if (tabs[tab.id]) {
-        tabs[tab.id].groupId = group.id;
-        tabs[tab.id].groupTitle = group.title || null;
-        tabs[tab.id].groupColor = group.color || null;
-        changed = true;
-      }
-    }
-    if (changed) {
-      await setTabData(tabs);
-      broadcastMessage({ type: 'GROUPS_UPDATED' });
-    }
-  } catch (e) { /* group may be stale */ }
-});
-
-// When a tab group is removed, clear groupId from affected tabs
-chrome.tabGroups.onRemoved.addListener(async (group) => {
-  try {
-    const tabs = await getTabData();
-    let changed = false;
-    for (const [tabId, data] of Object.entries(tabs)) {
-      if (data.groupId === group.id) {
-        data.groupId = null;
-        data.groupTitle = null;
-        data.groupColor = null;
-        changed = true;
-      }
-    }
-    if (changed) {
-      await setTabData(tabs);
-      broadcastMessage({ type: 'GROUPS_UPDATED' });
-    }
-  } catch (e) { /* ignore */ }
-});
-
-// When a tab moves into/out of a group, update its data
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.groupId !== undefined) {
-    const tabs = await getTabData();
-    if (tabs[tabId]) {
-      const noGroup = changeInfo.groupId === chrome.tabGroups?.TAB_GROUP_ID_NONE || changeInfo.groupId === -1;
-      tabs[tabId].groupId = noGroup ? null : changeInfo.groupId;
-      if (noGroup) {
-        tabs[tabId].groupTitle = null;
-        tabs[tabId].groupColor = null;
-      } else {
-        try {
-          const group = await chrome.tabGroups.get(changeInfo.groupId);
-          tabs[tabId].groupTitle = group.title || null;
-          tabs[tabId].groupColor = group.color || null;
-        } catch (e) { /* group may not exist yet */ }
-      }
-      await setTabData(tabs);
-      broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-    }
-  }
-});
-
 // ============================================================
 // IDLE / OFF-CHROME CONTEXT
 // ============================================================
-
-let userIdleSince = null;
-let idleAutoBreakApplied = false;
-
-// Set idle detection interval to 60 seconds (1 minute)
-chrome.idle.setDetectionInterval(60);
-
-chrome.idle.onStateChanged.addListener(async (newState) => {
-  if (newState === 'idle' || newState === 'locked') {
-    // User went idle
-    await timeTracker.stopAllTracking();
-    userIdleSince = new Date().toISOString();
-    idleAutoBreakApplied = false;
-
-    // Log idle event
-    broadcastMessage({ type: 'USER_IDLE', since: userIdleSince });
-
-    // Schedule auto-break check after 5 minutes
-    chrome.alarms.create('idle-auto-break', { delayInMinutes: 5 });
-
-  } else if (newState === 'active') {
-    // User returned — cancel any pending auto-break alarm
-    chrome.alarms.clear('idle-auto-break');
-
-    // Restart tracking on currently active tab
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (activeTabs) => {
-      if (activeTabs && activeTabs.length > 0) {
-        const tId = activeTabs[0].id;
-        const tabs = await getTabData();
-        if (tabs[tId]) {
-          await timeTracker.startTracking(tId, tabs[tId].url, tabs[tId]);
-        }
-      }
-    });
-
-    if (userIdleSince) {
-      const idleDuration = Date.now() - new Date(userIdleSince).getTime();
-      const settings = await getSettings();
-
-      // If user was auto-put on break, auto-resume
-      if (idleAutoBreakApplied) {
-        const { clockSession } = await getStorage('clockSession');
-        if (clockSession?.active && clockSession?.onBreak) {
-          await clockService.toggleBreak(); // resume from break
-        }
-        idleAutoBreakApplied = false;
-      }
-
-      // Broadcast welcome back with idle duration
-      broadcastMessage({
-        type: 'WELCOME_BACK',
-        idleSince: userIdleSince,
-        idleDurationMs: idleDuration
-      });
-
-      if (idleDuration > (settings.idleThresholdMinutes || 5) * 60 * 1000) {
-        broadcastMessage({
-          type: 'OFF_CHROME_RETURN',
-          idleSince: userIdleSince,
-          idleDurationMs: idleDuration
-        });
-
-        chrome.notifications.create('welcome-back', {
-            type: 'basic',
-            iconUrl: 'icons/icon128.png',
-            title: 'Welcome Back!',
-            message: `You were away for ${Math.round(idleDuration / 60000)}m. Click to log your offline context.`,
-            requireInteraction: true
-        });
-      }
-      userIdleSince = null;
-    }
-  }
-});
-
-// Handle the 5-minute auto-break alarm
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'idle-auto-break') {
-    // Check if user is still idle
-    const state = await chrome.idle.queryState(60);
-    if (state === 'idle' || state === 'locked') {
-      const { clockSession } = await getStorage('clockSession');
-      if (clockSession?.active && !clockSession?.onBreak) {
-        await clockService.toggleBreak(); // auto-put on break
-        idleAutoBreakApplied = true;
-        broadcastMessage({ type: 'AUTO_BREAK', reason: 'idle_5min' });
-      }
-    }
-  }
-});
 
 chrome.notifications.onClicked.addListener(async (notificationId) => {
     if (notificationId === 'welcome-back') {
@@ -595,100 +286,9 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
     }
 });
 
-// Set idle detection interval
-chrome.idle.setDetectionInterval(60); // 1 minute granularity
-
 // ============================================================
 // CONTEXT TIMER / ALARMS
 // ============================================================
-
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name.startsWith('context-timer-')) {
-    const tabId = parseInt(alarm.name.replace('context-timer-', ''));
-    const tabs = await getTabData();
-    const tabData = tabs[tabId];
-    
-    if (tabData && !tabData.ignored && !tabData.context) {
-      // Tab has been open for threshold without context — prompt
-      broadcastMessage({
-        type: 'CONTEXT_REMINDER',
-        tabId,
-        tabData
-      });
-      
-      // Also show a notification
-      chrome.notifications.create(`context-${tabId}`, {
-        type: 'basic',
-        iconUrl: 'icons/icon128.png',
-        title: 'Tabatha — Context Needed',
-        message: `"${tabData.title}" has been open for a while. What are you working on?`
-      });
-    } else if (tabData && tabData.context) {
-      // Tab has context — send reinforcement reminder
-      const settings = await getSettings();
-      const timerMinutes = tabData.timerOverrideMinutes || settings.globalTimerMinutes;
-      
-      broadcastMessage({
-        type: 'INTENT_REINFORCEMENT',
-        tabId,
-        tabData
-      });
-      
-      // Re-arm timer
-      chrome.alarms.create(`context-timer-${tabId}`, { delayInMinutes: timerMinutes });
-    }
-  }
-  
-  if (alarm.name === 'auto-export') {
-    await exportMarkdown();
-  }
-  
-  if (alarm.name === 'session-snapshot') {
-    await saveSessionSnapshot();
-  }
-  
-  if (alarm.name === 'supabase-sync') {
-    await syncToSupabase();
-  }
-  
-  if (alarm.name === 'pomodoro-timer') {
-      // Notify user
-      chrome.notifications.create('pomodoro-done', {
-          type: 'basic',
-          iconUrl: 'icons/icon128.png',
-          title: 'Tabatha — Timer Complete!',
-          message: 'Time is up! Take a break or refocus.',
-          requireInteraction: true
-      });
-      broadcastMessage({ type: 'POMODORO_COMPLETE' });
-  }
-  
-  // Focus Engine timer — transitions to 'drifted', counts up
-  if (alarm.name.startsWith('focus-timer-')) {
-    const focusId = alarm.name.replace('focus-timer-', '');
-    const engine = await getFocusEngine();
-    const item = engine.items[focusId];
-    if (item && item.focusState === 'active') {
-      item.focusState = 'drifted';
-      // Accumulate elapsed time up to now
-      if (item.lastResumedAt) {
-        item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
-        item.lastResumedAt = new Date().toISOString(); // reset for countup tracking
-      }
-      await setFocusEngine(engine);
-      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
-      
-      // Notification
-      chrome.notifications.create(`focus-drift-${focusId}`, {
-        type: 'basic',
-        iconUrl: 'icons/icon128.png',
-        title: 'Tabatha — Timer Drifted',
-        message: `"${item.label}" timer has run out. Still working on it?`,
-        requireInteraction: true
-      });
-    }
-  }
-});
 
 // ============================================================
 // URL LOCK — NAVIGATION INTERCEPTION
@@ -763,12 +363,6 @@ async function saveSessionSnapshot() {
   await setStorage({ sessions: sessions.slice(0, 50) });
 }
 
-// Save a snapshot every 5 minutes
-chrome.alarms.create('session-snapshot', { periodInMinutes: 5 });
-
-// Sync to Supabase every 5 minutes
-chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
-
 // ============================================================
 // MESSAGE ROUTING
 // ============================================================
@@ -776,13 +370,25 @@ chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 
 // ── Service instances ──
 configureNotificationService({ getStorage, setStorage, getTabData, setTabData, getFocusEngine });
+configureAlarmService({
+  exportMarkdown,
+  getFocusEngine,
+  getSettings,
+  getTabData,
+  saveSessionSnapshot,
+  setFocusEngine,
+  syncToSupabase,
+});
+registerAlarmListeners();
 configureBlockgateService({ setTabData });
 configureGroupService({ setTabData });
+registerGroupListeners();
 configureSessionService({ setTabData });
 configureTabService({ setTabData, getFocusEngine, setFocusEngine });
+registerTabLifecycleListeners();
 configureFocusService({ getStorage, setStorage, getTabData, setTabData, getFocusEngine, setFocusEngine });
 configureTabTrackingService({ setTabData, tryAssociateTab, triggerSync });
-const clockService = createClockService(getStorage, setStorage, broadcastMessage);
+registerIdleListeners();
 registerTabTrackingListeners();
 
 const messageServices = [

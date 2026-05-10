@@ -1,4 +1,4 @@
-# Agent Instructions — Tabatha
+﻿# Agent Instructions â€” Tabatha
 
 > This project uses **Headbox** for standardized agent instructions.
 > All agents (Claude, Gemini, Codex, Cursor, Copilot, etc.) follow the same rules below.
@@ -6,15 +6,15 @@
 
 ---
 
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 3 | Status: active          -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 4 | Status: active          -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 
 ## Project State
 
-- **Current version:** 0.2.5-alpha
-- **Current focus:** Phase 3/4 — Deep Customization & Sync (InPop 2.0, InBar, BlockGate, and Supabase integration complete)
+- **Current version:** 0.2.8-alpha
+- **Current focus:** Phase 3/4 â€” Deep Customization & Sync (InPop 2.0, InBar, BlockGate, and Supabase integration complete)
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -24,7 +24,7 @@
 
 ## Mission
 
-Tabatha is a **Context-Driven Tab Manager** — an "Attention Operating System" for the browser. It enforces intentional browsing by assigning Context and Intent to every tab, tracking time, and providing focus tools. Part of the Flux ecosystem.
+Tabatha is a **Context-Driven Tab Manager** â€” an "Attention Operating System" for the browser. It enforces intentional browsing by assigning Context and Intent to every tab, tracking time, and providing focus tools. Part of the Flux ecosystem.
 
 ---
 
@@ -38,17 +38,17 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 | File | Purpose | When to read |
 |------|---------|-------------|
-| `AGENTS.md` | Project state, rules, session log (canonical) | Always — first thing |
+| This file (`AGENTS.md`) | Project state, rules, session log | Always â€” first thing |
 | `.gemini/agent.md` | Gemini-specific instructions (known bugs, architecture, message types) | When working with Gemini |
-| `docs/progress.md` | Session progress log | Before starting work — check last session's next steps |
+| `docs/progress.md` | Session progress log | Before starting work â€” check last session's next steps |
 | `ROADMAP.md` | 6-phase feature roadmap | When planning features |
-| `Tabatha_Concept.md` | Core philosophy — "Attention Operating System" | When making architecture decisions |
+| `Tabatha_Concept.md` | Core philosophy â€” "Attention Operating System" | When making architecture decisions |
 | `Tabatha_Changelog.md` | Version history | When tracking what's changed |
 | `src/App.jsx` | Main React entry | When touching app structure |
 | `public/manifest.json` | Chrome MV3 manifest | When changing permissions/pages |
 | `vite.config.js` | Multi-page build config | When adding pages or changing build |
 
-> 📎 More files added as they become frequently used. Reviewed at 20th-use.
+> ðŸ“Ž More files added as they become frequently used. Reviewed at 20th-use.
 
 ---
 
@@ -65,15 +65,15 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 ## Global Rules
 
-1. **Always commit before ending a session** — use `wip:` prefix if incomplete. Before closing, **ask the user if the session is over** so nothing is left uncommitted.
-2. **Follow Conventional Commits** — `{type}({scope}): {description}`
-3. **Never push directly to `master`** — always via PR or explicit human approval.
-4. **When in doubt — always ask.** Surface ambiguity early, propose a direction, confirm before acting.
+1. **Always commit before ending a session** â€” use `wip:` prefix if incomplete. Before closing, **ask the user if the session is over** so nothing is left uncommitted.
+2. **Follow Conventional Commits** â€” `{type}({scope}): {description}`
+3. **Never push directly to `master`** â€” always via PR or explicit human approval.
+4. **When in doubt â€” always ask.** Surface ambiguity early, propose a direction, confirm before acting.
 5. **Stay on task.** If you notice something unrelated, **Valet it** (see Valeting below).
-6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.
+6. **On `checkpoint`** â€” update any known task(s) with progress and reference artifacts.
 7. **Practice progressive disclosure.** Do NOT read every file. Read what you need.
 8. **Check `.headbox/sticky-notes/`** at session start for notes left by other agents or humans.
-9. **Number Implementation Plans** — Always uniquely name your implementation plans with a version number (e.g. `implementation_plan_011.md`). Not uniquely naming them will overwrite other files in the same project.
+9. **Number Implementation Plans** â€” Always uniquely name your implementation plans with a version number (e.g. `implementation_plan_011.md`). Not uniquely naming them will overwrite other files in the same project.
 
 ---
 
@@ -81,9 +81,9 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 - **Update `docs/progress.md`** at the end of every session with: date, goal, what was done, key findings, decisions, next steps.
 - **Update `Tabatha_Changelog.md`** when shipping version changes.
-- **Legacy code in `v0_legacy/`** — reference only. Do not modify. All new work happens in `src/`.
-- **Multi-page build** — Tabatha has separate HTML entry points: `index.html`, `home.html`, `popup.html`, `sidebar.html`, `settings.html`. Changes to build config affect all of them.
-- **Chrome extension context** — always test changes by loading unpacked at `chrome://extensions` and checking the Service Worker console.
+- **Legacy code in `v0_legacy/`** â€” reference only. Do not modify. All new work happens in `src/`.
+- **Multi-page build** â€” Tabatha has separate HTML entry points: `index.html`, `home.html`, `popup.html`, `sidebar.html`, `settings.html`. Changes to build config affect all of them.
+- **Chrome extension context** â€” always test changes by loading unpacked at `chrome://extensions` and checking the Service Worker console.
 
 ---
 
@@ -92,14 +92,14 @@ See `.headbox/workspace-map.md` for the full project file tree.
 When you notice something that is **not part of your current task**, do not act on it unless it's obligatory. Instead, **append** an entry to `.headbox/parking_lot.md`:
 
 ```
-## {date} — {brief_title}
+## {date} â€” {brief_title}
 - **Noticed while:** {task}
 - **What:** {observation}
 - **Why it matters:** {impact}
 - **Options:**
   1. {option_a}
   2. {option_b}
-  3. {option_c} ← **suggested**
+  3. {option_c} â† **suggested**
 ```
 
 **Mechanics:**
@@ -120,13 +120,13 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 
 ## Session Handoff Protocol
 
-**After every session, update the Session Log in `AGENTS.md`.**
+**After every session, update the Session Log below.**
 
 - **Append** a new entry. **Never delete** previous entries.
 - **Increment the usage counter** in the headbox header by 1.
 - **On every 20th use**: ask the user if anything should be updated.
 - You MAY update `Current version` and `Current focus` in Project State.
-- **Sync all vendor files** — after updating `AGENTS.md`, ensure `CLAUDE.md`, `GEMINI.md`, and `.gemini/agent.md` have the same headbox section.
+- **Sync all vendor files** â€” after updating `AGENTS.md`, ensure `CLAUDE.md`, `GEMINI.md`, and `.gemini/agent.md` have the same headbox section.
 
 ---
 
@@ -134,13 +134,16 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 
 | Date | Agent | Focus | Work Done | Next Steps |
 |------|-------|-------|-----------|------------|
-| 2026-04-27 | Antigravity | Headbox install | Pilot install — scaffolded .headbox/, appended headbox section to AGENTS.md and .gemini/agent.md | Begin Phase 2 feature work |
+| 2026-04-27 | Antigravity | Headbox install | Pilot install â€” scaffolded .headbox/, appended headbox section to AGENTS.md and .gemini/agent.md | Begin Phase 2 feature work |
 | 2026-04-27 | Gemini | Update Project State | Updated AGENTS.md Headbox Project State to reflect completion of Phase 2 features and shift to Phase 3/4 (v0.2.1-alpha) | Proceed with Phase 3/4 feature development |
 | 2026-04-28 | Antigravity | Logs Panel & Theme Refactor | Finalized Link/Merge modal, Tabs actions, Logs Panel, Settings Walkthrough, and Theme expansion. | General backlog (Sync logic, Supabase) |
 | 2026-04-28 | Antigravity | Supabase Sync Engine | Pushed Supabase schema, configured client, and hooked up debounced sync wrapper to background focus & intent mutations. | Implement user authentication (Auth Refinement) |
 | 2026-04-29 | Antigravity | Asana Time Tracker Widget | Built Flux Asana widget server (Express/HTTPS), migration 004 (flux_time_entries), full e2e test passing. | Register app in Asana Developer Console, add user name resolution |
-| 2026-05-09 | Antigravity | Diagnostic Fix Sweep | Fixed 14/16 issues from diagnostic report: merged duplicate notification listeners, fixed activeTabId crash, removed triggerSync export, fixed clock race condition, explicit focusId passing, time tracking aggregation, gatekeeper close behavior, useChromeStorage stale closure, popup URL crash, triggerSync auth guard, shared formatTime, patternToRegex fix. | Reload extension and verify SW console, test clock/focus/gatekeeper e2e |
+| 2026-05-09 | Antigravity | Diagnostic Fix Sweep | Fixed 14/16 diagnostic issues + root cause (missing type:module in manifest). Added logger service, debug mode setting, Developer panel in settings. All sendMessage errors now logged. | Architecture refactor (background.js monolith), version automation |
+| 2026-05-09 | Antigravity | Clock Extraction + InPop + Work Shifts | Fixed InPop (contextSource tracking, inherited vs user contexts). Extracted clock.js + storage.js from monolith. Built Work Shifts page (3 views, stubbed analytics). Added last session + work logs to home. Fixed InBar "set intent" button (OPEN_POPUP handler). Added UPDATE_FOCUS editing. Implemented Chrome tab groups bidirectional sync. Built URL Rules settings section (3 tabs: rules, domain groups, intent changelog). URL rules auto-apply on tab creation. Sidebar parity (groups panel, work shifts link). | BlockGate enhancements, InBar customization, debug bar expansion |
+| 2026-05-10 | Antigravity | Intent Bugs + Tasks + Idle | Fixed tab-to-intent association (label matching). Rewrote LinkMergeModal. Added funnel stage editor. Built TasksPanel with full CRUD. Compact LogsPanel filter bar. Idle auto-break (5minâ†’break, auto-resume). Welcome Back flash overlay. Work schedule view. Break notes. Bumped to v0.2.8. | Sidebar tasks parity, InBar customization settings, BlockGate reason/guard |
+| 2026-05-10 | Codex | Background Service Decomposition | Used isolated worktree for `refactor/service-arch`; extracted mapped handlers/listeners into background services, added `fluxApi` facade, updated migration checklist, and verified final build. | Chrome extension manual reload/service worker verification |
 
-<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <!-- END HEADBOX                                                        -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->

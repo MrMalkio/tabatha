@@ -1,11 +1,23 @@
 import { getSubGroups, getTabData, PRIORITY_LEVELS, setStorage } from './storageService.js';
+import { broadcastMessage } from './notificationService.js';
 
 let dependencies = {
   setTabData: async (tabs) => setStorage({ tabs }),
 };
 
+let listenersRegistered = false;
+
 export function configureGroupService(overrides = {}) {
   dependencies = { ...dependencies, ...overrides };
+}
+
+export function registerGroupListeners() {
+  if (listenersRegistered) return;
+  listenersRegistered = true;
+
+  chrome.tabGroups.onUpdated.addListener(handleChromeGroupUpdated);
+  chrome.tabGroups.onRemoved.addListener(handleChromeGroupRemoved);
+  chrome.tabs.onUpdated.addListener(handleTabGroupChanged);
 }
 
 export async function handleMessage(type, message) {
@@ -91,4 +103,71 @@ async function createSubGroup(name, chromeGroupIds = [], projectId = null, setti
 
   await setStorage({ subGroups });
   return id;
+}
+
+async function handleChromeGroupUpdated(group) {
+  try {
+    const tabsInGroup = await chrome.tabs.query({ groupId: group.id });
+    const tabs = await getTabData();
+    let changed = false;
+
+    for (const tab of tabsInGroup) {
+      if (tabs[tab.id]) {
+        tabs[tab.id].groupId = group.id;
+        tabs[tab.id].groupTitle = group.title || null;
+        tabs[tab.id].groupColor = group.color || null;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await dependencies.setTabData(tabs);
+      broadcastMessage({ type: 'GROUPS_UPDATED' });
+    }
+  } catch (e) { /* group may be stale */ }
+}
+
+async function handleChromeGroupRemoved(group) {
+  try {
+    const tabs = await getTabData();
+    let changed = false;
+
+    for (const data of Object.values(tabs)) {
+      if (data.groupId === group.id) {
+        data.groupId = null;
+        data.groupTitle = null;
+        data.groupColor = null;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await dependencies.setTabData(tabs);
+      broadcastMessage({ type: 'GROUPS_UPDATED' });
+    }
+  } catch (e) { /* ignore */ }
+}
+
+async function handleTabGroupChanged(tabId, changeInfo) {
+  if (changeInfo.groupId === undefined) return;
+
+  const tabs = await getTabData();
+  if (!tabs[tabId]) return;
+
+  const noGroup = changeInfo.groupId === chrome.tabGroups?.TAB_GROUP_ID_NONE || changeInfo.groupId === -1;
+  tabs[tabId].groupId = noGroup ? null : changeInfo.groupId;
+
+  if (noGroup) {
+    tabs[tabId].groupTitle = null;
+    tabs[tabId].groupColor = null;
+  } else {
+    try {
+      const group = await chrome.tabGroups.get(changeInfo.groupId);
+      tabs[tabId].groupTitle = group.title || null;
+      tabs[tabId].groupColor = group.color || null;
+    } catch (e) { /* group may not exist yet */ }
+  }
+
+  await dependencies.setTabData(tabs);
+  broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
 }

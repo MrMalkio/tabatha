@@ -4,10 +4,14 @@
 // Storage keys: clockSession, clockHistory
 // ════════════════════════════════════════════
 
-import { getStorage, setStorage } from './storageService.js';
+import * as timeTracker from '../../services/timeTracking.js';
+import { getSettings, getStorage, getTabData, setStorage } from './storageService.js';
 import { broadcastMessage } from './notificationService.js';
 
 const defaultClockService = createClockService(getStorage, setStorage, broadcastMessage);
+let idleListenersRegistered = false;
+let userIdleSince = null;
+let idleAutoBreakApplied = false;
 
 export async function handleMessage(type) {
   switch (type) {
@@ -27,6 +31,92 @@ export async function handleMessage(type) {
       return defaultClockService.getLatestSession();
     default:
       return null;
+  }
+}
+
+export function registerIdleListeners(clockService = defaultClockService) {
+  if (idleListenersRegistered) return;
+  idleListenersRegistered = true;
+
+  chrome.idle.setDetectionInterval(60);
+  chrome.idle.onStateChanged.addListener((newState) => handleIdleStateChanged(newState, clockService));
+  chrome.alarms.onAlarm.addListener((alarm) => handleIdleAlarm(alarm, clockService));
+}
+
+async function handleIdleStateChanged(newState, clockService) {
+  if (newState === 'idle' || newState === 'locked') {
+    await timeTracker.stopAllTracking();
+    userIdleSince = new Date().toISOString();
+    idleAutoBreakApplied = false;
+
+    broadcastMessage({ type: 'USER_IDLE', since: userIdleSince });
+    chrome.alarms.create('idle-auto-break', { delayInMinutes: 5 });
+    return;
+  }
+
+  if (newState !== 'active') return;
+
+  chrome.alarms.clear('idle-auto-break');
+
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (activeTabs) => {
+    if (activeTabs && activeTabs.length > 0) {
+      const tId = activeTabs[0].id;
+      const tabs = await getTabData();
+      if (tabs[tId]) {
+        await timeTracker.startTracking(tId, tabs[tId].url, tabs[tId]);
+      }
+    }
+  });
+
+  if (!userIdleSince) return;
+
+  const idleDuration = Date.now() - new Date(userIdleSince).getTime();
+  const settings = await getSettings();
+
+  if (idleAutoBreakApplied) {
+    const { clockSession } = await getStorage('clockSession');
+    if (clockSession?.active && clockSession?.onBreak) {
+      await clockService.toggleBreak();
+    }
+    idleAutoBreakApplied = false;
+  }
+
+  broadcastMessage({
+    type: 'WELCOME_BACK',
+    idleSince: userIdleSince,
+    idleDurationMs: idleDuration
+  });
+
+  if (idleDuration > (settings.idleThresholdMinutes || 5) * 60 * 1000) {
+    broadcastMessage({
+      type: 'OFF_CHROME_RETURN',
+      idleSince: userIdleSince,
+      idleDurationMs: idleDuration
+    });
+
+    chrome.notifications.create('welcome-back', {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'Welcome Back!',
+      message: `You were away for ${Math.round(idleDuration / 60000)}m. Click to log your offline context.`,
+      requireInteraction: true
+    });
+  }
+
+  userIdleSince = null;
+}
+
+async function handleIdleAlarm(alarm, clockService) {
+  if (alarm.name !== 'idle-auto-break') return;
+
+  const state = await chrome.idle.queryState(60);
+  if (state === 'idle' || state === 'locked') {
+    const { clockSession } = await getStorage('clockSession');
+    if (clockSession?.active && !clockSession?.onBreak) {
+      await clockService.toggleBreak();
+      idleAutoBreakApplied = true;
+      broadcastMessage({ type: 'AUTO_BREAK', reason: 'idle_5min' });
+    }
   }
 }
 

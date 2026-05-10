@@ -31,8 +31,8 @@
 | sessionService | 5 | ✅ | ⬜ | Extracted to `src/background/services/sessionService.js`; build passes; manual tests pending |
 | settingsService | 2 | ✅ | ⬜ | Extracted to `src/background/services/settingsService.js`; build passes; manual tests pending |
 | notificationService | 5 | ✅ | ⬜ | Extracted to `src/background/services/notificationService.js`; build passes; manual tests pending |
-| Router refactor | ? | ✅ | ✅ | Ordered service-chain router; build passes |
-| fluxApi | — | ⬜ | ⬜ | Not started |
+| Router refactor | — | ✅ | ✅ | Ordered service-chain router; build passes |
+| fluxApi | — | ✅ | ✅ | Created `src/background/api/fluxApi.js`; syntax + build pass |
 
 **Overall: 69 / 69 checklist handlers migrated**
 
@@ -195,13 +195,21 @@
 | 3 | `BUILT_IN_CATEGORIES` | `constants.js` | ✅ | ✅ | Extracted to `src/background/constants.js` |
 | 4 | `patternToRegex()` | `helpers.js` | ✅ | ✅ | Extracted to `src/background/helpers.js` |
 | 5 | `formatTime()` | `helpers.js` | ✅ | ✅ | Background `formatDuration()` extracted to `src/background/helpers.js`; no `formatTime()` helper existed in `background.js` |
-| 6 | `chrome.tabs.onCreated` | `tabService.js` | ⬜ | ⬜ | |
-| 7 | `chrome.tabs.onUpdated` | `tabService.js` | ⬜ | ⬜ | |
-| 8 | `chrome.tabs.onRemoved` | `tabService.js` | ⬜ | ⬜ | |
+| 6 | `chrome.tabs.onCreated` | `tabService.js` | ✅ | ✅ | Extracted to tabService; build passes; manual test pending |
+| 7 | `chrome.tabs.onUpdated` | `tabService.js` | ✅ | ✅ | Extracted to tabService; build passes; manual test pending |
+| 8 | `chrome.tabs.onRemoved` | `tabService.js` | ✅ | ✅ | Extracted to tabService; build passes; manual test pending |
 | 9 | `chrome.tabs.onActivated` | `tabTrackingService.js` | ✅ | ✅ | Extracted to tabTrackingService; manual test pending |
-| 10 | `chrome.idle.onStateChanged` | `clockService.js` | ⬜ | ⬜ | |
-| 11 | `chrome.alarms.onAlarm` | Router (delegates) | ⬜ | ⬜ | |
-| 12 | `chrome.tabGroups.*` | `groupService.js` | ⬜ | ⬜ | |
+| 10 | `chrome.idle.onStateChanged` | `clockService.js` | ✅ | ✅ | Extracted to clockService; build passes; manual test pending |
+| 11 | `chrome.alarms.onAlarm` | Router (delegates) | ✅ | ✅ | Extracted to alarmService; build passes; manual test pending |
+| 12 | `chrome.tabGroups.*` | `groupService.js` | ✅ | ✅ | Extracted to groupService; build passes; manual test pending |
+
+## Verification Notes
+
+| Date | Check | Result | Notes |
+|------|-------|--------|-------|
+| 2026-05-10 | E16 build | ✅ | `npm run build` passes in `c:/Users/mrmal/Le Dev/Tabatha-service-arch` |
+| 2026-05-10 | Message router parity scan | ✅ | `background.js` has no remaining message `case` handlers; services expose `handleMessage` |
+| 2026-05-10 | Manual extension test | ⬜ | Not run in Chrome yet |
 
 ---
 

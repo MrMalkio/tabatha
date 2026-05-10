@@ -1,4 +1,6 @@
-import { getClosedContexts, getStorage, getTabData, setStorage } from './storageService.js';
+import * as timeTracker from '../../services/timeTracking.js';
+import { patternToRegex } from '../helpers.js';
+import { getCategories, getClosedContexts, getSettings, getStorage, getTabData, setStorage } from './storageService.js';
 import { broadcastMessage } from './notificationService.js';
 
 let dependencies = {
@@ -8,9 +10,19 @@ let dependencies = {
 };
 
 const pendingCloseConfirmations = new Map();
+let lifecycleListenersRegistered = false;
 
 export function configureTabService(overrides = {}) {
   dependencies = { ...dependencies, ...overrides };
+}
+
+export function registerTabLifecycleListeners() {
+  if (lifecycleListenersRegistered) return;
+  lifecycleListenersRegistered = true;
+
+  chrome.tabs.onCreated.addListener(handleTabCreated);
+  chrome.tabs.onRemoved.addListener(handleTabRemoved);
+  chrome.tabs.onUpdated.addListener(handleTabUpdated);
 }
 
 export async function handleMessage(type, message, sender) {
@@ -66,6 +78,179 @@ async function updateTab(message) {
     broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
   }
   return { success: true };
+}
+
+function detectCategory(url, audible, categories) {
+  if (!url) return 'unknown';
+
+  for (const [catId, cat] of Object.entries(categories)) {
+    if (catId === 'unknown' || catId === 'work') continue;
+    if (!cat.rules?.autoDetect) continue;
+
+    for (const pattern of cat.urlPatterns || []) {
+      const regex = patternToRegex(pattern);
+      if (regex && regex.test(url)) return catId;
+    }
+  }
+
+  if (audible && url.match(/youtube\.com\/watch/)) return 'media';
+
+  return 'unknown';
+}
+
+async function handleTabCreated(tab) {
+  const tabs = await getTabData();
+  const categories = await getCategories();
+  const settings = await getSettings();
+
+  const isFromOpener = !!tab.openerTabId;
+  let inheritedContext = null;
+  let inheritedIntent = null;
+  let inheritedSubGroupId = null;
+  let parentCategory = null;
+
+  if (isFromOpener && tabs[tab.openerTabId]) {
+    const parent = tabs[tab.openerTabId];
+    inheritedContext = parent.context;
+    inheritedIntent = parent.intent;
+    inheritedSubGroupId = parent.subGroupId;
+    parentCategory = parent.category;
+  }
+
+  const detectedCategory = detectCategory(tab.url || tab.pendingUrl || '', false, categories);
+
+  tabs[tab.id] = {
+    url: tab.url || tab.pendingUrl || '',
+    title: tab.title || 'New Tab',
+    openedAt: new Date().toISOString(),
+    lastActive: new Date().toISOString(),
+    activeTime: 0,
+    context: inheritedContext,
+    intent: inheritedIntent,
+    contextSource: inheritedContext ? 'inherited' : null,
+    priority: 'none',
+    locked: false,
+    urlLocked: false,
+    urlLockScope: null,
+    groupId: tab.groupId !== chrome.tabGroups?.TAB_GROUP_ID_NONE ? tab.groupId : null,
+    subGroupId: inheritedSubGroupId,
+    category: parentCategory || detectedCategory,
+    parentTabId: tab.openerTabId || null,
+    timerOverrideMinutes: null,
+    ignored: false,
+    persistent: false
+  };
+
+  try {
+    const { urlRules } = await getStorage('urlRules');
+    if (urlRules && urlRules.length > 0) {
+      const tabUrl = (tab.url || tab.pendingUrl || '').toLowerCase();
+      for (const rule of urlRules) {
+        if (!rule.autoApply) continue;
+        const pattern = rule.pattern.toLowerCase();
+        if (tabUrl.includes(pattern)) {
+          if (rule.defaultIntent) {
+            tabs[tab.id].intent = rule.defaultIntent;
+            tabs[tab.id].contextSource = 'url_rule';
+          }
+          if (rule.defaultContext) {
+            tabs[tab.id].context = rule.defaultContext;
+            if (!tabs[tab.id].contextSource) tabs[tab.id].contextSource = 'url_rule';
+          }
+          break;
+        }
+      }
+    }
+  } catch (e) { /* non-critical */ }
+
+  await dependencies.setTabData(tabs);
+
+  const timerMinutes = settings.globalTimerMinutes;
+  if (timerMinutes > 0) {
+    chrome.alarms.create(`context-timer-${tab.id}`, { delayInMinutes: timerMinutes });
+  }
+
+  if (!isFromOpener && detectedCategory === 'unknown') {
+    broadcastMessage({ type: 'PROMPT_PURPOSE', tabId: tab.id });
+  }
+
+  broadcastMessage({ type: 'TAB_CREATED', tabId: tab.id, tabData: tabs[tab.id] });
+}
+
+async function handleTabRemoved(tabId) {
+  const tabs = await getTabData();
+  const tabData = tabs[tabId];
+
+  if (tabData) {
+    if (tabData.context || tabData.intent) {
+      const closedContexts = await getClosedContexts();
+      closedContexts.unshift({
+        url: tabData.url,
+        title: tabData.title,
+        context: tabData.context,
+        intent: tabData.intent,
+        priority: tabData.priority,
+        closedAt: new Date().toISOString(),
+        activeTime: tabData.activeTime,
+        groupName: null,
+        subGroupId: tabData.subGroupId,
+        category: tabData.category
+      });
+      await setStorage({ closedContexts: closedContexts.slice(0, 500) });
+    }
+
+    delete tabs[tabId];
+    await dependencies.setTabData(tabs);
+  }
+
+  chrome.alarms.clear(`context-timer-${tabId}`);
+
+  broadcastMessage({ type: 'TAB_REMOVED', tabId });
+}
+
+async function handleTabUpdated(tabId, changeInfo, tab) {
+  const tabs = await getTabData();
+  if (!tabs[tabId]) return;
+
+  if (changeInfo.url) {
+    await timeTracker.stopTracking(tabId);
+    tabs[tabId].url = changeInfo.url;
+    const categories = await getCategories();
+    const newCat = detectCategory(changeInfo.url, tab.audible, categories);
+    if (tabs[tabId].category === 'unknown') {
+      tabs[tabId].category = newCat;
+    }
+    await timeTracker.startTracking(tabId, changeInfo.url, tabs[tabId]);
+  }
+  if (changeInfo.title) {
+    tabs[tabId].title = changeInfo.title;
+
+    if (!tabs[tabId].context && !tabs[tabId].intent) {
+      try {
+        const asanaMatch = (tabs[tabId].url || '').match(/app\.asana\.com\/0\/\d+\/(\d+)/);
+        if (asanaMatch && changeInfo.title && changeInfo.title !== 'Asana' && changeInfo.title !== 'Loading...') {
+          const taskName = changeInfo.title.replace(/\s*[-\u2013\u2014]\s*Asana\s*$/i, '').replace(/\s*[-\u2013\u2014]\s*[^-\u2013\u2014]+$/, '').trim();
+          if (taskName) {
+            tabs[tabId].context = taskName;
+            tabs[tabId].intent = 'asana_auto';
+            tabs[tabId].contextSource = 'asana_auto';
+            tabs[tabId].category = 'work';
+            tabs[tabId].asanaTaskGid = asanaMatch[1];
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
+  if (changeInfo.audible !== undefined) {
+    const categories = await getCategories();
+    const detected = detectCategory(tabs[tabId].url, changeInfo.audible, categories);
+    if (detected !== 'unknown' && tabs[tabId].category === 'unknown') {
+      tabs[tabId].category = detected;
+    }
+  }
+
+  await dependencies.setTabData(tabs);
+  broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
 }
 
 async function updateTabTitle(message) {
