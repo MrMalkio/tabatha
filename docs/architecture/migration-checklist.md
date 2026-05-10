@@ -27,14 +27,14 @@
 | taskService | 4 | ✅ | ⬜ | Extracted to `src/background/services/taskService.js`; build passes; manual tests pending |
 | groupService | 4 | ✅ | ⬜ | Extracted to `src/background/services/groupService.js`; build passes; manual tests pending |
 | categoryService | 3 | ✅ | ⬜ | Extracted to `src/background/services/categoryService.js`; build passes; manual tests pending |
-| blockgateService | 6 | ⬜ | ⬜ | Not started |
+| blockgateService | 6 | ✅ | ⬜ | Extracted to `src/background/services/blockgateService.js`; build passes; manual tests pending |
 | sessionService | 5 | ✅ | ⬜ | Extracted to `src/background/services/sessionService.js`; build passes; manual tests pending |
 | settingsService | 2 | ✅ | ⬜ | Extracted to `src/background/services/settingsService.js`; build passes; manual tests pending |
 | notificationService | 5 | ✅ | ⬜ | Extracted to `src/background/services/notificationService.js`; build passes; manual tests pending |
 | Router refactor | — | ⬜ | ⬜ | Not started |
 | fluxApi | — | ⬜ | ⬜ | Not started |
 
-**Overall: 63 / 69 checklist handlers migrated**
+**Overall: 69 / 69 checklist handlers migrated**
 
 ---
 
@@ -144,12 +144,12 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `CHECK_BLOCKED_SITE` | ⬜ | ⬜ | ⬜ | |
-| 2 | `MANAGE_BLOCKED_SITES` | ⬜ | ⬜ | ⬜ | |
-| 3 | `UNBLOCK_SITE_TEMPORARILY` | ⬜ | ⬜ | ⬜ | |
-| 4 | `ADD_TO_SUGAR_BOX` | ⬜ | ⬜ | ⬜ | |
-| 5 | `PARK_TAB` | ⬜ | ⬜ | ⬜ | |
-| 6 | `START_SIDE_QUEST` | ⬜ | ⬜ | ⬜ | |
+| 1 | `CHECK_BLOCKED_SITE` | ✅ | ✅ | ⬜ | Extracted to blockgateService; manual test pending |
+| 2 | `MANAGE_BLOCKED_SITES` | ✅ | ✅ | ⬜ | Extracted to blockgateService; manual test pending |
+| 3 | `UNBLOCK_SITE_TEMPORARILY` | ✅ | ✅ | ⬜ | Extracted to blockgateService; manual test pending |
+| 4 | `ADD_TO_SUGAR_BOX` | ✅ | ✅ | ⬜ | Extracted to blockgateService; manual test pending |
+| 5 | `PARK_TAB` | ✅ | ✅ | ⬜ | Extracted to blockgateService; manual test pending |
+| 6 | `START_SIDE_QUEST` | ✅ | ✅ | ⬜ | Extracted to blockgateService; manual test pending |
 
 ---
 
