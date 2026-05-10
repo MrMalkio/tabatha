@@ -1,17 +1,31 @@
 import React, { useState, useMemo } from 'react';
+import { ComboInput } from './ComboInput';
 
 const REALM_OPTIONS = ['business', 'personal'];
 
 /**
  * TagPicker — Compact inline tag selector for Focus associations.
  * Handles Realm (Business/Personal), Client, Project, Task.
+ * Uses ComboInput for autocomplete with free-form entry.
  */
 export function TagPicker({ tags = {}, onChange, clients = [], projects = [], compact = true }) {
   const [expanded, setExpanded] = useState(false);
 
   const handleChange = (field, value) => {
-    onChange({ ...tags, [field]: value });
+    const updated = { ...tags, [field]: value };
+    // Auto-set "Self" as client when switching to personal realm
+    if (field === 'realm' && value === 'personal' && !tags.client) {
+      updated.client = 'Self';
+    }
+    onChange(updated);
   };
+
+  // Ensure "Self" is always an option in personal realm
+  const clientOptions = useMemo(() => {
+    const base = [...clients];
+    if (!base.includes('Self')) base.unshift('Self');
+    return base;
+  }, [clients]);
 
   const tagDisplay = useMemo(() => {
     const parts = [];
@@ -49,27 +63,6 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], co
     );
   }
 
-  const inputStyle = {
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-sm)',
-    color: 'var(--color-text-primary)',
-    fontSize: '12px',
-    padding: '4px 8px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-  };
-
-  const labelStyle = {
-    fontSize: '10px',
-    fontWeight: 600,
-    color: 'var(--color-text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    marginBottom: '3px',
-  };
-
   return (
     <div style={{
       display: 'grid',
@@ -83,7 +76,7 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], co
     }}>
       {/* Realm */}
       <div>
-        <div style={labelStyle}>Realm</div>
+        <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>Realm</div>
         <div style={{ display: 'flex', gap: '2px' }}>
           {REALM_OPTIONS.map(r => (
             <button
@@ -109,45 +102,37 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], co
 
       {/* Client */}
       <div>
-        <div style={labelStyle}>Client</div>
-        <input
-          type="text"
-          list="tag-clients"
+        <ComboInput
+          label="Client"
           value={tags.client || ''}
-          onChange={e => handleChange('client', e.target.value)}
+          onChange={(v) => handleChange('client', v)}
+          options={clientOptions}
           placeholder="Client name"
-          style={inputStyle}
+          icon="👤"
         />
-        <datalist id="tag-clients">
-          {clients.map(c => <option key={c} value={c} />)}
-        </datalist>
       </div>
 
       {/* Project */}
       <div>
-        <div style={labelStyle}>Project</div>
-        <input
-          type="text"
-          list="tag-projects"
+        <ComboInput
+          label="Project"
           value={tags.project || ''}
-          onChange={e => handleChange('project', e.target.value)}
+          onChange={(v) => handleChange('project', v)}
+          options={projects}
           placeholder="Project"
-          style={inputStyle}
+          icon="📁"
         />
-        <datalist id="tag-projects">
-          {projects.map(p => <option key={p} value={p} />)}
-        </datalist>
       </div>
 
       {/* Task */}
       <div>
-        <div style={labelStyle}>Task</div>
-        <input
-          type="text"
+        <ComboInput
+          label="Task"
           value={tags.task || ''}
-          onChange={e => handleChange('task', e.target.value)}
+          onChange={(v) => handleChange('task', v)}
+          options={[]}
           placeholder="Task name"
-          style={inputStyle}
+          icon="✏️"
         />
       </div>
 

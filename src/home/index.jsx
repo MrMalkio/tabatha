@@ -9,6 +9,7 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { PopButton } from '../components/ui/PopButton';
 import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
+import { ComboInput } from '../components/ui/ComboInput';
 import { SessionList } from './SessionList';
 import { LogsPanel } from './LogsPanel';
 import { LinkMergeModal } from '../components/ui/LinkMergeModal';
@@ -29,9 +30,10 @@ const CATEGORY_ICONS = {
 };
 
 // ── FocusBar ──
-function FocusBar({ activeFocus, actions, onAddAnother }) {
+function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
   const [addInput, setAddInput] = useState('');
   const [showTags, setShowTags] = useState(false);
+  const [addMode, setAddMode] = useState(null); // null | 'intent' | 'subfocus'
 
   if (!activeFocus) return null;
 
@@ -40,6 +42,13 @@ function FocusBar({ activeFocus, actions, onAddAnother }) {
     ? formatTimer(activeFocus.overMs, true)
     : formatTimer(activeFocus.remainingMs);
   const funnel = FUNNEL_STAGES[activeFocus.funnelStage] || FUNNEL_STAGES.unsorted;
+
+  const handleQuickAdd = (label) => {
+    if (!label?.trim()) return;
+    onAddAnother(label.trim());
+    setAddInput('');
+    setAddMode(null);
+  };
 
   return (
     <GlassCard style={{ padding: '16px', marginBottom: '12px', position: 'relative', overflow: 'visible' }}>
@@ -87,24 +96,36 @@ function FocusBar({ activeFocus, actions, onAddAnother }) {
         <Tooltip text="Tag with client/project">
           <button onClick={() => setShowTags(!showTags)} style={btnStyle('var(--color-text-muted)')}>🏷</button>
         </Tooltip>
+        <Tooltip text="Add a new intent">
+          <button onClick={() => setAddMode(addMode === 'intent' ? null : 'intent')} style={btnStyle(addMode === 'intent' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>+ Intent</button>
+        </Tooltip>
       </div>
       {showTags && (
         <div style={{ marginTop: '8px' }}>
-          <TagPicker tags={activeFocus.tags || {}} onChange={(tags) => actions.updateTags(null, tags)} compact={false} />
+          <TagPicker tags={activeFocus.tags || {}} onChange={(tags) => actions.updateTags(null, tags)} compact={false} clients={clients} projects={projects} />
         </div>
       )}
-      {/* Quick add */}
-      <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
-        <input
-          type="text" placeholder="Add another focus..." value={addInput}
-          onChange={e => setAddInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && addInput.trim()) { onAddAnother(addInput.trim()); setAddInput(''); }}}
-          style={{ flex: 1, background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
-        />
-        <Tooltip text="Add without interrupting current focus">
-          <button onClick={() => { if (addInput.trim()) { onAddAnother(addInput.trim()); setAddInput(''); }}} style={btnStyle('var(--color-accent-secondary)')}>+ Add</button>
-        </Tooltip>
-      </div>
+      {/* Quick add — enhanced with ComboInput */}
+      {addMode && (
+        <div style={{ marginTop: '10px', display: 'flex', gap: '6px', alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <ComboInput
+              value={addInput}
+              onChange={setAddInput}
+              options={[]} 
+              placeholder={addMode === 'intent' ? 'New intent name...' : 'Sub-focus name...'}
+              onSubmit={handleQuickAdd}
+              size="sm"
+              icon={addMode === 'intent' ? '🎯' : '📌'}
+              allowCreate={false}
+            />
+          </div>
+          <Tooltip text={`Add ${addMode} without interrupting current focus`}>
+            <button onClick={() => handleQuickAdd(addInput)} style={btnStyle('var(--color-accent-secondary)')}>+ Add</button>
+          </Tooltip>
+          <button onClick={() => { setAddMode(null); setAddInput(''); }} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '12px', padding: '4px' }}>✕</button>
+        </div>
+      )}
     </GlassCard>
   );
 }
@@ -176,6 +197,9 @@ function FocusInput({ onStart }) {
   const [input, setInput] = useState('');
   const [shake, setShake] = useState(false);
   const [pending, setPending] = useState(false);
+  const [showTagSetup, setShowTagSetup] = useState(false);
+  const [tags, setTags] = useState({ realm: 'personal', client: 'Self' });
+
   const handleSubmit = async () => {
     if (!input.trim()) {
       setShake(true);
@@ -184,16 +208,17 @@ function FocusInput({ onStart }) {
     }
     setPending(true);
     try {
-      const result = await onStart(input.trim());
+      const result = await onStart(input.trim(), 15, tags);
       console.log('[Tabatha] FocusInput startFocus result:', result);
       if (result?.error) {
         console.error('[Tabatha] FocusInput error:', result.error);
       }
       setInput('');
+      setTags({ realm: 'personal', client: 'Self' });
+      setShowTagSetup(false);
     } catch(e) {
       console.error('[Tabatha] FocusInput exception:', e);
     } finally {
-      // Always clear pending — don't rely on unmount
       setTimeout(() => setPending(false), 500);
     }
   };
@@ -211,6 +236,40 @@ function FocusInput({ onStart }) {
           />
           <PopButton onClick={handleSubmit} size="sm" disabled={pending}>{pending ? '⏳ Setting…' : 'Set Focus'}</PopButton>
         </div>
+        {/* Quick realm toggle + tag setup */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+          <div style={{ display: 'flex', gap: '2px' }}>
+            {['personal', 'business'].map(r => (
+              <button
+                key={r}
+                onClick={() => setTags(t => ({ ...t, realm: r, client: r === 'personal' && !t.client ? 'Self' : t.client }))}
+                style={{
+                  background: tags.realm === r ? 'var(--color-accent-primary)' : 'transparent',
+                  color: tags.realm === r ? '#fff' : 'var(--color-text-muted)',
+                  border: `1px solid ${tags.realm === r ? 'var(--color-accent-primary)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius-sm)', fontSize: '10px', padding: '2px 8px',
+                  cursor: 'pointer', fontWeight: 500,
+                }}
+              >
+                {r === 'business' ? '💼' : '🏠'} {r.charAt(0).toUpperCase() + r.slice(1)}
+              </button>
+            ))}
+          </div>
+          {tags.client && (
+            <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>→ {tags.client}</span>
+          )}
+          <button
+            onClick={() => setShowTagSetup(!showTagSetup)}
+            style={{ background: 'transparent', border: 'none', color: 'var(--color-accent-primary)', fontSize: '10px', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}
+          >
+            {showTagSetup ? 'Less ▲' : 'More ▼'}
+          </button>
+        </div>
+        {showTagSetup && (
+          <div style={{ marginTop: '8px' }}>
+            <TagPicker tags={tags} onChange={setTags} compact={false} />
+          </div>
+        )}
       </GlassCard>
     </motion.div>
   );
@@ -568,7 +627,7 @@ function Home() {
   const [settings] = useChromeStorage('settings', {});
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
-  const { activeFocus, allItems, history, actions } = useFocusEngine();
+  const { activeFocus, allItems, history, actions, engine } = useFocusEngine();
   const [activePanel, setActivePanel] = useState('logs');
   const [expandedSession, setExpandedSession] = useState(null);
   const [linkModalConfig, setLinkModalConfig] = useState({ isOpen: false, targetItem: null, type: null });
@@ -638,6 +697,18 @@ function Home() {
     Object.entries(tabs).forEach(([id, tab]) => { const cat = tab.category || 'unknown'; byCat[cat] = (byCat[cat] || 0) + ((timeTracking.byTab || {})[id] || 0); });
     return Object.entries(byCat).map(([cat, time]) => ({ cat, icon: CATEGORY_ICONS[cat] || '📄', name: cat.charAt(0).toUpperCase() + cat.slice(1), time, timeStr: formatTime(time) })).sort((a, b) => b.time - a.time);
   }, [tabs, timeTracking]);
+
+  // Extract unique client/project names from all focus items for autocomplete
+  const { knownClients, knownProjects } = useMemo(() => {
+    const cls = new Set(['Self']);
+    const pjs = new Set();
+    const allFocusItems = [...Object.values(engine?.items || {}), ...(engine?.history || [])];
+    for (const item of allFocusItems) {
+      if (item.tags?.client) cls.add(item.tags.client);
+      if (item.tags?.project) pjs.add(item.tags.project);
+    }
+    return { knownClients: [...cls], knownProjects: [...pjs] };
+  }, [engine]);
 
   const THEMES = ['pop-art', 'corporate', 'midnight', 'matcha', 'terminal', 'sakura', 'blueprint', 'neo-brutalism', 'glass-ocean', 'retro-pixel', 'solarized-warm', 'high-contrast-dark'];
   const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐', 'neo-brutalism':'🟨', 'glass-ocean':'🌊', 'retro-pixel':'👾', 'solarized-warm':'📖', 'high-contrast-dark':'⚫' };
@@ -838,12 +909,12 @@ function Home() {
         {/* Focus Engine */}
         {activeFocus ? (
           <>
-            <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} />
+            <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects} />
             <FocusQueue items={allItems} actions={actions} />
             <FocusHistory history={history} />
           </>
         ) : (
-          <FocusInput onStart={(label) => actions.startFocus(label)} />
+          <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
         )}
 
         {/* Nav Tabs */}
