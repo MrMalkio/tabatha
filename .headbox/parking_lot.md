@@ -3,6 +3,15 @@
 > Items noticed during work that need attention later.
 > **Rules:** Append only. Never delete entries. Scan headers before adding to avoid duplicates.
 
+## 2026-05-10 — InBar Pause + Sticky Note Feature
+- **Noticed while:** Planning Phase 1 (homepage declutter)
+- **What:** User wants InBar pause button that: (1) prompts for a "where I left off" sticky note, (2) shows a large sticky-note graphic (biased/tilted) on the paused tab's window — non-obstructive so they can still see their work, (3) stops all time tracking for that intent + children, (4) auto-parks the tab if closed while paused (never marks complete). Resume button on the sticky note overlay.
+- **Why it matters:** Core UX for the follow-through engine — pausing with context is essential for multi-focus workflows.
+- **Options:**
+  1. Build as part of InBar Phase 4 work
+  2. Build as a standalone content script feature (pause-overlay.js)
+  3. Build as a lightweight first pass in Phase 4, iterate later ← **suggested**
+
 ## 2026-05-09 — background.js Monolith Refactor
 - **Noticed while:** Diagnostic fix sweep
 - **What:** `background.js` is ~2000 lines handling tabs, contexts, intents, focus, clock, time tracking, groups, categories, priorities, locking, markdown export, notifications, idle detection, and message routing all in one file.
