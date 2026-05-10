@@ -18,23 +18,23 @@
 
 | Service | Handlers | Extracted | Tested | Status |
 |---------|----------|-----------|--------|--------|
-| constants + helpers | — | ⬜ | ⬜ | Not started |
-| storageService | — | ✅ | ✅ | Already exists as `storage.js` |
-| clockService | 7 | ✅ | ⬜ | Already exists as `clock.js`, needs move + expand |
+| constants + helpers | — | ✅ | ✅ | Extracted; build passes |
+| storageService | — | ✅ | ✅ | Moved to `src/background/services/storageService.js`; build passes |
+| clockService | 7 | ✅ | ⬜ | Moved to `src/background/services/clockService.js`; build passes; manual tests pending |
 | focusService | 14 | ⬜ | ⬜ | Not started |
 | tabService | 17 | ⬜ | ⬜ | Not started |
 | tabTrackingService | 2+ | ⬜ | ⬜ | Not started |
-| taskService | 4 | ⬜ | ⬜ | Not started |
-| groupService | 4 | ⬜ | ⬜ | Not started |
-| categoryService | 3 | ⬜ | ⬜ | Not started |
+| taskService | 4 | ✅ | ⬜ | Extracted to `src/background/services/taskService.js`; build passes; manual tests pending |
+| groupService | 4 | ✅ | ⬜ | Extracted to `src/background/services/groupService.js`; build passes; manual tests pending |
+| categoryService | 3 | ✅ | ⬜ | Extracted to `src/background/services/categoryService.js`; build passes; manual tests pending |
 | blockgateService | 6 | ⬜ | ⬜ | Not started |
-| sessionService | 5 | ⬜ | ⬜ | Not started |
-| settingsService | 2 | ⬜ | ⬜ | Not started |
-| notificationService | 5 | ⬜ | ⬜ | Not started |
+| sessionService | 5 | ✅ | ⬜ | Extracted to `src/background/services/sessionService.js`; build passes; manual tests pending |
+| settingsService | 2 | ✅ | ⬜ | Extracted to `src/background/services/settingsService.js`; build passes; manual tests pending |
+| notificationService | 5 | ✅ | ⬜ | Extracted to `src/background/services/notificationService.js`; build passes; manual tests pending |
 | Router refactor | — | ⬜ | ⬜ | Not started |
 | fluxApi | — | ⬜ | ⬜ | Not started |
 
-**Overall: 0 / 62 handlers migrated**
+**Overall: 30 / 62 handlers migrated**
 
 ---
 
@@ -98,13 +98,13 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `CLOCK_IN` | ⬜ | ⬜ | ⬜ | Partially in clock.js |
-| 2 | `CLOCK_OUT` | ⬜ | ⬜ | ⬜ | Partially in clock.js |
-| 3 | `TOGGLE_BREAK` | ⬜ | ⬜ | ⬜ | Partially in clock.js |
-| 4 | `GET_CLOCK_STATUS` | ⬜ | ⬜ | ⬜ | |
-| 5 | `GET_CLOCK_HISTORY` | ⬜ | ⬜ | ⬜ | |
-| 6 | `GET_LAST_SESSION` | ⬜ | ⬜ | ⬜ | |
-| 7 | `GET_LATEST_SESSION` | ⬜ | ⬜ | ⬜ | |
+| 1 | `CLOCK_IN` | ✅ | ✅ | ⬜ | Extracted to clockService; manual test pending |
+| 2 | `CLOCK_OUT` | ✅ | ✅ | ⬜ | Extracted to clockService; manual test pending |
+| 3 | `TOGGLE_BREAK` | ✅ | ✅ | ⬜ | Extracted to clockService; manual test pending |
+| 4 | `GET_CLOCK_STATUS` | ✅ | ✅ | ⬜ | Extracted to clockService; manual test pending |
+| 5 | `GET_CLOCK_HISTORY` | ✅ | ✅ | ⬜ | Extracted to clockService; manual test pending |
+| 6 | `GET_LAST_SESSION` | ✅ | ✅ | ⬜ | Extracted to clockService; manual test pending |
+| 7 | `GET_LATEST_SESSION` | ✅ | ✅ | ⬜ | Extracted to clockService; manual test pending |
 
 ---
 
@@ -112,10 +112,10 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_TASKS` | ⬜ | ⬜ | ⬜ | |
-| 2 | `CREATE_TASK` | ⬜ | ⬜ | ⬜ | |
-| 3 | `UPDATE_TASK` | ⬜ | ⬜ | ⬜ | |
-| 4 | `DELETE_TASK` | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_TASKS` | ✅ | ✅ | ⬜ | Extracted to taskService; manual test pending |
+| 2 | `CREATE_TASK` | ✅ | ✅ | ⬜ | Extracted to taskService; manual test pending |
+| 3 | `UPDATE_TASK` | ✅ | ✅ | ⬜ | Extracted to taskService; manual test pending |
+| 4 | `DELETE_TASK` | ✅ | ✅ | ⬜ | Extracted to taskService; manual test pending |
 
 ---
 
@@ -123,10 +123,10 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_SAVED_GROUPS` | ⬜ | ⬜ | ⬜ | |
-| 2 | `CREATE_GROUP` | ⬜ | ⬜ | ⬜ | |
-| 3 | `CREATE_SUB_GROUP` | ⬜ | ⬜ | ⬜ | |
-| 4 | `GET_SUB_GROUPS` | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_SAVED_GROUPS` | ✅ | ✅ | ⬜ | Extracted to groupService; manual test pending |
+| 2 | `CREATE_GROUP` | ✅ | ✅ | ⬜ | Extracted to groupService; manual test pending |
+| 3 | `CREATE_SUB_GROUP` | ✅ | ✅ | ⬜ | Extracted to groupService; manual test pending |
+| 4 | `GET_SUB_GROUPS` | ✅ | ✅ | ⬜ | Extracted to groupService; manual test pending |
 
 ---
 
@@ -134,9 +134,9 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_CATEGORIES` | ⬜ | ⬜ | ⬜ | |
-| 2 | `CREATE_CATEGORY` | ⬜ | ⬜ | ⬜ | |
-| 3 | `CLONE_CATEGORY` | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_CATEGORIES` | ✅ | ✅ | ⬜ | Extracted to categoryService; manual test pending |
+| 2 | `CREATE_CATEGORY` | ✅ | ✅ | ⬜ | Extracted to categoryService; manual test pending |
+| 3 | `CLONE_CATEGORY` | ✅ | ✅ | ⬜ | Extracted to categoryService; manual test pending |
 
 ---
 
@@ -157,11 +157,11 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_SESSIONS` | ⬜ | ⬜ | ⬜ | |
-| 2 | `GET_CLOSED_CONTEXTS` | ⬜ | ⬜ | ⬜ | |
-| 3 | `GET_FLOW_RECALL` | ⬜ | ⬜ | ⬜ | |
-| 4 | `REOPEN_FLOW` | ⬜ | ⬜ | ⬜ | |
-| 5 | `EXPORT_MARKDOWN` | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_SESSIONS` | ✅ | ✅ | ⬜ | Extracted to sessionService; manual test pending |
+| 2 | `GET_CLOSED_CONTEXTS` | ✅ | ✅ | ⬜ | Extracted to sessionService; manual test pending |
+| 3 | `GET_FLOW_RECALL` | ✅ | ✅ | ⬜ | Extracted to sessionService; manual test pending |
+| 4 | `REOPEN_FLOW` | ✅ | ✅ | ⬜ | Extracted to sessionService; manual test pending |
+| 5 | `EXPORT_MARKDOWN` | ✅ | ✅ | ⬜ | Extracted to sessionService; manual test pending |
 
 ---
 
@@ -169,8 +169,8 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_SETTINGS` | ⬜ | ⬜ | ⬜ | |
-| 2 | `UPDATE_SETTINGS` | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_SETTINGS` | ✅ | ✅ | ⬜ | Extracted to settingsService; manual test pending |
+| 2 | `UPDATE_SETTINGS` | ✅ | ✅ | ⬜ | Extracted to settingsService; manual test pending |
 
 ---
 
@@ -178,11 +178,11 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `OPEN_POPUP` | ⬜ | ⬜ | ⬜ | |
-| 2 | `GET_INBAR_DATA` | ⬜ | ⬜ | ⬜ | Complex: needs focus + tab data |
-| 3 | `GET_INBAR_NOTES` | ⬜ | ⬜ | ⬜ | |
-| 4 | `SAVE_INBAR_NOTE` | ⬜ | ⬜ | ⬜ | |
-| 5 | `START_POMODORO` | ⬜ | ⬜ | ⬜ | |
+| 1 | `OPEN_POPUP` | ✅ | ✅ | ⬜ | Extracted to notificationService; manual test pending |
+| 2 | `GET_INBAR_DATA` | ✅ | ✅ | ⬜ | Extracted to notificationService; preserves focus + tab dependencies; manual test pending |
+| 3 | `GET_INBAR_NOTES` | ✅ | ✅ | ⬜ | Extracted to notificationService; manual test pending |
+| 4 | `SAVE_INBAR_NOTE` | ✅ | ✅ | ⬜ | Extracted to notificationService; manual test pending |
+| 5 | `START_POMODORO` | ✅ | ✅ | ⬜ | Extracted to notificationService; manual test pending |
 
 ---
 
@@ -190,11 +190,11 @@
 
 | # | Code Block | Target | Extracted | Build | Notes |
 |---|------------|--------|-----------|-------|-------|
-| 1 | `DEFAULT_SETTINGS` | `constants.js` | ⬜ | ⬜ | |
-| 2 | `PRIORITY_LEVELS` | `constants.js` | ⬜ | ⬜ | |
-| 3 | `BUILT_IN_CATEGORIES` | `constants.js` | ⬜ | ⬜ | |
-| 4 | `patternToRegex()` | `helpers.js` | ⬜ | ⬜ | |
-| 5 | `formatTime()` | `helpers.js` | ⬜ | ⬜ | |
+| 1 | `DEFAULT_SETTINGS` | `constants.js` | ✅ | ✅ | Extracted to `src/background/constants.js` |
+| 2 | `PRIORITY_LEVELS` | `constants.js` | ✅ | ✅ | Extracted to `src/background/constants.js` |
+| 3 | `BUILT_IN_CATEGORIES` | `constants.js` | ✅ | ✅ | Extracted to `src/background/constants.js` |
+| 4 | `patternToRegex()` | `helpers.js` | ✅ | ✅ | Extracted to `src/background/helpers.js` |
+| 5 | `formatTime()` | `helpers.js` | ✅ | ✅ | Background `formatDuration()` extracted to `src/background/helpers.js`; no `formatTime()` helper existed in `background.js` |
 | 6 | `chrome.tabs.onCreated` | `tabService.js` | ⬜ | ⬜ | |
 | 7 | `chrome.tabs.onUpdated` | `tabService.js` | ⬜ | ⬜ | |
 | 8 | `chrome.tabs.onRemoved` | `tabService.js` | ⬜ | ⬜ | |

@@ -4,39 +4,20 @@
 
 import { supabase } from '../services/supabaseClient';
 import * as timeTracker from '../services/timeTracking.js';
-import { createClockService } from './clock.js';
+import { BUILT_IN_CATEGORIES, DEFAULT_FOCUS_ENGINE, DEFAULT_SETTINGS, PRIORITY_LEVELS } from './constants.js';
+import { patternToRegex } from './helpers.js';
+import { createClockService, handleMessage as handleClockMessage } from './services/clockService.js';
+import { configureGroupService, handleMessage as handleGroupMessage } from './services/groupService.js';
+import {
+  broadcastMessage,
+  configureNotificationService,
+  handleMessage as handleNotificationMessage,
+} from './services/notificationService.js';
+import { handleMessage as handleCategoryMessage } from './services/categoryService.js';
+import { configureSessionService, handleMessage as handleSessionMessage } from './services/sessionService.js';
+import { handleMessage as handleSettingsMessage } from './services/settingsService.js';
+import { handleMessage as handleTaskMessage } from './services/taskService.js';
 
-// ============================================================
-// CONSTANTS & DEFAULTS
-// ============================================================
-
-const DEFAULT_SETTINGS = {
-  globalTimerMinutes: 15,
-  idleThresholdMinutes: 5,
-  exportPath: 'Tabatha',
-  autoExportEnabled: false,
-  autoExportIntervalMinutes: 60
-};
-
-const PRIORITY_LEVELS = {
-  critical: { label: '🔴 Critical', color: 'red', order: 0 },
-  high:     { label: '🟠 High',     color: 'orange', order: 1 },
-  medium:   { label: '🟡 Medium',   color: 'yellow', order: 2 },
-  low:      { label: '🟢 Low',      color: 'green', order: 3 },
-  none:     { label: '⚪ None',     color: 'grey', order: 4 }
-};
-
-const BUILT_IN_CATEGORIES = {
-  work:      { name: 'Work',      icon: '💼', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  media:     { name: 'Media',     icon: '🎵', builtIn: true, persistent: false, urlPatterns: ['*://music.youtube.com/*', '*://open.spotify.com/*', '*://soundcloud.com/*', '*://podcasts.google.com/*', '*://podcasts.apple.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  meeting:   { name: 'Meeting',   icon: '📹', builtIn: true, persistent: false, urlPatterns: ['*://meet.google.com/*', '*://zoom.us/*', '*://teams.microsoft.com/*', '*://app.webex.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  reference: { name: 'Reference', icon: '📚', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  messaging: { name: 'Messaging', icon: '💬', builtIn: true, persistent: true,  urlPatterns: ['*://web.whatsapp.com/*', '*://discord.com/*', '*://slack.com/*', '*://telegram.org/*', '*://messages.google.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  email:     { name: 'Email',     icon: '📧', builtIn: true, persistent: true,  urlPatterns: ['*://mail.google.com/*', '*://outlook.live.com/*', '*://outlook.office365.com/*', '*://mail.yahoo.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  learning:  { name: 'Learning',  icon: '🎓', builtIn: true, persistent: false, urlPatterns: ['*://udemy.com/*', '*://coursera.org/*', '*://edx.org/*', '*://stackoverflow.com/*', '*://github.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  entertainment: { name: 'Entertainment', icon: '🎮', builtIn: true, persistent: false, urlPatterns: ['*://twitch.tv/*', '*://netflix.com/*', '*://hulu.com/*', '*://steamcommunity.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  unknown:   { name: 'Unknown',   icon: '❓', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: true, trackTime: true, timerEnabled: true } }
-};
 
 // ============================================================
 // STORAGE HELPERS
@@ -95,11 +76,6 @@ async function getTimeTracking() {
 // FOCUS ENGINE — Storage & Logic
 // ============================================================
 
-const DEFAULT_FOCUS_ENGINE = {
-  activeFocusId: null,
-  items: {},
-  history: []
-};
 
 // ============================================================
 // SUPABASE SYNC
@@ -532,16 +508,6 @@ function detectCategory(url, audible, categories) {
   return 'unknown';
 }
 
-function patternToRegex(pattern) {
-  try {
-    // Split on wildcards first, escape each segment, then rejoin with .*
-    const parts = pattern.split('*');
-    const escaped = parts.map(p => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&'));
-    return new RegExp('^' + escaped.join('.*') + '$');
-  } catch {
-    return null;
-  }
-}
 
 // ============================================================
 // TAB LIFECYCLE TRACKING
@@ -1107,88 +1073,6 @@ async function requestTabClose(tabId) {
 }
 
 // ============================================================
-// CHROME TAB GROUP INTEGRATION
-// ============================================================
-
-async function createOrUpdateGroup(tabIds, groupName, priority) {
-  const color = PRIORITY_LEVELS[priority]?.color || 'grey';
-  
-  const groupId = await chrome.tabs.group({ tabIds });
-  await chrome.tabGroups.update(groupId, {
-    title: groupName,
-    color,
-    collapsed: false
-  });
-  
-  // Update tab data with group ID
-  const tabs = await getTabData();
-  for (const tabId of tabIds) {
-    if (tabs[tabId]) {
-      tabs[tabId].groupId = groupId;
-    }
-  }
-  await setTabData(tabs);
-  
-  return groupId;
-}
-
-// ============================================================
-// SUB-GROUPS (Tabatha hierarchy beyond Chrome flat groups)
-// ============================================================
-
-async function createSubGroup(name, chromeGroupIds = [], projectId = null, settings = {}) {
-  const subGroups = await getSubGroups();
-  const id = `sg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-  
-  subGroups[id] = {
-    name,
-    projectId,
-    chromeGroupIds,
-    settings: {
-      timersEnabled: true,
-      autoContext: true,
-      lockingEnabled: true,
-      ...settings
-    }
-  };
-  
-  await setStorage({ subGroups });
-  return id;
-}
-
-// ============================================================
-// CUSTOM CATEGORIES
-// ============================================================
-
-async function createCategory(id, categoryData) {
-  const categories = await getCategories();
-  categories[id] = {
-    builtIn: false,
-    ...categoryData
-  };
-  await setStorage({ categories });
-  return categories;
-}
-
-async function cloneCategory(sourceId, newId, overrides = {}) {
-  const categories = await getCategories();
-  const source = categories[sourceId];
-  if (!source) return null;
-  
-  const cloned = {
-    ...JSON.parse(JSON.stringify(source)),
-    builtIn: false,
-    clonedFrom: sourceId,
-    name: overrides.name || `${source.name} (Copy)`,
-    ...overrides
-  };
-  
-  categories[newId] = cloned;
-  await setStorage({ categories });
-  return categories;
-}
-
-// ============================================================
 // BULK OPERATIONS
 // ============================================================
 
@@ -1236,59 +1120,6 @@ async function bulkCloseTabs(tabIds, sharedContext, sharedIntent) {
 }
 
 // ============================================================
-// "RETURN TO FLOW" — SESSION RECALL
-// ============================================================
-
-async function getFlowRecallData() {
-  const closedContexts = await getClosedContexts();
-  const subGroups = await getSubGroups();
-  
-  // Group closed contexts by sub-group or context
-  const flows = {};
-  for (const ctx of closedContexts) {
-    const key = ctx.subGroupId || ctx.context || 'ungrouped';
-    if (!flows[key]) {
-      flows[key] = {
-        context: ctx.context,
-        intent: ctx.intent,
-        subGroupId: ctx.subGroupId,
-        subGroupName: ctx.subGroupId ? subGroups[ctx.subGroupId]?.name : null,
-        tabs: []
-      };
-    }
-    flows[key].tabs.push(ctx);
-  }
-  
-  return flows;
-}
-
-async function reopenFlow(flowKey, newSessionIntent) {
-  const flows = await getFlowRecallData();
-  const flow = flows[flowKey];
-  if (!flow) return;
-  
-  const tabIds = [];
-  for (const ctx of flow.tabs) {
-    if (ctx.url) {
-      const tab = await chrome.tabs.create({ url: ctx.url, active: false });
-      tabIds.push(tab.id);
-      
-      // Restore context on the new tab
-      const tabs = await getTabData();
-      if (tabs[tab.id]) {
-        tabs[tab.id].context = ctx.context;
-        tabs[tab.id].intent = newSessionIntent || ctx.intent;
-        tabs[tab.id].priority = ctx.priority;
-        tabs[tab.id].category = ctx.category;
-        await setTabData(tabs);
-      }
-    }
-  }
-  
-  return tabIds;
-}
-
-// ============================================================
 // SESSION SNAPSHOTS
 // ============================================================
 
@@ -1314,105 +1145,14 @@ chrome.alarms.create('session-snapshot', { periodInMinutes: 5 });
 chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 
 // ============================================================
-// MARKDOWN EXPORT
-// ============================================================
-
-async function exportMarkdown() {
-  const tabs = await getTabData();
-  const subGroups = await getSubGroups();
-  const categories = await getCategories();
-  const closedContexts = await getClosedContexts();
-  const timeTracking = await getTimeTracking();
-  const settings = await getSettings();
-  
-  let md = `# Tabatha Context — ${new Date().toLocaleString()}\n\n`;
-  md += `> Auto-generated by Tabatha. Designed for AI agent consumption.\n\n`;
-  
-  // Active tabs by group
-  md += `## Active Tabs (${Object.keys(tabs).length})\n\n`;
-  
-  const grouped = {};
-  for (const [tabId, tab] of Object.entries(tabs)) {
-    const key = tab.subGroupId || tab.groupId || 'ungrouped';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push({ tabId, ...tab });
-  }
-  
-  for (const [groupKey, groupTabs] of Object.entries(grouped)) {
-    const groupName = subGroups[groupKey]?.name || `Group ${groupKey}`;
-    md += `### ${groupKey === 'ungrouped' ? 'Ungrouped' : groupName}\n\n`;
-    
-    for (const tab of groupTabs) {
-      const priority = PRIORITY_LEVELS[tab.priority]?.label || '⚪ None';
-      const catIcon = categories[tab.category]?.icon || '❓';
-      const time = formatDuration(tab.activeTime || 0);
-      const locked = tab.locked ? '🔒' : '';
-      const urlLocked = tab.urlLocked ? '🔗' : '';
-      
-      md += `- ${priority} ${catIcon} ${locked}${urlLocked} **${tab.title}**\n`;
-      md += `  - URL: ${tab.url}\n`;
-      if (tab.context) md += `  - Context: ${tab.context}\n`;
-      if (tab.intent) md += `  - Intent: ${tab.intent}\n`;
-      md += `  - Active time: ${time}\n`;
-      md += `  - Opened: ${tab.openedAt}\n\n`;
-    }
-  }
-  
-  // Closed contexts
-  if (closedContexts.length > 0) {
-    md += `## Recently Closed Contexts\n\n`;
-    for (const ctx of closedContexts.slice(0, 20)) {
-      md += `- **${ctx.title}** (${ctx.priority})\n`;
-      if (ctx.context) md += `  - Context: ${ctx.context}\n`;
-      md += `  - URL: ${ctx.url}\n`;
-      md += `  - Closed: ${ctx.closedAt}\n\n`;
-    }
-  }
-  
-  // Time summary
-  md += `## Time Summary\n\n`;
-  md += `| Category | Time |\n|----------|------|\n`;
-  for (const [cat, ms] of Object.entries(timeTracking.byCategory)) {
-    const catName = categories[cat]?.name || cat;
-    md += `| ${catName} | ${formatDuration(ms)} |\n`;
-  }
-  md += `\n`;
-  
-  // Download the file
-  const blob = new Blob([md], { type: 'text/markdown' });
-  const url = URL.createObjectURL(blob);
-  
-  chrome.downloads.download({
-    url,
-    filename: `${settings.exportPath}/context.md`,
-    saveAs: false,
-    conflictAction: 'overwrite'
-  });
-  
-  return md;
-}
-
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
-}
-
-// ============================================================
 // MESSAGE ROUTING
 // ============================================================
 
-function broadcastMessage(message) {
-  chrome.runtime.sendMessage(message).catch(() => {
-    // No listeners — sidebar not open, that's fine
-  });
-}
 
 // ── Service instances ──
+configureNotificationService({ getStorage, setStorage, getTabData, setTabData, getFocusEngine });
+configureGroupService({ setTabData });
+configureSessionService({ setTabData });
 const clockService = createClockService(getStorage, setStorage, broadcastMessage);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1426,6 +1166,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleMessage(message, sender) {
+  const notificationResponse = await handleNotificationMessage(message.type, message, sender);
+  if (notificationResponse) return notificationResponse;
+
+  const settingsResponse = await handleSettingsMessage(message.type, message, sender);
+  if (settingsResponse) return settingsResponse;
+
+  const categoryResponse = await handleCategoryMessage(message.type, message, sender);
+  if (categoryResponse) return categoryResponse;
+
+  const clockResponse = await handleClockMessage(message.type, message, sender);
+  if (clockResponse) return clockResponse;
+
+  const groupResponse = await handleGroupMessage(message.type, message, sender);
+  if (groupResponse) return groupResponse;
+
+  const sessionResponse = await handleSessionMessage(message.type, message, sender);
+  if (sessionResponse) return sessionResponse;
+
+  const taskResponse = await handleTaskMessage(message.type, message, sender);
+  if (taskResponse) return taskResponse;
+
   switch (message.type) {
     // --- Tab Data ---
     case 'GET_ALL_TABS':
@@ -1536,110 +1297,9 @@ async function handleMessage(message, sender) {
     // --- Bulk ---
     case 'BULK_CLOSE':
       return await bulkCloseTabs(message.tabIds, message.context, message.intent);
-    
-    // --- Groups ---
-    case 'GET_SAVED_GROUPS': {
-      try {
-        const allGroups = await chrome.tabGroups.query({});
-        const tabs = await getTabData();
-        const savedGroups = {};
-        for (const group of allGroups) {
-          const groupTabs = await chrome.tabs.query({ groupId: group.id });
-          savedGroups[group.id] = {
-            id: group.id,
-            title: group.title || 'Untitled Group',
-            color: group.color,
-            collapsed: group.collapsed,
-            tabIds: groupTabs.map(t => t.id),
-            tabCount: groupTabs.length,
-          };
-        }
-        return { savedGroups };
-      } catch (e) {
-        return { savedGroups: {} };
-      }
-    }
-
-    case 'CREATE_GROUP': {
-      const groupId = await createOrUpdateGroup(message.tabIds, message.name, message.priority);
-      return { groupId };
-    }
-    
-    case 'CREATE_SUB_GROUP': {
-      const id = await createSubGroup(message.name);
-      return { id };
-    }
-    
-    case 'GET_SUB_GROUPS':
-      return { subGroups: await getSubGroups() };
-    
-    // --- Categories ---
-    case 'GET_CATEGORIES':
-      return { categories: await getCategories() };
-    
-    case 'CREATE_CATEGORY':
-      return { categories: await createCategory(message.id, message.data) };
-    
-    case 'CLONE_CATEGORY':
-      return { categories: await cloneCategory(message.sourceId, message.newId, message.overrides) };
-    
-    // --- Flow Recall ---
-    case 'GET_FLOW_RECALL':
-      return { flows: await getFlowRecallData() };
-    
-    case 'REOPEN_FLOW':
-      return { tabIds: await reopenFlow(message.flowKey, message.newIntent) };
-
-    // --- Closed Contexts ---
-    case 'GET_CLOSED_CONTEXTS':
-      return { closedContexts: await getClosedContexts() };
-    
     // --- Time Tracking ---
     case 'GET_TIME_TRACKING':
       return { timeTracking: await getTimeTracking() };
-      
-    case 'START_POMODORO':
-        chrome.alarms.create('pomodoro-timer', { delayInMinutes: message.minutes });
-        broadcastMessage({ type: 'POMODORO_STARTED', minutes: message.minutes });
-        return { success: true };
-    
-    // --- Sessions ---
-    case 'GET_SESSIONS':
-      return { sessions: await getSessions() };
-    
-    case 'GET_LATEST_SESSION':
-      const sessions = await getSessions();
-      return { session: sessions[0] || null };
-    
-    // --- Settings ---
-    case 'GET_SETTINGS':
-      return { settings: await getSettings() };
-    
-    case 'UPDATE_SETTINGS': {
-      const settings = await getSettings();
-      Object.assign(settings, message.settings);
-      await setStorage({ settings });
-      
-      // Update idle detection interval
-      if (message.settings.idleThresholdMinutes) {
-        chrome.idle.setDetectionInterval(message.settings.idleThresholdMinutes * 60);
-      }
-      
-      // Setup or clear auto-export
-      if (settings.autoExportEnabled) {
-        chrome.alarms.create('auto-export', { periodInMinutes: settings.autoExportIntervalMinutes });
-      } else {
-        chrome.alarms.clear('auto-export');
-      }
-      
-      return { settings };
-    }
-    
-    // --- Export ---
-    case 'EXPORT_MARKDOWN':
-      const md = await exportMarkdown();
-      return { success: true, content: md };
-    
     // --- Focus Tab ---
     case 'FOCUS_TAB':
       try {
@@ -1980,48 +1640,6 @@ async function handleMessage(message, sender) {
         return { success: true };
     }
 
-    // --- Tasks CRUD ---
-    case 'GET_TASKS': {
-      const { tasks } = await getStorage('tasks') || {};
-      return { tasks: tasks || [] };
-    }
-    case 'CREATE_TASK': {
-      const { tasks: existing } = await getStorage('tasks') || {};
-      const taskList = existing || [];
-      const newTask = {
-        id: `task_${Date.now()}`,
-        name: message.name,
-        description: message.description || '',
-        status: 'active', // active | completed | archived
-        linkedIntents: [],
-        createdAt: new Date().toISOString(),
-        completedAt: null,
-      };
-      taskList.push(newTask);
-      await setStorage({ tasks: taskList });
-      broadcastMessage({ type: 'TASKS_UPDATED', tasks: taskList });
-      return { success: true, task: newTask };
-    }
-    case 'UPDATE_TASK': {
-      const { tasks: all } = await getStorage('tasks') || {};
-      const taskArr = all || [];
-      const idx = taskArr.findIndex(t => t.id === message.taskId);
-      if (idx >= 0) {
-        taskArr[idx] = { ...taskArr[idx], ...message.updates };
-        await setStorage({ tasks: taskArr });
-        broadcastMessage({ type: 'TASKS_UPDATED', tasks: taskArr });
-        return { success: true };
-      }
-      return { error: 'Task not found' };
-    }
-    case 'DELETE_TASK': {
-      const { tasks: tAll } = await getStorage('tasks') || {};
-      const filtered = (tAll || []).filter(t => t.id !== message.taskId);
-      await setStorage({ tasks: filtered });
-      broadcastMessage({ type: 'TASKS_UPDATED', tasks: filtered });
-      return { success: true };
-    }
-
     // --- Focus Engine ---
     case 'GET_FOCUS_ENGINE':
       return { focusEngine: await getFocusEngine() };
@@ -2134,88 +1752,6 @@ async function handleMessage(message, sender) {
         
         return { sites };
     }
-
-    // --- InBar data ---
-    case 'GET_INBAR_DATA': {
-        const { settings: ibSettings } = await getStorage('settings');
-        const tabs = await getTabData();
-        const tabId = sender.tab ? sender.tab.id : null;
-        const tabContext = tabId ? tabs[tabId] : null;
-        const engine = await getFocusEngine();
-        const activeFocus = engine.activeFocusId ? engine.items[engine.activeFocusId] : null;
-        
-        // Calculate total task time from all associated tabs
-        let totalTimeMs = 0;
-        if (activeFocus) {
-          const { timeTracking } = await getStorage('timeTracking');
-          if (timeTracking?.byTab) {
-            for (const tid of activeFocus.associatedTabIds) {
-              totalTimeMs += timeTracking.byTab[tid] || 0;
-            }
-          }
-          activeFocus.totalTimeMs = totalTimeMs;
-        }
-        
-        const show = ibSettings?.inbarEnabled !== false;
-        return { show, tabContext, activeFocus, settings: ibSettings || {} };
-    }
-
-    case 'SAVE_INBAR_NOTE': {
-        const { note, tabId: noteTabId } = message;
-        const { inbarNotes = {} } = await getStorage('inbarNotes');
-        const noteKey = noteTabId || (sender.tab ? sender.tab.id : 'global');
-        inbarNotes[noteKey] = { text: note, updatedAt: new Date().toISOString() };
-        await setStorage({ inbarNotes });
-        return { success: true };
-    }
-
-    case 'GET_INBAR_NOTES': {
-        const { inbarNotes = {} } = await getStorage('inbarNotes');
-        const tabId = sender.tab ? sender.tab.id : null;
-        return { note: inbarNotes[tabId]?.text || inbarNotes['global']?.text || '' };
-    }
-    
-    // --- Open InPop on current tab (from InBar "Set intent" button) ---
-    case 'OPEN_POPUP': {
-        const tabId = sender?.tab?.id || message.tabId;
-        if (!tabId) return { error: 'No tab ID' };
-        // Clear any existing context so gatekeeper will fire
-        const tabs = await getTabData();
-        if (tabs[tabId]) {
-          tabs[tabId].contextSource = null;
-          await setTabData(tabs);
-        }
-        // Inject gatekeeper content script
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId },
-            files: ['assets/gatekeeper.js']
-          });
-          return { success: true };
-        } catch (e) {
-          return { error: 'Could not inject gatekeeper: ' + e.message };
-        }
-    }
-
-    // --- Clock In/Out ---
-    case 'CLOCK_IN':
-        return await clockService.clockIn();
-    
-    case 'CLOCK_OUT':
-        return await clockService.clockOut();
-    
-    case 'GET_CLOCK_STATUS':
-        return await clockService.getClockStatus();
-    
-    case 'TOGGLE_BREAK':
-        return await clockService.toggleBreak();
-
-    case 'GET_LAST_SESSION':
-        return await clockService.getLastSession();
-
-    case 'GET_CLOCK_HISTORY':
-        return await clockService.getClockHistory();
-
     default:
       return { error: 'Unknown message type' };
   }

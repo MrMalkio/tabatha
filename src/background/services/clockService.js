@@ -4,6 +4,32 @@
 // Storage keys: clockSession, clockHistory
 // ════════════════════════════════════════════
 
+import { getStorage, setStorage } from './storageService.js';
+import { broadcastMessage } from './notificationService.js';
+
+const defaultClockService = createClockService(getStorage, setStorage, broadcastMessage);
+
+export async function handleMessage(type) {
+  switch (type) {
+    case 'CLOCK_IN':
+      return defaultClockService.clockIn();
+    case 'CLOCK_OUT':
+      return defaultClockService.clockOut();
+    case 'GET_CLOCK_STATUS':
+      return defaultClockService.getClockStatus();
+    case 'TOGGLE_BREAK':
+      return defaultClockService.toggleBreak();
+    case 'GET_LAST_SESSION':
+      return defaultClockService.getLastSession();
+    case 'GET_CLOCK_HISTORY':
+      return defaultClockService.getClockHistory();
+    case 'GET_LATEST_SESSION':
+      return defaultClockService.getLatestSession();
+    default:
+      return null;
+  }
+}
+
 /**
  * @param {Function} getStorage - async (keys) => data
  * @param {Function} setStorage - async (data) => void
@@ -119,6 +145,11 @@ export function createClockService(getStorage, setStorage, broadcastMessage) {
     return { history };
   }
 
+  async function getLatestSession() {
+    const { sessions } = await getStorage('sessions');
+    return { session: (sessions || [])[0] || null };
+  }
+
   return {
     clockIn,
     clockOut,
@@ -126,5 +157,6 @@ export function createClockService(getStorage, setStorage, broadcastMessage) {
     toggleBreak,
     getLastSession,
     getClockHistory,
+    getLatestSession,
   };
 }
