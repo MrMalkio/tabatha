@@ -18,6 +18,35 @@ const btn = (color) => ({
 });
 
 // ═══════════════════════════════════════
+// GroupsList — compact groups for sidebar
+// ═══════════════════════════════════════
+function GroupsList({ tabs }) {
+  const [groups, setGroups] = useState({});
+  useEffect(() => {
+    sendMessage('GET_SAVED_GROUPS').then(r => { if (r?.savedGroups) setGroups(r.savedGroups); }).catch(() => {});
+  }, [tabs]);
+
+  const entries = Object.values(groups);
+  if (entries.length === 0) return <div style={{ fontSize:'10px', color:'var(--color-text-muted)', padding:'8px 0' }}>No tab groups. Create groups in Chrome or Tabatha.</div>;
+
+  const GROUP_COLORS = { grey:'#9e9e9e', blue:'#4285f4', red:'#ea4335', yellow:'#fbbc04', green:'#34a853', pink:'#f538a0', purple:'#a142f4', cyan:'#24c1e0', orange:'#fa903e' };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'3px' }}>
+      {entries.map(g => (
+        <div key={g.id} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'5px 6px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', borderLeft:`3px solid ${GROUP_COLORS[g.color]||'var(--color-accent-primary)'}` }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:'11px', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{g.title || 'Untitled Group'}</div>
+            <div style={{ fontSize:'9px', color:'var(--color-text-muted)' }}>{g.tabCount} tab{g.tabCount!==1?'s':''}{g.collapsed ? ' · collapsed' : ''}</div>
+          </div>
+          <span style={{ fontSize:'9px', padding:'1px 5px', borderRadius:'3px', background:(GROUP_COLORS[g.color]||'#888')+'22', color:GROUP_COLORS[g.color]||'#888', fontWeight:600 }}>{g.color}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
 // Sidebar
 // ═══════════════════════════════════════
 function Sidebar() {
@@ -77,6 +106,7 @@ function Sidebar() {
   const panels = [
     { id:'focus', label:'🎯' },
     { id:'tabs', label:'📑' },
+    { id:'groups', label:'📌' },
     { id:'stash', label:'📦' },
   ];
 
@@ -97,6 +127,9 @@ function Sidebar() {
             </Tooltip>
             <Tooltip text="Open settings">
               <button onClick={() => chrome?.runtime?.openOptionsPage?.()} style={{ background:'none', border:'none', fontSize:'12px', cursor:'pointer', padding:'0 2px', color:'var(--color-text-muted)' }}>⚙️</button>
+            </Tooltip>
+            <Tooltip text="Work Shifts">
+              <button onClick={() => chrome?.tabs?.create?.({ url: chrome.runtime.getURL('workshifts.html') })} style={{ background:'none', border:'none', fontSize:'12px', cursor:'pointer', padding:'0 2px', color:'var(--color-text-muted)' }}>⏱️</button>
             </Tooltip>
             <Tooltip text="Open dashboard">
               <button onClick={() => chrome?.tabs?.create?.({ url: chrome.runtime.getURL('home.html') })} style={{ background:'none', border:'none', fontSize:'12px', cursor:'pointer', padding:'0 2px', color:'var(--color-text-muted)' }}>🏠</button>
@@ -281,6 +314,14 @@ function Sidebar() {
                   })}
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {/* ── GROUPS PANEL ── */}
+          {panel === 'groups' && (
+            <motion.div key="groups" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.12}}>
+              <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'6px' }}>📌 Tab Groups</div>
+              <GroupsList tabs={tabs} />
             </motion.div>
           )}
 
