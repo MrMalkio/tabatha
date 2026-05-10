@@ -590,6 +590,30 @@ chrome.tabs.onCreated.addListener(async (tab) => {
     ignored: false,
     persistent: false
   };
+
+  // Auto-apply URL rules
+  try {
+    const { urlRules } = await getStorage('urlRules');
+    if (urlRules && urlRules.length > 0) {
+      const tabUrl = (tab.url || tab.pendingUrl || '').toLowerCase();
+      for (const rule of urlRules) {
+        if (!rule.autoApply) continue;
+        const pattern = rule.pattern.toLowerCase();
+        // Simple matching: domain contains or URL contains pattern
+        if (tabUrl.includes(pattern)) {
+          if (rule.defaultIntent) {
+            tabs[tab.id].intent = rule.defaultIntent;
+            tabs[tab.id].contextSource = 'url_rule';
+          }
+          if (rule.defaultContext) {
+            tabs[tab.id].context = rule.defaultContext;
+            if (!tabs[tab.id].contextSource) tabs[tab.id].contextSource = 'url_rule';
+          }
+          break; // first match wins
+        }
+      }
+    }
+  } catch (e) { /* non-critical */ }
   
   await setTabData(tabs);
   
@@ -1600,9 +1624,9 @@ async function handleMessage(message, sender) {
         const isBuiltIn = sender.tab.url.startsWith('chrome://') || sender.tab.url.startsWith('chrome-extension://');
         if (isBuiltIn) return { needed: false };
         
-        // If it already has USER-EXPLICIT context/intent, skip.
+        // If it already has USER-EXPLICIT or URL-RULE context/intent, skip.
         // Inherited and auto-detected contexts should still prompt.
-        if ((tabData.context || tabData.intent) && tabData.contextSource === 'user') return { needed: false };
+        if ((tabData.context || tabData.intent) && (tabData.contextSource === 'user' || tabData.contextSource === 'url_rule')) return { needed: false };
         
         // --- Asana URL auto-intent ---
         // Detect Asana task URLs and auto-set context from the task title
@@ -1708,12 +1732,34 @@ async function handleMessage(message, sender) {
                 persistent: false
             };
         }
+        const oldIntent = tabs[sender.tab.id].intent;
+        const oldContext = tabs[sender.tab.id].context;
         tabs[sender.tab.id].context = message.context;
         tabs[sender.tab.id].category = message.category || tabs[sender.tab.id].category || 'unknown';
         tabs[sender.tab.id].intent = message.intent;
         tabs[sender.tab.id].contextSource = 'user';
         await setTabData(tabs);
         broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
+
+        // Log intent change for URL Rules changelog
+        if (message.intent !== oldIntent || message.context !== oldContext) {
+          try {
+            const domain = new URL(sender.tab.url || '').hostname.replace(/^www\./, '');
+            const { intentChangeLog } = await getStorage('intentChangeLog');
+            const log = intentChangeLog || [];
+            log.unshift({
+              timestamp: new Date().toISOString(),
+              tabId: sender.tab.id,
+              url: sender.tab.url,
+              domain,
+              oldIntent: oldIntent || null,
+              newIntent: message.intent || null,
+              oldContext: oldContext || null,
+              newContext: message.context || null,
+            });
+            await setStorage({ intentChangeLog: log.slice(0, 500) }); // keep last 500
+          } catch (e) { /* non-critical */ }
+        }
         return { success: true };
     }
     

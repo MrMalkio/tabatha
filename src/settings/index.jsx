@@ -12,6 +12,7 @@ import { FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { supabase, redeemInviteToken } from '../services/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { getLogs, clearLogs } from '../services/logger';
+import UrlRulesSection from './UrlRulesSection';
 
 // ── Styles ──
 const NAV_WIDTH = 220;
@@ -28,6 +29,7 @@ const SECTIONS = [
   { id: 'clock', label: '🕐 FlipClock' },
   { id: 'focus', label: '🎯 Focus Engine' },
   { id: 'intent', label: '🚪 Intent-Popup' },
+  { id: 'urlrules', label: '🔗 URL Rules' },
   { id: 'blocked', label: '🚫 Blocked Sites' },
   { id: 'time', label: '⏱ Time Tracking' },
   { id: 'export', label: '📤 Export & Agents' },
@@ -131,6 +133,8 @@ function Settings() {
   const [intentHistory] = useChromeStorage('intentHistory', []);
   const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
   const [blockedSites, setBlockedSites] = useChromeStorage('blockedSites', []);
+  const [urlRules, setUrlRules] = useChromeStorage('urlRules', []);
+  const [intentChangeLog] = useChromeStorage('intentChangeLog', []);
 
   // Supabase Auth State (via useAuth hook)
   const { session, profile, orgs, teams, loading: authLoading, signIn, signOut, refreshProfile, isSignedIn } = useAuth();
@@ -207,7 +211,7 @@ function Settings() {
       <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '8px 16px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>⚙️ Settings</div>
-          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v0.2.6-α</div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v0.2.7-α</div>
         </div>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
@@ -627,6 +631,15 @@ function Settings() {
               </div>
             )}
 
+            {activeSection === 'urlrules' && (
+              <UrlRulesSection
+                urlRules={urlRules}
+                setUrlRules={setUrlRules}
+                intentChangeLog={intentChangeLog}
+                skippedDomains={skippedDomains}
+              />
+            )}
+
             {activeSection === 'blocked' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Blocked Sites</h2>
@@ -933,6 +946,15 @@ function Settings() {
               <div style={{ fontSize: '40px', marginBottom: '8px' }}>{activeSection === 'parked' ? '🅿️' : '🍬'}</div>
               <div style={{ fontSize: '24px', fontWeight: 700 }}>{activeSection === 'parked' ? parkedTabs.length : sugarBox.length}</div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>{activeSection === 'parked' ? 'tabs parked' : 'items saved'}</div>
+            </div>
+          )}
+
+          {activeSection === 'urlrules' && (
+            <div style={{ width: '100%', textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔗</div>
+              <div style={{ fontSize: '24px', fontWeight: 700 }}>{urlRules.length}</div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>URL rules configured</div>
+              <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '8px' }}>{intentChangeLog.length} intent changes logged</div>
             </div>
           )}
 
