@@ -16,6 +16,8 @@ import { LinkMergeModal } from '../components/ui/LinkMergeModal';
 
 import { formatTime } from '../utils/formatTime';
 import { logger } from '../services/logger';
+import CompanionStatus from '../components/CompanionStatus';
+import UnifiedTimeline from '../components/UnifiedTimeline';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -279,12 +281,15 @@ function FocusInput({ onStart }) {
 // TasksPanel — Task management
 // ════════════════════════════════════════════
 
-function TasksPanel({ actions, allItems }) {
+function TasksPanel({ actions, allItems, onLinkRequest }) {
   const [tasks, setTasks] = useChromeStorage('tasks', []);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('active'); // 'active' | 'completed' | 'all'
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -308,6 +313,25 @@ function TasksPanel({ actions, allItems }) {
     await sendMessage('DELETE_TASK', { taskId });
   };
 
+  const startEdit = (task) => {
+    setEditingId(task.id);
+    setEditName(task.name);
+    setEditDesc(task.description || '');
+  };
+
+  const saveEdit = async () => {
+    if (editingId && editName.trim()) {
+      await sendMessage('UPDATE_TASK', { taskId: editingId, updates: { name: editName.trim(), description: editDesc.trim() } });
+    }
+    setEditingId(null);
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const handleStartIntent = async (task) => {
+    await actions.startFocus(task.name, null, { task: task.id });
+  };
+
   const filtered = useMemo(() => {
     if (filter === 'all') return tasks;
     return tasks.filter(t => t.status === filter);
@@ -324,6 +348,8 @@ function TasksPanel({ actions, allItems }) {
     border: '1px solid var(--color-border)', borderRadius: '4px',
     padding: '2px 8px', fontSize: '10px', cursor: 'pointer', fontWeight: 600,
   });
+
+  const actionBtn = { background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', cursor: 'pointer' };
 
   return (
     <motion.div key="tasks" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
@@ -377,6 +403,7 @@ function TasksPanel({ actions, allItems }) {
           {filtered.map(task => {
             const linked = getLinkedIntents(task.id);
             const isCompleted = task.status === 'completed';
+            const isEditing = editingId === task.id;
             return (
               <GlassCard key={task.id} style={{ padding: '10px 14px', opacity: isCompleted ? 0.65 : 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -386,8 +413,23 @@ function TasksPanel({ actions, allItems }) {
                       {isCompleted ? '✓' : ''}
                     </button>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 500, textDecoration: isCompleted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</div>
-                      {task.description && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{task.description}</div>}
+                      {isEditing ? (
+                        <>
+                          <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                            style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-accent-primary)', borderRadius: '3px', padding: '2px 6px', color: 'var(--color-text-primary)', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                          />
+                          <input value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder="Description..."
+                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                            style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '2px 6px', color: 'var(--color-text-muted)', fontSize: '10px', outline: 'none', marginTop: '4px', boxSizing: 'border-box' }}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '13px', fontWeight: 500, textDecoration: isCompleted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</div>
+                          {task.description && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{task.description}</div>}
+                        </>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -396,9 +438,29 @@ function TasksPanel({ actions, allItems }) {
                         <span style={{ fontSize: '9px', background: 'var(--color-accent-primary)22', color: 'var(--color-accent-primary)', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>🔗 {linked.length}</span>
                       </Tooltip>
                     )}
-                    <Tooltip text="Delete task">
-                      <button onClick={() => handleDelete(task.id)} style={{ background: 'transparent', border: 'none', color: '#ef535088', fontSize: '11px', cursor: 'pointer', padding: '0 2px' }}>🗑</button>
-                    </Tooltip>
+                    {isEditing ? (
+                      <>
+                        <button onClick={saveEdit} style={{ ...actionBtn, borderColor: '#66bb6a', color: '#66bb6a' }}>✓ Save</button>
+                        <button onClick={cancelEdit} style={actionBtn}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        {!isCompleted && (
+                          <Tooltip text="Start a focus from this task">
+                            <button onClick={() => handleStartIntent(task)} style={actionBtn}>🎯</button>
+                          </Tooltip>
+                        )}
+                        <Tooltip text="Edit task">
+                          <button onClick={() => startEdit(task)} style={actionBtn}>✏️</button>
+                        </Tooltip>
+                        <Tooltip text="Link to intent">
+                          <button onClick={() => onLinkRequest?.(task, 'task')} style={actionBtn}>🔗</button>
+                        </Tooltip>
+                        <Tooltip text="Delete task">
+                          <button onClick={() => handleDelete(task.id)} style={{ background: 'transparent', border: 'none', color: '#ef535088', fontSize: '11px', cursor: 'pointer', padding: '0 2px' }}>🗑</button>
+                        </Tooltip>
+                      </>
+                    )}
                   </div>
                 </div>
                 {linked.length > 0 && (
@@ -821,6 +883,7 @@ function Home() {
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
+            <CompanionStatus compact />
             <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.8-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
@@ -919,7 +982,8 @@ function Home() {
           <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
         )}
 
-        {/* Nav Tabs */}
+        {/* Unified Timeline — desktop companion activity */}
+        <UnifiedTimeline compact={false} />
         <div style={{ display: 'flex', gap: '2px', marginBottom: '16px', borderBottom: '1px solid var(--color-border)' }}>
           {navTabs.map(tab => (
             <Tooltip key={tab.id} text={`View ${tab.label.replace(/[^\w\s]/g, '').trim()} panel`}>
@@ -934,7 +998,7 @@ function Home() {
             <IntentsPanel intentHistory={intentHistory} allItems={allItems} tabs={tabs} timeTracking={timeTracking} actions={actions} onLinkRequest={handleLinkRequest} />
           )}
           {activePanel === 'tasks' && (
-            <TasksPanel actions={actions} allItems={allItems} />
+            <TasksPanel actions={actions} allItems={allItems} onLinkRequest={handleLinkRequest} />
           )}
           {activePanel === 'logs' && (
             <LogsPanel 

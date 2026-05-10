@@ -35,12 +35,17 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
       chrome.runtime.sendMessage({ type: 'LINK_INTENT_TO_TASK', intentId: targetItem.id, taskId: selectedTargetId, newTaskName });
     } else if (type === 'intent' && mode === 'merge') {
       chrome.runtime.sendMessage({ type: 'MERGE_INTENTS', sourceIntentId: targetItem.id, targetIntentId: selectedTargetId });
+    } else if (type === 'task' && mode === 'link') {
+      // Link a task to an intent — tag the intent with the task ID
+      chrome.runtime.sendMessage({ type: 'UPDATE_FOCUS', focusId: selectedTargetId, updates: { tags: { task: targetItem.id } } });
     }
     onClose();
   };
 
   const inputStyle = { width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', fontSize: '12px', boxSizing: 'border-box' };
   const tabBtn = (active) => ({ background: active ? 'var(--color-accent-primary)' : 'transparent', color: active ? '#000' : 'var(--color-text-muted)', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 });
+
+  const title = type === 'tab' ? '🔗 Link Tab to Intent' : type === 'task' ? '🔗 Link Task to Intent' : '🔗 Link / Merge Intent';
 
   return (
     <AnimatePresence>
@@ -50,14 +55,12 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
         <motion.div initial={{ y: 20, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.95 }} onClick={(e) => e.stopPropagation()}>
           <GlassCard style={{ width: '420px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
-                {type === 'tab' ? '🔗 Link Tab to Intent' : '🔗 Link / Merge Intent'}
-              </h2>
+              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{title}</h2>
               <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '16px' }}>✕</button>
             </div>
 
             <div style={{ background: 'var(--color-surface)', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--color-border)' }}>
-              <strong>Target:</strong> {targetItem.title || targetItem.label || targetItem.url || 'Unknown'}
+              <strong>Target:</strong> {targetItem.title || targetItem.label || targetItem.name || targetItem.url || 'Unknown'}
             </div>
 
             {/* Mode Tabs */}
@@ -72,6 +75,21 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
             {mode === 'link' && type === 'tab' && (
               <div>
                 <label style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Select an Intent to link to</label>
+                {intents.length === 0 ? (
+                  <div style={{ fontSize: '11px', color: '#ffa726', padding: '8px', background: '#ffa72611', borderRadius: '4px' }}>No intents available. Create a focus first.</div>
+                ) : (
+                  <select value={selectedTargetId} onChange={e => setSelectedTargetId(e.target.value)} style={inputStyle}>
+                    <option value="">-- Choose an Intent --</option>
+                    {intents.map(i => <option key={i.id} value={i.id}>{i.label} ({i.focusState || 'queued'})</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Link task to intent */}
+            {mode === 'link' && type === 'task' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Select an Intent to associate with this task</label>
                 {intents.length === 0 ? (
                   <div style={{ fontSize: '11px', color: '#ffa726', padding: '8px', background: '#ffa72611', borderRadius: '4px' }}>No intents available. Create a focus first.</div>
                 ) : (
