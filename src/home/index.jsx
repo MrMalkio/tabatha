@@ -748,7 +748,7 @@ function Home() {
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
-            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.6-α</span>
+            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v0.2.8-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
                 {THEME_ICONS[theme] || '🎨'}
@@ -760,7 +760,7 @@ function Home() {
           </div>
         </div>
 
-        {/* Clock In/Out Bar */}
+        {/* Clock In/Out Bar — with inline last stint */}
         <GlassCard style={{ padding: '8px 14px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Tooltip text={clockSession?.active ? 'Currently clocked in' : 'Clock in to start tracking work time'}>
@@ -776,8 +776,17 @@ function Home() {
             {clockSession?.onBreak && (
               <span style={{ fontSize: '9px', background: '#ffa72622', color: '#ffa726', padding: '1px 6px', borderRadius: '3px', fontWeight: 600 }}>ON BREAK</span>
             )}
+            {/* Inline last stint — only when NOT clocked in */}
+            {!clockSession?.active && lastSession && (
+              <Tooltip text={`Last stint: ${new Date(lastSession.clockedInAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}>
+                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ color: 'var(--color-border)' }}>│</span>
+                  Last stint: <span style={{ fontWeight: 700, color: 'var(--color-accent-primary)' }}>{(() => { const h = Math.floor(lastSession.workMs / 3600000); const m = Math.floor((lastSession.workMs % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
+                </span>
+              </Tooltip>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             {clockSession?.active && (
               <Tooltip text={clockSession.onBreak ? 'End break and resume' : 'Start a break — pause work timer'}>
                 <button onClick={handleToggleBreak} style={{ background: clockSession.onBreak ? '#ffa72622' : 'var(--color-surface)', border: `1px solid ${clockSession.onBreak ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
@@ -785,43 +794,16 @@ function Home() {
                 </button>
               </Tooltip>
             )}
-            <Tooltip text={clockSession?.active ? 'Clock out — end work session' : 'Clock in — start work session'}>
+            <Tooltip text={clockSession?.active ? 'Clock out — end this stint' : 'Clock in — start a new stint'}>
               <button onClick={clockSession?.active ? handleClockOut : handleClockIn} style={{ background: clockSession?.active ? '#ef535022' : '#66bb6a22', border: `1px solid ${clockSession?.active ? '#ef5350' : '#66bb6a'}`, borderRadius: 'var(--radius-sm)', color: clockSession?.active ? '#ef5350' : '#66bb6a', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
                 {clockSession?.active ? '⏹ Clock Out' : '▶ Clock In'}
               </button>
             </Tooltip>
+            <Tooltip text="View all stints & shifts">
+              <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', padding: '3px 6px', fontSize: '11px', cursor: 'pointer' }}>⏱️</button>
+            </Tooltip>
           </div>
         </GlassCard>
-
-        {/* Last Session + Work Logs Mini */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-          {lastSession && (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--color-text-muted)', padding: '4px 10px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-              <span>Last shift:</span>
-              <span style={{ fontWeight: 700, color: 'var(--color-accent-primary)' }}>{(() => { const h = Math.floor(lastSession.workMs / 3600000); const m = Math.floor((lastSession.workMs % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
-              <span style={{ color: 'var(--color-text-muted)' }}>({new Date(lastSession.clockedInAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })})</span>
-            </div>
-          )}
-          <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-accent-primary)', padding: '4px 10px', fontSize: '10px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
-            ⏱️ Work Shifts →
-          </button>
-        </div>
-
-        {/* Recent Work Logs (mini) */}
-        {recentShifts.length > 0 && (
-          <GlassCard style={{ padding: '8px 12px', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recent Shifts</span>
-              <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'none', border: 'none', color: 'var(--color-accent-primary)', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}>View All →</button>
-            </div>
-            {recentShifts.slice(0, 3).map((s, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', padding: '3px 0', borderBottom: i < 2 ? '1px solid var(--color-border)' : 'none' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>{new Date(s.clockedInAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                <span style={{ fontWeight: 600, color: 'var(--color-accent-primary)' }}>{(() => { const h = Math.floor((s.workMs||0) / 3600000); const m = Math.floor(((s.workMs||0) % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
-              </div>
-            ))}
-          </GlassCard>
-        )}
 
         {/* Debug Bar — only visible when debug mode is ON in settings */}
         {settings.debugMode && (
@@ -1057,6 +1039,24 @@ function Home() {
             </motion.div>
           )}
         </AnimatePresence>
+        {/* ─── Footer: Recent Stints ─── */}
+        {recentShifts.length > 0 && (
+          <div style={{ marginTop: '24px', paddingTop: '12px', borderTop: '1px solid var(--color-border)', opacity: 0.7 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recent Stints</span>
+              <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'none', border: 'none', color: 'var(--color-accent-primary)', fontSize: '9px', cursor: 'pointer', fontWeight: 600, opacity: 0.8 }}>View All →</button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {recentShifts.slice(0, 5).map((s, i) => (
+                <span key={i} style={{ fontSize: '10px', color: 'var(--color-text-muted)', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <span>{new Date(s.clockedInAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--color-accent-primary)' }}>{(() => { const h = Math.floor((s.workMs||0) / 3600000); const m = Math.floor(((s.workMs||0) % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
+                  {i < recentShifts.slice(0, 5).length - 1 && <span style={{ color: 'var(--color-border)' }}>·</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <LinkMergeModal 
