@@ -17,6 +17,11 @@ import { handleMessage as handleCategoryMessage } from './services/categoryServi
 import { configureSessionService, handleMessage as handleSessionMessage } from './services/sessionService.js';
 import { handleMessage as handleSettingsMessage } from './services/settingsService.js';
 import { configureTabService, handleMessage as handleTabMessage } from './services/tabService.js';
+import {
+  configureTabTrackingService,
+  handleMessage as handleTabTrackingMessage,
+  registerTabTrackingListeners,
+} from './services/tabTrackingService.js';
 import { handleMessage as handleTaskMessage } from './services/taskService.js';
 
 
@@ -626,8 +631,6 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
     await setTabData(tabs);
   }
   
-  await timeTracker.stopTracking(tabId);
-  
   // Clear alarm
   chrome.alarms.clear(`context-timer-${tabId}`);
   
@@ -679,28 +682,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   
   await setTabData(tabs);
   broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-});
-
-// ============================================================
-// TIME TRACKING DELEGATED TO SERVICE
-// ============================================================
-
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  const tabs = await getTabData();
-  const tabData = tabs[activeInfo.tabId];
-  
-  if (tabData) {
-    tabData.lastActive = new Date().toISOString();
-    await setTabData(tabs);
-    
-    // Start tracking the new active tab
-    await timeTracker.startTracking(activeInfo.tabId, tabData.url, tabData);
-  }
-  
-  broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
-  
-  // Auto-associate activated tab with current focus
-  tryAssociateTab(activeInfo.tabId);
 });
 
 // ============================================================
@@ -1071,7 +1052,9 @@ configureNotificationService({ getStorage, setStorage, getTabData, setTabData, g
 configureGroupService({ setTabData });
 configureSessionService({ setTabData });
 configureTabService({ setTabData, getFocusEngine, setFocusEngine });
+configureTabTrackingService({ setTabData, tryAssociateTab, triggerSync });
 const clockService = createClockService(getStorage, setStorage, broadcastMessage);
+registerTabTrackingListeners();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
@@ -1108,6 +1091,9 @@ async function handleMessage(message, sender) {
   const tabResponse = await handleTabMessage(message.type, message, sender);
   if (tabResponse) return tabResponse;
 
+  const tabTrackingResponse = await handleTabTrackingMessage(message.type, message, sender);
+  if (tabTrackingResponse) return tabTrackingResponse;
+
   switch (message.type) {
     // --- Priority ---
     case 'SET_PRIORITY': {
@@ -1129,9 +1115,6 @@ async function handleMessage(message, sender) {
       return { success: true };
     }
     
-    // --- Time Tracking ---
-    case 'GET_TIME_TRACKING':
-      return { timeTracking: await getTimeTracking() };
     case 'START_SIDE_QUEST': {
         const tabs = await getTabData();
         if (tabs[sender.tab.id]) {
@@ -1172,25 +1155,6 @@ async function handleMessage(message, sender) {
         try { await chrome.tabs.remove(sender.tab.id); } catch(e) { /* ignore */ }
         return { success: true };
     }
-    
-    case 'LOG_INTENT_ACTION': {
-        const { intentHistory } = await getStorage('intentHistory');
-        const history = intentHistory || [];
-        history.unshift({
-          action: message.action,
-          context: message.context || null,
-          focusId: message.focusId || null,
-          url: message.url,
-          domain: message.domain,
-          timestamp: new Date().toISOString()
-        });
-        // Keep last 500
-        await setStorage({ intentHistory: history.slice(0, 500) });
-        broadcastMessage({ type: 'INTENT_HISTORY_UPDATED' });
-        triggerSync();
-        return { success: true };
-    }
-    
     case 'ASSOCIATE_TAB_WITH_FOCUS': {
         const engine = await getFocusEngine();
         const focusId = message.focusId;

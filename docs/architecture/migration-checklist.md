@@ -23,7 +23,7 @@
 | clockService | 7 | ✅ | ⬜ | Moved to `src/background/services/clockService.js`; build passes; manual tests pending |
 | focusService | 14 | ⬜ | ⬜ | Not started |
 | tabService | 17 | ✅ | ⬜ | Extracted to `src/background/services/tabService.js`; build passes; manual tests pending |
-| tabTrackingService | 2+ | ⬜ | ⬜ | Not started |
+| tabTrackingService | 2+ | ✅ | ⬜ | Extracted to `src/background/services/tabTrackingService.js`; build passes; manual tests pending |
 | taskService | 4 | ✅ | ⬜ | Extracted to `src/background/services/taskService.js`; build passes; manual tests pending |
 | groupService | 4 | ✅ | ⬜ | Extracted to `src/background/services/groupService.js`; build passes; manual tests pending |
 | categoryService | 3 | ✅ | ⬜ | Extracted to `src/background/services/categoryService.js`; build passes; manual tests pending |
@@ -34,7 +34,7 @@
 | Router refactor | — | ⬜ | ⬜ | Not started |
 | fluxApi | — | ⬜ | ⬜ | Not started |
 
-**Overall: 47 / 62 handlers migrated**
+**Overall: 49 / 62 handlers migrated**
 
 ---
 
@@ -87,10 +87,10 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_TIME_TRACKING` | ⬜ | ⬜ | ⬜ | |
-| 2 | `LOG_INTENT_ACTION` | ⬜ | ⬜ | ⬜ | |
-| 3 | `chrome.tabs.onActivated` (time) | ⬜ | ⬜ | ⬜ | Event listener, not message |
-| 4 | `chrome.tabs.onRemoved` (time) | ⬜ | ⬜ | ⬜ | Event listener, not message |
+| 1 | `GET_TIME_TRACKING` | ✅ | ✅ | ⬜ | Extracted to tabTrackingService; manual test pending |
+| 2 | `LOG_INTENT_ACTION` | ✅ | ✅ | ⬜ | Extracted to tabTrackingService; manual test pending |
+| 3 | `chrome.tabs.onActivated` (time) | ✅ | ✅ | ⬜ | Extracted to tabTrackingService; manual test pending |
+| 4 | `chrome.tabs.onRemoved` (time) | ✅ | ✅ | ⬜ | Extracted to tabTrackingService; manual test pending |
 
 ---
 
@@ -198,7 +198,7 @@
 | 6 | `chrome.tabs.onCreated` | `tabService.js` | ⬜ | ⬜ | |
 | 7 | `chrome.tabs.onUpdated` | `tabService.js` | ⬜ | ⬜ | |
 | 8 | `chrome.tabs.onRemoved` | `tabService.js` | ⬜ | ⬜ | |
-| 9 | `chrome.tabs.onActivated` | `tabTrackingService.js` | ⬜ | ⬜ | |
+| 9 | `chrome.tabs.onActivated` | `tabTrackingService.js` | ✅ | ✅ | Extracted to tabTrackingService; manual test pending |
 | 10 | `chrome.idle.onStateChanged` | `clockService.js` | ⬜ | ⬜ | |
 | 11 | `chrome.alarms.onAlarm` | Router (delegates) | ⬜ | ⬜ | |
 | 12 | `chrome.tabGroups.*` | `groupService.js` | ⬜ | ⬜ | |
