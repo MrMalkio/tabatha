@@ -21,7 +21,7 @@
 | constants + helpers | — | ✅ | ✅ | Extracted; build passes |
 | storageService | — | ✅ | ✅ | Moved to `src/background/services/storageService.js`; build passes |
 | clockService | 7 | ✅ | ⬜ | Moved to `src/background/services/clockService.js`; build passes; manual tests pending |
-| focusService | 14 | ⬜ | ⬜ | Not started |
+| focusService | 14 | ✅ | ⬜ | Extracted to `src/background/services/focusService.js`; build passes; manual tests pending |
 | tabService | 17 | ✅ | ⬜ | Extracted to `src/background/services/tabService.js`; build passes; manual tests pending |
 | tabTrackingService | 2+ | ✅ | ⬜ | Extracted to `src/background/services/tabTrackingService.js`; build passes; manual tests pending |
 | taskService | 4 | ✅ | ⬜ | Extracted to `src/background/services/taskService.js`; build passes; manual tests pending |
@@ -34,7 +34,7 @@
 | Router refactor | — | ⬜ | ⬜ | Not started |
 | fluxApi | — | ⬜ | ⬜ | Not started |
 
-**Overall: 49 / 62 handlers migrated**
+**Overall: 63 / 69 checklist handlers migrated**
 
 ---
 
@@ -42,20 +42,20 @@
 
 | # | Handler | Extracted | Build | Test | Notes |
 |---|---------|-----------|-------|------|-------|
-| 1 | `GET_FOCUS_ENGINE` | ⬜ | ⬜ | ⬜ | |
-| 2 | `START_FOCUS` | ⬜ | ⬜ | ⬜ | |
-| 3 | `ADD_FOCUS` | ⬜ | ⬜ | ⬜ | |
-| 4 | `SWITCH_FOCUS` | ⬜ | ⬜ | ⬜ | |
-| 5 | `COMPLETE_FOCUS` | ⬜ | ⬜ | ⬜ | |
-| 6 | `UPDATE_FOCUS` | ⬜ | ⬜ | ⬜ | |
-| 7 | `RENAME_FOCUS` | ⬜ | ⬜ | ⬜ | |
-| 8 | `EXTEND_FOCUS_TIMER` | ⬜ | ⬜ | ⬜ | |
-| 9 | `UPDATE_FOCUS_TAGS` | ⬜ | ⬜ | ⬜ | |
-| 10 | `SET_FUNNEL_STAGE` | ⬜ | ⬜ | ⬜ | |
-| 11 | `SET_PRIORITY` | ⬜ | ⬜ | ⬜ | |
-| 12 | `LINK_INTENT_TO_TASK` | ⬜ | ⬜ | ⬜ | |
-| 13 | `MERGE_INTENTS` | ⬜ | ⬜ | ⬜ | |
-| 14 | `ASSOCIATE_TAB_WITH_FOCUS` | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_FOCUS_ENGINE` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 2 | `START_FOCUS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 3 | `ADD_FOCUS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 4 | `SWITCH_FOCUS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 5 | `COMPLETE_FOCUS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 6 | `UPDATE_FOCUS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 7 | `RENAME_FOCUS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 8 | `EXTEND_FOCUS_TIMER` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 9 | `UPDATE_FOCUS_TAGS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 10 | `SET_FUNNEL_STAGE` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 11 | `SET_PRIORITY` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 12 | `LINK_INTENT_TO_TASK` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 13 | `MERGE_INTENTS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
+| 14 | `ASSOCIATE_TAB_WITH_FOCUS` | ✅ | ✅ | ⬜ | Extracted to focusService; manual test pending |
 
 ---
 
