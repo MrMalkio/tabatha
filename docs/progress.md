@@ -280,3 +280,37 @@ ew URL() in popup with try/catch
 - Reload extension in chrome://extensions and verify Service Worker console is error-free
 - Test clock-in/out flow, focus set/complete, and gatekeeper buttons end-to-end
 - Monitor time tracking data populating in the UI
+
+---
+
+## Session 019 - 2026-05-10
+
+### Goal
+Build InBar Pause + Sticky Note overlay feature (UI-only, safe during decomp)
+
+### Work Done
+- [x] **Pause button** added to InBar action bar (? icon, between note and collapse)
+- [x] **Mini-prompt** — on pause click, expanding amber-tinted panel asks "Where did you leave off?"
+- [x] **Sticky note overlay** — large tilted paper-textured note appears on page (non-obstructive, pointer-events only on note)
+- [x] **Paused bar state** — InBar transitions to amber tint with "? PAUSED — note preview..." + inline Resume button
+- [x] **Nub state** — collapsed nub shows amber ? when paused
+- [x] **Persistence** — pause state stored in `chrome.storage.local.pausedIntents[tabId]`, survives page reload
+- [x] **Resume flow** — resume from sticky note, inline bar button, or pause button. Clears storage + restores bar.
+- [x] **Edit note** — sticky edit button expands pause prompt pre-filled with existing note
+- [x] **Timer freeze** — intent timer stops ticking while paused
+
+### Key Findings
+- Decomp branch `refactor/service-arch` is code-complete (6 commits, 13 service modules, all 62 handlers extracted, build passes) but NOT merged to master
+- The branch is named `refactor/service-arch`, not `codex/service-arch` as documented
+- All pause state managed via `chrome.storage.local` — no background.js changes needed for MVP
+- Sticky note uses CSS paper gradient + random tilt (-3° to +3°) + tape pseudo-element
+
+### Decisions
+- Used `chrome.storage.local` directly from content script (avoids needing new background handlers)
+- Deferred: auto-park on close, PAUSE_INTENT handler, time tracking cascade — all need post-decomp backend work
+- Deferred: Settings UI for pause (enable/disable, style picker)
+
+### Next Steps
+- Merge decomp to master ? rebase ? begin Phase 3 (Follow-Through data model + service handlers)
+- Or: BlockGate settings UI enhancements (reasons, custom text, delayed unblock)
+- Or: InBar settings section (element visibility toggles, progress bar config)
