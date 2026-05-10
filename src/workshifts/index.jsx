@@ -39,7 +39,7 @@ function WorkShifts() {
   const [clockSession] = useChromeStorage('clockSession', { active: false });
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('list'); // 'list' | 'weekly' | 'analytics'
+  const [view, setView] = useState('list'); // 'list' | 'weekly' | 'schedule' | 'analytics'
   const [selectedShift, setSelectedShift] = useState(null);
 
   // Load history from background
@@ -103,14 +103,14 @@ function WorkShifts() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          {['list', 'weekly', 'analytics'].map(v => (
+          {['list', 'weekly', 'schedule', 'analytics'].map(v => (
             <button key={v} onClick={() => setView(v)} style={{
               background: view === v ? 'var(--color-accent-primary)' : 'var(--color-surface)',
               color: view === v ? '#000' : 'var(--color-text-primary)',
               border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
               padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
               textTransform: 'capitalize',
-            }}>{v === 'analytics' ? '📊 Analytics' : v === 'weekly' ? '📅 Weekly' : '📋 All Shifts'}</button>
+            }}>{v === 'analytics' ? '📊 Analytics' : v === 'weekly' ? '📅 Weekly' : v === 'schedule' ? '📋 Schedule' : '📋 All Shifts'}</button>
           ))}
           <button onClick={() => chrome.tabs.create({ url: 'home.html' })} style={{
             background: 'var(--color-surface)', color: 'var(--color-text-primary)',
@@ -153,6 +153,9 @@ function WorkShifts() {
             )}
             {view === 'weekly' && (
               <WeeklyView groups={weeklyGroups} />
+            )}
+            {view === 'schedule' && (
+              <ScheduleView />
             )}
             {view === 'analytics' && (
               <AnalyticsView stats={stats} history={history} />
@@ -235,6 +238,11 @@ function ShiftListView({ history, loading, selectedShift, onSelect }) {
                       <div style={{ marginTop: '8px', padding: '6px 10px', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--color-border)' }}>
                         <span style={STUB_STYLE}>📝 Shift notes</span><span style={STUB_BADGE}>COMING SOON</span>
                       </div>
+
+                      {/* Break notes — retroactive editing */}
+                      {(shift.breaks || []).length > 0 && (
+                        <BreakNotes shiftIndex={i} breaks={shift.breaks} />
+                      )}
 
                       {/* Stub: Associated Focus Items */}
                       <div style={{ marginTop: '6px', padding: '6px 10px', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--color-border)' }}>
@@ -358,6 +366,120 @@ function getWeekKey(date) {
   const d = new Date(date);
   d.setDate(d.getDate() - d.getDay());
   return d.toISOString().slice(0, 10);
+}
+
+// ── Break Notes (retroactive editing) ──
+function BreakNotes({ shiftIndex, breaks }) {
+  const [notes, setNotes] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [noteInput, setNoteInput] = useState('');
+
+  const saveNote = (breakIdx) => {
+    setNotes(prev => ({ ...prev, [`${shiftIndex}-${breakIdx}`]: noteInput }));
+    setEditing(null);
+    setNoteInput('');
+    // In production this would persist via sendMessage
+  };
+
+  return (
+    <div style={{ marginTop: '6px' }}>
+      <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Break Notes <span style={{ fontWeight: 400, fontStyle: 'italic' }}>(optional)</span></div>
+      {breaks.map((b, j) => {
+        const key = `${shiftIndex}-${j}`;
+        const note = notes[key] || b.note || '';
+        return (
+          <div key={j} style={{ fontSize: '10px', padding: '3px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: 'var(--color-text-muted)', flexShrink: 0 }}>☕ Break {j + 1}:</span>
+            {editing === j ? (
+              <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+                <input type="text" value={noteInput} onChange={e => setNoteInput(e.target.value)}
+                  placeholder="What were you doing?"
+                  onKeyDown={e => { if (e.key === 'Enter') saveNote(j); if (e.key === 'Escape') setEditing(null); }}
+                  autoFocus
+                  style={{ flex: 1, background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '2px 6px', color: 'var(--color-text-primary)', fontSize: '10px', outline: 'none' }}
+                />
+                <button onClick={() => saveNote(j)} style={{ background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '3px', padding: '1px 6px', fontSize: '9px', cursor: 'pointer' }}>✓</button>
+              </div>
+            ) : (
+              <span onClick={() => { setEditing(j); setNoteInput(note); }} style={{ cursor: 'pointer', color: note ? 'var(--color-text-primary)' : '#ffab40', fontStyle: note ? 'normal' : 'italic' }}>
+                {note || '+ Add note'}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Schedule View ──
+function ScheduleView() {
+  const [schedule, setSchedule] = useChromeStorage('workSchedule', {});
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const [editing, setEditing] = useState(null);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('17:00');
+
+  const saveDay = (day) => {
+    setSchedule(prev => ({ ...prev, [day]: { start: startTime, end: endTime, enabled: true } }));
+    setEditing(null);
+  };
+
+  const toggleDay = (day) => {
+    setSchedule(prev => ({
+      ...prev,
+      [day]: prev[day] ? { ...prev[day], enabled: !prev[day].enabled } : { start: '09:00', end: '17:00', enabled: true }
+    }));
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <GlassCard style={{ padding: '20px' }}>
+        <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 700 }}>📋 Work Schedule</h3>
+        <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0 0 16px' }}>
+          Set your planned work hours. Tabatha will track adherence and can remind you to clock in/out.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {DAYS.map(day => {
+            const entry = schedule[day];
+            const isEditing = editing === day;
+            return (
+              <div key={day} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                <button onClick={() => toggleDay(day)} style={{ background: 'transparent', border: 'none', fontSize: '14px', cursor: 'pointer', padding: 0 }}>
+                  {entry?.enabled ? '✅' : '⬜'}
+                </button>
+                <span style={{ width: '90px', fontSize: '12px', fontWeight: 600 }}>{day}</span>
+                {isEditing ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: '3px', color: 'var(--color-text-primary)', padding: '2px 4px', fontSize: '11px' }} />
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>→</span>
+                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: '3px', color: 'var(--color-text-primary)', padding: '2px 4px', fontSize: '11px' }} />
+                    <button onClick={() => saveDay(day)} style={{ background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '3px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}>Save</button>
+                    <button onClick={() => setEditing(null)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '3px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                    <span style={{ fontSize: '11px', color: entry?.enabled ? 'var(--color-text-primary)' : 'var(--color-text-muted)', opacity: entry?.enabled ? 1 : 0.5 }}>
+                      {entry ? `${entry.start} → ${entry.end}` : 'Not set'}
+                    </span>
+                    <button onClick={() => { setEditing(day); setStartTime(entry?.start || '09:00'); setEndTime(entry?.end || '17:00'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '3px', padding: '1px 6px', fontSize: '9px', cursor: 'pointer', marginLeft: 'auto' }}>✏️</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Stub: Schedule features */}
+        <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button disabled style={stubBtnStyle}>🔔 Clock-in Reminders <span style={STUB_BADGE}>SOON</span></button>
+          <button disabled style={stubBtnStyle}>📊 Adherence Tracking <span style={STUB_BADGE}>SOON</span></button>
+          <button disabled style={stubBtnStyle}>🔄 Recurring Patterns <span style={STUB_BADGE}>SOON</span></button>
+        </div>
+      </GlassCard>
+    </div>
+  );
 }
 
 // ── Mount ──
