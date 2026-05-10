@@ -785,6 +785,20 @@ configureTabTrackingService({ setTabData, tryAssociateTab, triggerSync });
 const clockService = createClockService(getStorage, setStorage, broadcastMessage);
 registerTabTrackingListeners();
 
+const messageServices = [
+  handleNotificationMessage,
+  handleSettingsMessage,
+  handleCategoryMessage,
+  handleClockMessage,
+  handleGroupMessage,
+  handleSessionMessage,
+  handleTaskMessage,
+  handleTabMessage,
+  handleTabTrackingMessage,
+  handleFocusMessage,
+  handleBlockgateMessage,
+];
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
     .then(sendResponse)
@@ -796,39 +810,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleMessage(message, sender) {
-  const notificationResponse = await handleNotificationMessage(message.type, message, sender);
-  if (notificationResponse) return notificationResponse;
-
-  const settingsResponse = await handleSettingsMessage(message.type, message, sender);
-  if (settingsResponse) return settingsResponse;
-
-  const categoryResponse = await handleCategoryMessage(message.type, message, sender);
-  if (categoryResponse) return categoryResponse;
-
-  const clockResponse = await handleClockMessage(message.type, message, sender);
-  if (clockResponse) return clockResponse;
-
-  const groupResponse = await handleGroupMessage(message.type, message, sender);
-  if (groupResponse) return groupResponse;
-
-  const sessionResponse = await handleSessionMessage(message.type, message, sender);
-  if (sessionResponse) return sessionResponse;
-
-  const taskResponse = await handleTaskMessage(message.type, message, sender);
-  if (taskResponse) return taskResponse;
-
-  const tabResponse = await handleTabMessage(message.type, message, sender);
-  if (tabResponse) return tabResponse;
-
-  const tabTrackingResponse = await handleTabTrackingMessage(message.type, message, sender);
-  if (tabTrackingResponse) return tabTrackingResponse;
-
-  const focusResponse = await handleFocusMessage(message.type, message, sender);
-  if (focusResponse) return focusResponse;
-
-  const blockgateResponse = await handleBlockgateMessage(message.type, message, sender);
-  if (blockgateResponse) return blockgateResponse;
-
+  for (const service of messageServices) {
+    const response = await service(message.type, message, sender);
+    if (response) return response;
+  }
   return { error: 'Unknown message type' };
 }
 

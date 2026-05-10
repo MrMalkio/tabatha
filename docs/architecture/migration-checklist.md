@@ -31,7 +31,7 @@
 | sessionService | 5 | ✅ | ⬜ | Extracted to `src/background/services/sessionService.js`; build passes; manual tests pending |
 | settingsService | 2 | ✅ | ⬜ | Extracted to `src/background/services/settingsService.js`; build passes; manual tests pending |
 | notificationService | 5 | ✅ | ⬜ | Extracted to `src/background/services/notificationService.js`; build passes; manual tests pending |
-| Router refactor | — | ⬜ | ⬜ | Not started |
+| Router refactor | ? | ✅ | ✅ | Ordered service-chain router; build passes |
 | fluxApi | — | ⬜ | ⬜ | Not started |
 
 **Overall: 69 / 69 checklist handlers migrated**
