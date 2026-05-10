@@ -300,9 +300,21 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
       ) : (
         intents.map(intent => {
           const funnel = FUNNEL_STAGES[intent.funnelStage] || FUNNEL_STAGES.unsorted;
-          const assocTabs = intent.associatedTabIds
-            .map(tid => ({ id: tid, ...(tabs[tid] || {}) }))
-            .filter(t => t.title || t.url);
+          const assocTabs = (() => {
+            // Match by explicit association
+            const byId = intent.associatedTabIds
+              .map(tid => ({ id: tid, ...(tabs[tid] || {}) }))
+              .filter(t => t.title || t.url);
+            const seenIds = new Set(byId.map(t => String(t.id)));
+            // Also match tabs whose intent field matches this focus label
+            Object.entries(tabs).forEach(([tid, tab]) => {
+              if (!seenIds.has(tid) && tab.intent && tab.intent.toLowerCase() === intent.label.toLowerCase()) {
+                byId.push({ id: parseInt(tid), ...tab });
+                seenIds.add(tid);
+              }
+            });
+            return byId;
+          })();
           const totalTime = intent.associatedTabIds.reduce((sum, tid) => sum + ((timeTracking.byTab || {})[tid] || 0), 0);
           const isExpanded = expanded[intent.id];
 
@@ -362,6 +374,22 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                       </Tooltip>
                     </div>
                   )}
+
+                  {/* Funnel Stage Editor */}
+                  {intent.isFocusItem && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '4px' }}>Stage</div>
+                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                        {Object.entries(FUNNEL_STAGES).map(([key, stage]) => (
+                          <button key={key} onClick={(e) => { e.stopPropagation(); actions.updateFocus(intent.id, { funnelStage: key }); }}
+                            style={{ background: intent.funnelStage === key ? stage.color + '33' : 'transparent', border: `1px solid ${intent.funnelStage === key ? stage.color : 'var(--color-border)'}`, color: intent.funnelStage === key ? stage.color : 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', cursor: 'pointer', fontWeight: intent.funnelStage === key ? 600 : 400 }}>
+                            {stage.icon} {stage.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {assocTabs.length > 0 ? (
                     assocTabs.map(tab => (
                       <div key={tab.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '11px' }}>
@@ -405,6 +433,20 @@ function Home() {
   const [expandedSession, setExpandedSession] = useState(null);
   const [linkModalConfig, setLinkModalConfig] = useState({ isOpen: false, targetItem: null, type: null });
   const [recentlyClosed, setRecentlyClosed] = useState([]);
+  const [welcomeBack, setWelcomeBack] = useState(null);
+
+  // Listen for welcome back broadcasts
+  useEffect(() => {
+    const handler = (msg) => {
+      if (msg?.type === 'WELCOME_BACK' && msg.idleDurationMs > 60000) {
+        const mins = Math.round(msg.idleDurationMs / 60000);
+        setWelcomeBack(`Welcome back! You were away for ${mins}m`);
+        setTimeout(() => setWelcomeBack(null), 3000);
+      }
+    };
+    chrome?.runtime?.onMessage?.addListener(handler);
+    return () => chrome?.runtime?.onMessage?.removeListener(handler);
+  }, []);
 
   const handleLinkRequest = (targetItem, type) => {
     setLinkModalConfig({ isOpen: true, targetItem, type });
@@ -880,6 +922,22 @@ function Home() {
         targetItem={linkModalConfig.targetItem} 
         type={linkModalConfig.type} 
       />
+
+      {/* Welcome Back Flash */}
+      <AnimatePresence>
+        {welcomeBack && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+            transition={{ duration: 0.4 }}
+            style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10000, background: 'var(--color-surface)', border: '1px solid var(--color-accent-primary)', borderRadius: 'var(--radius-lg)', padding: '20px 40px', backdropFilter: 'blur(16px)', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
+          >
+            <div style={{ fontSize: '24px', marginBottom: '6px' }}>👋</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>{welcomeBack}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

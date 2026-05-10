@@ -810,14 +810,28 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // ============================================================
 
 let userIdleSince = null;
+let idleAutoBreakApplied = false;
+
+// Set idle detection interval to 60 seconds (1 minute)
+chrome.idle.setDetectionInterval(60);
 
 chrome.idle.onStateChanged.addListener(async (newState) => {
   if (newState === 'idle' || newState === 'locked') {
-    // User left Chrome
+    // User went idle
     await timeTracker.stopAllTracking();
     userIdleSince = new Date().toISOString();
+    idleAutoBreakApplied = false;
+
+    // Log idle event
+    broadcastMessage({ type: 'USER_IDLE', since: userIdleSince });
+
+    // Schedule auto-break check after 5 minutes
+    chrome.alarms.create('idle-auto-break', { delayInMinutes: 5 });
+
   } else if (newState === 'active') {
-    // User returned
+    // User returned — cancel any pending auto-break alarm
+    chrome.alarms.clear('idle-auto-break');
+
     // Restart tracking on currently active tab
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (activeTabs) => {
       if (activeTabs && activeTabs.length > 0) {
@@ -828,20 +842,34 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
         }
       }
     });
-    
+
     if (userIdleSince) {
       const idleDuration = Date.now() - new Date(userIdleSince).getTime();
       const settings = await getSettings();
-      
-      if (idleDuration > settings.idleThresholdMinutes * 60 * 1000) {
+
+      // If user was auto-put on break, auto-resume
+      if (idleAutoBreakApplied) {
+        const { clockSession } = await getStorage('clockSession');
+        if (clockSession?.active && clockSession?.onBreak) {
+          await clockService.toggleBreak(); // resume from break
+        }
+        idleAutoBreakApplied = false;
+      }
+
+      // Broadcast welcome back with idle duration
+      broadcastMessage({
+        type: 'WELCOME_BACK',
+        idleSince: userIdleSince,
+        idleDurationMs: idleDuration
+      });
+
+      if (idleDuration > (settings.idleThresholdMinutes || 5) * 60 * 1000) {
         broadcastMessage({
           type: 'OFF_CHROME_RETURN',
           idleSince: userIdleSince,
           idleDurationMs: idleDuration
         });
 
-        
-        // Notify user to welcome them back (clicking opens sidebar)
         chrome.notifications.create('welcome-back', {
             type: 'basic',
             iconUrl: 'icons/icon128.png',
@@ -851,6 +879,22 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
         });
       }
       userIdleSince = null;
+    }
+  }
+});
+
+// Handle the 5-minute auto-break alarm
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === 'idle-auto-break') {
+    // Check if user is still idle
+    const state = await chrome.idle.queryState(60);
+    if (state === 'idle' || state === 'locked') {
+      const { clockSession } = await getStorage('clockSession');
+      if (clockSession?.active && !clockSession?.onBreak) {
+        await clockService.toggleBreak(); // auto-put on break
+        idleAutoBreakApplied = true;
+        broadcastMessage({ type: 'AUTO_BREAK', reason: 'idle_5min' });
+      }
     }
   }
 });
