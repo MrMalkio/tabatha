@@ -2266,6 +2266,19 @@ async function handleMessage(message, sender) {
         return { success: true };
     }
 
+    case 'UPDATE_TAB_CONTEXT': {
+        const tabs = await getTabData();
+        const { tabId, context } = message;
+        if (tabs[tabId]) {
+          tabs[tabId].context = context;
+          tabs[tabId].intent = context;
+          await setTabData(tabs);
+          broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+          logEvent('tab_reassigned', { tabId, newContext: context });
+        }
+        return { success: true };
+    }
+
     // --- Site Blocking ---
     case 'CHECK_BLOCKED_SITE': {
         const { blockedSites, tempUnblocked } = await getStorage(['blockedSites', 'tempUnblocked']);

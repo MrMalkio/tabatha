@@ -10,10 +10,13 @@ import { PopButton } from '../components/ui/PopButton';
 import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
 import { ComboInput } from '../components/ui/ComboInput';
+import { StagePicker } from '../components/ui/StagePicker';
 import { SessionList } from './SessionList';
 import { LogsPanel } from './LogsPanel';
 import { ActivityHeatmap } from './ActivityHeatmap';
+import { ProjectsClientsPanel } from './ProjectsClientsPanel';
 import { LinkMergeModal } from '../components/ui/LinkMergeModal';
+import { useOrgData } from '../hooks/useOrgData';
 
 import { formatTime } from '../utils/formatTime';
 import { logger } from '../services/logger';
@@ -33,7 +36,7 @@ const CATEGORY_ICONS = {
 };
 
 // ── FocusBar ──
-function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
+function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks, onPersist }) {
   const [addInput, setAddInput] = useState('');
   const [showTags, setShowTags] = useState(false);
   const [addMode, setAddMode] = useState(null); // null | 'intent' | 'subfocus'
@@ -119,8 +122,8 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
           </Tooltip>
         ) : (
           <>
-            <Tooltip text="Mark as done">
-              <button onClick={() => actions.completeFocus(activeFocus.id)} style={btnStyle('#66bb6a')}>✓ Complete</button>
+            <Tooltip text="Mark as resolved">
+              <button onClick={() => actions.completeFocus(activeFocus.id)} style={btnStyle('#66bb6a')}>✓ Resolved</button>
             </Tooltip>
             <Tooltip text="Add 5 more minutes">
               <button onClick={() => actions.extendTimer(activeFocus.id, 5)} style={btnStyle('var(--color-accent-primary)')}>+5m</button>
@@ -169,7 +172,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
       </AnimatePresence>
       {showTags && (
         <div style={{ marginTop: '8px' }}>
-          <TagPicker tags={activeFocus.tags || {}} onChange={(tags) => actions.updateTags(null, tags)} compact={false} clients={clients} projects={projects} />
+          <TagPicker tags={activeFocus.tags || {}} onChange={(tags) => actions.updateTags(null, tags)} compact={false} clients={clients} projects={projects} tasks={tasks} onPersist={onPersist} />
         </div>
       )}
       {/* Quick add — enhanced with ComboInput */}
@@ -214,8 +217,8 @@ function FocusQueue({ items, actions }) {
       {items.map(item => {
         const funnel = FUNNEL_STAGES[item.funnelStage] || FUNNEL_STAGES.unsorted;
         return (
-          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', cursor: 'pointer', borderLeft: item.focusState === 'paused' ? '3px solid #ffa726' : undefined }} onClick={() => item.focusState === 'paused' ? actions.resumeFocus(item.id) : actions.switchFocus(item.id)}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', borderLeft: item.focusState === 'paused' ? '3px solid #ffa726' : undefined }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => item.focusState === 'paused' ? actions.resumeFocus(item.id) : actions.switchFocus(item.id)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <span style={{ fontSize: '10px', color: item.focusState === 'paused' ? '#ffa726' : funnel.color }}>{item.focusState === 'paused' ? '⏸' : funnel.icon}</span>
                 <span style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
@@ -231,10 +234,14 @@ function FocusQueue({ items, actions }) {
                     <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(item.id); }} style={btnStyle('var(--color-accent-primary)')}>▶</button>
                   </Tooltip>
                 )}
-                <Tooltip text="Mark as done">
+                <Tooltip text="Mark as resolved">
                   <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(item.id); }} style={btnStyle('#66bb6a')}>✓</button>
                 </Tooltip>
               </div>
+            </div>
+            {/* Compact stage picker */}
+            <div style={{ marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
+              <StagePicker compact currentStage={item.funnelStage} onChange={(stage) => actions.updateFocus(item.id, { funnelStage: stage })} />
             </div>
           </GlassCard>
         );
@@ -744,8 +751,8 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                           <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🎯 Focus</button>
                         </Tooltip>
                       )}
-                      <Tooltip text="Mark as complete">
-                        <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✅ Done</button>
+                      <Tooltip text="Mark as resolved">
+                        <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✅ Resolved</button>
                       </Tooltip>
                     </div>
                   )}
@@ -829,6 +836,7 @@ function Home() {
   const [companionRecentSessions] = useChromeStorage('companionRecentSessions', []);
   const [intentChangeLog] = useChromeStorage('intentChangeLog', []);
   const { activeFocus, allItems, history, actions, engine } = useFocusEngine();
+  const orgData = useOrgData();
   const [activePanel, setActivePanel] = useState('logs');
   const [expandedSession, setExpandedSession] = useState(null);
   const [linkModalConfig, setLinkModalConfig] = useState({ isOpen: false, targetItem: null, type: null });
@@ -924,15 +932,18 @@ function Home() {
       if (item.tags?.client) cls.add(item.tags.client);
       if (item.tags?.project) pjs.add(item.tags.project);
     }
+    // Merge from persistent org registry
+    orgData.clientList.forEach(c => cls.add(c.name));
+    orgData.projectList.forEach(p => pjs.add(p.name));
     return { knownClients: [...cls], knownProjects: [...pjs] };
-  }, [engine]);
+  }, [engine, orgData.clientList, orgData.projectList]);
 
   const THEMES = ['pop-art', 'corporate', 'midnight', 'matcha', 'terminal', 'sakura', 'blueprint', 'neo-brutalism', 'glass-ocean', 'retro-pixel', 'solarized-warm', 'high-contrast-dark'];
   const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐', 'neo-brutalism':'🟨', 'glass-ocean':'🌊', 'retro-pixel':'👾', 'solarized-warm':'📖', 'high-contrast-dark':'⚫' };
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const [intentHistory] = useChromeStorage('intentHistory', []);
   const [clockSession] = useChromeStorage('clockSession', { active: false });
-  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
+  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
@@ -1129,7 +1140,14 @@ function Home() {
         <CollapsibleSection id="focus" title="Focus Engine" icon="🔍" collapsedSections={collapsedSections} toggleSection={toggleSection}>
           {activeFocus ? (
             <>
-              <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects} />
+              <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects}
+              tasks={orgData.taskList.filter(t => t.status !== 'complete').map(t => t.name)}
+              onPersist={(field, value) => {
+                if (field === 'client') orgData.findOrCreateClient(value);
+                else if (field === 'project') orgData.findOrCreateProject(value);
+                else if (field === 'task') orgData.findOrCreateTask(value);
+              }}
+            />
               {/* When paused, show FocusInput to set a new focus */}
               {activeFocus.focusState === 'paused' && (
                 <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
@@ -1174,6 +1192,9 @@ function Home() {
           )}
           {activePanel === 'tasks' && (
             <TasksPanel actions={actions} allItems={allItems} onLinkRequest={handleLinkRequest} />
+          )}
+          {activePanel === 'projects' && (
+            <ProjectsClientsPanel orgData={orgData} />
           )}
           {activePanel === 'logs' && (
             <LogsPanel 
@@ -1295,6 +1316,24 @@ function Home() {
                               </div>
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0, marginLeft: '8px' }}>
                                 <span style={{ fontSize: '10px', color: 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{formatTime((timeTracking.byTab || {})[tabId] || 0)}</span>
+                                {/* Move to another session */}
+                                <Tooltip text="Move to another session">
+                                  <select
+                                    defaultValue=""
+                                    onChange={async (e) => {
+                                      const newCtx = e.target.value;
+                                      if (!newCtx) return;
+                                      await sendMessage('UPDATE_TAB_CONTEXT', { tabId: parseInt(tabId), context: newCtx });
+                                      e.target.value = '';
+                                    }}
+                                    style={{ background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 3px', fontSize: '9px', cursor: 'pointer', maxWidth: '80px' }}
+                                  >
+                                    <option value="">Move…</option>
+                                    {sessions.filter(s => s.id !== session.id).map(s => (
+                                      <option key={s.id} value={s.id}>{s.title}</option>
+                                    ))}
+                                  </select>
+                                </Tooltip>
                                 <Tooltip text="Focus this tab">
                                   <button onClick={() => sendMessage('FOCUS_TAB', { tabId: parseInt(tabId) })} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 5px', fontSize: '11px', cursor: 'pointer' }}>↗</button>
                                 </Tooltip>

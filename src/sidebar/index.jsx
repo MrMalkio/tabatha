@@ -6,6 +6,7 @@ import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStora
 import { useFocusEngine, formatTimer, formatElapsed, FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Tooltip } from '../components/ui/Tooltip';
+import { StagePicker } from '../components/ui/StagePicker';
 
 import { formatTime } from '../utils/formatTime';
 
@@ -287,8 +288,12 @@ function Sidebar() {
                     </div>
                   </div>
                   <div style={{ display:'flex', gap:'4px', marginTop:'8px', flexWrap:'wrap' }}>
-                    <Tooltip text="Complete focus"><button onClick={() => actions.completeFocus(activeFocus.id)} style={btn('#66bb6a')}>✓ Done</button></Tooltip>
+                    <Tooltip text="Mark as resolved"><button onClick={() => actions.completeFocus(activeFocus.id)} style={btn('#66bb6a')}>✓ Resolved</button></Tooltip>
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
+                  </div>
+                  {/* Stage picker */}
+                  <div style={{ marginTop:'6px' }}>
+                    <StagePicker compact currentStage={activeFocus.funnelStage} onChange={(stage) => actions.updateFocus(activeFocus.id, { funnelStage: stage })} />
                   </div>
                 </GlassCard>
               ) : (
@@ -318,7 +323,7 @@ function Sidebar() {
                         </div>
                         <div style={{ display:'flex', gap:'3px', flexShrink:0 }}>
                           <Tooltip text="Switch to this"><button onClick={() => actions.switchFocus(item.id)} style={btn('var(--color-accent-primary)')}>▶</button></Tooltip>
-                          <Tooltip text="Complete"><button onClick={() => actions.completeFocus(item.id)} style={btn('#66bb6a')}>✓</button></Tooltip>
+                          <Tooltip text="Mark as resolved"><button onClick={() => actions.completeFocus(item.id)} style={btn('#66bb6a')}>✓</button></Tooltip>
                         </div>
                       </div>
                     );

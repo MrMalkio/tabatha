@@ -8,7 +8,7 @@ const REALM_OPTIONS = ['business', 'personal'];
  * Handles Realm (Business/Personal), Client, Project, Task.
  * Uses ComboInput for autocomplete with free-form entry.
  */
-export function TagPicker({ tags = {}, onChange, clients = [], projects = [], compact = true }) {
+export function TagPicker({ tags = {}, onChange, clients = [], projects = [], tasks = [], compact = true, onPersist }) {
   const [expanded, setExpanded] = useState(false);
 
   const handleChange = (field, value) => {
@@ -18,6 +18,10 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], co
       updated.client = 'Self';
     }
     onChange(updated);
+    // Persist new entries to org registry if provided
+    if (onPersist && value && field !== 'realm') {
+      onPersist(field, value);
+    }
   };
 
   // Ensure "Self" is always an option in personal realm
@@ -130,7 +134,7 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], co
           label="Task"
           value={tags.task || ''}
           onChange={(v) => handleChange('task', v)}
-          options={[]}
+          options={tasks}
           placeholder="Task name"
           icon="✏️"
         />
