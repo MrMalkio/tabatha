@@ -2223,18 +2223,34 @@ async function handleMessage(message, sender) {
         }
     }
 
-    // --- Clock In/Out ---
-    case 'CLOCK_IN':
-        return await clockService.clockIn();
+    // --- Clock In/Out (synced bidirectionally with companion) ---
+    case 'CLOCK_IN': {
+        const result = await clockService.clockIn();
+        // Sync to desktop companion
+        if (companionBridge.isConnected) {
+          companionBridge.sendClockIn(message.label);
+        }
+        return result;
+    }
     
-    case 'CLOCK_OUT':
-        return await clockService.clockOut();
+    case 'CLOCK_OUT': {
+        const result = await clockService.clockOut();
+        if (companionBridge.isConnected) {
+          companionBridge.sendClockOut();
+        }
+        return result;
+    }
     
     case 'GET_CLOCK_STATUS':
         return await clockService.getClockStatus();
     
-    case 'TOGGLE_BREAK':
-        return await clockService.toggleBreak();
+    case 'TOGGLE_BREAK': {
+        const result = await clockService.toggleBreak();
+        if (companionBridge.isConnected) {
+          companionBridge.sendToggleBreak();
+        }
+        return result;
+    }
 
     case 'GET_LAST_SESSION':
         return await clockService.getLastSession();

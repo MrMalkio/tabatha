@@ -238,9 +238,13 @@ class CompanionBridge {
     chrome.storage.local.get('companionRecentSessions', (result) => {
       const sessions = result.companionRecentSessions || [];
       sessions.unshift(session);
-      // Keep last 50 sessions
-      if (sessions.length > 50) sessions.length = 50;
-      chrome.storage.local.set({ companionRecentSessions: sessions });
+      // Keep all sessions from today, prune older ones
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const todaySessions = sessions.filter(s => {
+        const sessionDate = (s.started_at || s.startedAt || '').slice(0, 10);
+        return sessionDate === todayStr;
+      });
+      chrome.storage.local.set({ companionRecentSessions: todaySessions });
     });
   }
 

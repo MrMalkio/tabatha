@@ -99,7 +99,7 @@ function WorkShifts() {
           <span style={{ fontSize: '20px' }}>⏱️</span>
           <div>
             <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Work Shifts</h1>
-            <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Tabatha v0.2.9-α</span>
+            <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Tabatha v3.0.0-α</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
