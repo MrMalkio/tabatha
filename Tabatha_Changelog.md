@@ -16,6 +16,31 @@ file.
 
 ---
 
+## [v3.12.4-alpha] - InBar, Focus Controls, Heatmap, Logs & Activity Overhaul - _2026-05-11_
+
+### Added
+- **InBar Edit Dropdown**: ✏️ button opens inline panel for intent editing, focus assignment, and new focus creation — all from the content bar.
+- **InBar Intent/Focus Split**: Bar now shows tab intent and central focus separately with a visual divider.
+- **Focus Pause/Resume**: ⏸ button on FocusBar freezes timer, moves focus to queue with amber styling. FocusInput reappears for new focus.
+- **Focus Edit**: ✏️ button on FocusBar for inline rename, timer adjust, and funnel stage changes.
+- **Side-Quest Auto-Pause**: Starting a side quest automatically pauses the current active focus and resumes it when the side quest ends.
+- **Auto-Park on Close**: Paused tabs auto-park with their sticky note preserved when closed.
+- **Tab Label Editing**: ✏️ rename button on each tab card in the Tabs panel. Custom titles persist with original shown on hover.
+- **Link Tab to Intent**: 📄 Link Tab button in IntentsPanel with inline open-tab picker dropdown.
+- **Collapsible Sections**: All homepage sections collapsible with persisted state (Shift Controls, Now Bar, Focus Engine, Activity, Nav Tabs).
+- **Activity Heatmaps (×3)**: GitHub-style contribution graph with 3 views — Browser, Overall, Follow-Through. Theme-aware colors, hover tooltips, 365-day range.
+- **Context Activity Bar**: Renamed from "Desktop Activity" to include browser + desktop + mobile (future) segments.
+- **Data Retention Alarm**: Daily chrome.alarm prunes companion/desktop activity older than configurable threshold (default 90 days).
+- **Data Retention Setting**: Configurable in Settings → Time Tracking with description text.
+- **Parked Tab Notes**: Parked tabs display context badge, auto-park source indicator, and preserved sticky notes.
+
+### Changed
+- **LogsPanel Overhaul**: Now supports 8 log types (Tab Activity, Intent Change, Focus Session, Clock Stint, Break, Context Set, Blocked Site, Task Update) with toggleable filter chips and pagination (50 per load). Desktop activity excluded — reserved for Context Activity Bar.
+- **Header Spacing**: Reduced padding above/below header. Clock wrapper fixed-height prevents layout shift at different scales.
+- **Version**: Bumped to 3.12.4-alpha across manifest.json, settings, and homepage.
+
+---
+
 ## [v0.2.5-alpha] - Diagnostic Fix Sweep - _2026-05-09_
 
 ### Fixed

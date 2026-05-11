@@ -348,3 +348,35 @@ Build InBar Pause + Sticky Note overlay feature (UI-only, safe during decomp)
 - Merge decomp to master â†’ rebase â†’ Phase 3 (Follow-Through data model + handlers)
 - Cross-view focus state sync debug (sidebar/popup â†’ homepage broadcast)
 - shadcn/ui incremental component migration
+
+---
+
+## Session 021 — 2026-05-11 (v3.12.4-alpha — Full UX Overhaul Release)
+
+**Agent:** Antigravity
+**Duration:** ~2 hours
+**Goal:** Execute all 9 phases of implementation_plan_017 and release to master
+
+### Work Done
+- [x] **Phase 0** — Header spacing + clock decoupling (prior session)
+- [x] **Phase 1** — InBar edit dropdown: intent editing, focus assignment, new focus creation. Separated tab intent vs central focus display.
+- [x] **Phase 2** — Focus pause/resume + side-quest auto-pause (prior session)
+- [x] **Phase 3** — Auto-park paused tabs on close with sticky note. Tab rename in Tabs panel. Link Tab button in IntentsPanel with inline picker. Parked tabs show context/notes/source.
+- [x] **Phase 4** — Collapsible sections with persisted state (prior session)
+- [x] **Phase 5** — Context Activity Bar rename + scope expansion (prior session)
+- [x] **Phase 6** — 3× Activity Heatmaps (Browser, Overall, Follow-Through) (prior session)
+- [x] **Phase 7** — LogsPanel overhaul: 8 log types with toggleable filter chips, pagination (50/page), desktop activity excluded.
+- [x] **Phase 8** — Data retention alarm (90d default, configurable in Settings). Daily pruning of companion/desktop activity.
+- [x] **Versioning** — Bumped to 3.12.4-alpha across manifest, settings, and homepage.
+- [x] **Changelog** — Full v3.12.4-alpha entry in Tabatha_Changelog.md.
+- [x] **Merged to master** — Released as v3.12.4-alpha on live profile.
+
+### Decisions
+- Used prompt() for tab rename (simple, effective) rather than custom inline input
+- Desktop activity excluded from Logs — reserved for Context Activity Bar analytics
+- Auto-park uses parkedTabs storage (separate from closedContexts) with 200 entry limit
+
+### Next Steps
+- InBar intent live-reload after edit (currently needs page refresh)
+- Settings UI for browser data retention
+- Blocked site + task update log types need background event emission to populate
