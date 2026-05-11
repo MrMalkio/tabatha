@@ -39,6 +39,9 @@ export function useKeyboardShortcuts({ onAction }) {
       const ctrl = e.ctrlKey || e.metaKey;
       const shift = e.shiftKey;
 
+      // Ctrl+K — open command palette
+      if (ctrl && !shift && e.key === 'k') { e.preventDefault(); onAction?.('palette'); return; }
+
       // Ctrl+/ — show shortcuts help
       if (ctrl && e.key === '/') { e.preventDefault(); setShowHelp(v => !v); return; }
 

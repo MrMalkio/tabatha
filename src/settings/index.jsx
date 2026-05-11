@@ -212,7 +212,7 @@ function Settings() {
       <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '8px 16px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>⚙️ Settings</div>
-          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v3.12.4-α</div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v{chrome.runtime.getManifest?.()?.version || '?'}-α</div>
         </div>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
@@ -866,7 +866,7 @@ function Settings() {
             {activeSection === 'about' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>About Tabatha</h2>
-                <div style={fieldRow}><span style={fieldLabel}>Version</span><span>v0.2.6-α</span></div>
+                <div style={fieldRow}><span style={fieldLabel}>Version</span><span>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span></div>
                 <div style={fieldRow}><span style={fieldLabel}>Codename</span><span>Attention Operating System</span></div>
                 <div style={fieldRow}><span style={fieldLabel}>Ecosystem</span><span>Flux Family</span></div>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '16px', lineHeight: 1.5 }}>

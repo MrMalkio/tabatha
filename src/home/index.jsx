@@ -1073,18 +1073,8 @@ function Home() {
   const [clockSession] = useChromeStorage('clockSession', { active: false });
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'org', label: '🏛️ Org' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
-  // ── Command Palette (Ctrl+K) ──
+  // ── Command Palette state ──
   const [paletteOpen, setPaletteOpen] = useState(false);
-  useEffect(() => {
-    const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setPaletteOpen(prev => !prev);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
 
   // ── Keyboard Shortcuts ──
   const { showHelp: showShortcuts, setShowHelp: setShowShortcuts } = useKeyboardShortcuts({
@@ -1202,7 +1192,7 @@ function Home() {
               </Tooltip>
             )}
             <CompanionStatus compact />
-            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v3.0.0-α</span>
+            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
                 {THEME_ICONS[theme] || '🎨'}
