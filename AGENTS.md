@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 5 | Status: active          -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 6 | Status: active          -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 3.0.0-alpha
-- **Current focus:** Follow-Through Engine — Phase 2 complete, Phases 3-6 blocked on monolith decomp
+- **Current version:** 3.12.4-alpha
+- **Current focus:** v3.1.0 UX Overhaul — InBar edit dropdown, data retention, collapsible homepage, activity heatmap
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -146,6 +146,7 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 | 2026-05-10 | Antigravity | InBar Pause + Sticky Note | Built pause button + mini-prompt + sticky note overlay in InBar content script. Pause state persisted to chrome.storage.local per tab. Sticky note: paper texture, tilt, tape, resume/edit buttons. Bar transitions to amber PAUSED state. No background.js changes (safe during decomp). Decomp `refactor/service-arch` is code-complete (13 services, all handlers extracted) but not yet merged. | Merge decomp to master → rebase → Phase 3 (Follow-Through data model + handlers). Or: BlockGate settings UI, InBar settings polish |
 | 2026-05-10 | Antigravity | Desktop Companion Build | Scaffolded tabatha-desktop repo (Tauri 2.x). Built 5 Rust modules: window_monitor (Win32 APIs), activity_log (SQLite), categorizer (50+ apps), ws_server (:9147), main (tray orchestrator). React debug UI. Installed Rust 1.95 + VS Build Tools. Binary compiles and WS server verified end-to-end. Built extension-side CompanionBridge + CompanionStatus.jsx. Idle handler augmented to suppress false-idle when user active in other apps. | Test live window monitoring, build UnifiedTimeline UI, Supabase app_activity migration |
 | 2026-05-10 | Antigravity | Bug Fix Sweep + Task CRUD | Halved corner radius globally (sm:2, md:4, lg:8). Fixed InBar label fallback to activeFocus.label. Made FlipClock responsive (overflow:hidden, flexWrap, 5px margin). Task delete confirmation. Task inline editing (name+desc). Start-intent-from-task button. Link-task-to-intent button + LinkMergeModal type='task' support. CompanionStatus wired into homepage header. | Cross-view focus sync debug, shadcn/ui migration, merge decomp branch |
+| 2026-05-11 | Antigravity | InBar Edit + Retention + v3.12.4 | InBar edit dropdown (✏️ intent editing, focus assignment list, new focus creation). Separated tab intent vs central focus display. Data retention alarm (90d default, configurable). Version bumped to 3.12.4-alpha across manifest + settings. | Logs refactor (Phase 7), Parking logic (Phase 3), InBar intent live-reload after edit |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
