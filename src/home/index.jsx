@@ -17,6 +17,8 @@ import { ActivityHeatmap } from './ActivityHeatmap';
 import { ProjectsClientsPanel } from './ProjectsClientsPanel';
 import { InitiativesPanel } from './InitiativesPanel';
 import { LinkMergeModal } from '../components/ui/LinkMergeModal';
+import { CommandPalette } from '../components/ui/CommandPalette';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { useOrgData } from '../hooks/useOrgData';
 
 import { formatTime } from '../utils/formatTime';
@@ -1068,6 +1070,19 @@ function Home() {
   const [clockSession] = useChromeStorage('clockSession', { active: false });
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'org', label: '🏛️ Org' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
+  // ── Command Palette (Ctrl+K) ──
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
   const handleClockIn = async () => {
@@ -1291,6 +1306,17 @@ function Home() {
             clockHistory={clockHistory}
             focusHistory={history}
             companionSessions={companionRecentSessions}
+          />
+        </CollapsibleSection>
+
+        {/* ═══ Analytics Dashboard ═══ */}
+        <CollapsibleSection id="analytics" title="Analytics" icon="📈" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+          <AnalyticsDashboard
+            allItems={allItems}
+            timeTracking={timeTracking}
+            intentHistory={intentHistory}
+            orgData={orgData}
+            clockSession={clockSession}
           />
         </CollapsibleSection>
 
@@ -1578,6 +1604,22 @@ function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Command Palette — Ctrl+K */}
+      <CommandPalette
+        isOpen={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        actions={actions}
+        allItems={allItems}
+        tabs={tabs}
+        orgData={orgData}
+        onNavigate={(target) => {
+          if (target === 'focus') { /* scroll to top */ window.scrollTo(0, 0); }
+          else if (target === 'theme') { cycleTheme(); }
+          else if (target === 'clock') { /* handled by clock section */ }
+          else { setActivePanel(target); }
+        }}
+      />
     </div>
   );
 }

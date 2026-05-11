@@ -749,12 +749,63 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     
     // Start tracking the new active tab
     await timeTracker.startTracking(activeInfo.tabId, tabData.url, tabData);
+    
+    // ── Context-switch detection ──
+    contextSwitchTracker.record(tabData.context || tabData.category || 'unknown');
   }
   
   broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
   
   // Auto-associate activated tab with current focus
   tryAssociateTab(activeInfo.tabId);
+});
+
+// ── Smart Context-Switch Detection ──
+// Detects rapid switching between unrelated contexts (>3 distinct in 5 min)
+const contextSwitchTracker = (() => {
+  const history = []; // { context, ts }
+  const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+  const THRESHOLD = 4; // 4+ distinct contexts = drifting
+  let lastNotified = 0;
+  const COOLDOWN_MS = 10 * 60 * 1000; // Don't re-notify within 10 min
+
+  return {
+    record(context) {
+      const now = Date.now();
+      history.push({ context, ts: now });
+      // Trim old entries
+      while (history.length > 0 && now - history[0].ts > WINDOW_MS) history.shift();
+      // Count distinct contexts in window
+      const distinct = new Set(history.map(h => h.context)).size;
+      if (distinct >= THRESHOLD && now - lastNotified > COOLDOWN_MS) {
+        lastNotified = now;
+        // Fire notification
+        chrome.notifications.create(`context-drift-${now}`, {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+          title: '⚠️ Context Drift Detected',
+          message: `You've switched between ${distinct} different contexts in the last 5 minutes. Consider setting a focus or taking a short break.`,
+          buttons: [{ title: '🎯 Set Focus' }, { title: '☕ Take Break' }],
+          priority: 2,
+        });
+        logEvent('context_drift', { distinctContexts: distinct, window: '5min' });
+      }
+    }
+  };
+})();
+
+// Handle notification button clicks
+chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
+  if (notifId.startsWith('context-drift-') || notifId.startsWith('focus-expired-') || notifId.startsWith('nudge-')) {
+    if (btnIdx === 0) {
+      // Open homepage to set focus
+      chrome.tabs.create({ url: chrome.runtime.getURL('home.html') });
+    } else if (btnIdx === 1) {
+      // Toggle break
+      handleMessage({ type: 'TOGGLE_BREAK' }, {}, () => {});
+    }
+    chrome.notifications.clear(notifId);
+  }
 });
 
 // ============================================================
@@ -1117,7 +1168,31 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       });
     }
   }
+
+  // ── Unfocused Nudge ──
+  // Every 10 min: if no active focus is set and user is not idle, nudge them
+  if (alarm.name === 'unfocused-nudge') {
+    const engine = await getFocusEngine();
+    const hasActive = engine.activeFocusId && engine.items[engine.activeFocusId]?.focusState === 'active';
+    if (!hasActive) {
+      const idleState = await chrome.idle.queryState(60);
+      if (idleState === 'active') {
+        chrome.notifications.create(`nudge-${Date.now()}`, {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+          title: '🎯 Tabatha — What are you working on?',
+          message: 'You\'ve been browsing without a focus set. Set one to track your productivity.',
+          buttons: [{ title: '🎯 Set Focus' }, { title: '☕ Take Break' }],
+          priority: 1,
+        });
+        logEvent('unfocused_nudge', { activeFocusId: engine.activeFocusId });
+      }
+    }
+  }
 });
+
+// Create the unfocused nudge recurring alarm (every 10 min)
+chrome.alarms.create('unfocused-nudge', { periodInMinutes: 10 });
 
 // ============================================================
 // URL LOCK — NAVIGATION INTERCEPTION
