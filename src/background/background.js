@@ -9,6 +9,20 @@ import { companionBridge } from './companion-bridge.js';
 import { fireWebhook } from './webhooks.js';
 
 // ============================================================
+// LOGGING
+// ============================================================
+
+function logEvent(type, data = {}) {
+  const entry = { type, ...data, ts: new Date().toISOString() };
+  chrome.storage.local.get('tabathaLogs', r => {
+    const logs = r.tabathaLogs || [];
+    logs.push(entry);
+    // Keep last 500
+    chrome.storage.local.set({ tabathaLogs: logs.slice(-500) });
+  });
+}
+
+// ============================================================
 // CONSTANTS & DEFAULTS
 // ============================================================
 
