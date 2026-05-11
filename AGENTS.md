@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 0.2.8-alpha
+- **Current version:** 0.2.9-alpha
 - **Current focus:** Follow-Through Engine — Phase 2 complete, Phases 3-6 blocked on monolith decomp
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
