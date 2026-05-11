@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
@@ -12,6 +12,7 @@ import { TagPicker } from '../components/ui/TagPicker';
 import { ComboInput } from '../components/ui/ComboInput';
 import { SessionList } from './SessionList';
 import { LogsPanel } from './LogsPanel';
+import { ActivityHeatmap } from './ActivityHeatmap';
 import { LinkMergeModal } from '../components/ui/LinkMergeModal';
 
 import { formatTime } from '../utils/formatTime';
@@ -238,6 +239,42 @@ function FocusQueue({ items, actions }) {
           </GlassCard>
         );
       })}
+    </div>
+  );
+}
+
+// ── CollapsibleSection ──
+function CollapsibleSection({ id, title, icon, defaultOpen = true, children, collapsedSections, toggleSection, compact }) {
+  const isOpen = collapsedSections ? !collapsedSections.includes(id) : defaultOpen;
+
+  return (
+    <div style={{ marginBottom: isOpen ? '12px' : (compact ? '0' : '4px') }}>
+      <button
+        onClick={() => toggleSection?.(id)}
+        style={{
+          background: 'transparent', border: 'none', color: 'var(--color-text-muted)',
+          fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em',
+          fontWeight: 600, cursor: 'pointer', padding: compact && !isOpen ? '0' : '2px 0',
+          marginBottom: isOpen ? '6px' : '0', display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+        }}
+      >
+        <span style={{ fontSize: '12px', transition: 'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+        {icon && <span style={{ fontSize: '11px' }}>{icon}</span>}
+        {title}
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -761,12 +798,30 @@ function Home() {
   const [settings] = useChromeStorage('settings', {});
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
+  const [clockHistory] = useChromeStorage('clockHistory', []);
+  const [companionRecentSessions] = useChromeStorage('companionRecentSessions', []);
   const { activeFocus, allItems, history, actions, engine } = useFocusEngine();
   const [activePanel, setActivePanel] = useState('logs');
   const [expandedSession, setExpandedSession] = useState(null);
   const [linkModalConfig, setLinkModalConfig] = useState({ isOpen: false, targetItem: null, type: null });
   const [recentlyClosed, setRecentlyClosed] = useState([]);
   const [welcomeBack, setWelcomeBack] = useState(null);
+  const [collapsedSections, setCollapsedSections] = useState([]);
+
+  // Load collapsed state from storage
+  useEffect(() => {
+    chrome?.storage?.local?.get?.('collapsedSections', (result) => {
+      if (result?.collapsedSections) setCollapsedSections(result.collapsedSections);
+    });
+  }, []);
+
+  const toggleSection = useCallback((id) => {
+    setCollapsedSections(prev => {
+      const next = prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id];
+      chrome?.storage?.local?.set?.({ collapsedSections: next });
+      return next;
+    });
+  }, []);
 
   // Listen for welcome back broadcasts
   useEffect(() => {
@@ -968,45 +1023,47 @@ function Home() {
           </div>
         </div>
 
-        {/* Shift Controls Panel */}
-        <GlassCard style={{ padding: '8px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {clockSession?.active ? '🟢 Clocked In' : '⚪ Clocked Out'}
-              {clockSession?.onBreak && <span style={{ fontSize: '9px', background: '#ffa72622', color: '#ffa726', padding: '2px 6px', borderRadius: '4px' }}>ON BREAK</span>}
-            </div>
-            {clockSession?.active ? (
-              <div style={{ fontSize: '14px', fontWeight: 700, color: clockSession.onBreak ? '#ffa726' : 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums' }}>
-                {clockElapsed || '0:00:00'}
+        {/* ═══ Collapsible: Shift Controls ═══ */}
+        <CollapsibleSection id="shift" title="Shift Controls" icon="⏱️" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+          <GlassCard style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {clockSession?.active ? '🟢 Clocked In' : '⚪ Clocked Out'}
+                {clockSession?.onBreak && <span style={{ fontSize: '9px', background: '#ffa72622', color: '#ffa726', padding: '2px 6px', borderRadius: '4px' }}>ON BREAK</span>}
               </div>
-            ) : (
-              lastSession && (
-                <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: 'var(--color-border)' }}>|</span>
-                  Last stint: <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{(() => { const h = Math.floor(lastSession.workMs / 3600000); const m = Math.floor((lastSession.workMs % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
+              {clockSession?.active ? (
+                <div style={{ fontSize: '14px', fontWeight: 700, color: clockSession.onBreak ? '#ffa726' : 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                  {clockElapsed || '0:00:00'}
                 </div>
-              )
-            )}
-          </div>
+              ) : (
+                lastSession && (
+                  <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: 'var(--color-border)' }}>|</span>
+                    Last stint: <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{(() => { const h = Math.floor(lastSession.workMs / 3600000); const m = Math.floor((lastSession.workMs % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
+                  </div>
+                )
+              )}
+            </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {clockSession?.active && (
-              <Tooltip text={clockSession.onBreak ? 'End break and resume' : 'Start a break'}>
-                <button onClick={handleToggleBreak} style={{ background: clockSession.onBreak ? '#ffa72622' : 'transparent', border: `1px solid ${clockSession.onBreak ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)', padding: '4px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
-                  {clockSession.onBreak ? '▶ Resume' : '☕ Break'}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {clockSession?.active && (
+                <Tooltip text={clockSession.onBreak ? 'End break and resume' : 'Start a break'}>
+                  <button onClick={handleToggleBreak} style={{ background: clockSession.onBreak ? '#ffa72622' : 'transparent', border: `1px solid ${clockSession.onBreak ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)', padding: '4px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+                    {clockSession.onBreak ? '▶ Resume' : '☕ Break'}
+                  </button>
+                </Tooltip>
+              )}
+              <Tooltip text={clockSession?.active ? 'Clock out' : 'Clock in'}>
+                <button onClick={clockSession?.active ? handleClockOut : handleClockIn} style={{ background: clockSession?.active ? '#ef535022' : '#66bb6a22', border: `1px solid ${clockSession?.active ? '#ef5350' : '#66bb6a'}`, borderRadius: 'var(--radius-sm)', color: clockSession?.active ? '#ef5350' : '#66bb6a', padding: '4px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+                  {clockSession?.active ? '⏹ Clock Out' : '▶ Clock In'}
                 </button>
               </Tooltip>
-            )}
-            <Tooltip text={clockSession?.active ? 'Clock out' : 'Clock in'}>
-              <button onClick={clockSession?.active ? handleClockOut : handleClockIn} style={{ background: clockSession?.active ? '#ef535022' : '#66bb6a22', border: `1px solid ${clockSession?.active ? '#ef5350' : '#66bb6a'}`, borderRadius: 'var(--radius-sm)', color: clockSession?.active ? '#ef5350' : '#66bb6a', padding: '4px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
-                {clockSession?.active ? '⏹ Clock Out' : '▶ Clock In'}
-              </button>
-            </Tooltip>
-            <Tooltip text="View Shifts">
-              <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}>⏱️ Shifts</button>
-            </Tooltip>
-          </div>
-        </GlassCard>
+              <Tooltip text="View Shifts">
+                <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}>⏱️ Shifts</button>
+              </Tooltip>
+            </div>
+          </GlassCard>
+        </CollapsibleSection>
 
         {/* Debug Bar — only visible when debug mode is ON in settings */}
         {settings.debugMode && (
@@ -1016,45 +1073,64 @@ function Home() {
           </div>
         )}
 
-        {/* Now Bar — Current Priority */}
+        {/* ═══ Collapsible: Now Bar ═══ */}
         {nowItem && (
-          <GlassCard style={{ padding: '8px 14px', marginBottom: '8px', borderLeft: '3px solid var(--color-accent-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-accent-primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>NOW</span>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>{nowItem.label}</span>
-                {nowItem.priority && nowItem.priority <= 10 && (
-                  <Tooltip text={`Priority ${nowItem.priority} of 10`}>
-                    <span style={{ fontSize: '9px', background: nowItem.priority <= 3 ? '#ff6b6b22' : nowItem.priority <= 6 ? '#ffa72622' : '#66bb6a22', color: nowItem.priority <= 3 ? '#ff6b6b' : nowItem.priority <= 6 ? '#ffa726' : '#66bb6a', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>P{nowItem.priority}</span>
-                  </Tooltip>
-                )}
+          <CollapsibleSection id="nowbar" title="Now" icon="🎯" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+            <GlassCard style={{ padding: '8px 14px', borderLeft: '3px solid var(--color-accent-primary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-accent-primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>NOW</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600 }}>{nowItem.label}</span>
+                  {nowItem.priority && nowItem.priority <= 10 && (
+                    <Tooltip text={`Priority ${nowItem.priority} of 10`}>
+                      <span style={{ fontSize: '9px', background: nowItem.priority <= 3 ? '#ff6b6b22' : nowItem.priority <= 6 ? '#ffa72622' : '#66bb6a22', color: nowItem.priority <= 3 ? '#ff6b6b' : nowItem.priority <= 6 ? '#ffa726' : '#66bb6a', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>P{nowItem.priority}</span>
+                    </Tooltip>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                    {FUNNEL_STAGES[nowItem.funnelStage]?.icon} {FUNNEL_STAGES[nowItem.funnelStage]?.label}
+                  </span>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
-                  {FUNNEL_STAGES[nowItem.funnelStage]?.icon} {FUNNEL_STAGES[nowItem.funnelStage]?.label}
-                </span>
-              </div>
-            </div>
-          </GlassCard>
+            </GlassCard>
+          </CollapsibleSection>
         )}
 
-        {/* Focus Engine */}
-        {activeFocus ? (
-          <>
-            <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects} />
-            {/* When paused, show FocusInput to set a new focus */}
-            {activeFocus.focusState === 'paused' && (
-              <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
-            )}
-            <FocusQueue items={allItems} actions={actions} />
-            <FocusHistory history={history} />
-          </>
-        ) : (
-          <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
-        )}
+        {/* ═══ Collapsible: Focus Engine ═══ */}
+        <CollapsibleSection id="focus" title="Focus Engine" icon="🔍" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+          {activeFocus ? (
+            <>
+              <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects} />
+              {/* When paused, show FocusInput to set a new focus */}
+              {activeFocus.focusState === 'paused' && (
+                <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
+              )}
+              <FocusQueue items={allItems} actions={actions} />
+              <FocusHistory history={history} />
+            </>
+          ) : (
+            <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
+          )}
+        </CollapsibleSection>
 
-        {/* Unified Timeline — desktop companion activity */}
-        <UnifiedTimeline compact={false} />
+        {/* ═══ Activity Heatmap ═══ */}
+        <CollapsibleSection id="heatmap" title="Activity" icon="📊" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+          <ActivityHeatmap
+            timeTracking={timeTracking}
+            clockHistory={clockHistory}
+            focusHistory={history}
+            companionSessions={companionRecentSessions}
+          />
+        </CollapsibleSection>
+
+        {/* ═══ Collapsible: Context Activity Bar ═══ */}
+        <CollapsibleSection id="activity" title="Context Activity" icon="📊" compact collapsedSections={collapsedSections} toggleSection={toggleSection}>
+          <UnifiedTimeline compact={false} />
+        </CollapsibleSection>
+
+        {/* ═══ Collapsible: Nav Tabs ═══ */}
+        <CollapsibleSection id="panels" title="Panels" icon="📋" collapsedSections={collapsedSections} toggleSection={toggleSection}>
         <div style={{ display: 'flex', gap: '2px', marginBottom: '16px', borderBottom: '1px solid var(--color-border)' }}>
           {navTabs.map(tab => (
             <Tooltip key={tab.id} text={`View ${tab.label.replace(/[^\w\s]/g, '').trim()} panel`}>
@@ -1247,6 +1323,7 @@ function Home() {
             </motion.div>
           )}
         </AnimatePresence>
+        </CollapsibleSection>
         {/* ─── Footer: Recent Stints ─── */}
         {recentShifts.length > 0 && (
           <div style={{ marginTop: '24px', paddingTop: '12px', borderTop: '1px solid var(--color-border)', opacity: 0.7 }}>
