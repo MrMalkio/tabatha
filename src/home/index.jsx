@@ -15,6 +15,7 @@ import { SessionList } from './SessionList';
 import { LogsPanel } from './LogsPanel';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { ProjectsClientsPanel } from './ProjectsClientsPanel';
+import { InitiativesPanel } from './InitiativesPanel';
 import { LinkMergeModal } from '../components/ui/LinkMergeModal';
 import { useOrgData } from '../hooks/useOrgData';
 
@@ -1065,7 +1066,7 @@ function Home() {
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const [intentHistory] = useChromeStorage('intentHistory', []);
   const [clockSession] = useChromeStorage('clockSession', { active: false });
-  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
+  const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'org', label: '🏛️ Org' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
@@ -1318,6 +1319,9 @@ function Home() {
           )}
           {activePanel === 'projects' && (
             <ProjectsClientsPanel orgData={orgData} />
+          )}
+          {activePanel === 'org' && (
+            <InitiativesPanel orgData={orgData} />
           )}
           {activePanel === 'logs' && (
             <LogsPanel 
