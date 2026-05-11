@@ -6,13 +6,15 @@
 
 (async () => {
   // 1. Get current tab's context and active focus
-  let tabContext, activeFocus, settings, currentNote = '';
+  let tabContext, activeFocus, settings, currentNote = '', allFocusItems = [], activeFocusId = null;
   try {
     const res = await chrome.runtime.sendMessage({ type: 'GET_INBAR_DATA' });
     if (!res || !res.show) return;
     tabContext = res.tabContext;
     activeFocus = res.activeFocus;
     settings = res.settings || {};
+    allFocusItems = res.allFocusItems || [];
+    activeFocusId = res.activeFocusId || null;
     // Fetch saved note
     const noteRes = await chrome.runtime.sendMessage({ type: 'GET_INBAR_NOTES' });
     currentNote = noteRes?.note || '';
@@ -82,8 +84,9 @@
   pushPage(BAR_HEIGHT);
 
   // 5. Styles
-  const intentLabel = tabContext?.context || tabContext?.intent || activeFocus?.label || null;
+  const tabIntent = tabContext?.context || tabContext?.intent || null;
   const focusLabel = activeFocus?.label || null;
+  const intentLabel = tabIntent || focusLabel || null;
   const hasFocus = !!activeFocus;
   const hasContext = !!intentLabel;
 
@@ -266,6 +269,41 @@
     .nub.is-paused { color: #ffc107; border-color: #ffc10744; }
     .nub.is-paused:hover { box-shadow: 0 0 8px rgba(255,193,7,0.3); }
 
+    /* === EDIT DROPDOWN === */
+    .edit-dropdown {
+      position: absolute;
+      ${position === 'bottom' ? 'bottom' : 'top'}: ${BAR_HEIGHT}px;
+      left: 50%;
+      transform: translateX(-50%) scaleY(0);
+      transform-origin: ${position === 'bottom' ? 'bottom' : 'top'};
+      width: 320px;
+      background: #141414;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+      pointer-events: auto;
+      transition: transform 0.15s ease;
+      z-index: 2147483647;
+    }
+    .edit-dropdown.open { transform: translateX(-50%) scaleY(1); }
+    .edit-inner { padding: 10px 12px; }
+    .edit-title { font-size: 10px; font-weight: 700; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .edit-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .edit-input { flex: 1; background: #0d0d0d; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #eee; font-family: inherit; font-size: 11px; padding: 5px 8px; outline: none; }
+    .edit-input:focus { border-color: #00e5ff44; }
+    .edit-save { background: #00e5ff22; color: #00e5ff; border: 1px solid #00e5ff44; border-radius: 4px; padding: 4px 10px; font-size: 10px; font-weight: 600; cursor: pointer; }
+    .edit-save:hover { background: #00e5ff33; }
+    .edit-section { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0 4px; }
+    .focus-item { padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; color: #ccc; transition: background 0.1s; display: flex; justify-content: space-between; align-items: center; }
+    .focus-item:hover { background: rgba(255,255,255,0.06); }
+    .focus-item.active { background: #00e5ff12; border-left: 2px solid #00e5ff; }
+    .focus-state { font-size: 8px; padding: 1px 4px; border-radius: 3px; text-transform: uppercase; font-weight: 600; }
+    .focus-state.active { background: #66bb6a22; color: #66bb6a; }
+    .focus-state.paused { background: #ffa72622; color: #ffa726; }
+    .focus-state.queued { background: #64b5f622; color: #64b5f6; }
+    .new-focus-btn { width: 100%; background: none; border: 1px dashed rgba(255,255,255,0.15); border-radius: 4px; color: #888; padding: 5px; font-size: 10px; cursor: pointer; margin-top: 4px; }
+    .new-focus-btn:hover { border-color: #00e5ff44; color: #00e5ff; }
+
     @keyframes stickyDrop { from { opacity: 0; transform: rotate(var(--tilt)) translateY(-30px) scale(0.9); } to { opacity: 1; transform: rotate(var(--tilt)) translateY(0) scale(1); } }
   `;
   shadow.appendChild(style);
@@ -307,18 +345,18 @@
         `}
       </div>
       <div class="center">
-        ${hasFocus ? `<span class="badge badge-focus">🎯 focus</span>` : ''}
-        ${intentLabel
-          ? `<span class="intent-label" title="${intentLabel}">${intentLabel}</span>`
-          : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent via Tabatha popup">No intent set — click to set</span>`
+        ${tabIntent
+          ? `<span class="intent-label" title="Tab: ${tabIntent}">${tabIntent}</span>`
+          : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent">No intent set</span>`
         }
-        ${focusLabel && focusLabel !== intentLabel
-          ? `<span class="divider"></span><span class="task-label" title="${focusLabel}">📋 ${focusLabel}</span>`
+        ${focusLabel
+          ? `<span class="divider"></span><span class="badge badge-focus">🎯</span><span class="task-label" title="Central focus: ${focusLabel}">${focusLabel}</span>`
           : ''
         }
       </div>
       <div class="right">
         ${focusEndTime ? `<span class="timer timer-down" id="focus-countdown" title="Focus countdown">--:--</span>` : ''}
+        <button class="bar-btn" id="edit-btn" title="Edit intent / Assign to focus">✏️</button>
         <button class="bar-btn pause-btn" id="pause-btn" title="Pause — leave a note about where you left off">⏸</button>
         <button class="bar-btn note-btn" id="note-btn" title="Add note">📝</button>
         <button class="bar-btn" id="hide-bar" title="Collapse to nub">▾</button>
@@ -343,6 +381,34 @@
     </div>
   `;
   shadow.appendChild(notesPanel);
+
+  // 7b. Edit dropdown panel
+  const editDropdown = document.createElement('div');
+  editDropdown.className = 'edit-dropdown';
+  const buildFocusList = () => {
+    const items = (allFocusItems || []).map(f => {
+      const stateClass = f.focusState === 'active' ? 'active' : f.focusState === 'paused' ? 'paused' : 'queued';
+      const isActive = f.id === activeFocusId;
+      return `<div class="focus-item${isActive ? ' active' : ''}" data-focus-id="${f.id}">
+        <span>${f.label}</span>
+        <span class="focus-state ${stateClass}">${f.focusState}</span>
+      </div>`;
+    }).join('');
+    return items || '<div style="font-size:10px;color:#555;padding:4px;">No focus items yet</div>';
+  };
+  editDropdown.innerHTML = `
+    <div class="edit-inner">
+      <div class="edit-title">✏️ Edit Intent</div>
+      <div class="edit-row">
+        <input class="edit-input" id="edit-intent-input" placeholder="New intent for this tab..." value="${tabIntent || ''}">
+        <button class="edit-save" id="edit-intent-save">Save</button>
+      </div>
+      <div class="edit-section">Assign to Focus</div>
+      <div id="focus-list">${buildFocusList()}</div>
+      <button class="new-focus-btn" id="new-focus-btn">+ Create new focus from this tab</button>
+    </div>
+  `;
+  shadow.appendChild(editDropdown);
 
   // 8. Nub (collapsed toggle)
   const nub = document.createElement('div');
@@ -543,6 +609,65 @@
         if (input) { input.value = pauseNote; input.focus(); }
       };
     }
+
+    // ── Edit dropdown ──
+    const editBtn = shadow.getElementById('edit-btn');
+    if (editBtn) {
+      editBtn.onclick = () => {
+        const isOpen = editDropdown.classList.contains('open');
+        // Close other panels first
+        notesPanel.classList.remove('open');
+        pausePrompt.classList.remove('open');
+        editDropdown.classList.toggle('open', !isOpen);
+        if (!isOpen) {
+          const inp = shadow.getElementById('edit-intent-input');
+          if (inp) inp.focus();
+        }
+      };
+    }
+
+    // Save edited intent
+    const editSaveBtn = shadow.getElementById('edit-intent-save');
+    if (editSaveBtn) {
+      editSaveBtn.onclick = async () => {
+        const inp = shadow.getElementById('edit-intent-input');
+        const newIntent = inp?.value?.trim();
+        if (!newIntent) return;
+        try {
+          await chrome.runtime.sendMessage({ type: 'SET_INTENT', payload: { intent: newIntent } });
+          editDropdown.classList.remove('open');
+        } catch (e) { /* send failed */ }
+      };
+    }
+
+    // Focus list click — assign tab to a focus
+    const focusList = shadow.getElementById('focus-list');
+    if (focusList) {
+      focusList.onclick = async (e) => {
+        const item = e.target.closest('.focus-item');
+        if (!item) return;
+        const focusId = item.dataset.focusId;
+        if (!focusId) return;
+        try {
+          // Switch to this focus — activates it and reassigns the intent
+          await chrome.runtime.sendMessage({ type: 'SWITCH_FOCUS', payload: { focusId } });
+          editDropdown.classList.remove('open');
+        } catch (e) { /* send failed */ }
+      };
+    }
+
+    // New focus button
+    const newFocusBtn = shadow.getElementById('new-focus-btn');
+    if (newFocusBtn) {
+      newFocusBtn.onclick = async () => {
+        const inp = shadow.getElementById('edit-intent-input');
+        const label = inp?.value?.trim() || intentLabel || 'New Focus';
+        try {
+          await chrome.runtime.sendMessage({ type: 'START_FOCUS', payload: { label, timer: 15 } });
+          editDropdown.classList.remove('open');
+        } catch (e) { /* send failed */ }
+      };
+    }
   };
 
   // 10. Collapse / Expand
@@ -553,6 +678,7 @@
     bar.classList.add('hidden');
     notesPanel.classList.remove('open');
     pausePrompt.classList.remove('open');
+    editDropdown.classList.remove('open');
     pushPage(0);
     host.style.height = '0';
     setTimeout(() => nub.classList.add('visible'), 150);
