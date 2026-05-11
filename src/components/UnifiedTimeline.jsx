@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom';
 
 /**
  * UnifiedTimeline — Horizontal timeline bar showing colored segments by category.
@@ -318,61 +319,64 @@ export default function UnifiedTimeline({ compact = false }) {
         </div>
       )}
 
-      {/* Hover Tooltip — anchored above the timeline bar */}
-      {hoveredSession && (() => {
-        const barRect = barRef.current?.getBoundingClientRect();
-        const tipTop = barRect ? barRect.top - 80 : tooltipPos.y - 80;
-        return (
-          <div style={{
-            position: 'fixed',
-            left: tooltipPos.x + 12,
-            top: Math.max(8, tipTop),
-            background: 'rgba(20, 22, 28, 0.95)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: '6px',
-            padding: '8px 12px',
-            fontSize: '11px',
-            color: '#e8eaf0',
-            pointerEvents: 'none',
-            zIndex: 2147483647,
-            maxWidth: '280px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-            backdropFilter: 'blur(8px)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '2px',
-                background: hoveredSession.color,
-                flexShrink: 0,
-              }} />
-              <span style={{ fontWeight: 600 }}>
-                {CATEGORY_EMOJI[hoveredSession.category] || '❓'} {hoveredSession.app_display_name || hoveredSession.appDisplayName || hoveredSession.app_name}
-              </span>
-            </div>
+      {/* Hover Tooltip — portaled to body to escape parent backdrop-filter containing block */}
+      {hoveredSession && ReactDOM.createPortal(
+        (() => {
+          const barRect = barRef.current?.getBoundingClientRect();
+          const tipTop = barRect ? barRect.top - 80 : tooltipPos.y - 80;
+          return (
             <div style={{
-              fontSize: '10px',
-              color: '#8b93a1',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              marginBottom: '4px',
+              position: 'fixed',
+              left: tooltipPos.x + 12,
+              top: Math.max(8, tipTop),
+              background: 'rgba(20, 22, 28, 0.95)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              fontSize: '11px',
+              color: '#e8eaf0',
+              pointerEvents: 'none',
+              zIndex: 2147483647,
+              maxWidth: '280px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(8px)',
             }}>
-              {hoveredSession.window_title || hoveredSession.windowTitle}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '2px',
+                  background: hoveredSession.color,
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontWeight: 600 }}>
+                  {CATEGORY_EMOJI[hoveredSession.category] || '❓'} {hoveredSession.app_display_name || hoveredSession.appDisplayName || hoveredSession.app_name}
+                </span>
+              </div>
+              <div style={{
+                fontSize: '10px',
+                color: '#8b93a1',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                marginBottom: '4px',
+              }}>
+                {hoveredSession.window_title || hoveredSession.windowTitle}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', fontSize: '10px', color: '#a0a8b8' }}>
+                <span style={{ fontWeight: 600, color: hoveredSession.color }}>
+                  {formatDuration(hoveredSession.durationMs || hoveredSession.duration_ms)}
+                </span>
+                <span>{formatTimeOfDay(hoveredSession.started_at || hoveredSession.startedAt)}</span>
+                {hoveredSession.matched_focus_id && (
+                  <span style={{ color: '#10ac84' }}>🎯 Focus matched</span>
+                )}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '10px', color: '#a0a8b8' }}>
-              <span style={{ fontWeight: 600, color: hoveredSession.color }}>
-                {formatDuration(hoveredSession.durationMs || hoveredSession.duration_ms)}
-              </span>
-              <span>{formatTimeOfDay(hoveredSession.started_at || hoveredSession.startedAt)}</span>
-              {hoveredSession.matched_focus_id && (
-                <span style={{ color: '#10ac84' }}>🎯 Focus matched</span>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+          );
+        })(),
+        document.body
+      )}
 
       {/* Legend — category totals */}
       {!compact && (
