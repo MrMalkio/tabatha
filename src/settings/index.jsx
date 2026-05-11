@@ -40,6 +40,7 @@ const SECTIONS = [
   { id: 'stats', label: '📊 Stats & History' },
   { id: 'sync', label: '☁️ Sync & Supabase' },
   { id: 'privacy', label: '🔒 Privacy & Capture' },
+  { id: 'webhooks', label: '🔗 Webhooks' },
   { id: 'developer', label: '🛠 Developer' },
   { id: 'about', label: 'ℹ️ About' },
 ];
@@ -858,6 +859,10 @@ function Settings() {
               </div>
             )}
 
+            {activeSection === 'webhooks' && (
+              <WebhookSettings />
+            )}
+
             {activeSection === 'about' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>About Tabatha</h2>
@@ -991,6 +996,90 @@ function Settings() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+const WEBHOOK_EVENTS = [
+  'focus_started', 'focus_ended', 'focus_timer_expired', 'focus_resolved',
+  'clock_in', 'clock_out', 'break_started', 'break_ended',
+  'task_created', 'task_completed', 'context_drift', 'unfocused_nudge',
+];
+
+function WebhookSettings() {
+  const [config, setConfig] = useState({ enabled: false, url: '', events: [], secret: '' });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    chrome.storage.local.get('tabathaWebhooks', r => {
+      if (r.tabathaWebhooks) setConfig(r.tabathaWebhooks);
+    });
+  }, []);
+
+  const save = () => {
+    chrome.storage.local.set({ tabathaWebhooks: config });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const toggleEvent = (ev) => {
+    setConfig(prev => ({
+      ...prev,
+      events: prev.events.includes(ev) ? prev.events.filter(e => e !== ev) : [...prev.events, ev]
+    }));
+  };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Webhook Integrations</h2>
+      <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
+        Send real-time event notifications to external services (Zapier, Make, custom endpoints).
+      </p>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <span style={{ fontSize: '13px', fontWeight: 500 }}>Enable Webhooks</span>
+        <Toggle value={config.enabled} onChange={v => setConfig(prev => ({ ...prev, enabled: v }))} />
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
+        <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Webhook URL</label>
+        <input type="url" value={config.url} onChange={e => setConfig(prev => ({ ...prev, url: e.target.value }))}
+          placeholder="https://hooks.example.com/tabatha"
+          style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
+        />
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
+        <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Secret (optional, for signature verification)</label>
+        <input type="password" value={config.secret} onChange={e => setConfig(prev => ({ ...prev, secret: e.target.value }))}
+          placeholder="your-webhook-secret"
+          style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
+        />
+      </div>
+
+      <div style={{ marginBottom: '12px' }}>
+        <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px' }}>Events to send (empty = all)</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          {WEBHOOK_EVENTS.map(ev => (
+            <button key={ev} onClick={() => toggleEvent(ev)}
+              style={{
+                fontSize: '9px', padding: '3px 8px', borderRadius: '12px', cursor: 'pointer',
+                background: config.events.includes(ev) ? 'var(--color-accent-primary)' : 'var(--color-surface)',
+                color: config.events.includes(ev) ? '#fff' : 'var(--color-text-muted)',
+                border: '1px solid var(--color-border)', fontWeight: 500,
+              }}
+            >{ev}</button>
+          ))}
+        </div>
+      </div>
+
+      <button onClick={save} style={{
+        background: 'var(--color-accent-primary)', color: '#fff', border: 'none',
+        borderRadius: 'var(--radius-sm)', padding: '6px 16px', fontSize: '12px',
+        fontWeight: 600, cursor: 'pointer',
+      }}>
+        {saved ? '✓ Saved!' : 'Save Webhook Config'}
+      </button>
     </div>
   );
 }

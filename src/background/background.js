@@ -6,6 +6,7 @@ import { supabase } from '../services/supabaseClient';
 import * as timeTracker from '../services/timeTracking.js';
 import { createClockService } from './clock.js';
 import { companionBridge } from './companion-bridge.js';
+import { fireWebhook } from './webhooks.js';
 
 // ============================================================
 // CONSTANTS & DEFAULTS
@@ -289,6 +290,7 @@ async function startFocus(label, timerMinutes = 15, tags = {}) {
   }
   
   broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  fireWebhook('focus_started', { id, label, timerMinutes, tags });
   return engine;
 }
 
@@ -418,6 +420,7 @@ async function completeFocus(focusId) {
   
   await setFocusEngine(engine);
   broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  fireWebhook('focus_resolved', { id, label: item.label, elapsedMs: item.elapsedMs });
   return engine;
 }
 
@@ -2489,6 +2492,7 @@ async function handleMessage(message, sender) {
         if (companionBridge.isConnected) {
           companionBridge.sendClockIn(message.label);
         }
+        fireWebhook('clock_in', { label: message.label });
         return result;
     }
     
@@ -2497,6 +2501,7 @@ async function handleMessage(message, sender) {
         if (companionBridge.isConnected) {
           companionBridge.sendClockOut();
         }
+        fireWebhook('clock_out', {});
         return result;
     }
     

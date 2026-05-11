@@ -19,6 +19,8 @@ import { InitiativesPanel } from './InitiativesPanel';
 import { LinkMergeModal } from '../components/ui/LinkMergeModal';
 import { CommandPalette } from '../components/ui/CommandPalette';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
+import { useKeyboardShortcuts, ShortcutsHelp } from '../components/ui/KeyboardShortcuts';
+import { VoiceInput } from '../components/ui/VoiceInput';
 import { useOrgData } from '../hooks/useOrgData';
 
 import { formatTime } from '../utils/formatTime';
@@ -383,6 +385,7 @@ function FocusInput({ onStart, orgData, clients, projects }) {
             disabled={pending}
             style={{ flex: 1, background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', color: 'var(--color-text-primary)', fontSize: '14px', outline: 'none', opacity: pending ? 0.5 : 1 }}
           />
+          <VoiceInput onResult={(text) => setInput(prev => prev ? `${prev} ${text}` : text)} size="sm" disabled={pending} />
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
             <input type="number" value={timer} onChange={e => setTimer(Math.max(1, parseInt(e.target.value) || 15))} min={1}
               style={{ width: '48px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '4px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none', textAlign: 'center' }}
@@ -1083,6 +1086,17 @@ function Home() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // ── Keyboard Shortcuts ──
+  const { showHelp: showShortcuts, setShowHelp: setShowShortcuts } = useKeyboardShortcuts({
+    onAction: (action) => {
+      if (action === 'palette') setPaletteOpen(v => !v);
+      else if (action === 'focus') window.scrollTo(0, 0);
+      else if (action === 'break') sendMessage('TOGGLE_BREAK');
+      else if (action === 'theme') cycleTheme();
+      else if (action.startsWith('tab:')) setActivePanel(action.replace('tab:', ''));
+    }
+  });
+
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
   const handleClockIn = async () => {
@@ -1620,6 +1634,9 @@ function Home() {
           else { setActivePanel(target); }
         }}
       />
+
+      {/* Keyboard Shortcuts Help — Ctrl+/ */}
+      <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   );
 }
