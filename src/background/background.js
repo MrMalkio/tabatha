@@ -1834,6 +1834,23 @@ async function handleMessage(message, sender) {
             await setTabData(tabs);
             broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
             
+            // Auto-pause the active focus when going on a side quest
+            const engine = await getFocusEngine();
+            if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+              const activeFocus = engine.items[engine.activeFocusId];
+              if (activeFocus.focusState === 'active') {
+                if (activeFocus.lastResumedAt) {
+                  activeFocus.elapsedMs = (activeFocus.elapsedMs || 0) + (Date.now() - new Date(activeFocus.lastResumedAt).getTime());
+                  activeFocus.lastResumedAt = null;
+                }
+                activeFocus.focusState = 'paused';
+                activeFocus.pausedAt = new Date().toISOString();
+                activeFocus.pausedReason = 'side_quest';
+                await setFocusEngine(engine);
+                broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+              }
+            }
+            
             // Start 5m timer
             chrome.alarms.create(`context-timer-${sender.tab.id}`, { delayInMinutes: message.minutes });
         }
@@ -1859,7 +1876,7 @@ async function handleMessage(message, sender) {
         const list = parkedTabs || [];
         const exists = list.find(t => t.url === message.url);
         if (!exists) {
-            list.push({ url: message.url, title: message.title, context: message.context || null, parkedAt: new Date().toISOString() });
+            list.push({ url: message.url, title: message.title, context: message.context || null, note: message.note || null, parkedAt: new Date().toISOString() });
             await setStorage({ parkedTabs: list });
             broadcastMessage({ type: 'PARKED_TABS_UPDATED' });
         }
@@ -2096,6 +2113,59 @@ async function handleMessage(message, sender) {
         return { focusEngine: engine };
     }
 
+    case 'PAUSE_FOCUS': {
+        const engine = await getFocusEngine();
+        const focusId = message.focusId || engine.activeFocusId;
+        const item = focusId ? engine.items[focusId] : null;
+        if (!item) return { error: 'Focus not found', focusEngine: engine };
+        // Save elapsed time
+        if (item.lastResumedAt) {
+          item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+          item.lastResumedAt = null;
+        }
+        item.focusState = 'paused';
+        item.pausedAt = new Date().toISOString();
+        await setFocusEngine(engine);
+        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        return { focusEngine: engine };
+    }
+
+    case 'RESUME_FOCUS': {
+        const engine = await getFocusEngine();
+        const focusId = message.focusId;
+        const item = focusId ? engine.items[focusId] : null;
+        if (!item) return { error: 'Focus not found', focusEngine: engine };
+        // If another focus is currently active, pause it first
+        if (engine.activeFocusId && engine.activeFocusId !== focusId) {
+          const current = engine.items[engine.activeFocusId];
+          if (current && current.focusState === 'active') {
+            if (current.lastResumedAt) {
+              current.elapsedMs = (current.elapsedMs || 0) + (Date.now() - new Date(current.lastResumedAt).getTime());
+              current.lastResumedAt = null;
+            }
+            current.focusState = 'paused';
+            current.pausedAt = new Date().toISOString();
+          }
+        }
+        item.focusState = 'active';
+        item.lastResumedAt = new Date().toISOString();
+        item.pausedAt = null;
+        engine.activeFocusId = focusId;
+        await setFocusEngine(engine);
+        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        return { focusEngine: engine };
+    }
+
+    case 'RENAME_TAB': {
+        const tabs = await getTabData();
+        if (tabs[message.tabId]) {
+          tabs[message.tabId].customTitle = message.newTitle;
+          await setTabData(tabs);
+          broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+        }
+        return { success: true };
+    }
+
     // --- Site Blocking ---
     case 'CHECK_BLOCKED_SITE': {
         const { blockedSites, tempUnblocked } = await getStorage(['blockedSites', 'tempUnblocked']);
@@ -2183,7 +2253,8 @@ async function handleMessage(message, sender) {
         }
         
         const show = ibSettings?.inbarEnabled !== false;
-        return { show, tabContext, activeFocus, settings: ibSettings || {} };
+        const allFocusItems = Object.values(engine.items).map(i => ({ id: i.id, label: i.label, focusState: i.focusState, funnelStage: i.funnelStage }));
+        return { show, tabContext, activeFocus, activeFocusId: engine.activeFocusId, allFocusItems, settings: ibSettings || {} };
     }
 
     case 'SAVE_INBAR_NOTE': {

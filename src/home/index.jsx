@@ -36,13 +36,20 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
   const [addInput, setAddInput] = useState('');
   const [showTags, setShowTags] = useState(false);
   const [addMode, setAddMode] = useState(null); // null | 'intent' | 'subfocus'
+  const [editing, setEditing] = useState(false);
+  const [editLabel, setEditLabel] = useState('');
+  const [editTimer, setEditTimer] = useState(15);
+  const [editFunnel, setEditFunnel] = useState('unsorted');
 
   if (!activeFocus) return null;
 
-  const timerColor = activeFocus.isOver ? '#ef5350' : 'var(--color-accent-primary)';
-  const timerText = activeFocus.isOver
-    ? formatTimer(activeFocus.overMs, true)
-    : formatTimer(activeFocus.remainingMs);
+  const isPaused = activeFocus.focusState === 'paused';
+  const timerColor = isPaused ? '#ffa726' : activeFocus.isOver ? '#ef5350' : 'var(--color-accent-primary)';
+  const timerText = isPaused
+    ? formatTimer(activeFocus.liveElapsedMs > (activeFocus.timerMinutes || 15) * 60000 ? activeFocus.liveElapsedMs - (activeFocus.timerMinutes || 15) * 60000 : (activeFocus.timerMinutes || 15) * 60000 - activeFocus.liveElapsedMs, activeFocus.liveElapsedMs > (activeFocus.timerMinutes || 15) * 60000)
+    : activeFocus.isOver
+      ? formatTimer(activeFocus.overMs, true)
+      : formatTimer(activeFocus.remainingMs);
   const funnel = FUNNEL_STAGES[activeFocus.funnelStage] || FUNNEL_STAGES.unsorted;
 
   const handleQuickAdd = (label) => {
@@ -52,13 +59,29 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
     setAddMode(null);
   };
 
+  const openEdit = () => {
+    setEditLabel(activeFocus.label);
+    setEditTimer(activeFocus.timerMinutes || 15);
+    setEditFunnel(activeFocus.funnelStage || 'unsorted');
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    actions.updateFocus(activeFocus.id, {
+      label: editLabel,
+      timerMinutes: editTimer,
+      funnelStage: editFunnel,
+    });
+    setEditing(false);
+  };
+
   return (
-    <GlassCard style={{ padding: '16px', marginBottom: '12px', position: 'relative', overflow: 'visible' }}>
+    <GlassCard style={{ padding: '16px', marginBottom: '12px', position: 'relative', overflow: 'visible', borderLeft: isPaused ? '3px solid #ffa726' : undefined }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-accent-primary)', fontWeight: 600 }}>
-              {activeFocus.focusState === 'drifted' ? '⚠️ DRIFTED' : '🎯 CURRENT FOCUS'}
+            <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: isPaused ? '#ffa726' : 'var(--color-accent-primary)', fontWeight: 600 }}>
+              {isPaused ? '⏸ PAUSED' : activeFocus.focusState === 'drifted' ? '⚠️ DRIFTED' : '🎯 CURRENT FOCUS'}
             </span>
             <Tooltip text={funnel.label}>
               <span style={{ fontSize: '12px', background: funnel.color + '22', color: funnel.color, padding: '1px 6px', borderRadius: '4px', fontWeight: 600, fontSize: '10px' }}>
@@ -82,18 +105,32 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
           <div style={{ fontSize: '28px', fontWeight: 700, color: timerColor, fontVariantNumeric: 'tabular-nums', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
             {timerText}
           </div>
-          <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-            {activeFocus.isOver ? 'over time' : 'remaining'}
+          <div style={{ fontSize: '9px', color: isPaused ? '#ffa726' : 'var(--color-text-muted)', marginTop: '2px' }}>
+            {isPaused ? 'paused' : activeFocus.isOver ? 'over time' : 'remaining'}
           </div>
         </div>
       </div>
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
-        <Tooltip text="Mark as done">
-          <button onClick={() => actions.completeFocus(activeFocus.id)} style={btnStyle('#66bb6a')}>✓ Complete</button>
-        </Tooltip>
-        <Tooltip text="Add 5 more minutes">
-          <button onClick={() => actions.extendTimer(activeFocus.id, 5)} style={btnStyle('var(--color-accent-primary)')}>+5m</button>
+        {isPaused ? (
+          <Tooltip text="Resume this focus">
+            <button onClick={() => actions.resumeFocus(activeFocus.id)} style={btnStyle('#66bb6a')}>▶ Resume</button>
+          </Tooltip>
+        ) : (
+          <>
+            <Tooltip text="Mark as done">
+              <button onClick={() => actions.completeFocus(activeFocus.id)} style={btnStyle('#66bb6a')}>✓ Complete</button>
+            </Tooltip>
+            <Tooltip text="Add 5 more minutes">
+              <button onClick={() => actions.extendTimer(activeFocus.id, 5)} style={btnStyle('var(--color-accent-primary)')}>+5m</button>
+            </Tooltip>
+            <Tooltip text="Pause focus — timer stops, you can start a new focus">
+              <button onClick={() => actions.pauseFocus(activeFocus.id)} style={btnStyle('#ffa726')}>⏸ Pause</button>
+            </Tooltip>
+          </>
+        )}
+        <Tooltip text="Edit label, timer, or funnel stage">
+          <button onClick={openEdit} style={btnStyle(editing ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>✏️ Edit</button>
         </Tooltip>
         <Tooltip text="Tag with client/project">
           <button onClick={() => setShowTags(!showTags)} style={btnStyle('var(--color-text-muted)')}>🏷</button>
@@ -102,6 +139,33 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects }) {
           <button onClick={() => setAddMode(addMode === 'intent' ? null : 'intent')} style={btnStyle(addMode === 'intent' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>+ Intent</button>
         </Tooltip>
       </div>
+      {/* Inline edit panel */}
+      <AnimatePresence>
+        {editing && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
+            <div style={{ marginTop: '10px', padding: '10px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div style={{ flex: '2 1 180px' }}>
+                <label style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: '2px' }}>Label</label>
+                <input value={editLabel} onChange={e => setEditLabel(e.target.value)} style={{ width: '100%', padding: '4px 8px', fontSize: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
+              </div>
+              <div style={{ flex: '0 0 70px' }}>
+                <label style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: '2px' }}>Timer (m)</label>
+                <input type="number" value={editTimer} onChange={e => setEditTimer(parseInt(e.target.value) || 15)} min={1} style={{ width: '100%', padding: '4px 8px', fontSize: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
+              </div>
+              <div style={{ flex: '0 0 120px' }}>
+                <label style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: '2px' }}>Stage</label>
+                <select value={editFunnel} onChange={e => setEditFunnel(e.target.value)} style={{ width: '100%', padding: '4px 8px', fontSize: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }}>
+                  {Object.entries(FUNNEL_STAGES).map(([key, val]) => (
+                    <option key={key} value={key}>{val.icon} {val.label}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={saveEdit} style={btnStyle('#66bb6a')}>💾 Save</button>
+              <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '12px', padding: '4px' }}>✕</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {showTags && (
         <div style={{ marginTop: '8px' }}>
           <TagPicker tags={activeFocus.tags || {}} onChange={(tags) => actions.updateTags(null, tags)} compact={false} clients={clients} projects={projects} />
@@ -149,17 +213,23 @@ function FocusQueue({ items, actions }) {
       {items.map(item => {
         const funnel = FUNNEL_STAGES[item.funnelStage] || FUNNEL_STAGES.unsorted;
         return (
-          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', cursor: 'pointer' }} onClick={() => actions.switchFocus(item.id)}>
+          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', cursor: 'pointer', borderLeft: item.focusState === 'paused' ? '3px solid #ffa726' : undefined }} onClick={() => item.focusState === 'paused' ? actions.resumeFocus(item.id) : actions.switchFocus(item.id)}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                <span style={{ fontSize: '10px', color: funnel.color }}>{funnel.icon}</span>
+                <span style={{ fontSize: '10px', color: item.focusState === 'paused' ? '#ffa726' : funnel.color }}>{item.focusState === 'paused' ? '⏸' : funnel.icon}</span>
                 <span style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>{item.focusState}</span>
+                <span style={{ fontSize: '10px', color: item.focusState === 'paused' ? '#ffa726' : 'var(--color-text-muted)', textTransform: 'capitalize' }}>{item.focusState}</span>
               </div>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                <Tooltip text="Switch to this focus">
-                  <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(item.id); }} style={btnStyle('var(--color-accent-primary)')}>▶</button>
-                </Tooltip>
+                {item.focusState === 'paused' ? (
+                  <Tooltip text="Resume this focus">
+                    <button onClick={(e) => { e.stopPropagation(); actions.resumeFocus(item.id); }} style={btnStyle('#ffa726')}>▶ Resume</button>
+                  </Tooltip>
+                ) : (
+                  <Tooltip text="Switch to this focus">
+                    <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(item.id); }} style={btnStyle('var(--color-accent-primary)')}>▶</button>
+                  </Tooltip>
+                )}
                 <Tooltip text="Mark as done">
                   <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(item.id); }} style={btnStyle('#66bb6a')}>✓</button>
                 </Tooltip>
@@ -854,25 +924,27 @@ function Home() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 0, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background-color 0.3s ease, color 0.3s ease' }}>
       {theme === 'pop-art' && (<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.03, backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '12px 12px' }} />)}
 
-      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1100px', padding: '16px 32px' }}>
-        {/* Header Row — Greeting + Clock + Icons */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ flex: '1 1 180px', minWidth: '180px' }}>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '0.02em' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
-            <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '2px 0 0' }}>
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1100px', padding: '8px 32px 0' }}>
+        {/* Header Row — Greeting (left) | Clock (center) | Right Actions */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '16px', flexWrap: 'nowrap' }}>
+          
+          {/* Left — Greeting */}
+          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
+            <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {tabCount} tab{tabCount !== 1 ? 's' : ''} open · {formatTime(totalActiveTime)} active today
             </p>
           </div>
 
           {/* Center — FlipClock */}
-          <div style={{ flex: '0 1 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '5px 0', overflow: 'hidden', maxWidth: '100%', height: `${((clockSettings.showClock ? 100 : 0) + (clockSettings.showCountdown ? 65 : 0) + (clockSettings.showClock && clockSettings.showCountdown ? (clockSettings.elementSpacing || 30) / 2 : 0)) * clockScale}px` }}>
+          <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '56px', overflow: 'visible' }}>
             <div style={{ transform: `scale(${clockScale})`, transformOrigin: 'center' }}>
               <FlipClock settings={clockSettings} />
             </div>
           </div>
 
-          {/* Right — Badges + Buttons */}
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flex: '0 0 auto' }}>
+          {/* Right — Utilities */}
+          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {sugarBox.length > 0 && (
               <Tooltip text={`${sugarBox.length} item${sugarBox.length !== 1 ? 's' : ''} in Sugar Box`}>
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🍬 {sugarBox.length}</button>
@@ -896,47 +968,42 @@ function Home() {
           </div>
         </div>
 
-        {/* Clock In/Out Bar — with inline last stint */}
-        <GlassCard style={{ padding: '8px 14px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Tooltip text={clockSession?.active ? 'Currently clocked in' : 'Clock in to start tracking work time'}>
-              <span style={{ fontSize: '12px', fontWeight: 600 }}>
-                {clockSession?.active ? '🟢 Clocked In' : '⚪ Clocked Out'}
-              </span>
-            </Tooltip>
-            {clockSession?.active && clockElapsed && (
-              <span style={{ fontSize: '14px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: clockSession.onBreak ? '#ffa726' : 'var(--color-accent-primary)' }}>
-                {clockElapsed}
-              </span>
-            )}
-            {clockSession?.onBreak && (
-              <span style={{ fontSize: '9px', background: '#ffa72622', color: '#ffa726', padding: '1px 6px', borderRadius: '3px', fontWeight: 600 }}>ON BREAK</span>
-            )}
-            {/* Inline last stint — only when NOT clocked in */}
-            {!clockSession?.active && lastSession && (
-              <Tooltip text={`Last stint: ${new Date(lastSession.clockedInAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}>
-                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ color: 'var(--color-border)' }}>│</span>
-                  Last stint: <span style={{ fontWeight: 700, color: 'var(--color-accent-primary)' }}>{(() => { const h = Math.floor(lastSession.workMs / 3600000); const m = Math.floor((lastSession.workMs % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
-                </span>
-              </Tooltip>
+        {/* Shift Controls Panel */}
+        <GlassCard style={{ padding: '8px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {clockSession?.active ? '🟢 Clocked In' : '⚪ Clocked Out'}
+              {clockSession?.onBreak && <span style={{ fontSize: '9px', background: '#ffa72622', color: '#ffa726', padding: '2px 6px', borderRadius: '4px' }}>ON BREAK</span>}
+            </div>
+            {clockSession?.active ? (
+              <div style={{ fontSize: '14px', fontWeight: 700, color: clockSession.onBreak ? '#ffa726' : 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                {clockElapsed || '0:00:00'}
+              </div>
+            ) : (
+              lastSession && (
+                <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ color: 'var(--color-border)' }}>|</span>
+                  Last stint: <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{(() => { const h = Math.floor(lastSession.workMs / 3600000); const m = Math.floor((lastSession.workMs % 3600000) / 60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}</span>
+                </div>
+              )
             )}
           </div>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {clockSession?.active && (
-              <Tooltip text={clockSession.onBreak ? 'End break and resume' : 'Start a break — pause work timer'}>
-                <button onClick={handleToggleBreak} style={{ background: clockSession.onBreak ? '#ffa72622' : 'var(--color-surface)', border: `1px solid ${clockSession.onBreak ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+              <Tooltip text={clockSession.onBreak ? 'End break and resume' : 'Start a break'}>
+                <button onClick={handleToggleBreak} style={{ background: clockSession.onBreak ? '#ffa72622' : 'transparent', border: `1px solid ${clockSession.onBreak ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)', padding: '4px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
                   {clockSession.onBreak ? '▶ Resume' : '☕ Break'}
                 </button>
               </Tooltip>
             )}
-            <Tooltip text={clockSession?.active ? 'Clock out — end this stint' : 'Clock in — start a new stint'}>
-              <button onClick={clockSession?.active ? handleClockOut : handleClockIn} style={{ background: clockSession?.active ? '#ef535022' : '#66bb6a22', border: `1px solid ${clockSession?.active ? '#ef5350' : '#66bb6a'}`, borderRadius: 'var(--radius-sm)', color: clockSession?.active ? '#ef5350' : '#66bb6a', padding: '3px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+            <Tooltip text={clockSession?.active ? 'Clock out' : 'Clock in'}>
+              <button onClick={clockSession?.active ? handleClockOut : handleClockIn} style={{ background: clockSession?.active ? '#ef535022' : '#66bb6a22', border: `1px solid ${clockSession?.active ? '#ef5350' : '#66bb6a'}`, borderRadius: 'var(--radius-sm)', color: clockSession?.active ? '#ef5350' : '#66bb6a', padding: '4px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
                 {clockSession?.active ? '⏹ Clock Out' : '▶ Clock In'}
               </button>
             </Tooltip>
-            <Tooltip text="View all stints & shifts">
-              <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', padding: '3px 6px', fontSize: '11px', cursor: 'pointer' }}>⏱️</button>
+            <Tooltip text="View Shifts">
+              <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}>⏱️ Shifts</button>
             </Tooltip>
           </div>
         </GlassCard>
@@ -975,6 +1042,10 @@ function Home() {
         {activeFocus ? (
           <>
             <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects} />
+            {/* When paused, show FocusInput to set a new focus */}
+            {activeFocus.focusState === 'paused' && (
+              <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
+            )}
             <FocusQueue items={allItems} actions={actions} />
             <FocusHistory history={history} />
           </>

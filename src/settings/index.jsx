@@ -428,6 +428,23 @@ function Settings() {
             {activeSection === 'clock' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>FlipClock</h2>
+                <div style={sectionLabel}>Display Mode</div>
+                <Tooltip text="When: Choosing what to display on the homepage. How: Toggle the clock on/off. Affects: Whether the real-time clock is visible." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Show Clock</span>
+                    <Toggle value={clockSettings.showClock !== false} onChange={v => updateClock('showClock', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="When: Choosing what to display on the homepage. How: Toggle the countdown on/off. Affects: Whether the countdown timer is visible." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Show Countdown</span>
+                    <Toggle value={!!clockSettings.showCountdown} onChange={v => updateClock('showCountdown', v)} />
+                  </div>
+                </Tooltip>
+                <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '4px 0 16px', lineHeight: 1.5 }}>
+                  Toggle both on to show clock and countdown together, or pick one. When both are off, the clock area is hidden.
+                </p>
+                <div style={sectionLabel}>Clock Options</div>
                 <Tooltip text="When: Customizing clock display. How: Toggle 12h or 24h format. Affects: The main FlipClock component." position="bottom">
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Time Format</span>
@@ -455,13 +472,7 @@ function Settings() {
                     <input type="color" value={clockSettings.textColor || '#e0e0e0'} onChange={e => updateClock('textColor', e.target.value)} style={{ width: '40px', height: '24px', border: 'none', cursor: 'pointer' }} />
                   </div>
                 </Tooltip>
-                <div style={sectionLabel}>Countdown</div>
-                <Tooltip text="When: Setting up a daily focus countdown. How: Toggle the countdown block. Affects: Displays a countdown timer below the FlipClock." position="bottom">
-                  <div style={fieldRow}>
-                    <span style={fieldLabel}>Show Countdown</span>
-                    <Toggle value={!!clockSettings.showCountdown} onChange={v => updateClock('showCountdown', v)} />
-                  </div>
-                </Tooltip>
+                <div style={sectionLabel}>Countdown Options</div>
                 <Tooltip text="When: Customizing countdown target. How: Choose End of Day or Custom. Affects: The target time for the countdown." position="bottom">
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Mode</span>

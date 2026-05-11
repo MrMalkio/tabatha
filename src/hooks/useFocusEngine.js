@@ -112,6 +112,12 @@ export function useFocusEngine() {
 
     renameFocus: (focusId, newLabel) =>
       sendMessage('RENAME_FOCUS', { focusId, newLabel }),
+
+    pauseFocus: (focusId) =>
+      sendMessage('PAUSE_FOCUS', { focusId }),
+
+    resumeFocus: (focusId) =>
+      sendMessage('RESUME_FOCUS', { focusId }),
   }), []);
 
   return { activeFocus, allItems, history, actions, engine };
