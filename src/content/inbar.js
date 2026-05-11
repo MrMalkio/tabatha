@@ -75,6 +75,16 @@
   const shadow = host.attachShadow({ mode: 'closed' });
   document.documentElement.appendChild(host);
 
+  // ─── CRITICAL: Prevent host page from stealing keyboard events ───
+  // Without this, keystrokes in InBar inputs propagate to the host page
+  // and get intercepted by page JS (e.g. Gmail single-key shortcuts,
+  // Google Docs focus management, etc.)
+  ['keydown', 'keyup', 'keypress'].forEach(eventType => {
+    host.addEventListener(eventType, (e) => {
+      e.stopPropagation();
+    }, true); // capture phase — catches before page JS sees it
+  });
+
   // 4. Push page content
   const pushPage = (h) => {
     document.body.style.transition = 'margin 0.2s ease';
@@ -84,11 +94,11 @@
   pushPage(BAR_HEIGHT);
 
   // 5. Styles
-  const tabIntent = tabContext?.context || tabContext?.intent || null;
-  const focusLabel = activeFocus?.label || null;
-  const intentLabel = tabIntent || focusLabel || null;
-  const hasFocus = !!activeFocus;
-  const hasContext = !!intentLabel;
+  let tabIntent = tabContext?.context || tabContext?.intent || null;
+  let focusLabel = activeFocus?.label || null;
+  let intentLabel = tabIntent || focusLabel || null;
+  let hasFocus = !!activeFocus;
+  let hasContext = !!intentLabel;
 
   const style = document.createElement('style');
   style.textContent = `
@@ -745,15 +755,109 @@
   // Initial event binding
   bindBarEvents();
 
-  // 13. Listen for updates
+  // 13. Listen for updates — full hot-reload
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === 'FOCUS_ENGINE_UPDATED' || msg.type === 'TAB_UPDATED') {
+    if (msg.type === 'FOCUS_ENGINE_UPDATED' || msg.type === 'TAB_UPDATED' || msg.type === 'INTENT_UPDATED') {
       chrome.runtime.sendMessage({ type: 'GET_INBAR_DATA' }).then(res => {
-        if (res?.activeFocus) {
-          focusEndTime = res.activeFocus.timerEndAt ? new Date(res.activeFocus.timerEndAt).getTime() : null;
-          taskTotalMs = res.activeFocus.totalTimeMs || 0;
+        if (!res) return;
+        // Update mutable state
+        tabContext = res.tabContext;
+        activeFocus = res.activeFocus;
+        allFocusItems = res.allFocusItems || [];
+        activeFocusId = res.activeFocusId || null;
+        tabIntent = tabContext?.context || tabContext?.intent || null;
+        focusLabel = activeFocus?.label || null;
+        intentLabel = tabIntent || focusLabel || null;
+        hasFocus = !!activeFocus;
+        hasContext = !!intentLabel;
+        if (activeFocus) {
+          focusEndTime = activeFocus.timerEndAt ? new Date(activeFocus.timerEndAt).getTime() : null;
+          taskTotalMs = activeFocus.totalTimeMs || 0;
         }
+        intentStartTime = tabContext?.startedAt ? new Date(tabContext.startedAt).getTime() : Date.now();
+        // Re-render bar HTML
+        if (!isPaused) {
+          bar.innerHTML = buildBarHTML();
+          intentTimerEl = shadow.getElementById('intent-timer');
+          taskTimerEl = shadow.getElementById('task-timer');
+          countdownEl = shadow.getElementById('focus-countdown');
+        }
+        // Update edit dropdown focus list
+        const focusListEl = shadow.getElementById('focus-list');
+        if (focusListEl) focusListEl.innerHTML = buildFocusList();
+        // Re-bind events
+        bindBarEvents();
       }).catch(() => {});
+    }
+
+    // ── Timer Expired — interrupting overlay ──
+    if (msg.type === 'FOCUS_TIMER_EXPIRED') {
+      const overlay = document.createElement('div');
+      Object.assign(overlay.style, {
+        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+        background: 'rgba(0,0,0,0.7)', zIndex: '2147483647', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', fontFamily: "'Segoe UI', system-ui, sans-serif"
+      });
+      const card = document.createElement('div');
+      Object.assign(card.style, {
+        background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px',
+        padding: '24px 32px', maxWidth: '400px', textAlign: 'center', color: '#eee'
+      });
+      card.innerHTML = `
+        <div style="font-size:32px;margin-bottom:8px;">⏰</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Focus Timer Expired</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:16px;">"${msg.label}" — Your allotted ${msg.timerMinutes}m is up.</div>
+        <div style="display:flex;gap:12px;justify-content:center;">
+          <button id="t-extend" style="background:#00e5ff22;color:#00e5ff;border:1px solid #00e5ff44;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">⏱️ Extend 5 min</button>
+          <button id="t-done" style="background:#66bb6a22;color:#66bb6a;border:1px solid #66bb6a44;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">✅ Complete & Move On</button>
+        </div>
+      `;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      card.querySelector('#t-extend').onclick = async () => {
+        await chrome.runtime.sendMessage({ type: 'EXTEND_FOCUS_TIMER', focusId: msg.focusId, extraMinutes: 5 });
+        overlay.remove();
+      };
+      card.querySelector('#t-done').onclick = async () => {
+        await chrome.runtime.sendMessage({ type: 'COMPLETE_FOCUS', focusId: msg.focusId });
+        overlay.remove();
+      };
+      // Prevent clicking through
+      overlay.onclick = (e) => { if (e.target === overlay) e.stopPropagation(); };
+    }
+
+    // ── Welcome Back — resume prompt ──
+    if (msg.type === 'WELCOME_BACK' && msg.pausedFocusId) {
+      const overlay = document.createElement('div');
+      Object.assign(overlay.style, {
+        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+        background: 'rgba(0,0,0,0.6)', zIndex: '2147483647', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', fontFamily: "'Segoe UI', system-ui, sans-serif"
+      });
+      const mins = Math.round((msg.idleDurationMs || 0) / 60000);
+      const card = document.createElement('div');
+      Object.assign(card.style, {
+        background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px',
+        padding: '24px 32px', maxWidth: '420px', textAlign: 'center', color: '#eee'
+      });
+      card.innerHTML = `
+        <div style="font-size:28px;margin-bottom:8px;">👋</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Welcome Back!</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:6px;">You were away for ${mins}m.</div>
+        <div style="font-size:13px;color:#ccc;margin-bottom:16px;">Pick up where you left off?<br><strong style="color:#ff9800;">"${msg.pausedFocusLabel}"</strong></div>
+        <div style="display:flex;gap:12px;justify-content:center;">
+          <button id="wb-resume" style="background:#ab47bc22;color:#ab47bc;border:1px solid #ab47bc44;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">⚡ Resume Focus</button>
+          <button id="wb-dismiss" style="background:#33333366;color:#888;border:1px solid #444;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer;">Not now</button>
+        </div>
+      `;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      card.querySelector('#wb-resume').onclick = async () => {
+        await chrome.runtime.sendMessage({ type: 'RESUME_FOCUS', focusId: msg.pausedFocusId });
+        overlay.remove();
+      };
+      card.querySelector('#wb-dismiss').onclick = () => overlay.remove();
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
     }
   });
 

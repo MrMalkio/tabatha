@@ -153,5 +153,4 @@ export const FUNNEL_STAGES = {
   focus: { label: 'Focus', icon: '🎯', color: '#ff9800' },
   roadblocked: { label: 'Roadblocked', icon: '🚧', color: '#ef5350' },
   resolved: { label: 'Resolved', icon: '✅', color: '#66bb6a' },
-  complete: { label: 'Complete', icon: '🏁', color: '#4caf50' },
 };

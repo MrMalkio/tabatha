@@ -264,7 +264,7 @@ async function startFocus(label, timerMinutes = 15, tags = {}) {
     id,
     label,
     focusState: 'active',
-    funnelStage: 'focus',
+    funnelStage: 'addressing', // Active attention = addressing
     createdAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
     lastResumedAt: new Date().toISOString(),
@@ -861,6 +861,23 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
     userIdleSince = new Date().toISOString();
     idleAutoBreakApplied = false;
 
+    // Auto-pause active focus when going idle
+    const engine = await getFocusEngine();
+    if (engine.activeFocusId) {
+      const active = engine.items[engine.activeFocusId];
+      if (active && active.focusState === 'active') {
+        if (active.lastResumedAt) {
+          active.elapsedMs = (active.elapsedMs || 0) + (Date.now() - new Date(active.lastResumedAt).getTime());
+          active.lastResumedAt = null;
+        }
+        active.focusState = 'paused';
+        active.pausedAt = new Date().toISOString();
+        if (active.funnelStage === 'addressing') active.funnelStage = 'focus';
+        await setFocusEngine(engine);
+        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+      }
+    }
+
     // Log idle event
     broadcastMessage({ type: 'USER_IDLE', since: userIdleSince });
 
@@ -886,20 +903,37 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
       const idleDuration = Date.now() - new Date(userIdleSince).getTime();
       const settings = await getSettings();
 
-      // If user was auto-put on break, auto-resume
+      // If user was auto-put on break, auto-resume or prompt
+      let pausedFocusId = null;
+      let pausedFocusLabel = null;
       if (idleAutoBreakApplied) {
         const { clockSession } = await getStorage('clockSession');
         if (clockSession?.active && clockSession?.onBreak) {
-          await clockService.toggleBreak(); // resume from break
+          if (settings.autoResumeFromBreak) {
+            await clockService.toggleBreak(); // auto-resume
+          }
         }
         idleAutoBreakApplied = false;
       }
 
-      // Broadcast welcome back with idle duration
+      // Find the most recently paused focus to offer resumption
+      const engine = await getFocusEngine();
+      if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+        const item = engine.items[engine.activeFocusId];
+        if (item.focusState === 'paused') {
+          pausedFocusId = engine.activeFocusId;
+          pausedFocusLabel = item.label;
+        }
+      }
+
+      // Broadcast welcome back with idle duration + paused focus
       broadcastMessage({
         type: 'WELCOME_BACK',
         idleSince: userIdleSince,
-        idleDurationMs: idleDuration
+        idleDurationMs: idleDuration,
+        pausedFocusId,
+        pausedFocusLabel,
+        wasOnBreak: idleAutoBreakApplied
       });
 
       if (idleDuration > (settings.idleThresholdMinutes || 5) * 60 * 1000) {
@@ -959,7 +993,24 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
     }
 });
 
-// Set idle detection interval
+// Notification button click handler (for focus timer expiry actions)
+chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIndex) => {
+  if (notificationId.startsWith('focus-drift-')) {
+    const focusId = notificationId.replace('focus-drift-', '');
+    if (buttonIndex === 0) {
+      // Extend 5 min
+      await extendFocusTimer(focusId, 5);
+      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+    } else if (buttonIndex === 1) {
+      // Complete & Move On
+      await completeFocus(focusId);
+      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+    }
+    chrome.notifications.clear(notificationId);
+  }
+});
+
+// Set idle detection interval (1 min = idle, 5 min = auto-break handled below)
 chrome.idle.setDetectionInterval(60); // 1 minute granularity
 
 // ============================================================
@@ -1042,13 +1093,27 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       await setFocusEngine(engine);
       broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
       
-      // Notification
+      // Interrupting notification with action buttons
       chrome.notifications.create(`focus-drift-${focusId}`, {
         type: 'basic',
         iconUrl: 'icons/icon128.png',
-        title: 'Tabatha — Timer Drifted',
-        message: `"${item.label}" timer has run out. Still working on it?`,
-        requireInteraction: true
+        title: '⏰ Tabatha — Focus Timer Expired',
+        message: `"${item.label}" — Your allotted ${item.timerMinutes}m is up. Add more time or move to the next item.`,
+        requireInteraction: true,
+        priority: 2,
+        buttons: [
+          { title: '⏱️ Extend 5 min' },
+          { title: '➡️ Complete & Move On' }
+        ]
+      });
+
+      // Broadcast to all tabs so InBar can show interrupting alert
+      broadcastMessage({
+        type: 'FOCUS_TIMER_EXPIRED',
+        focusId,
+        label: item.label,
+        timerMinutes: item.timerMinutes,
+        elapsedMs: item.elapsedMs
       });
     }
   }
@@ -2145,6 +2210,8 @@ async function handleMessage(message, sender) {
         }
         item.focusState = 'paused';
         item.pausedAt = new Date().toISOString();
+        // Revert addressing → focus since it no longer has active attention
+        if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
         await setFocusEngine(engine);
         broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
         return { focusEngine: engine };
@@ -2165,11 +2232,17 @@ async function handleMessage(message, sender) {
             }
             current.focusState = 'paused';
             current.pausedAt = new Date().toISOString();
+            // Demote from addressing since it's losing attention
+            if (current.funnelStage === 'addressing') current.funnelStage = 'focus';
           }
         }
         item.focusState = 'active';
         item.lastResumedAt = new Date().toISOString();
         item.pausedAt = null;
+        // Auto-promote to addressing — this now has active attention
+        if (item.funnelStage === 'focus' || item.funnelStage === 'todo' || item.funnelStage === 'unsorted') {
+          item.funnelStage = 'addressing';
+        }
         engine.activeFocusId = focusId;
         await setFocusEngine(engine);
         broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });

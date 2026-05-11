@@ -88,13 +88,17 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
     // 3. Focus Session (from focusHistory)
     if (focusHistory && Array.isArray(focusHistory)) {
       focusHistory.forEach((entry, idx) => {
+        const allottedMs = (entry.timerMinutes || 0) * 60 * 1000;
+        const usedMs = entry.elapsedMs || 0;
         list.push({
           id: `focus-${idx}`, logType: 'focus',
-          date: entry.completedAt || entry.createdAt || new Date().toISOString(),
+          date: entry.completedAt || entry.endedAt || entry.createdAt || new Date().toISOString(),
           label: entry.label || 'Focus session',
           intent: entry.label || '',
           category: entry.funnelStage || '',
-          domain: '', duration: entry.elapsedMs || 0,
+          domain: '', duration: usedMs,
+          allottedMs,
+          timerMinutes: entry.timerMinutes || 0,
         });
       });
     }
@@ -253,7 +257,12 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
                         {log.intent && <span style={{ padding: '1px 4px', background: cfg.color + '22', color: cfg.color, borderRadius: '3px', fontSize: '9px', fontWeight: 600 }}>{log.intent}</span>}
                       </td>
                       <td style={{ padding: '5px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: 'var(--color-accent-primary)', fontSize: '10px' }}>
-                        {log.duration > 0 ? formatDuration(log.duration) : '—'}
+                        {log.logType === 'focus' && log.timerMinutes > 0
+                          ? <span title={`Used ${formatDuration(log.duration)} of ${formatDuration(log.allottedMs)} allotted`}>
+                              {formatDuration(log.duration)} <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>/ {formatDuration(log.allottedMs)}</span>
+                            </span>
+                          : log.duration > 0 ? formatDuration(log.duration) : '—'
+                        }
                       </td>
                     </tr>
                   );
