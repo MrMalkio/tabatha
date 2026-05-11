@@ -67,3 +67,12 @@
 - **Options:**
   1. Implement incrementally: reasons + custom text first, then delayed unblock, then temp blocking ← **suggested**
   2. Full implementation in one pass
+
+## 2026-05-10 — Duplicate remote branches (main + master)
+- **Noticed while:** Pushing v3.0.0-alpha to master
+- **What:** Remote has both `origin/main` and `origin/master`, with HEAD pointing to `origin/main`. User confirmed they only use `master`.
+- **Why it matters:** Confusing for agents and contributors; `origin/main` may be stale or a GitHub default artifact.
+- **Options:**
+  1. Delete `origin/main` via `git push origin --delete main` and set HEAD to `master` in GitHub repo settings
+  2. Keep both but update GitHub default branch to `master`
+  3. Option 1 ← **suggested**
