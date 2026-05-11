@@ -314,3 +314,37 @@ Build InBar Pause + Sticky Note overlay feature (UI-only, safe during decomp)
 - Merge decomp to master ? rebase ? begin Phase 3 (Follow-Through data model + service handlers)
 - Or: BlockGate settings UI enhancements (reasons, custom text, delayed unblock)
 - Or: InBar settings section (element visibility toggles, progress bar config)
+
+---
+
+## Session 018 — 2026-05-10 (Bug Fix Sweep + Task CRUD)
+
+**Agent:** Antigravity
+**Duration:** ~30 min
+**Goal:** Tier 1 bug fixes + Tier 2 Task CRUD enhancements
+
+### Work Done
+- [x] **Corner radius halved** — global CSS vars (sm: 4→2, md: 8→4, lg: 16→8px)
+- [x] **InBar label fix** — falls back to ctiveFocus.label so it shows the current focus even when tab context is unset
+- [x] **FlipClock responsive** — overflow: hidden, lexWrap: wrap on header, 5px margin top/bottom
+- [x] **Task delete confirmation** — window.confirm() guard before deleting tasks
+- [x] **Task inline editing** — ✏️ button toggles inline name + description edit mode with Enter/Escape/Save/Cancel
+- [x] **Start intent from task** — 🎯 button creates a new focus with the task name + tag link
+- [x] **Link task to intent** — 🔗 button opens LinkMergeModal with new 	ype='task' support
+- [x] **LinkMergeModal expanded** — now handles 	ype='task', shows intents list, sends UPDATE_FOCUS with task tag
+- [x] **CompanionStatus** — already imported on line 19, already rendered on line 886 (compact dot in header)
+
+### Key Findings
+- Extension errors: "Unable to download images" = transient Chrome quirk (icons exist), "WebSocket :9147 refused" = companion not running (expected)
+- CompanionStatus component was built in desktop session but never imported — now wired in
+- TasksPanel now accepts onLinkRequest prop for modal integration
+
+### Decisions
+- Deferred icon display mode setting (Icons Only / Labels Only / Both) to Tier 3
+- Deferred shadcn/ui migration to post-decomp
+- Used window.confirm() for task delete rather than custom modal — simple and effective
+
+### Next Steps
+- Merge decomp to master → rebase → Phase 3 (Follow-Through data model + handlers)
+- Cross-view focus state sync debug (sidebar/popup → homepage broadcast)
+- shadcn/ui incremental component migration
