@@ -211,7 +211,7 @@ function Settings() {
       <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '8px 16px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>⚙️ Settings</div>
-          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v0.2.7-α</div>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v3.12.4-α</div>
         </div>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
@@ -690,6 +690,16 @@ function Settings() {
                   <span style={fieldLabel}>Context timer (minutes)</span>
                   <input type="number" min="1" max="120" value={settings.globalTimerMinutes || 15} onChange={e => updateSetting('globalTimerMinutes', parseInt(e.target.value))} style={inputStyle} />
                 </div>
+                <div style={sectionLabel}>Data Retention</div>
+                <Tooltip text="When: You want desktop activity data to auto-delete after a period. How: Set days (0 = keep forever). Affects: Companion/desktop activity entries older than this will be pruned daily." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Desktop data retention (days)</span>
+                    <input type="number" min="0" max="365" value={settings.desktopRetentionDays || 90} onChange={e => updateSetting('desktopRetentionDays', parseInt(e.target.value))} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '4px 0', lineHeight: 1.5 }}>
+                  Desktop companion activity older than this will be automatically pruned once per day. Set to 0 to keep data indefinitely. Default: 90 days.
+                </p>
               </div>
             )}
 

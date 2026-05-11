@@ -2448,5 +2448,56 @@ chrome.runtime.onStartup.addListener(async () => {
 // Run immediately (for development reloads where listeners might not fire exactly as expected)
 initializeState();
 
+// ============================================================
+// DATA RETENTION — Desktop/Companion Activity Pruning
+// ============================================================
+
+const RETENTION_ALARM = 'tabatha-data-retention';
+const DEFAULT_RETENTION_DAYS = 90;
+
+async function runRetentionCleanup() {
+  try {
+    const { settings = {} } = await getStorage('settings');
+    const retentionDays = settings.desktopRetentionDays || DEFAULT_RETENTION_DAYS;
+    const cutoff = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+
+    // Prune companionRecentSessions
+    const { companionRecentSessions = [] } = await getStorage('companionRecentSessions');
+    if (companionRecentSessions.length > 0) {
+      const kept = companionRecentSessions.filter(s => {
+        const ts = s.start ? new Date(s.start).getTime() : 0;
+        return ts > cutoff;
+      });
+      if (kept.length < companionRecentSessions.length) {
+        await setStorage({ companionRecentSessions: kept });
+        console.log(`Tabatha: Retention pruned ${companionRecentSessions.length - kept.length} companion sessions (>${retentionDays}d)`);
+      }
+    }
+
+    // Prune desktopActivity entries
+    const { desktopActivity = [] } = await getStorage('desktopActivity');
+    if (desktopActivity.length > 0) {
+      const kept = desktopActivity.filter(a => {
+        const ts = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        return ts > cutoff;
+      });
+      if (kept.length < desktopActivity.length) {
+        await setStorage({ desktopActivity: kept });
+        console.log(`Tabatha: Retention pruned ${desktopActivity.length - kept.length} desktop activity entries`);
+      }
+    }
+  } catch (e) {
+    console.warn('Tabatha: Retention cleanup error', e);
+  }
+}
+
+// Register daily alarm
+chrome.alarms.create(RETENTION_ALARM, { periodInMinutes: 1440 }); // 24h
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === RETENTION_ALARM) runRetentionCleanup();
+});
+
+// Run once on startup
+runRetentionCleanup();
 
 // Notification click handler merged into single listener above (L757)
