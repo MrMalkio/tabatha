@@ -2173,6 +2173,13 @@ async function handleMessage(message, sender) {
         engine.activeFocusId = focusId;
         await setFocusEngine(engine);
         broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        // Auto-end break if currently on break
+        try {
+          const clockSession = (await getStorage('clockSession')).clockSession;
+          if (clockSession && clockSession.onBreak) {
+            await clockService.toggleBreak();
+          }
+        } catch(e) { /* ignore */ }
         return { focusEngine: engine };
     }
 
@@ -2340,6 +2347,23 @@ async function handleMessage(message, sender) {
         if (companionBridge.isConnected) {
           companionBridge.sendToggleBreak();
         }
+        // If going ON break → auto-pause active focus
+        if (result.onBreak) {
+          const engine = await getFocusEngine();
+          if (engine.activeFocusId) {
+            const active = engine.items[engine.activeFocusId];
+            if (active && active.focusState === 'active') {
+              if (active.lastResumedAt) {
+                active.elapsedMs = (active.elapsedMs || 0) + (Date.now() - new Date(active.lastResumedAt).getTime());
+                active.lastResumedAt = null;
+              }
+              active.focusState = 'paused';
+              active.pausedAt = new Date().toISOString();
+              await setFocusEngine(engine);
+              broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+            }
+          }
+        }
         return result;
     }
 
@@ -2485,7 +2509,7 @@ async function runRetentionCleanup() {
     const { companionRecentSessions = [] } = await getStorage('companionRecentSessions');
     if (companionRecentSessions.length > 0) {
       const kept = companionRecentSessions.filter(s => {
-        const ts = s.start ? new Date(s.start).getTime() : 0;
+        const ts = new Date(s.started_at || s.startedAt || s.start || s.timestamp || 0).getTime();
         return ts > cutoff;
       });
       if (kept.length < companionRecentSessions.length) {
