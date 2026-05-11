@@ -756,27 +756,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // TIME TRACKING DELEGATED TO SERVICE
 // ============================================================
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  const tabs = await getTabData();
-  const tabData = tabs[activeInfo.tabId];
-  
-  if (tabData) {
-    tabData.lastActive = new Date().toISOString();
-    await setTabData(tabs);
-    
-    // Start tracking the new active tab
-    await timeTracker.startTracking(activeInfo.tabId, tabData.url, tabData);
-    
-    // ── Context-switch detection ──
-    contextSwitchTracker.record(tabData.context || tabData.category || 'unknown');
-  }
-  
-  broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
-  
-  // Auto-associate activated tab with current focus
-  tryAssociateTab(activeInfo.tabId);
-});
-
 // ── Smart Context-Switch Detection ──
 // Detects rapid switching between unrelated contexts (>3 distinct in 5 min)
 const contextSwitchTracker = (() => {
@@ -824,6 +803,29 @@ chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
     chrome.notifications.clear(notifId);
   }
 });
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  const tabs = await getTabData();
+  const tabData = tabs[activeInfo.tabId];
+  
+  if (tabData) {
+    tabData.lastActive = new Date().toISOString();
+    await setTabData(tabs);
+    
+    // Start tracking the new active tab
+    await timeTracker.startTracking(activeInfo.tabId, tabData.url, tabData);
+    
+    // ── Context-switch detection ──
+    contextSwitchTracker.record(tabData.context || tabData.category || 'unknown');
+  }
+  
+  broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
+  
+  // Auto-associate activated tab with current focus
+  tryAssociateTab(activeInfo.tabId);
+});
+
+
 
 // ============================================================
 // CHROME TAB GROUPS — BIDIRECTIONAL SYNC

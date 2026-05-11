@@ -48,13 +48,13 @@ export function useOrgData() {
 
   // Listen for storage changes
   useEffect(() => {
-    const listener = (changes) => {
-      if (changes.tabathaOrg?.newValue) {
+    const listener = (changes, areaName) => {
+      if (areaName === 'local' && changes.tabathaOrg?.newValue) {
         setOrg({ ...EMPTY_ORG, ...changes.tabathaOrg.newValue });
       }
     };
-    chrome.storage.local.onChanged.addListener(listener);
-    return () => chrome.storage.local.onChanged.removeListener(listener);
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
   const save = useCallback(async (updated) => {
