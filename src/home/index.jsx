@@ -594,6 +594,12 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
   const [expanded, setExpanded] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editLabel, setEditLabel] = useState('');
+  const [linkingTabFor, setLinkingTabFor] = useState(null);
+
+  const handleLinkTab = async (focusId, tabId) => {
+    await sendMessage('ASSOCIATE_TAB_WITH_FOCUS', { focusId, tabId: parseInt(tabId) });
+    setLinkingTabFor(null);
+  };
 
   // Build intents from focus items + history
   const intents = useMemo(() => {
@@ -687,6 +693,9 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
           })();
           const totalTime = intent.associatedTabIds.reduce((sum, tid) => sum + ((timeTracking.byTab || {})[tid] || 0), 0);
           const isExpanded = expanded[intent.id];
+          const isLinkingTab = linkingTabFor === intent.id;
+          const linkedIds = new Set(assocTabs.map(t => String(t.id)));
+          const unlinkedTabs = Object.entries(tabs).filter(([tid]) => !linkedIds.has(tid));
 
           return (
             <GlassCard key={intent.id} style={{ padding: '12px 14px', marginBottom: '8px' }}>
@@ -727,6 +736,9 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                       <Tooltip text="Link to Task or Merge Intent">
                         <button onClick={(e) => { e.stopPropagation(); onLinkRequest?.(intent, 'intent'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🔗 Link/Merge</button>
                       </Tooltip>
+                      <Tooltip text="Link an open tab to this intent">
+                        <button onClick={(e) => { e.stopPropagation(); setLinkingTabFor(isLinkingTab ? null : intent.id); }} style={{ background: isLinkingTab ? 'var(--color-accent-primary)22' : 'transparent', border: `1px solid ${isLinkingTab ? 'var(--color-accent-primary)' : 'var(--color-border)'}`, color: isLinkingTab ? 'var(--color-accent-primary)' : 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>📄 Link Tab</button>
+                      </Tooltip>
                       {intent.focusState !== 'active' && (
                         <Tooltip text="Switch to this focus">
                           <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🎯 Focus</button>
@@ -742,6 +754,21 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                       <Tooltip text="Link to Task or Merge Intent">
                         <button onClick={(e) => { e.stopPropagation(); onLinkRequest?.(intent, 'intent'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🔗 Link/Merge</button>
                       </Tooltip>
+                    </div>
+                  )}
+
+                  {/* Inline Tab Picker */}
+                  {isLinkingTab && (
+                    <div style={{ marginBottom: '8px', padding: '6px 8px', background: 'var(--color-bg-base)', borderRadius: '4px', border: '1px solid var(--color-border)', maxHeight: '120px', overflowY: 'auto' }}>
+                      <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: '4px' }}>Select a tab to link</div>
+                      {unlinkedTabs.length === 0 ? (
+                        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>All tabs already linked</div>
+                      ) : unlinkedTabs.slice(0, 15).map(([tid, tab]) => (
+                        <div key={tid} onClick={() => handleLinkTab(intent.id, tid)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 4px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', color: 'var(--color-text-primary)' }}>
+                          {tab.favIconUrl && <img src={tab.favIconUrl} style={{ width: 12, height: 12 }} alt="" />}
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.customTitle || tab.title || tab.url}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -765,7 +792,7 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                       <div key={tab.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '11px' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, color: 'var(--color-text-muted)' }}>
                           {tab.favIconUrl && <img src={tab.favIconUrl} style={{ width: 12, height: 12, marginRight: 4, verticalAlign: 'middle' }} alt="" />}
-                          {tab.title || tab.url || `Tab ${tab.id}`}
+                          {tab.customTitle || tab.title || tab.url || `Tab ${tab.id}`}
                         </span>
                         <span style={{ fontSize: '10px', color: 'var(--color-accent-primary)', fontWeight: 600, flexShrink: 0, marginLeft: '8px' }}>{formatTime((timeTracking.byTab || {})[tab.id] || 0)}</span>
                       </div>
@@ -800,6 +827,7 @@ function Home() {
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [clockHistory] = useChromeStorage('clockHistory', []);
   const [companionRecentSessions] = useChromeStorage('companionRecentSessions', []);
+  const [intentChangeLog] = useChromeStorage('intentChangeLog', []);
   const { activeFocus, allItems, history, actions, engine } = useFocusEngine();
   const [activePanel, setActivePanel] = useState('logs');
   const [expandedSession, setExpandedSession] = useState(null);
@@ -1152,7 +1180,10 @@ function Home() {
               intentHistory={intentHistory} 
               tabs={tabs} 
               timeTracking={timeTracking} 
-              allItems={allItems} 
+              allItems={allItems}
+              clockHistory={clockHistory}
+              focusHistory={history}
+              intentChangeLog={intentChangeLog}
             />
           )}
           {activePanel === 'tabs' && (
@@ -1174,13 +1205,19 @@ function Home() {
                     <GlassCard key={id} style={{ padding: '8px 10px', cursor: 'pointer', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: '12px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                            {CATEGORY_ICONS[tab.category] || '📄'} {tab.title || 'Untitled'}
+                          <div style={{ fontSize: '12px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={tab.customTitle ? `Original: ${tab.title}` : ''}>
+                            {CATEGORY_ICONS[tab.category] || '📄'} {tab.customTitle || tab.title || 'Untitled'}
                           </div>
                           <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.context || 'No context'} {tab.locked ? '🔒' : ''}</div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
                           <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-accent-primary)', fontVariantNumeric: 'tabular-nums' }}>{formatTime((timeTracking.byTab || {})[id] || 0)}</span>
+                          <Tooltip text="Rename this tab">
+                            <button onClick={() => {
+                              const newTitle = prompt('Rename tab:', tab.customTitle || tab.title);
+                              if (newTitle !== null && newTitle.trim()) sendMessage('RENAME_TAB', { tabId: parseInt(id), newTitle: newTitle.trim() });
+                            }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 4px', fontSize: '11px', cursor: 'pointer' }}>✏️</button>
+                          </Tooltip>
                           <Tooltip text="Focus this tab">
                             <button onClick={() => sendMessage('FOCUS_TAB', { tabId: parseInt(id) })} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '1px 4px', fontSize: '11px', cursor: 'pointer' }}>↗</button>
                           </Tooltip>
@@ -1294,7 +1331,16 @@ function Home() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ minWidth: 0, flex: 1 }}>
                               <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.title || tab.url}</div>
-                              <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Parked {new Date(tab.parkedAt).toLocaleDateString()}</div>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Parked {new Date(tab.parkedAt).toLocaleDateString()}</span>
+                                {tab.context && <span style={{ fontSize: '9px', padding: '0 4px', borderRadius: '3px', background: 'var(--color-accent-primary)22', color: 'var(--color-accent-primary)', fontWeight: 600 }}>{tab.context}</span>}
+                                {tab.source === 'auto-park' && <span style={{ fontSize: '8px', color: '#ffa726', fontWeight: 600 }}>⏸ AUTO</span>}
+                              </div>
+                              {tab.note && (
+                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '4px', padding: '3px 6px', background: '#ffa72611', borderRadius: '3px', borderLeft: '2px solid #ffa726', fontStyle: 'italic' }}>
+                                  📝 {tab.note.length > 80 ? tab.note.slice(0, 80) + '…' : tab.note}
+                                </div>
+                              )}
                             </div>
                             <span style={{ fontSize: '12px', color: 'var(--color-accent-primary)', flexShrink: 0, marginLeft: '8px' }}>↗ Open</span>
                           </div>

@@ -637,6 +637,26 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
   const tabData = tabs[tabId];
   
   if (tabData) {
+    // Check if tab was paused — auto-park with note
+    const { pausedIntents = {} } = await getStorage('pausedIntents');
+    const pauseData = pausedIntents[tabId];
+    if (pauseData) {
+      const { parkedTabs = [] } = await getStorage('parkedTabs');
+      parkedTabs.unshift({
+        url: tabData.url,
+        title: tabData.customTitle || tabData.title,
+        context: tabData.context || tabData.intent || pauseData.intentLabel || '',
+        note: pauseData.note || '',
+        parkedAt: new Date().toISOString(),
+        pausedAt: pauseData.pausedAt,
+        source: 'auto-park',
+      });
+      await setStorage({ parkedTabs: parkedTabs.slice(0, 200) });
+      // Clean up pause state
+      delete pausedIntents[tabId];
+      await setStorage({ pausedIntents });
+    }
+
     // Save to closed contexts if it had context
     if (tabData.context || tabData.intent) {
       const closedContexts = await getClosedContexts();
