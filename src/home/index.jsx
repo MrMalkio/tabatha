@@ -36,7 +36,7 @@ const CATEGORY_ICONS = {
 };
 
 // ── FocusBar ──
-function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks, onPersist }) {
+function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks, onPersist, orgData }) {
   const [addInput, setAddInput] = useState('');
   const [showTags, setShowTags] = useState(false);
   const [addMode, setAddMode] = useState(null); // null | 'intent' | 'subfocus'
@@ -172,7 +172,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       </AnimatePresence>
       {showTags && (
         <div style={{ marginTop: '8px' }}>
-          <TagPicker tags={activeFocus.tags || {}} onChange={(tags) => actions.updateTags(null, tags)} compact={false} clients={clients} projects={projects} tasks={tasks} onPersist={onPersist} />
+          <TagPicker tags={activeFocus.tags || {}} onChange={(tags) => actions.updateTags(null, tags)} compact={false} clients={clients} projects={projects} tasks={tasks} onPersist={onPersist} orgData={orgData} />
         </div>
       )}
       {/* Quick add — enhanced with ComboInput */}
@@ -309,12 +309,35 @@ function FocusHistory({ history }) {
 }
 
 // ── FocusInput (when no focus is set) ──
-function FocusInput({ onStart }) {
+function FocusInput({ onStart, orgData, clients, projects }) {
   const [input, setInput] = useState('');
   const [shake, setShake] = useState(false);
   const [pending, setPending] = useState(false);
   const [showTagSetup, setShowTagSetup] = useState(false);
   const [tags, setTags] = useState({ realm: 'personal', client: 'Self' });
+  const [timer, setTimer] = useState(15);
+  const [taskInput, setTaskInput] = useState('');
+  const [selectedTasks, setSelectedTasks] = useState([]); // array of task name strings
+
+  const taskOptions = useMemo(() => {
+    if (!orgData) return [];
+    return orgData.taskList.filter(t => t.status !== 'complete').map(t => t.name);
+  }, [orgData]);
+
+  const addTask = (name) => {
+    if (!name?.trim()) return;
+    const trimmed = name.trim();
+    if (!selectedTasks.includes(trimmed)) {
+      setSelectedTasks(prev => [...prev, trimmed]);
+      // Persist to org registry
+      if (orgData) orgData.findOrCreateTask(trimmed);
+    }
+    setTaskInput('');
+  };
+
+  const removeTask = (name) => {
+    setSelectedTasks(prev => prev.filter(t => t !== name));
+  };
 
   const handleSubmit = async () => {
     if (!input.trim()) {
@@ -324,13 +347,20 @@ function FocusInput({ onStart }) {
     }
     setPending(true);
     try {
-      const result = await onStart(input.trim(), 15, tags);
+      // Merge selected tasks into tags
+      const finalTags = { ...tags };
+      if (selectedTasks.length > 0) {
+        finalTags.tasks = selectedTasks;
+        finalTags.task = selectedTasks[0]; // primary task
+      }
+      const result = await onStart(input.trim(), timer, finalTags);
       console.log('[Tabatha] FocusInput startFocus result:', result);
       if (result?.error) {
         console.error('[Tabatha] FocusInput error:', result.error);
       }
       setInput('');
       setTags({ realm: 'personal', client: 'Self' });
+      setSelectedTasks([]);
       setShowTagSetup(false);
     } catch(e) {
       console.error('[Tabatha] FocusInput exception:', e);
@@ -350,6 +380,12 @@ function FocusInput({ onStart }) {
             disabled={pending}
             style={{ flex: 1, background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', color: 'var(--color-text-primary)', fontSize: '14px', outline: 'none', opacity: pending ? 0.5 : 1 }}
           />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+            <input type="number" value={timer} onChange={e => setTimer(Math.max(1, parseInt(e.target.value) || 15))} min={1}
+              style={{ width: '48px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '4px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none', textAlign: 'center' }}
+            />
+            <span style={{ fontSize: '8px', color: 'var(--color-text-muted)' }}>min</span>
+          </div>
           <PopButton onClick={handleSubmit} size="sm" disabled={pending}>{pending ? '⏳ Setting…' : 'Set Focus'}</PopButton>
         </div>
         {/* Quick realm toggle + tag setup */}
@@ -381,9 +417,48 @@ function FocusInput({ onStart }) {
             {showTagSetup ? 'Less ▲' : 'More ▼'}
           </button>
         </div>
+
+        {/* Multi-task picker */}
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '3px' }}>Tasks for this focus</div>
+          {/* Selected tasks as chips */}
+          {selectedTasks.length > 0 && (
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '4px' }}>
+              {selectedTasks.map(name => (
+                <span key={name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', background: 'var(--color-accent-primary)18', border: '1px solid var(--color-accent-primary)44', color: 'var(--color-text-primary)', padding: '1px 6px', borderRadius: '10px' }}>
+                  ✏️ {name}
+                  <button onClick={() => removeTask(name)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '8px', padding: '0 1px', lineHeight: 1 }}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+          {/* Task input with autocomplete */}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <ComboInput
+              value={taskInput}
+              onChange={setTaskInput}
+              options={taskOptions.filter(t => !selectedTasks.includes(t))}
+              placeholder="Add a task..."
+              onSubmit={(val) => addTask(val)}
+              size="sm"
+              icon="✏️"
+              allowCreate={true}
+            />
+            <button onClick={() => addTask(taskInput)} disabled={!taskInput.trim()}
+              style={{ background: 'transparent', border: '1px solid var(--color-border)', color: taskInput.trim() ? 'var(--color-accent-primary)' : 'var(--color-text-muted)', borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: '10px', cursor: 'pointer', fontWeight: 600, opacity: taskInput.trim() ? 1 : 0.4 }}>+</button>
+          </div>
+        </div>
+
         {showTagSetup && (
           <div style={{ marginTop: '8px' }}>
-            <TagPicker tags={tags} onChange={setTags} compact={false} />
+            <TagPicker tags={tags} onChange={setTags} compact={false} clients={clients || []} projects={projects || []} tasks={taskOptions} orgData={orgData}
+              onPersist={(field, value) => {
+                if (!orgData) return;
+                if (field === 'client') orgData.findOrCreateClient(value);
+                else if (field === 'project') orgData.findOrCreateProject(value);
+                else if (field === 'task') orgData.findOrCreateTask(value);
+              }}
+            />
           </div>
         )}
       </GlassCard>
@@ -395,21 +470,49 @@ function FocusInput({ onStart }) {
 // TasksPanel — Task management
 // ════════════════════════════════════════════
 
-function TasksPanel({ actions, allItems, onLinkRequest }) {
+function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
   const [tasks, setTasks] = useChromeStorage('tasks', []);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newProject, setNewProject] = useState('');
+  const [newClient, setNewClient] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('active'); // 'active' | 'completed' | 'all'
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
+  const projectOptions = useMemo(() => orgData?.projectList?.filter(p => !p.archived).map(p => p.name) || [], [orgData]);
+  const clientOptions = useMemo(() => orgData?.clientList?.filter(c => !c.archived).map(c => c.name) || [], [orgData]);
+
+  // Auto-fill cascade: project → client
+  const handleProjectSelect = (val) => {
+    setNewProject(val);
+    if (val && orgData) {
+      const proj = orgData.projectList.find(p => p.name.toLowerCase() === val.toLowerCase());
+      if (proj?.clientId) {
+        const cli = orgData.org.clients[proj.clientId];
+        if (cli && !cli.archived) setNewClient(cli.name);
+      }
+    }
+  };
+
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    await sendMessage('CREATE_TASK', { name: newName.trim(), description: newDesc.trim() });
+    const payload = { name: newName.trim(), description: newDesc.trim() };
+    if (newProject.trim()) payload.project = newProject.trim();
+    if (newClient.trim()) payload.client = newClient.trim();
+    await sendMessage('CREATE_TASK', payload);
+    // Also persist to org registry
+    if (orgData) {
+      const taskId = orgData.findOrCreateTask(newName.trim());
+      if (newProject.trim()) orgData.findOrCreateProject(newProject.trim());
+      if (newClient.trim()) orgData.findOrCreateClient(newClient.trim());
+    }
     setNewName('');
     setNewDesc('');
+    setNewProject('');
+    setNewClient('');
     setShowCreate(false);
   };
 
@@ -482,7 +585,7 @@ function TasksPanel({ actions, allItems, onLinkRequest }) {
         }}>+ New Task</button>
       </div>
 
-      {/* Create form */}
+      {/* Create form — now with optional Project/Client */}
       <AnimatePresence>
         {showCreate && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden', marginBottom: '10px' }}>
@@ -493,8 +596,27 @@ function TasksPanel({ actions, allItems, onLinkRequest }) {
                 style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '6px 10px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none', marginBottom: '6px', boxSizing: 'border-box' }}
               />
               <input type="text" placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)}
-                style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '4px 10px', color: 'var(--color-text-primary)', fontSize: '11px', outline: 'none', marginBottom: '8px', boxSizing: 'border-box' }}
+                style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '4px 10px', color: 'var(--color-text-primary)', fontSize: '11px', outline: 'none', marginBottom: '6px', boxSizing: 'border-box' }}
               />
+              {/* Optional project/client */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                <ComboInput
+                  label="Project (optional)"
+                  value={newProject}
+                  onChange={handleProjectSelect}
+                  options={projectOptions}
+                  placeholder="Select project..."
+                  icon="📁"
+                />
+                <ComboInput
+                  label="Client (optional)"
+                  value={newClient}
+                  onChange={setNewClient}
+                  options={clientOptions}
+                  placeholder="Select client..."
+                  icon="👤"
+                />
+              </div>
               <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowCreate(false)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
                 <button onClick={handleCreate} disabled={!newName.trim()} style={{ background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '4px', padding: '3px 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 600, opacity: newName.trim() ? 1 : 0.5 }}>Create</button>
@@ -1142,6 +1264,7 @@ function Home() {
             <>
               <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects}
               tasks={orgData.taskList.filter(t => t.status !== 'complete').map(t => t.name)}
+              orgData={orgData}
               onPersist={(field, value) => {
                 if (field === 'client') orgData.findOrCreateClient(value);
                 else if (field === 'project') orgData.findOrCreateProject(value);
@@ -1150,13 +1273,13 @@ function Home() {
             />
               {/* When paused, show FocusInput to set a new focus */}
               {activeFocus.focusState === 'paused' && (
-                <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
+                <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
               )}
               <FocusQueue items={allItems} actions={actions} />
               <FocusHistory history={history} />
             </>
           ) : (
-            <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} />
+            <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
           )}
         </CollapsibleSection>
 
@@ -1191,7 +1314,7 @@ function Home() {
             <IntentsPanel intentHistory={intentHistory} allItems={allItems} tabs={tabs} timeTracking={timeTracking} actions={actions} onLinkRequest={handleLinkRequest} />
           )}
           {activePanel === 'tasks' && (
-            <TasksPanel actions={actions} allItems={allItems} onLinkRequest={handleLinkRequest} />
+            <TasksPanel actions={actions} allItems={allItems} onLinkRequest={handleLinkRequest} orgData={orgData} />
           )}
           {activePanel === 'projects' && (
             <ProjectsClientsPanel orgData={orgData} />

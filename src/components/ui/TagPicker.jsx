@@ -7,8 +7,16 @@ const REALM_OPTIONS = ['business', 'personal'];
  * TagPicker — Compact inline tag selector for Focus associations.
  * Handles Realm (Business/Personal), Client, Project, Task.
  * Uses ComboInput for autocomplete with free-form entry.
+ *
+ * Auto-fill cascade:
+ *   - Selecting a task auto-fills its project + client
+ *   - Selecting a project auto-fills its client
+ * 
+ * Business attribution:
+ *   - Client/Project fields only appear when realm === 'business'
+ *   - Task is always available regardless of realm
  */
-export function TagPicker({ tags = {}, onChange, clients = [], projects = [], tasks = [], compact = true, onPersist }) {
+export function TagPicker({ tags = {}, onChange, clients = [], projects = [], tasks = [], compact = true, onPersist, orgData }) {
   const [expanded, setExpanded] = useState(false);
 
   const handleChange = (field, value) => {
@@ -16,6 +24,35 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
     // Auto-set "Self" as client when switching to personal realm
     if (field === 'realm' && value === 'personal' && !tags.client) {
       updated.client = 'Self';
+    }
+    // Auto-fill cascade: task → project → client
+    if (field === 'task' && value && orgData) {
+      const taskObj = orgData.taskList.find(t => t.name.toLowerCase() === value.toLowerCase());
+      if (taskObj) {
+        if (taskObj.projectId) {
+          const proj = orgData.org.projects[taskObj.projectId];
+          if (proj && !proj.archived) {
+            updated.project = proj.name;
+            // Also cascade project → client
+            if (proj.clientId) {
+              const cli = orgData.org.clients[proj.clientId];
+              if (cli && !cli.archived) updated.client = cli.name;
+            }
+          }
+        }
+        if (taskObj.clientId && !updated.client) {
+          const cli = orgData.org.clients[taskObj.clientId];
+          if (cli && !cli.archived) updated.client = cli.name;
+        }
+      }
+    }
+    // Auto-fill cascade: project → client
+    if (field === 'project' && value && orgData) {
+      const projObj = orgData.projectList.find(p => p.name.toLowerCase() === value.toLowerCase());
+      if (projObj?.clientId) {
+        const cli = orgData.org.clients[projObj.clientId];
+        if (cli && !cli.archived) updated.client = cli.name;
+      }
     }
     onChange(updated);
     // Persist new entries to org registry if provided
@@ -39,6 +76,8 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
     if (tags.task) parts.push(tags.task);
     return parts.length > 0 ? parts.join(' › ') : null;
   }, [tags]);
+
+  const isBusiness = tags.realm === 'business';
 
   if (compact && !expanded) {
     return (
@@ -104,31 +143,35 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
         </div>
       </div>
 
-      {/* Client */}
-      <div>
-        <ComboInput
-          label="Client"
-          value={tags.client || ''}
-          onChange={(v) => handleChange('client', v)}
-          options={clientOptions}
-          placeholder="Client name"
-          icon="👤"
-        />
-      </div>
+      {/* Client — shown always for business, or when already set for personal */}
+      {(isBusiness || tags.client) && (
+        <div>
+          <ComboInput
+            label="Client"
+            value={tags.client || ''}
+            onChange={(v) => handleChange('client', v)}
+            options={clientOptions}
+            placeholder="Client name"
+            icon="👤"
+          />
+        </div>
+      )}
 
-      {/* Project */}
-      <div>
-        <ComboInput
-          label="Project"
-          value={tags.project || ''}
-          onChange={(v) => handleChange('project', v)}
-          options={projects}
-          placeholder="Project"
-          icon="📁"
-        />
-      </div>
+      {/* Project — shown for business realm, or when already set */}
+      {(isBusiness || tags.project) && (
+        <div>
+          <ComboInput
+            label="Project"
+            value={tags.project || ''}
+            onChange={(v) => handleChange('project', v)}
+            options={projects}
+            placeholder="Project"
+            icon="📁"
+          />
+        </div>
+      )}
 
-      {/* Task */}
+      {/* Task — always available */}
       <div>
         <ComboInput
           label="Task"
@@ -139,6 +182,13 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
           icon="✏️"
         />
       </div>
+
+      {/* Auto-fill hint */}
+      {orgData && (tags.task || tags.project) && (
+        <div style={{ gridColumn: 'span 2', fontSize: '9px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+          💡 Selecting a task or project auto-fills related fields
+        </div>
+      )}
 
       {/* Collapse */}
       <div style={{ gridColumn: 'span 2', textAlign: 'right' }}>
