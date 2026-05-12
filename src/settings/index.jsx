@@ -41,6 +41,7 @@ const SECTIONS = [
   { id: 'sync', label: '☁️ Sync & Supabase' },
   { id: 'privacy', label: '🔒 Privacy & Capture' },
   { id: 'webhooks', label: '🔗 Webhooks' },
+  { id: 'desktop', label: '🖥️ Desktop Activity' },
   { id: 'developer', label: '🛠 Developer' },
   { id: 'about', label: 'ℹ️ About' },
 ];
@@ -54,6 +55,111 @@ function Toggle({ value, onChange }) {
 }
 
 const LOG_COLORS = { error: '#ef5350', warn: '#ffa726', info: '#42a5f5', debug: '#66bb6a' };
+
+// ── DesktopActivityPanel ──
+function DesktopActivityPanel({ settings, updateSetting }) {
+  const [companionSessions, setCompanionSessions] = useChromeStorage('companionRecentSessions', []);
+  const [trimBefore, setTrimBefore] = useState('09:00');
+  const [confirmTrim, setConfirmTrim] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [statusMsg, setStatusMsg] = useState(null);
+
+  const todayStr = new Date().toLocaleDateString();
+  const todaySessions = useMemo(() => {
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    return (companionSessions || []).filter(s => {
+      const ts = new Date(s.started_at || s.startedAt).getTime();
+      return ts >= dayStart && ts < dayEnd;
+    });
+  }, [companionSessions]);
+
+  const handleTrim = () => {
+    if (!confirmTrim) { setConfirmTrim(true); return; }
+    const [h, m] = trimBefore.split(':').map(Number);
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    const updated = (companionSessions || []).filter(s => {
+      const ts = new Date(s.started_at || s.startedAt).getTime();
+      if (ts >= dayStart && ts < dayEnd && ts < cutoff) return false;
+      return true;
+    });
+    const removed = (companionSessions || []).length - updated.length;
+    setCompanionSessions(updated);
+    setConfirmTrim(false);
+    setStatusMsg(`✓ Removed ${removed} session(s) before ${trimBefore} today.`);
+    setTimeout(() => setStatusMsg(null), 5000);
+  };
+
+  const handleClearToday = () => {
+    if (!confirmClear) { setConfirmClear(true); return; }
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    const updated = (companionSessions || []).filter(s => {
+      const ts = new Date(s.started_at || s.startedAt).getTime();
+      return !(ts >= dayStart && ts < dayEnd);
+    });
+    const removed = (companionSessions || []).length - updated.length;
+    setCompanionSessions(updated);
+    setConfirmClear(false);
+    setStatusMsg(`✓ Cleared ${removed} session(s) from today.`);
+    setTimeout(() => setStatusMsg(null), 5000);
+  };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>🖥️ Desktop Activity</h2>
+
+      {statusMsg && (
+        <div style={{ padding: '8px 12px', marginBottom: '12px', borderRadius: 'var(--radius-sm)', fontSize: '12px', fontWeight: 500, background: 'rgba(52,168,83,0.15)', color: '#34A853', border: '1px solid #34A85333' }}>
+          {statusMsg}
+        </div>
+      )}
+
+      <div style={sectionLabel}>Timeline Display</div>
+      <Tooltip text="Filter the homepage activity bar to only show sessions starting at or after this hour. Useful to hide overnight noise." position="bottom">
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Day start time</span>
+          <input type="time" value={settings.activityDayStartTime || '00:00'} onChange={e => updateSetting('activityDayStartTime', e.target.value)} style={inputStyle} />
+        </div>
+      </Tooltip>
+      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '4px 0 16px', lineHeight: 1.5 }}>
+        The homepage "Desktop Activity — Today" bar will only show sessions starting at or after this time. Set to 00:00 to show the full day. Default: midnight.
+      </p>
+
+      <div style={sectionLabel}>Today's Data ({todaySessions.length} sessions)</div>
+      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '-6px 0 10px', lineHeight: 1.5 }}>
+        Today: {todayStr}. Total stored sessions: {(companionSessions || []).length}. Use the tools below to clean up false or overnight activity.
+      </p>
+
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600 }}>Trim before</span>
+          <input type="time" value={trimBefore} onChange={e => { setTrimBefore(e.target.value); setConfirmTrim(false); }} style={{ ...inputStyle, width: '100px' }} />
+        </div>
+        <button onClick={handleTrim} style={{ padding: '6px 14px', background: confirmTrim ? '#ffa726' : 'var(--color-surface)', color: confirmTrim ? '#000' : 'var(--color-text-primary)', border: `1px solid ${confirmTrim ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', transition: 'all 0.15s' }}>
+          {confirmTrim ? '⚠ Confirm Trim' : '✂ Trim Today'}
+        </button>
+      </div>
+      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '-4px 0 16px', lineHeight: 1.5 }}>
+        Permanently removes today's sessions that started before the specified time. E.g. set 09:00 to remove overnight false activity. This cannot be undone.
+      </p>
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+        <button onClick={handleClearToday} style={{ padding: '6px 14px', background: confirmClear ? '#ef5350' : 'transparent', color: confirmClear ? '#fff' : '#ef5350', border: `1px solid #ef5350`, borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', transition: 'all 0.15s' }}>
+          {confirmClear ? '⚠ Confirm Clear All Today' : '🗑 Clear All Today'}
+        </button>
+        {(confirmTrim || confirmClear) && (
+          <button onClick={() => { setConfirmTrim(false); setConfirmClear(false); }} style={{ padding: '6px 10px', background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function DeveloperPanel({ settings, updateSetting }) {
   const [logs, setLogs] = useState([]);
@@ -873,6 +979,11 @@ function Settings() {
                   Tabatha is a context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions. Part of the Flux ecosystem.
                 </p>
               </div>
+            )}
+
+
+            {activeSection === 'desktop' && (
+              <DesktopActivityPanel settings={settings} updateSetting={updateSetting} />
             )}
 
             {activeSection === 'developer' && (

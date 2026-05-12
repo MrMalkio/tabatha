@@ -61,15 +61,19 @@ export default function UnifiedTimeline({ compact = false }) {
   const [sessions, setSessions] = useState([]);
   const [hoveredSession, setHoveredSession] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [dayStartTime, setDayStartTime] = useState('00:00');
   const barRef = useRef(null);
 
   useEffect(() => {
     // Load initial data
     chrome.storage.local.get(
-      ['companionConnected', 'companionRecentSessions'],
+      ['companionConnected', 'companionRecentSessions', 'settings'],
       (result) => {
         setConnected(!!result.companionConnected);
         setSessions(result.companionRecentSessions || []);
+        if (result.settings?.activityDayStartTime) {
+          setDayStartTime(result.settings.activityDayStartTime);
+        }
       }
     );
 
@@ -81,22 +85,28 @@ export default function UnifiedTimeline({ compact = false }) {
       if (changes.companionRecentSessions) {
         setSessions(changes.companionRecentSessions.newValue || []);
       }
+      if (changes.settings?.newValue?.activityDayStartTime !== undefined) {
+        setDayStartTime(changes.settings.newValue.activityDayStartTime || '00:00');
+      }
     };
 
     chrome.storage.local.onChanged.addListener(listener);
     return () => chrome.storage.local.onChanged.removeListener(listener);
   }, []);
 
-  // Process sessions into timeline segments — filtered to TODAY only
+  // Process sessions into timeline segments — filtered to TODAY only, respecting day start time
   const { segments, timeRange, categoryTotals } = useMemo(() => {
     if (!sessions.length) return { segments: [], timeRange: null, categoryTotals: {} };
 
-    // Today's date boundaries (midnight to midnight)
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const todayEnd = todayStart + 86400000;
+    // Parse day start time setting (e.g. "09:00")
+    const [startH, startM] = (dayStartTime || '00:00').split(':').map(Number);
 
-    // Filter to completed sessions with duration, TODAY ONLY
+    // Today's date boundaries — shifted by day start time
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startH, startM).getTime();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+
+    // Filter to completed sessions with duration, TODAY ONLY (after day start time)
     const completed = sessions
       .filter(s => s.duration_ms > 0 && (s.started_at || s.startedAt))
       .map(s => ({
@@ -138,7 +148,7 @@ export default function UnifiedTimeline({ compact = false }) {
       timeRange: { earliest, latest, totalSpan },
       categoryTotals: totals,
     };
-  }, [sessions]);
+  }, [sessions, dayStartTime]);
 
   // Generate minute markers
   const minuteMarkers = useMemo(() => {
