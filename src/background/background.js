@@ -254,6 +254,14 @@ async function startFocus(label, timerMinutes = 15, tags = {}) {
   const engine = await getFocusEngine();
   const id = generateFocusId();
   
+  // Apply default realm from profile settings if not explicitly set
+  if (!tags.realm) {
+    try {
+      const { tabathaSettings } = await getStorage('tabathaSettings');
+      if (tabathaSettings?.defaultRealm) tags.realm = tabathaSettings.defaultRealm;
+    } catch (e) { /* ignore */ }
+  }
+  
   // Pause currently active focus
   if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
     const current = engine.items[engine.activeFocusId];
@@ -311,6 +319,14 @@ async function startFocus(label, timerMinutes = 15, tags = {}) {
 async function addFocus(label, timerMinutes = 15, tags = {}) {
   const engine = await getFocusEngine();
   const id = generateFocusId();
+  
+  // Apply default realm from profile settings if not explicitly set
+  if (!tags.realm) {
+    try {
+      const { tabathaSettings } = await getStorage('tabathaSettings');
+      if (tabathaSettings?.defaultRealm) tags.realm = tabathaSettings.defaultRealm;
+    } catch (e) { /* ignore */ }
+  }
   
   // Add without interrupting active — new item starts as 'paused'
   engine.items[id] = {
@@ -2047,6 +2063,52 @@ async function handleMessage(message, sender) {
             if (payload.description) tabs[tabId].intentDescription = payload.description;
             tabs[tabId].contextSource = 'user';
             tabs[tabId].startedAt = new Date().toISOString();
+
+            // ── Intent→Focus Bridge ──
+            // Auto-queue a focus item when an intent doesn't match active focus
+            const intentLabel = payload.intent;
+            if (intentLabel) {
+              try {
+                const { tabathaSettings } = await getStorage('tabathaSettings');
+                const bridgeMode = tabathaSettings?.intentBridgeMode || 'smart_dedup';
+                
+                if (bridgeMode !== 'manual') {
+                  const engine = await getFocusEngine();
+                  const activeFocus = engine.activeFocusId ? engine.items[engine.activeFocusId] : null;
+                  const activeLabel = activeFocus?.label?.toLowerCase()?.trim() || '';
+                  const newLabel = intentLabel.toLowerCase().trim();
+                  
+                  // Check for existing focus with same label (any state)
+                  const existingMatch = Object.values(engine.items).find(
+                    item => item.label?.toLowerCase()?.trim() === newLabel && item.focusState !== 'completed'
+                  );
+                  
+                  const shouldAutoQueue = bridgeMode === 'always' 
+                    ? !existingMatch   // Always: create if no existing match
+                    : newLabel !== activeLabel && !existingMatch; // Smart dedup: also skip if matches active
+                  
+                  if (shouldAutoQueue) {
+                    const defaultRealm = tabathaSettings?.defaultRealm || '';
+                    const result = await addFocus(intentLabel, 15, { realm: defaultRealm });
+                    // Link this tab to the newly created focus
+                    const newItem = result.engine.items[result.newFocusId];
+                    if (newItem) {
+                      newItem.associatedTabIds = [...(newItem.associatedTabIds || []), tabId];
+                      await setFocusEngine(result.engine);
+                    }
+                    broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+                  } else if (existingMatch) {
+                    // Link tab to the existing matching focus
+                    if (!existingMatch.associatedTabIds?.includes(tabId)) {
+                      existingMatch.associatedTabIds = [...(existingMatch.associatedTabIds || []), tabId];
+                      await setFocusEngine(engine);
+                    }
+                  }
+                }
+              } catch (bridgeErr) {
+                console.warn('[Intent Bridge] Error:', bridgeErr);
+              }
+            }
         }
         await setTabData(tabs);
         broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });

@@ -229,6 +229,9 @@ function Sidebar() {
       <div style={{ padding:'8px 10px 0', borderBottom:'1px solid var(--color-border)' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'4px' }}>
           <Tooltip text="Tabatha Attention OS"><span style={{ fontSize:'13px', fontWeight:700 }}>Tabatha</span></Tooltip>
+          {settings.profileLabel && (
+            <span style={{ fontSize:'9px', fontWeight:600, padding:'1px 6px', borderRadius:'6px', background:'var(--color-accent-primary)', color:'#000', marginLeft:'4px', letterSpacing:'0.02em' }}>{settings.profileLabel}</span>
+          )}
           <div style={{ display:'flex', gap:'4px', alignItems:'center' }}>
             <Tooltip text={`${tabCount} tabs · ${formatTime(totalTime)} active`}>
               <span style={{ fontSize:'9px', color:'var(--color-text-muted)' }}>{tabCount}t · {formatTime(totalTime)}</span>

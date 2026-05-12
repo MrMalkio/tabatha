@@ -426,14 +426,20 @@ function Settings() {
                     </select>
                   </div>
                 </Tooltip>
-                <div style={sectionLabel}>Identity</div>
+                <div style={sectionLabel}>Browser Profile</div>
+                <Tooltip text="When: Using multiple browser profiles. How: Name this profile. Affects: Profile badge shown in sidebar/homepage header." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Profile Label</span>
+                    <input type="text" placeholder="e.g. Work Chrome" value={settings.profileLabel || ''} onChange={e => updateSetting('profileLabel', e.target.value)} style={inputStyle} />
+                  </div>
+                </Tooltip>
                 <Tooltip text="When: First setting up. How: Type your name. Affects: The dashboard greeting message." position="bottom">
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Your Name</span>
                     <input type="text" placeholder="e.g. Marcus" value={settings.userName || ''} onChange={e => updateSetting('userName', e.target.value)} style={inputStyle} />
                   </div>
                 </Tooltip>
-                <Tooltip text="When: Setting up your default work context. How: Select your primary realm. Affects: Default realm used in Intents and Tags." position="bottom">
+                <Tooltip text="When: Setting up your default work context. How: Select your primary realm. Affects: Default realm applied to new Focuses created from this profile." position="bottom">
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Default Realm</span>
                     <select value={settings.defaultRealm || 'professional'} onChange={e => updateSetting('defaultRealm', e.target.value)} style={selectStyle}>
@@ -444,6 +450,23 @@ function Settings() {
                     </select>
                   </div>
                 </Tooltip>
+
+                <div style={sectionLabel}>Intent → Focus Bridge</div>
+                <Tooltip text="When: A tab intent is set via InBar. How: Controls whether a focus queue item is auto-created. Smart Dedup = auto-create only if no matching focus exists." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Auto-Queue Mode</span>
+                    <select value={settings.intentBridgeMode || 'smart_dedup'} onChange={e => updateSetting('intentBridgeMode', e.target.value)} style={selectStyle}>
+                      <option value="smart_dedup">🧠 Smart Dedup</option>
+                      <option value="always">⚡ Always Auto-Queue</option>
+                      <option value="manual">✋ Manual Only</option>
+                    </select>
+                  </div>
+                </Tooltip>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', padding: '6px 8px', marginTop: '4px', lineHeight: '1.5' }}>
+                  {settings.intentBridgeMode === 'always' && '⚡ Every new tab intent creates a focus queue item, even if one with the same name exists.'}
+                  {settings.intentBridgeMode === 'manual' && '✋ Tab intents never auto-create focus items. Use Link Tab → Create Focus manually.'}
+                  {(!settings.intentBridgeMode || settings.intentBridgeMode === 'smart_dedup') && '🧠 A focus item is auto-created only when the intent doesn\u2019t match the active focus and no existing focus has the same label.'}
+                </div>
               </div>
             )}
 

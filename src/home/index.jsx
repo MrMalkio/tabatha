@@ -1275,8 +1275,11 @@ function Home() {
           {/* Left — Greeting */}
           <div style={{ flex: '1 1 0', minWidth: 0 }}>
             <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
-            <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
               {tabCount} tab{tabCount !== 1 ? 's' : ''} open · {formatTime(totalActiveTime)} active today
+              {settings.profileLabel && (
+                <span style={{ fontSize: '9px', fontWeight: 600, padding: '1px 6px', borderRadius: '6px', background: 'var(--color-accent-primary)', color: '#000', letterSpacing: '0.02em' }}>{settings.profileLabel}</span>
+              )}
             </p>
           </div>
 

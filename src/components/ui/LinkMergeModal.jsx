@@ -9,6 +9,7 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
   const [mode, setMode] = useState('link');
   const [selectedTargetId, setSelectedTargetId] = useState('');
   const [newTaskName, setNewTaskName] = useState('');
+  const [newFocusLabel, setNewFocusLabel] = useState('');
 
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
@@ -18,7 +19,11 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
 
   // Reset selection when modal opens
   useEffect(() => {
-    if (isOpen) { setSelectedTargetId(''); setNewTaskName(''); setMode('link'); }
+    if (isOpen) {
+      setSelectedTargetId(''); setNewTaskName(''); setMode('link');
+      // Pre-populate the new focus label from the target item's context
+      setNewFocusLabel(targetItem?.context || targetItem?.intent || targetItem?.title || '');
+    }
   }, [isOpen]);
 
   if (!isOpen || !targetItem) return null;
@@ -31,6 +36,14 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
   const handleSave = () => {
     if (type === 'tab' && mode === 'link') {
       chrome.runtime.sendMessage({ type: 'LINK_TAB_TO_INTENT', tabId: targetItem.id, targetIntentId: selectedTargetId });
+    } else if (type === 'tab' && mode === 'create') {
+      // Create a new focus item from this tab's intent
+      chrome.runtime.sendMessage({ type: 'ADD_FOCUS', label: newFocusLabel, timerMinutes: 15 }, (resp) => {
+        if (resp?.newFocusId) {
+          // Link the tab to the newly created focus
+          chrome.runtime.sendMessage({ type: 'LINK_TAB_TO_INTENT', tabId: targetItem.id, targetIntentId: resp.newFocusId });
+        }
+      });
     } else if (type === 'intent' && mode === 'link') {
       chrome.runtime.sendMessage({ type: 'LINK_INTENT_TO_TASK', intentId: targetItem.id, taskId: selectedTargetId, newTaskName });
     } else if (type === 'intent' && mode === 'merge') {
@@ -66,6 +79,9 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
             {/* Mode Tabs */}
             <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
               <button onClick={() => setMode('link')} style={tabBtn(mode === 'link')}>🔗 Link</button>
+              {type === 'tab' && (
+                <button onClick={() => setMode('create')} style={tabBtn(mode === 'create')}>➕ Create Focus</button>
+              )}
               {type === 'intent' && (
                 <button onClick={() => setMode('merge')} style={tabBtn(mode === 'merge')}>🔀 Merge</button>
               )}
@@ -83,6 +99,14 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
                     {intents.map(i => <option key={i.id} value={i.id}>{i.label} ({i.focusState || 'queued'})</option>)}
                   </select>
                 )}
+              </div>
+            )}
+
+            {/* Create focus from tab */}
+            {mode === 'create' && type === 'tab' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Name your new focus</label>
+                <input type="text" placeholder="Focus label..." value={newFocusLabel} onChange={e => setNewFocusLabel(e.target.value)} style={inputStyle} />
               </div>
             )}
 
@@ -135,9 +159,9 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
               <button onClick={onClose} style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Cancel</button>
-              <button onClick={handleSave} disabled={!selectedTargetId && !newTaskName}
-                style={{ padding: '6px 14px', background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, opacity: (!selectedTargetId && !newTaskName) ? 0.5 : 1 }}>
-                {mode === 'merge' ? 'Merge' : 'Link'}
+              <button onClick={handleSave} disabled={mode === 'create' ? !newFocusLabel.trim() : (!selectedTargetId && !newTaskName)}
+                style={{ padding: '6px 14px', background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, opacity: (mode === 'create' ? !newFocusLabel.trim() : (!selectedTargetId && !newTaskName)) ? 0.5 : 1 }}>
+                {mode === 'merge' ? 'Merge' : mode === 'create' ? '➕ Create Focus' : 'Link'}
               </button>
             </div>
           </GlassCard>

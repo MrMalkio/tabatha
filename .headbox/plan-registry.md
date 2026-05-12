@@ -18,7 +18,8 @@
 | 018 | — | 2026-05-11 | Asana Integration Module scaffold | draft |
 | 019 | distribution | 2026-05-12 | Tabatha + Desktop Companion distribution & update strategy | draft |
 | 020 | activity_editor | 2026-05-12 | Activity Editor + Timeline enhancements + InBar sync fix | draft |
+| 021 | intent_focus_pipeline | 2026-05-12 | Intent→Focus pipeline + Browser Profile defaults | draft |
 
 ---
 
-> **Next available number:** 021
+> **Next available number:** 022
