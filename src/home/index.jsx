@@ -577,6 +577,29 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
     await actions.startFocus(task.name, null, { task: task.id });
   };
 
+  // Task-specific stage stages (subset of focus stages)
+  const TASK_STAGES = {
+    unsorted: { icon: '📥', label: 'Unsorted', color: '#9e9e9e' },
+    backlog: { icon: '📋', label: 'Backlog', color: '#78909c' },
+    todo: { icon: '📝', label: 'Todo', color: '#64b5f6' },
+    focus: { icon: '🎯', label: 'Focused', color: '#ffa726' },
+    addressing: { icon: '⚡', label: 'Addressing', color: '#66bb6a' },
+    roadblocked: { icon: '🚧', label: 'Roadblocked', color: '#ef5350' },
+  };
+
+  const handleStageChange = async (taskId, stage) => {
+    const resp = await sendMessage('UPDATE_TASK', { taskId, updates: { funnelStage: stage } });
+    if (resp?.error) {
+      if (resp.needsConfirm) {
+        if (window.confirm(`⚠️ ${resp.error}`)) {
+          await sendMessage('UPDATE_TASK', { taskId, updates: { funnelStage: stage }, confirmed: true });
+        }
+      } else {
+        alert(`🚫 ${resp.error}`);
+      }
+    }
+  };
+
   // Merge legacy tasks + org registry tasks into one unified list
   const mergedTasks = useMemo(() => {
     const legacyIds = new Set(tasks.map(t => t.id));
@@ -705,7 +728,13 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
                         </>
                       ) : (
                         <>
-                          <div style={{ fontSize: '13px', fontWeight: 500, textDecoration: isCompleted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 500, textDecoration: isCompleted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{task.name}</div>
+                            {!isCompleted && (() => {
+                              const stage = TASK_STAGES[task.funnelStage || 'unsorted'] || TASK_STAGES.unsorted;
+                              return <span style={{ fontSize: '8px', padding: '1px 5px', borderRadius: '3px', background: stage.color + '22', color: stage.color, fontWeight: 600, flexShrink: 0 }}>{stage.icon} {stage.label}</span>;
+                            })()}
+                          </div>
                           {task.description && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{task.description}</div>}
                         </>
                       )}
@@ -742,8 +771,19 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
                     )}
                   </div>
                 </div>
+                {/* Task Stage Picker — shown for non-completed tasks */}
+                {!isCompleted && (
+                  <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                    {Object.entries(TASK_STAGES).map(([key, stage]) => (
+                      <button key={key} onClick={() => handleStageChange(task.id, key)}
+                        style={{ background: (task.funnelStage || 'unsorted') === key ? stage.color + '33' : 'transparent', border: `1px solid ${(task.funnelStage || 'unsorted') === key ? stage.color : 'var(--color-border)'}`, color: (task.funnelStage || 'unsorted') === key ? stage.color : 'var(--color-text-muted)', borderRadius: '3px', padding: '1px 5px', fontSize: '8px', cursor: 'pointer', fontWeight: (task.funnelStage || 'unsorted') === key ? 600 : 400 }}>
+                        {stage.icon} {stage.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {linked.length > 0 && (
-                  <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  <div style={{ marginTop: '4px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {linked.map(intent => (
                       <span key={intent.id} style={{ fontSize: '9px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', padding: '1px 6px', borderRadius: '3px' }}>🎯 {intent.label}</span>
                     ))}

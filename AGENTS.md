@@ -12,8 +12,8 @@
 
 ## Project State
 
-- **Current version:** 3.12.4-alpha
-- **Current focus:** v3.1.0 UX Overhaul — InBar edit dropdown, data retention, collapsible homepage, activity heatmap
+- **Current version:** 3.20.0
+- **Current focus:** v3.x Stabilization — State machine, task migration, display parity, ecosystem audit
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`

@@ -289,6 +289,11 @@ function Sidebar() {
                   </div>
                   <div style={{ display:'flex', gap:'4px', marginTop:'8px', flexWrap:'wrap' }}>
                     <Tooltip text="Mark as resolved"><button onClick={() => actions.completeFocus(activeFocus.id)} style={btn('#66bb6a')}>✓ Resolved</button></Tooltip>
+                    {activeFocus.focusState === 'active' ? (
+                      <Tooltip text="Pause focus"><button onClick={() => actions.pauseFocus(activeFocus.id)} style={btn('#ffa726')}>⏸ Pause</button></Tooltip>
+                    ) : activeFocus.focusState === 'paused' ? (
+                      <Tooltip text="Resume focus"><button onClick={() => actions.resumeFocus(activeFocus.id)} style={btn('#66bb6a')}>▶ Resume</button></Tooltip>
+                    ) : null}
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                   </div>
                   {/* Stage picker */}

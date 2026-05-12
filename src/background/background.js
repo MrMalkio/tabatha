@@ -2218,6 +2218,7 @@ async function handleMessage(message, sender) {
         projectId: message.projectId || null,
         clientId: message.clientId || null,
         status: 'active',
+        funnelStage: 'unsorted', // Tasks always start unsorted
         linkedIntents: [],
         createdAt: new Date().toISOString(),
         completedAt: null,
@@ -2234,7 +2235,47 @@ async function handleMessage(message, sender) {
       const { tabathaOrg } = await getStorage('tabathaOrg');
       const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
       if (org.tasks[message.taskId]) {
-        org.tasks[message.taskId] = { ...org.tasks[message.taskId], ...message.updates };
+        const task = org.tasks[message.taskId];
+        const updates = message.updates || {};
+
+        // ── TASK STAGE GATING ──
+        if (updates.funnelStage !== undefined) {
+          const from = task.funnelStage || 'unsorted';
+          const to = updates.funnelStage;
+          const TASK_STAGE_ORDER = { unsorted: 0, backlog: 1, todo: 2, focus: 3, addressing: 4, resolved: 5, roadblocked: 2.5 };
+          const fromOrder = TASK_STAGE_ORDER[from] ?? 0;
+          const toOrder = TASK_STAGE_ORDER[to] ?? 0;
+          const isBackward = toOrder < fromOrder;
+          const confirmed = !!message.confirmed;
+
+          // Gate 1: Nothing rolls back to unsorted
+          if (to === 'unsorted' && from !== 'unsorted') {
+            return { error: 'Tasks cannot roll back to unsorted', needsConfirm: false };
+          }
+
+          // Gate 2: todo → focus requires name and description
+          if (to === 'focus' && from === 'todo') {
+            if (!(task.name && task.name.trim()) || !(task.description && task.description.trim())) {
+              return { error: 'Task needs a name and description before entering focus', needsConfirm: false };
+            }
+          }
+
+          // Gate 3: focus → addressing requires confirmation
+          if (to === 'addressing' && (from === 'focus' || from === 'todo')) {
+            if (!confirmed) {
+              return { error: 'Moving to addressing will make this your active task. Confirm?', needsConfirm: true };
+            }
+          }
+
+          // Gate 4: Backward transitions require confirmation (except roadblocked → focus)
+          if (isBackward && !(from === 'roadblocked' && to === 'focus')) {
+            if (!confirmed) {
+              return { error: `Rolling task back from ${from} to ${to} requires confirmation`, needsConfirm: true };
+            }
+          }
+        }
+
+        org.tasks[message.taskId] = { ...task, ...updates };
         await setStorage({ tabathaOrg: org });
         const allTasks = Object.values(org.tasks).filter(t => !t.archived);
         broadcastMessage({ type: 'TASKS_UPDATED', tasks: allTasks });
@@ -2804,6 +2845,7 @@ async function migrateTasksToOrg() {
         projectId: task.projectId || null,
         clientId: task.clientId || null,
         status: status,
+        funnelStage: status === 'completed' ? 'resolved' : 'unsorted',
         createdAt: task.createdAt || new Date().toISOString(),
         completedAt: task.completedAt || null,
         archived: task.status === 'archived' || false,

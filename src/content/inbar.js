@@ -396,9 +396,18 @@
   const editDropdown = document.createElement('div');
   editDropdown.className = 'edit-dropdown';
   const buildFocusList = () => {
-    const items = (allFocusItems || []).map(f => {
+    // Filter out completed/resolved items — show only actionable focuses
+    const actionable = (allFocusItems || []).filter(f =>
+      f.focusState !== 'completed' && f.funnelStage !== 'resolved'
+    );
+    // Sort: active first, then paused, then the rest
+    const sorted = actionable.sort((a, b) => {
+      const order = { active: 0, paused: 1 };
+      return (order[a.focusState] ?? 2) - (order[b.focusState] ?? 2);
+    });
+    const items = sorted.map(f => {
       const stage = f.funnelStage || 'unsorted';
-      const stateIcon = f.focusState === 'active' ? '🎯' : f.focusState === 'paused' ? '⏸' : '';
+      const stateIcon = f.focusState === 'active' ? '🎯' : f.focusState === 'paused' ? '⏸' : '📋';
       const isActive = f.id === activeFocusId;
       return `<div class="focus-item${isActive ? ' active' : ''}" data-focus-id="${f.id}">
         <span>${stateIcon} ${f.label}</span>
@@ -415,7 +424,7 @@
         <button class="edit-save" id="edit-intent-save">Save</button>
       </div>
       <div class="edit-section">Assign to Focus</div>
-      <div id="focus-list">${buildFocusList()}</div>
+      <div id="focus-list" style="max-height:180px;overflow-y:auto;">${buildFocusList()}</div>
       <button class="new-focus-btn" id="new-focus-btn">+ Create new focus from this tab</button>
     </div>
   `;
