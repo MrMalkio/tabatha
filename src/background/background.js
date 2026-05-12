@@ -446,8 +446,12 @@ async function extendFocusTimer(focusId, extraMinutes = 5) {
   const item = engine.items[id];
   item.timerMinutes = (item.timerMinutes || 0) + extraMinutes;
   
-  // If drifted, transition back to active
+  // If drifted, transition back to active — flush elapsed first
   if (item.focusState === 'drifted') {
+    // Accumulate the time since last resume BEFORE resetting lastResumedAt
+    if (item.lastResumedAt) {
+      item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    }
     item.focusState = 'active';
     item.lastResumedAt = new Date().toISOString();
   }
