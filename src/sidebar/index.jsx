@@ -7,7 +7,8 @@ import { useFocusEngine, formatTimer, formatElapsed, FUNNEL_STAGES } from '../ho
 import { GlassCard } from '../components/ui/GlassCard';
 import { Tooltip } from '../components/ui/Tooltip';
 import { StagePicker } from '../components/ui/StagePicker';
-
+import { TagPicker } from '../components/ui/TagPicker';
+import { useOrgData } from '../hooks/useOrgData';
 import { formatTime } from '../utils/formatTime';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
@@ -119,12 +120,54 @@ function Sidebar() {
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [settings] = useChromeStorage('settings', {});
-  const { activeFocus, allItems, history, actions } = useFocusEngine();
+  const { activeFocus, allItems, history, actions, engine } = useFocusEngine();
+  const orgData = useOrgData();
   const [panel, setPanel] = useState('focus');
   const [search, setSearch] = useState('');
   const [focusInput, setFocusInput] = useState('');
   const [focusTimer, setFocusTimer] = useState(15);
   const [showNewIntent, setShowNewIntent] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editLabel, setEditLabel] = useState('');
+  const [editTimer, setEditTimer] = useState(15);
+  const [editFunnel, setEditFunnel] = useState('unsorted');
+  const [editTags, setEditTags] = useState({});
+
+  const { knownClients, knownProjects } = useMemo(() => {
+    const cls = new Set(['Self']);
+    const pjs = new Set();
+    for (const item of Object.values(engine?.items || {})) {
+      if (item.tags?.client) cls.add(item.tags.client);
+      if (item.tags?.project) pjs.add(item.tags.project);
+    }
+    orgData.clientList.forEach(c => cls.add(c.name));
+    orgData.projectList.forEach(p => pjs.add(p.name));
+    return { knownClients: [...cls], knownProjects: [...pjs] };
+  }, [engine, orgData.clientList, orgData.projectList]);
+
+  const openEdit = () => {
+    setEditLabel(activeFocus.label);
+    setEditTimer(activeFocus.timerMinutes || 15);
+    setEditFunnel(activeFocus.funnelStage || 'unsorted');
+    setEditTags(activeFocus.tags || {});
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    const resp = await actions.updateFocus(activeFocus.id, {
+      label: editLabel, timerMinutes: editTimer, funnelStage: editFunnel, tags: editTags,
+    });
+    if (resp?.error) {
+      if (resp.needsConfirm) {
+        if (window.confirm(`⚠️ ${resp.error}`)) {
+          await actions.updateFocus(activeFocus.id, { label: editLabel, timerMinutes: editTimer, funnelStage: editFunnel, tags: editTags, confirmed: true });
+        } else return;
+      } else { alert(`🚫 ${resp.error}`); return; }
+    }
+    setEditing(false);
+  };
+
+  const persistOrg = (key, data) => chrome.storage.local.set({ [key]: data });
 
   // Time tracking data arrives reactively via useChromeStorage — no polling needed
 
@@ -297,11 +340,47 @@ function Sidebar() {
                       <Tooltip text="Resume focus"><button onClick={() => actions.resumeFocus(activeFocus.id)} style={btn('#66bb6a')}>▶ Resume</button></Tooltip>
                     ) : null}
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
+                    <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
                   </div>
                   {/* Stage picker */}
                   <div style={{ marginTop:'6px' }}>
                     <StagePicker compact currentStage={activeFocus.funnelStage} onChange={(stage) => actions.updateFocus(activeFocus.id, { funnelStage: stage })} />
                   </div>
+                  {/* Inline edit panel */}
+                  <AnimatePresence>
+                    {editing && (
+                      <motion.div initial={{ height:0, opacity:0 }} animate={{ height:'auto', opacity:1 }} exit={{ height:0, opacity:0 }} transition={{ duration:0.15 }} style={{ overflow:'hidden' }}>
+                        <div style={{ marginTop:'8px', padding:'8px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', display:'flex', flexDirection:'column', gap:'6px' }}>
+                          <div>
+                            <label style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', display:'block', marginBottom:'1px' }}>Label</label>
+                            <input value={editLabel} onChange={e => setEditLabel(e.target.value)} style={{ width:'100%', padding:'3px 6px', fontSize:'11px', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', background:'var(--color-bg-base)', color:'var(--color-text-primary)', outline:'none', boxSizing:'border-box' }} />
+                          </div>
+                          <div style={{ display:'flex', gap:'6px' }}>
+                            <div style={{ flex:'0 0 55px' }}>
+                              <label style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', display:'block', marginBottom:'1px' }}>Timer</label>
+                              <input type="number" value={editTimer} onChange={e => setEditTimer(parseInt(e.target.value) || 15)} min={1} style={{ width:'100%', padding:'3px 6px', fontSize:'11px', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', background:'var(--color-bg-base)', color:'var(--color-text-primary)', outline:'none', boxSizing:'border-box' }} />
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', display:'block', marginBottom:'1px' }}>Stage</label>
+                              <select value={editFunnel} onChange={e => setEditFunnel(e.target.value)} style={{ width:'100%', padding:'3px 6px', fontSize:'11px', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', background:'var(--color-bg-base)', color:'var(--color-text-primary)', outline:'none' }}>
+                                {Object.entries(FUNNEL_STAGES).map(([key, val]) => (
+                                  <option key={key} value={key}>{val.icon} {val.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', display:'block', marginBottom:'2px' }}>Project / Client</label>
+                            <TagPicker tags={editTags} onChange={setEditTags} compact clients={knownClients} projects={knownProjects} tasks={[]} onPersist={persistOrg} orgData={orgData} />
+                          </div>
+                          <div style={{ display:'flex', gap:'4px' }}>
+                            <button onClick={saveEdit} style={btn('#66bb6a')}>💾 Save</button>
+                            <button onClick={() => setEditing(false)} style={{ background:'transparent', border:'none', color:'var(--color-text-muted)', cursor:'pointer', fontSize:'10px', padding:'2px' }}>✕ Cancel</button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </GlassCard>
               ) : null}
 

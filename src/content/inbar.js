@@ -384,6 +384,7 @@
       <div class="right">
         ${focusEndTime ? `<span class="timer timer-down" id="focus-countdown" title="Focus countdown">--:--</span>` : ''}
         <button class="bar-btn" id="edit-btn" title="Edit intent / Assign to focus">✏️</button>
+        <button class="bar-btn" id="refresh-btn" title="Refresh InBar state">🔄</button>
         <button class="bar-btn pause-btn" id="pause-btn" title="Pause — leave a note about where you left off">⏸</button>
         <button class="bar-btn note-btn" id="note-btn" title="Add note">📝</button>
         <button class="bar-btn" id="hide-bar" title="Collapse to nub">▾</button>
@@ -683,6 +684,40 @@
       };
     }
 
+    // ── Refresh button — manually re-fetch state ──
+    const refreshBtn = shadow.getElementById('refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.onclick = async () => {
+        try {
+          const res = await chrome.runtime.sendMessage({ type: 'GET_INBAR_DATA' });
+          if (!res) return;
+          tabContext = res.tabContext;
+          activeFocus = res.activeFocus;
+          allFocusItems = res.allFocusItems || [];
+          activeFocusId = res.activeFocusId || null;
+          tabIntent = tabContext?.context || tabContext?.intent || null;
+          focusLabel = activeFocus?.label || null;
+          intentLabel = tabIntent || focusLabel || null;
+          hasFocus = !!activeFocus;
+          hasContext = !!intentLabel;
+          if (activeFocus) {
+            focusEndTime = activeFocus.timerEndAt ? new Date(activeFocus.timerEndAt).getTime() : null;
+            taskTotalMs = activeFocus.totalTimeMs || 0;
+          }
+          intentStartTime = tabContext?.startedAt ? new Date(tabContext.startedAt).getTime() : Date.now();
+          if (!isPaused) {
+            bar.innerHTML = buildBarHTML();
+            intentTimerEl = shadow.getElementById('intent-timer');
+            taskTimerEl = shadow.getElementById('task-timer');
+            countdownEl = shadow.getElementById('focus-countdown');
+          }
+          const focusListEl = shadow.getElementById('focus-list');
+          if (focusListEl) focusListEl.innerHTML = buildFocusList();
+          bindBarEvents();
+        } catch (e) { /* refresh failed silently */ }
+      };
+    }
+
     // Save edited intent — updates local state + re-renders bar
     const editSaveBtn = shadow.getElementById('edit-intent-save');
     if (editSaveBtn) {
@@ -752,7 +787,7 @@
         const inp = shadow.getElementById('edit-intent-input');
         const label = inp?.value?.trim() || intentLabel || 'New Focus';
         try {
-          await chrome.runtime.sendMessage({ type: 'START_FOCUS', payload: { label, timer: 15 } });
+          await chrome.runtime.sendMessage({ type: 'START_FOCUS', label, timerMinutes: 15 });
           editDropdown.classList.remove('open');
         } catch (e) { /* send failed */ }
       };
