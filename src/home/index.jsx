@@ -260,7 +260,7 @@ function CollapsibleSection({ id, title, icon, defaultOpen = true, children, col
   const isOpen = collapsedSections ? !collapsedSections.includes(id) : defaultOpen;
 
   return (
-    <div style={{ marginBottom: isOpen ? '12px' : (compact ? '0' : '4px') }}>
+    <div id={`section-${id}`} style={{ marginBottom: isOpen ? '12px' : (compact ? '0' : '4px') }}>
       <button
         onClick={() => toggleSection?.(id)}
         style={{
@@ -531,9 +531,17 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
   };
 
   const handleDelete = async (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
+    // Search both legacy and org tasks
+    const legacyTask = tasks.find(t => t.id === taskId);
+    const orgTask = (orgData?.taskList || []).find(t => t.id === taskId);
+    const task = legacyTask || orgTask;
     if (!window.confirm(`Delete task "${task?.name || 'this task'}"? This cannot be undone.`)) return;
-    await sendMessage('DELETE_TASK', { taskId });
+    if (legacyTask) {
+      await sendMessage('DELETE_TASK', { taskId });
+    }
+    if (orgTask && orgData?.archiveEntity) {
+      await orgData.archiveEntity('tasks', taskId);
+    }
   };
 
   const startEdit = (task) => {
@@ -1637,10 +1645,32 @@ function Home() {
         tabs={tabs}
         orgData={orgData}
         onNavigate={(target) => {
-          if (target === 'focus') { /* scroll to top */ window.scrollTo(0, 0); }
-          else if (target === 'theme') { cycleTheme(); }
-          else if (target === 'clock') { /* handled by clock section */ }
-          else { setActivePanel(target); }
+          // Force-expand the relevant section if collapsed
+          const expandSection = (sectionId) => {
+            setCollapsedSections(prev => {
+              if (prev.includes(sectionId)) {
+                const next = prev.filter(s => s !== sectionId);
+                chrome?.storage?.local?.set?.({ collapsedSections: next });
+                return next;
+              }
+              return prev;
+            });
+          };
+
+          if (target === 'focus') {
+            expandSection('focus');
+            setTimeout(() => document.getElementById('section-focus')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+          } else if (target === 'theme') {
+            cycleTheme();
+          } else if (target === 'clock') {
+            expandSection('shift');
+            setTimeout(() => document.getElementById('section-shift')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+          } else {
+            // Tab panels: intents, tasks, projects, org, logs
+            expandSection('panels');
+            setActivePanel(target);
+            setTimeout(() => document.getElementById('section-panels')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+          }
         }}
       />
 

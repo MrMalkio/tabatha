@@ -209,3 +209,56 @@
   2. Add state machine validation to ensure legal transitions
   3. Both: audit + state machine + visual consistency pass ← **suggested**
 
+## 2026-05-12 — Sidebar Pause + Full Focus Engine Parity
+- **Noticed while:** User testing v3.17.18
+- **What:** Need ability to pause from sidebar. All focus engine features (set focus, break, switch, stage edit) should be available from sidebar.
+- **Why it matters:** Sidebar is a primary interface; limited functionality forces users back to homepage.
+- **Options:**
+  1. Mirror FocusBar + ShiftControls into sidebar with shared action handlers
+  2. Embed compact FocusBar component in sidebar header
+  3. Full sidebar rewrite with focus engine integration ← **suggested**
+
+## 2026-05-12 — Hide Shift Counter Toggle
+- **Noticed while:** User testing
+- **What:** Allow user to hide the shift counter/timer from the homepage.
+- **Why it matters:** Some users find the counter distracting or don't use shift tracking.
+- **Options:**
+  1. Settings toggle + conditional render ← **suggested**
+  2. User drags to dismiss
+
+## 2026-05-12 — Collapsed Shift Controls Clock/Break Icons
+- **Noticed while:** User testing
+- **What:** When Shift Controls are collapsed, clock in/out and break icons should still be visible next to the section title, and also in the header right column.
+- **Why it matters:** Essential actions hidden behind a click.
+- **Options:**
+  1. Inline action icons in CollapsibleSection header bar ← **suggested**
+  2. Floating mini-bar overlay
+  3. Both: inline + header pinning
+
+## 2026-05-12 — Sidebar Notepad Section
+- **Noticed while:** User testing
+- **What:** Users need a notepad section at the bottom of the sidebar to create multiple notes. Should aggregate notes from InBar paused-tab notes.
+- **Why it matters:** Notes are scattered across pause prompts and InBar; no central place to view/create.
+- **Options:**
+  1. Notepad panel in sidebar with tabbed notes + aggregation from chrome.storage
+  2. Floating note widget accessible from any view
+  3. Sidebar panel + auto-import from paused tab notes ← **suggested**
+
+## 2026-05-12 — Group Focus Tabs to Own Window
+- **Noticed while:** User testing
+- **What:** User should be able to group all tabs from a focus/session into their own browser window.
+- **Why it matters:** Physical separation of contexts improves focus discipline.
+- **Options:**
+  1. Button on focus card: 'Open as Window' → chrome.windows.create with tab IDs
+  2. Right-click context menu on focus items
+  3. Both button + context menu ← **suggested**
+
+## 2026-05-12 — Panels Full-Screen Expand
+- **Noticed while:** User testing
+- **What:** When panels (intents/tasks/etc.) are expanded, the top should scroll up so panels become the main focus area, filling the screen.
+- **Why it matters:** Panels are cramped at bottom; full expansion gives workspace feel.
+- **Options:**
+  1. CSS scroll-snap to panels section when expanded
+  2. Dedicated full-screen panel mode with minimize button
+  3. Auto-scroll to top of panels section when opened ← **suggested**
+

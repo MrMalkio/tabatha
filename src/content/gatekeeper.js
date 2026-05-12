@@ -318,8 +318,9 @@
 
   const handlePresetClick = async (presetLabel, focusId = null) => {
     const typed = ctxInput.value.trim();
-    let context = presetLabel;
-    if (typed) context = `${presetLabel} — ${typed}`;
+    // If user typed something AND clicked a preset, the typed text is the tab's context
+    // and the preset becomes the parent focus (not concatenated)
+    const context = typed || presetLabel;
 
     await chrome.runtime.sendMessage({
       type: 'SET_TAB_CONTEXT', context,
@@ -328,8 +329,16 @@
 
     if (focusId) {
       await chrome.runtime.sendMessage({ type: 'ASSOCIATE_TAB_WITH_FOCUS', focusId }).catch(() => {});
+    } else if (typed && typed.toLowerCase() !== presetLabel.toLowerCase()) {
+      // User typed a new intent and clicked a recent/common preset as context group
+      // Set the preset as the parent context for this tab
+      await chrome.runtime.sendMessage({
+        type: 'SET_TAB_CONTEXT', context: typed,
+        category: 'work', intent: 'child_of_preset',
+        parentContext: presetLabel
+      }).catch(() => {});
     }
-    await logAction(focusId ? 'inherit' : 'continue', { context, focusId });
+    await logAction(focusId ? 'inherit' : 'continue', { context, focusId, parentContext: typed ? presetLabel : null });
     closeOverlay();
   };
 
