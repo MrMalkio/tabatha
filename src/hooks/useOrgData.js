@@ -94,7 +94,7 @@ export function useOrgData() {
 
   const addTask = useCallback(async (name, projectId = null, clientId = null) => {
     const id = genId();
-    const updated = { ...org, tasks: { ...org.tasks, [id]: { id, name, projectId, clientId, status: 'open', createdAt: new Date().toISOString(), archived: false } } };
+    const updated = { ...org, tasks: { ...org.tasks, [id]: { id, name, projectId, clientId, status: 'active', createdAt: new Date().toISOString(), archived: false } } };
     await save(updated);
     return id;
   }, [org, save]);
@@ -168,7 +168,7 @@ export function useOrgData() {
   }, [projectList, addProject]);
 
   const findOrCreateTask = useCallback(async (name, projectId = null, clientId = null) => {
-    const existing = taskList.find(t => t.name.toLowerCase() === name.toLowerCase() && t.status !== 'complete');
+    const existing = taskList.find(t => t.name.toLowerCase() === name.toLowerCase() && t.status !== 'completed');
     if (existing) return existing.id;
     return addTask(name, projectId, clientId);
   }, [taskList, addTask]);

@@ -262,3 +262,20 @@
   2. Dedicated full-screen panel mode with minimize button
   3. Auto-scroll to top of panels section when opened ← **suggested**
 
+## 2026-05-12 — Focus State Machine + Terminology Refinement
+- **Noticed while:** Inconsistency audit review
+- **What:** Need formal state machine for focus stage transitions with rollback rules. Also need to clarify terminology: 'In Focus' (current priorities) vs 'The Focus'/'Primary Focus' (the one thing being addressed). This enables context-switch detection and auto-pause/resume.
+- **Why it matters:** Currently any stage can transition to any other, creating impossible states. Terminology confusion between 'focus' and 'addressing' prevents automatic mismatch detection when user bounces between tabs.
+- **Rules proposed by user:**
+  1. Roadblocked can roll back to Focused
+  2. Resolved should not roll back (unless accidental — confirmation required)
+  3. Addressing/Focus do not roll back to Todo
+  4. Nothing rolls back to Unsorted
+  5. Rolling backward requires confirmation dialog
+  6. 'In Focus' requires title + description
+  7. 'Addressing' = the single thing getting active attention
+- **Options:**
+  1. State machine in UPDATE_FOCUS with transition matrix and confirmation prompts
+  2. Full terminology rename across UI (focus → in focus, addressing → primary focus) 
+  3. Both: state machine + terminology + context-switch detection ← **suggested**
+

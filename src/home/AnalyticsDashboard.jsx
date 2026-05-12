@@ -82,7 +82,7 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
 
     // Task stats from org
     const totalTasks = orgData?.taskList?.length || 0;
-    const openTasks = orgData?.taskList?.filter(t => t.status !== 'complete' && t.status !== 'completed')?.length || 0;
+    const openTasks = orgData?.taskList?.filter(t => t.status !== 'completed')?.length || 0;
 
     // Category time breakdown
     const categoryTimes = [];

@@ -338,7 +338,7 @@ function Sidebar() {
                   {history.slice(0,5).map((item,i) => (
                     <div key={item.id||i} style={{ display:'flex', justifyContent:'space-between', padding:'3px 0', borderBottom:'1px solid var(--color-border)', fontSize:'10px' }}>
                       <span style={{ color: item.focusState==='drifted' ? '#ef5350' : 'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
-                        {item.focusState==='drifted' ? '⚠️' : '✅'} {item.label}
+                        {item.focusState==='drifted' ? '⚠️' : item.funnelStage === 'resolved' ? '🏁' : '✅'} {item.label}
                       </span>
                       <span style={{ color:'var(--color-text-muted)', fontVariantNumeric:'tabular-nums', flexShrink:0, marginLeft:'6px' }}>{formatElapsed(item.elapsedMs)}</span>
                     </div>

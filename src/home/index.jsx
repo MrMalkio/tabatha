@@ -222,12 +222,13 @@ function FocusQueue({ items, actions }) {
       {items.map(item => {
         const funnel = FUNNEL_STAGES[item.funnelStage] || FUNNEL_STAGES.unsorted;
         return (
-          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', borderLeft: item.focusState === 'paused' ? '3px solid #ffa726' : undefined }}>
+          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', borderLeft: item.focusState === 'paused' ? '3px solid #ffa726' : `3px solid ${funnel.color}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => item.focusState === 'paused' ? actions.resumeFocus(item.id) : actions.switchFocus(item.id)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                <span style={{ fontSize: '10px', color: item.focusState === 'paused' ? '#ffa726' : funnel.color }}>{item.focusState === 'paused' ? '⏸' : funnel.icon}</span>
+                <span style={{ fontSize: '10px', color: funnel.color }}>{funnel.icon}</span>
                 <span style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                <span style={{ fontSize: '10px', color: item.focusState === 'paused' ? '#ffa726' : 'var(--color-text-muted)', textTransform: 'capitalize' }}>{item.focusState}</span>
+                {item.focusState === 'paused' && <span style={{ fontSize: '9px', color: '#ffa726' }}>⏸</span>}
+                <span style={{ fontSize: '10px', color: funnel.color, textTransform: 'capitalize' }}>{item.funnelStage || 'unsorted'}</span>
               </div>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                 {item.focusState === 'paused' ? (
@@ -304,7 +305,8 @@ function FocusHistory({ history }) {
       {shown.map((item, i) => (
         <div key={item.id || i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--color-border)', fontSize: '12px' }}>
           <span style={{ color: item.focusState === 'drifted' ? '#ef5350' : 'var(--color-text-primary)' }}>
-            {item.focusState === 'drifted' ? '⚠️' : '✅'} {item.label}
+            {item.focusState === 'drifted' ? '⚠️' : item.funnelStage === 'resolved' ? '🏁' : '✅'} {item.label}
+            {item.funnelStage && <span style={{ fontSize: '9px', marginLeft: '4px', color: 'var(--color-text-muted)' }}>({item.funnelStage})</span>}
           </span>
           <span style={{ color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums' }}>{formatElapsed(item.elapsedMs)}</span>
         </div>
@@ -326,7 +328,7 @@ function FocusInput({ onStart, orgData, clients, projects }) {
 
   const taskOptions = useMemo(() => {
     if (!orgData) return [];
-    return orgData.taskList.filter(t => t.status !== 'complete').map(t => t.name);
+    return orgData.taskList.filter(t => t.status !== 'completed').map(t => t.name);
   }, [orgData]);
 
   const addTask = (name) => {
@@ -580,7 +582,7 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
 
   const filtered = useMemo(() => {
     if (filter === 'all') return mergedTasks;
-    return mergedTasks.filter(t => t.status === filter || (filter === 'completed' && t.status === 'complete'));
+    return mergedTasks.filter(t => t.status === filter);
   }, [mergedTasks, filter]);
 
   // Find linked intents for each task
@@ -860,8 +862,10 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => toggle(intent.id)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
                   <span style={{ fontSize: '14px' }}>
-                    {intent.focusState === 'active' ? '🎯' : intent.focusState === 'paused' ? '⏸' : '📝'}
+                    {(FUNNEL_STAGES[intent.funnelStage] || FUNNEL_STAGES.unsorted).icon}
                   </span>
+                  {intent.focusState === 'active' && <span style={{ fontSize: '9px' }} title="Currently active">🎯</span>}
+                  {intent.focusState === 'paused' && <span style={{ fontSize: '9px' }} title="Paused">⏸</span>}
                   {editingId === intent.id ? (
                     <input
                       autoFocus
@@ -1310,7 +1314,7 @@ function Home() {
           {activeFocus ? (
             <>
               <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects}
-              tasks={orgData.taskList.filter(t => t.status !== 'complete').map(t => t.name)}
+              tasks={orgData.taskList.filter(t => t.status !== 'completed').map(t => t.name)}
               orgData={orgData}
               onPersist={(field, value) => {
                 if (field === 'client') orgData.findOrCreateClient(value);

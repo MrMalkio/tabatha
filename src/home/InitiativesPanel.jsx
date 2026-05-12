@@ -62,10 +62,10 @@ export function InitiativesPanel({ orgData }) {
 
   // ── Render a task row ──
   const TaskRow = ({ task, level }) => (
-    <div style={{ ...indent(level), display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px', fontSize: '11px', borderBottom: '1px solid var(--color-border)', opacity: task.status === 'complete' ? 0.5 : 1 }}>
+    <div style={{ ...indent(level), display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px', fontSize: '11px', borderBottom: '1px solid var(--color-border)', opacity: task.status === 'completed' ? 0.5 : 1 }}>
       <span style={{ color: 'var(--color-text-muted)' }}>✏️</span>
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'complete' ? 'line-through' : 'none' }}>{task.name}</span>
-      <span style={{ fontSize: '8px', color: task.status === 'complete' ? '#66bb6a' : 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>{task.status}</span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'completed' ? 'line-through' : 'none' }}>{task.name}</span>
+      <span style={{ fontSize: '8px', color: task.status === 'completed' ? '#66bb6a' : 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>{task.status}</span>
     </div>
   );
 

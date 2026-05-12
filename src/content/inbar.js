@@ -397,11 +397,12 @@
   editDropdown.className = 'edit-dropdown';
   const buildFocusList = () => {
     const items = (allFocusItems || []).map(f => {
-      const stateClass = f.focusState === 'active' ? 'active' : f.focusState === 'paused' ? 'paused' : 'queued';
+      const stage = f.funnelStage || 'unsorted';
+      const stateIcon = f.focusState === 'active' ? '🎯' : f.focusState === 'paused' ? '⏸' : '';
       const isActive = f.id === activeFocusId;
       return `<div class="focus-item${isActive ? ' active' : ''}" data-focus-id="${f.id}">
-        <span>${f.label}</span>
-        <span class="focus-state ${stateClass}">${f.focusState}</span>
+        <span>${stateIcon} ${f.label}</span>
+        <span class="focus-state queued">${stage}</span>
       </div>`;
     }).join('');
     return items || '<div style="font-size:10px;color:#555;padding:4px;">No focus items yet</div>';

@@ -89,7 +89,7 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
           const itemId = item.id;
           items.push({
             type: 'focus', icon: item.type === 'intent' ? '🎯' : '🔵', label,
-            subtitle: item.focusState || item.stage || '',
+            subtitle: `${item.funnelStage || 'unsorted'}${item.focusState ? ` · ${item.focusState}` : ''}`,
             score: fuzzyScore(label, query),
             actionFn: () => {
               // Switch to this focus, then navigate to intents tab

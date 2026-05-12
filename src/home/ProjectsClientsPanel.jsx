@@ -36,7 +36,7 @@ export function ProjectsClientsPanel({ orgData }) {
   const tabs = [
     { key: 'clients', label: 'Clients', icon: '👤', count: clientList.length },
     { key: 'projects', label: 'Projects', icon: '📁', count: projectList.length },
-    { key: 'tasks', label: 'Tasks', icon: '✅', count: taskList.filter(t => t.status !== 'complete').length },
+    { key: 'tasks', label: 'Tasks', icon: '✅', count: taskList.filter(t => t.status !== 'completed').length },
   ];
 
   const handleAdd = async () => {
@@ -82,11 +82,11 @@ export function ProjectsClientsPanel({ orgData }) {
                     <span style={{ fontSize: '9px', color: 'var(--color-text-muted)' }}>{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
                   </div>
                   {tasks.map(t => (
-                    <div key={t.id} style={{ paddingLeft: '12px', fontSize: '11px', color: t.status === 'complete' ? 'var(--color-text-muted)' : 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 0 2px 12px' }}>
-                      <span style={{ cursor: 'pointer' }} onClick={() => updateEntity('tasks', t.id, { status: t.status === 'complete' ? 'open' : 'complete' })}>
-                        {t.status === 'complete' ? '☑️' : '☐'}
+                    <div key={t.id} style={{ paddingLeft: '12px', fontSize: '11px', color: t.status === 'completed' ? 'var(--color-text-muted)' : 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 0 2px 12px' }}>
+                      <span style={{ cursor: 'pointer' }} onClick={() => updateEntity('tasks', t.id, { status: t.status === 'completed' ? 'active' : 'completed' })}>
+                        {t.status === 'completed' ? '☑️' : '☐'}
                       </span>
-                      <span style={{ textDecoration: t.status === 'complete' ? 'line-through' : 'none' }}>{t.name}</span>
+                      <span style={{ textDecoration: t.status === 'completed' ? 'line-through' : 'none' }}>{t.name}</span>
                     </div>
                   ))}
                 </div>
@@ -124,10 +124,10 @@ export function ProjectsClientsPanel({ orgData }) {
           <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
             {tasks.map(t => (
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', fontSize: '12px' }}>
-                <span style={{ cursor: 'pointer' }} onClick={() => updateEntity('tasks', t.id, { status: t.status === 'complete' ? 'open' : 'complete' })}>
-                  {t.status === 'complete' ? '☑️' : '☐'}
+                <span style={{ cursor: 'pointer' }} onClick={() => updateEntity('tasks', t.id, { status: t.status === 'completed' ? 'active' : 'completed' })}>
+                  {t.status === 'completed' ? '☑️' : '☐'}
                 </span>
-                <span style={{ flex: 1, textDecoration: t.status === 'complete' ? 'line-through' : 'none', color: t.status === 'complete' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>{t.name}</span>
+                <span style={{ flex: 1, textDecoration: t.status === 'completed' ? 'line-through' : 'none', color: t.status === 'completed' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>{t.name}</span>
                 <Tooltip text="Archive"><button onClick={() => archiveEntity('tasks', t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: 'var(--color-text-muted)', padding: 0 }}>✕</button></Tooltip>
               </div>
             ))}
@@ -147,10 +147,10 @@ export function ProjectsClientsPanel({ orgData }) {
     const client = task.clientId ? clientList.find(c => c.id === task.clientId) : null;
     return (
       <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderBottom: '1px solid var(--color-border)', fontSize: '12px' }}>
-        <span style={{ cursor: 'pointer', fontSize: '14px' }} onClick={() => updateEntity('tasks', task.id, { status: task.status === 'complete' ? 'open' : 'complete' })}>
-          {task.status === 'complete' ? '☑️' : '☐'}
+        <span style={{ cursor: 'pointer', fontSize: '14px' }} onClick={() => updateEntity('tasks', task.id, { status: task.status === 'completed' ? 'active' : 'completed' })}>
+          {task.status === 'completed' ? '☑️' : '☐'}
         </span>
-        <span style={{ flex: 1, textDecoration: task.status === 'complete' ? 'line-through' : 'none', color: task.status === 'complete' ? 'var(--color-text-muted)' : 'var(--color-text-primary)', fontWeight: 500 }}>
+        <span style={{ flex: 1, textDecoration: task.status === 'completed' ? 'line-through' : 'none', color: task.status === 'completed' ? 'var(--color-text-muted)' : 'var(--color-text-primary)', fontWeight: 500 }}>
           {task.name}
         </span>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -237,24 +237,24 @@ export function ProjectsClientsPanel({ orgData }) {
         )}
         {activeTab === 'tasks' && (
           <motion.div key="tasks" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {taskList.filter(t => t.status !== 'complete').length === 0 ? (
+            {taskList.filter(t => t.status !== 'completed').length === 0 ? (
               <GlassCard style={{ padding: '20px', textAlign: 'center' }}>
                 <div style={{ fontSize: '24px', marginBottom: '6px' }}>✅</div>
                 <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', margin: 0 }}>All tasks complete! Add a new one to keep going.</p>
               </GlassCard>
             ) : (
               <GlassCard style={{ padding: '0', overflow: 'hidden' }}>
-                {taskList.filter(t => t.status !== 'complete').map(renderTask)}
+                {taskList.filter(t => t.status !== 'completed').map(renderTask)}
               </GlassCard>
             )}
             {/* Completed section */}
-            {taskList.filter(t => t.status === 'complete').length > 0 && (
+            {taskList.filter(t => t.status === 'completed').length > 0 && (
               <div style={{ marginTop: '8px' }}>
                 <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '4px' }}>
-                  Completed ({taskList.filter(t => t.status === 'complete').length})
+                  Completed ({taskList.filter(t => t.status === 'completed').length})
                 </div>
                 <GlassCard style={{ padding: '0', overflow: 'hidden', opacity: 0.6 }}>
-                  {taskList.filter(t => t.status === 'complete').slice(0, 10).map(renderTask)}
+                  {taskList.filter(t => t.status === 'completed').slice(0, 10).map(renderTask)}
                 </GlassCard>
               </div>
             )}

@@ -72,8 +72,9 @@ See `.headbox/workspace-map.md` for the full project file tree.
 6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.
 7. **Practice progressive disclosure.** Do NOT read every file. Read what you need.
 8. **Check `.headbox/sticky-notes/`** at session start for notes left by other agents or humans.
-9. **Number Implementation Plans** — Always uniquely name your implementation plans with a version number (e.g. `implementation_plan_011.md`). Not uniquely naming them will overwrite other files in the same project.
+9. **Number Implementation Plans** — Always uniquely name your implementation plans with an incrementing number AND a descriptive suffix (e.g. `implementation_plan_019_distribution.md`). Before naming, **check `.headbox/plan-registry.md`** for the latest number. Never reuse or overwrite an existing plan number — if a collision occurs, append a letter (e.g. `_012b`) or further context.
 10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion. Format: `> **Current version:** X.Y.Z → **Target version:** X.Y.Z`. **Versioning calculation:** Count all fixes (patch), minor features, and major/breaking changes in the plan. The target version is calculated additively: `MAJOR.+MINOR_COUNT.+FIX_COUNT`. Example: if current is `1.0.0` and the plan has 3 minor features and 4 fixes, the target is `1.3.4`. Major version increments only for breaking/architectural changes.
+11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status (draft/approved/completed/superseded). Check this registry before choosing a plan number.
 
 ---
 
@@ -115,6 +116,12 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 1. Update all known task(s) with a progress comment.
 2. Include: what was done, what's next, references to artifacts with file paths.
 3. If no task is known, ask the user if there's one to associate.
+
+---
+
+## Implementation Plan Registry
+
+See `.headbox/plan-registry.md` for the full list of implementation plans created across all conversations. **Always check this file before numbering a new plan.**
 
 ---
 
