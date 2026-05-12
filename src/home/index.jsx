@@ -558,9 +558,15 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
   // Merge legacy tasks + org registry tasks into one unified list
   const mergedTasks = useMemo(() => {
     const legacyIds = new Set(tasks.map(t => t.id));
+    // Normalize org task status: 'open' → 'active', 'complete' → 'completed'
+    const normalizeStatus = (s) => {
+      if (s === 'open' || !s) return 'active';
+      if (s === 'complete') return 'completed';
+      return s;
+    };
     const orgTasks = (orgData?.taskList || [])
       .filter(t => !legacyIds.has(t.id)) // avoid duplicates
-      .map(t => ({ ...t, status: t.status === 'complete' ? 'completed' : (t.status || 'active'), source: 'org' }));
+      .map(t => ({ ...t, status: normalizeStatus(t.status), source: 'org' }));
     return [...tasks.map(t => ({ ...t, source: 'legacy' })), ...orgTasks];
   }, [tasks, orgData?.taskList]);
 
@@ -912,7 +918,19 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                     <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '4px' }}>Stage</div>
                     <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                       {Object.entries(FUNNEL_STAGES).map(([key, stage]) => (
-                        <button key={key} onClick={(e) => { e.stopPropagation(); actions.updateFocus(intent.id, { funnelStage: key }); }}
+                        <button key={key} onClick={async (e) => {
+                          e.stopPropagation();
+                          if (intent.isFocusItem) {
+                            // Direct update for focus engine items
+                            actions.updateFocus(intent.id, { funnelStage: key });
+                          } else {
+                            // History intent — promote to focus item first, then set stage
+                            const result = await actions.startFocus(intent.label, null, intent.tags);
+                            if (result?.focusId) {
+                              actions.updateFocus(result.focusId, { funnelStage: key });
+                            }
+                          }
+                        }}
                           style={{ background: intent.funnelStage === key ? stage.color + '33' : 'transparent', border: `1px solid ${intent.funnelStage === key ? stage.color : 'var(--color-border)'}`, color: intent.funnelStage === key ? stage.color : 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', cursor: 'pointer', fontWeight: intent.funnelStage === key ? 600 : 400 }}>
                           {stage.icon} {stage.label}
                         </button>

@@ -86,11 +86,16 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
       for (const item of allItems.slice(0, 50)) {
         const label = item.label || item.name || 'Unnamed';
         if (fuzzyMatch(label, query)) {
+          const itemId = item.id;
           items.push({
             type: 'focus', icon: item.type === 'intent' ? '🎯' : '🔵', label,
             subtitle: item.focusState || item.stage || '',
             score: fuzzyScore(label, query),
-            actionFn: () => navigate('intents'),
+            actionFn: () => {
+              // Switch to this focus, then navigate to intents tab
+              actionsRef.current?.switchFocus?.(itemId);
+              navigate('intents');
+            },
           });
         }
       }
