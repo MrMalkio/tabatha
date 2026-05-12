@@ -87,11 +87,16 @@ export default function UnifiedTimeline({ compact = false }) {
     return () => chrome.storage.local.onChanged.removeListener(listener);
   }, []);
 
-  // Process sessions into timeline segments
+  // Process sessions into timeline segments — filtered to TODAY only
   const { segments, timeRange, categoryTotals } = useMemo(() => {
     if (!sessions.length) return { segments: [], timeRange: null, categoryTotals: {} };
 
-    // Filter to completed sessions with duration
+    // Today's date boundaries (midnight to midnight)
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEnd = todayStart + 86400000;
+
+    // Filter to completed sessions with duration, TODAY ONLY
     const completed = sessions
       .filter(s => s.duration_ms > 0 && (s.started_at || s.startedAt))
       .map(s => ({
@@ -100,6 +105,7 @@ export default function UnifiedTimeline({ compact = false }) {
         endMs: new Date(s.ended_at || s.endedAt || s.started_at || s.startedAt).getTime(),
         durationMs: s.duration_ms,
       }))
+      .filter(s => s.startMs >= todayStart && s.startMs < todayEnd)
       .sort((a, b) => a.startMs - b.startMs);
 
     if (!completed.length) return { segments: [], timeRange: null, categoryTotals: {} };
@@ -220,7 +226,7 @@ export default function UnifiedTimeline({ compact = false }) {
           alignItems: 'center',
           gap: '6px',
         }}>
-          🖥️ Desktop Activity
+          🖥️ Desktop Activity — Today
           <span style={{
             fontSize: '9px',
             opacity: 0.7,
