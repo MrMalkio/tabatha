@@ -68,7 +68,7 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     // Static actions
     const staticActions = [
       { type: 'action', icon: '🎯', label: 'Set new focus', actionFn: () => navigate('focus') },
-      { type: 'action', icon: '☕', label: 'Take a break', actionFn: () => { actionsRef.current?.toggleBreak?.(); close(); } },
+      { type: 'action', icon: '☕', label: 'Take a break', actionFn: () => { chrome.runtime.sendMessage({ type: 'TOGGLE_BREAK' }); close(); } },
       { type: 'action', icon: '⏱', label: 'Clock in/out', actionFn: () => navigate('clock') },
       { type: 'action', icon: '📋', label: 'Create new task', actionFn: () => navigate('tasks') },
       { type: 'action', icon: '🏢', label: 'View projects', actionFn: () => navigate('projects') },

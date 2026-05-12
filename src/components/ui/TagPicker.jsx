@@ -19,6 +19,12 @@ const REALM_OPTIONS = ['business', 'personal'];
 export function TagPicker({ tags = {}, onChange, clients = [], projects = [], tasks = [], compact = true, onPersist, orgData }) {
   const [expanded, setExpanded] = useState(false);
 
+  // Persist a NEW entry to the org registry — only called on explicit submit (Enter/dropdown)
+  const handlePersistNew = (field, value) => {
+    if (!onPersist || !value?.trim() || field === 'realm') return;
+    onPersist(field, value.trim());
+  };
+
   const handleChange = (field, value) => {
     const updated = { ...tags, [field]: value };
     // Auto-set "Self" as client when switching to personal realm
@@ -55,9 +61,19 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
       }
     }
     onChange(updated);
-    // Persist new entries to org registry if provided
+    // Persist new entries to org registry ONLY when selecting an existing option
+    // (not on every keystroke — that creates a task per character!)
     if (onPersist && value && field !== 'realm') {
-      onPersist(field, value);
+      // Only persist if the value matches an existing option (user selected from dropdown)
+      const isExistingOption = (() => {
+        if (field === 'client') return clients.some(c => c.toLowerCase() === value.toLowerCase());
+        if (field === 'project') return projects.some(p => p.toLowerCase() === value.toLowerCase());
+        if (field === 'task') return tasks.some(t => t.toLowerCase() === value.toLowerCase());
+        return false;
+      })();
+      if (isExistingOption) {
+        onPersist(field, value);
+      }
     }
   };
 
@@ -150,6 +166,7 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
             label="Client"
             value={tags.client || ''}
             onChange={(v) => handleChange('client', v)}
+            onSubmit={(v) => handlePersistNew('client', v)}
             options={clientOptions}
             placeholder="Client name"
             icon="👤"
@@ -164,6 +181,7 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
             label="Project"
             value={tags.project || ''}
             onChange={(v) => handleChange('project', v)}
+            onSubmit={(v) => handlePersistNew('project', v)}
             options={projects}
             placeholder="Project"
             icon="📁"
@@ -177,6 +195,7 @@ export function TagPicker({ tags = {}, onChange, clients = [], projects = [], ta
           label="Task"
           value={tags.task || ''}
           onChange={(v) => handleChange('task', v)}
+          onSubmit={(v) => handlePersistNew('task', v)}
           options={tasks}
           placeholder="Task name"
           icon="✏️"

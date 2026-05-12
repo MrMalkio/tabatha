@@ -155,3 +155,57 @@
 - **Why it matters:** Blocks cloud sync.
 - **Options:**
   1. Verify Supabase Auth settings + use chrome.identity for extension ← **suggested**
+## 2026-05-12 — Bulk Task Editing
+- **Noticed while:** T2.3 testing
+- **What:** User wants bulk editing capabilities for tasks (multi-select, bulk stage change, bulk delete, bulk move to project).
+- **Why it matters:** Productivity — managing many tasks individually is time-consuming.
+- **Options:**
+  1. Checkbox column + bulk actions toolbar
+  2. Shift+click range select + floating toolbar
+  3. Combined approach with keyboard shortcuts ← **suggested**
+
+## 2026-05-12 — In-Browser Centered Alert Overlay
+- **Noticed while:** T4.4 notification testing
+- **What:** User wants alerts to appear center-of-browser (not just OS notifications). Each alert type should be configurable (intrusive modal vs. toast vs. OS notification). Users should be able to create custom alerts.
+- **Why it matters:** OS notifications are easy to miss or may be on DND. In-browser overlays ensure focus-critical alerts reach the user.
+- **Options:**
+  1. Build overlay layer in content script with alert type registry
+  2. Use popup/dialog approach in extension pages only
+  3. Hybrid: content script overlay for active tabs + extension page modals ← **suggested**
+
+## 2026-05-12 — FlipClock Style Consistency
+- **Noticed while:** UI review
+- **What:** FlipClock/counter component doesn't match the overall theme/design language.
+- **Why it matters:** Visual inconsistency undermines premium feel.
+- **Options:**
+  1. Restyle FlipClock with current theme tokens (glass, accent colors)
+  2. Replace with simpler digital counter that uses theme vars
+  3. Add theme-aware variant system to FlipClock ← **suggested**
+
+## 2026-05-12 — Personal Realm Projects + Tags
+- **Noticed while:** Intent creation
+- **What:** Projects should be available for personal realm intents (not just business). Add optional personal project tags: hobby, family, self-improvement, etc.
+- **Why it matters:** Personal time tracking is equally important for life management.
+- **Options:**
+  1. Remove realm gating on projects, add personal-specific tag presets
+  2. Create separate 'Personal Projects' entity type
+  3. Extend existing project system with realm-aware defaults ← **suggested**
+
+## 2026-05-12 — Retroactive Time Entry Editing
+- **Noticed while:** Usage review
+- **What:** Users need ability to retroactively add/edit time entries (forgot to clock in, forgot to set focus, etc.). Entries should show as 'manually edited'. Admin should control who can add/remove this capability for sub-users.
+- **Why it matters:** Real-world usage involves forgetting to track — this is critical for accurate time records.
+- **Options:**
+  1. Manual entry form in Work Shifts view with 'edited' badge + admin toggle
+  2. Inline edit on timeline with audit trail
+  3. Dedicated 'Time Corrections' panel with approval workflow for teams ← **suggested**
+
+## 2026-05-12 — Inconsistency Audit
+- **Noticed while:** Paused intent stage editing
+- **What:** User reported that paused intents show 'paused' instead of the updated stage. Broader inconsistency audit requested across the application.
+- **Why it matters:** Inconsistencies erode user trust and create confusion about system state.
+- **Options:**
+  1. Systematic audit: check all focusState/funnelStage display points for precedence issues
+  2. Add state machine validation to ensure legal transitions
+  3. Both: audit + state machine + visual consistency pass ← **suggested**
+

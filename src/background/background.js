@@ -312,7 +312,7 @@ async function addFocus(label, timerMinutes = 15, tags = {}) {
   const engine = await getFocusEngine();
   const id = generateFocusId();
   
-  // Add without interrupting active — new item starts as 'todo'
+  // Add without interrupting active — new item starts as 'paused'
   engine.items[id] = {
     id,
     label,
@@ -334,7 +334,7 @@ async function addFocus(label, timerMinutes = 15, tags = {}) {
   
   await setFocusEngine(engine);
   broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
-  return engine;
+  return { engine, newFocusId: id };
 }
 
 async function switchFocus(focusId) {
@@ -2252,8 +2252,10 @@ async function handleMessage(message, sender) {
       return { focusEngine: result };
     }
     
-    case 'ADD_FOCUS':
-      return { focusEngine: await addFocus(message.label, message.timerMinutes, message.tags) };
+    case 'ADD_FOCUS': {
+      const result = await addFocus(message.label, message.timerMinutes, message.tags);
+      return { focusEngine: result.engine, newFocusId: result.newFocusId };
+    }
     
     case 'SWITCH_FOCUS':
       return { focusEngine: await switchFocus(message.focusId) };
@@ -2287,7 +2289,39 @@ async function handleMessage(message, sender) {
         if (message.label !== undefined) item.label = message.label;
         if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
         if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
-        if (message.funnelStage !== undefined) item.funnelStage = message.funnelStage;
+        if (message.funnelStage !== undefined) {
+          item.funnelStage = message.funnelStage;
+          // Auto-sync focusState when stage implies a state change
+          if (message.funnelStage === 'resolved') {
+            // Save elapsed time before completing
+            if (item.lastResumedAt) {
+              item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+              item.lastResumedAt = null;
+            }
+            item.focusState = 'completed';
+            item.endedAt = new Date().toISOString();
+            // Clear active if this was the active focus
+            if (engine.activeFocusId === item.id) engine.activeFocusId = null;
+          } else if (message.funnelStage === 'addressing' && item.focusState !== 'active') {
+            // Addressing = actively working on it — activate this focus
+            // Pause current active first
+            if (engine.activeFocusId && engine.activeFocusId !== item.id) {
+              const prev = engine.items[engine.activeFocusId];
+              if (prev && prev.focusState === 'active') {
+                if (prev.lastResumedAt) {
+                  prev.elapsedMs = (prev.elapsedMs || 0) + (Date.now() - new Date(prev.lastResumedAt).getTime());
+                  prev.lastResumedAt = null;
+                }
+                prev.focusState = 'paused';
+                prev.pausedAt = new Date().toISOString();
+              }
+            }
+            item.focusState = 'active';
+            item.lastResumedAt = new Date().toISOString();
+            item.startedAt = item.startedAt || new Date().toISOString();
+            engine.activeFocusId = item.id;
+          }
+        }
         await setFocusEngine(engine);
         broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
         return { focusEngine: engine };

@@ -921,13 +921,16 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                         <button key={key} onClick={async (e) => {
                           e.stopPropagation();
                           if (intent.isFocusItem) {
-                            // Direct update for focus engine items
+                            // Existing focus item — just update stage (no state change)
                             actions.updateFocus(intent.id, { funnelStage: key });
+                          } else if (key === 'addressing') {
+                            // "Addressing" = start & activate immediately
+                            await actions.startFocus(intent.label, null, intent.tags);
                           } else {
-                            // History intent — promote to focus item first, then set stage
-                            const result = await actions.startFocus(intent.label, null, intent.tags);
-                            if (result?.focusId) {
-                              actions.updateFocus(result.focusId, { funnelStage: key });
+                            // Other stages — add as queued focus, then set stage
+                            const resp = await sendMessage('ADD_FOCUS', { label: intent.label, tags: intent.tags });
+                            if (resp?.newFocusId) {
+                              actions.updateFocus(resp.newFocusId, { funnelStage: key });
                             }
                           }
                         }}
