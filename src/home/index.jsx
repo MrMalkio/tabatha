@@ -49,6 +49,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [editLabel, setEditLabel] = useState('');
   const [editTimer, setEditTimer] = useState(15);
   const [editFunnel, setEditFunnel] = useState('unsorted');
+  const [editTags, setEditTags] = useState({});
 
   if (!activeFocus) return null;
 
@@ -72,6 +73,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     setEditLabel(activeFocus.label);
     setEditTimer(activeFocus.timerMinutes || 15);
     setEditFunnel(activeFocus.funnelStage || 'unsorted');
+    setEditTags(activeFocus.tags || {});
     setEditing(true);
   };
 
@@ -80,11 +82,12 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       label: editLabel,
       timerMinutes: editTimer,
       funnelStage: editFunnel,
+      tags: editTags,
     });
     if (resp?.error) {
       if (resp.needsConfirm) {
         if (window.confirm(`⚠️ ${resp.error}`)) {
-          await actions.updateFocus(activeFocus.id, { label: editLabel, timerMinutes: editTimer, funnelStage: editFunnel, confirmed: true });
+          await actions.updateFocus(activeFocus.id, { label: editLabel, timerMinutes: editTimer, funnelStage: editFunnel, tags: editTags, confirmed: true });
         } else {
           return; // User cancelled — don't close editor
         }
@@ -183,6 +186,10 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
               </div>
               <button onClick={saveEdit} style={btnStyle('#66bb6a')}>💾 Save</button>
               <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '12px', padding: '4px' }}>✕</button>
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <label style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: '4px' }}>Project / Client</label>
+              <TagPicker tags={editTags} onChange={setEditTags} compact={false} clients={clients} projects={projects} tasks={tasks} onPersist={onPersist} orgData={orgData} />
             </div>
           </motion.div>
         )}
