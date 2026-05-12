@@ -101,8 +101,8 @@ export function useFocusEngine() {
     extendTimer: (focusId, extraMinutes = 5) =>
       sendMessage('EXTEND_FOCUS_TIMER', { focusId, extraMinutes }),
     
-    setFunnelStage: (focusId, stage) =>
-      sendMessage('SET_FUNNEL_STAGE', { focusId, stage }),
+    setFunnelStage: (focusId, stage, confirmed = false) =>
+      sendMessage('SET_FUNNEL_STAGE', { focusId, stage, confirmed }),
     
     updateTags: (focusId, tags) =>
       sendMessage('UPDATE_FOCUS_TAGS', { focusId, tags }),

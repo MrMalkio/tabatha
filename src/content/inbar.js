@@ -560,6 +560,10 @@
     pauseNote = '';
     pausedAt = null;
     clearPauseState();
+    // Resume the associated focus/intent in the background engine
+    if (activeFocusId) {
+      chrome.runtime.sendMessage({ type: 'RESUME_FOCUS', focusId: activeFocusId }).catch(() => {});
+    }
     refreshBar();
   };
 

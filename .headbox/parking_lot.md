@@ -279,3 +279,21 @@
   2. Full terminology rename across UI (focus → in focus, addressing → primary focus) 
   3. Both: state machine + terminology + context-switch detection ← **suggested**
 
+## 2026-05-12 — Focus-Aware Tab Pausing System
+- **Noticed while:** User testing v3.17.24
+- **What:** When initiating/resuming a focus, all non-related tabs should show a wide banner: 'This tab is paused because you're focusing on [X]'. Banner allows reconnecting incorrectly paused tabs. Paused tabs should not count up on the clock. When user pauses a tab, prompt: pause just this tab (with reminder) OR pause the parent focus too.
+- **Why it matters:** Currently nothing enforces focus discipline across tabs — non-focus tabs still count time and show no visual distinction.
+- **Options:**
+  1. InBar integration — detect focus mismatch, show pause banner with reconnect button
+  2. Background handler — auto-pause unrelated tabs on focus switch, freeze their timers
+  3. Full system: auto-pause + banner + reconnect + timer freeze + pause-scope prompt ← **suggested**
+
+## 2026-05-12 — Voice Notes from InBar
+- **Noticed while:** User feature request
+- **What:** User should be able to capture voice notes from InBar. Transcribed into notes section with context metadata (when, where, intent relationship).
+- **Why it matters:** Quick capture without typing — essential for flow state preservation.
+- **Options:**
+  1. Web Speech API (navigator.mediaDevices + SpeechRecognition) in content script
+  2. Chrome extension offscreen document for audio capture
+  3. Offscreen doc + Whisper API for high-quality transcription ← **suggested**
+

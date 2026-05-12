@@ -2198,29 +2198,51 @@ async function handleMessage(message, sender) {
 
     // --- Tasks CRUD ---
     case 'GET_TASKS': {
-      const { tasks } = await getStorage('tasks') || {};
-      return { tasks: tasks || [] };
+      // Return tasks from org registry (primary) + any remaining legacy tasks
+      const { tabathaOrg, tasks: legacyTasks } = await getStorage(['tabathaOrg', 'tasks']);
+      const orgTasks = Object.values(tabathaOrg?.tasks || {}).filter(t => !t.archived);
+      const legacy = (legacyTasks || []);
+      const orgIds = new Set(orgTasks.map(t => t.id));
+      const merged = [...orgTasks, ...legacy.filter(t => !orgIds.has(t.id))];
+      return { tasks: merged };
     }
     case 'CREATE_TASK': {
-      const { tasks: existing } = await getStorage('tasks') || {};
-      const taskList = existing || [];
+      // Write directly to org registry
+      const { tabathaOrg } = await getStorage('tabathaOrg');
+      const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
+      const id = `task_${Date.now()}`;
       const newTask = {
-        id: `task_${Date.now()}`,
+        id,
         name: message.name,
         description: message.description || '',
-        status: 'active', // active | completed | archived
+        projectId: message.projectId || null,
+        clientId: message.clientId || null,
+        status: 'active',
         linkedIntents: [],
         createdAt: new Date().toISOString(),
         completedAt: null,
+        archived: false,
       };
-      taskList.push(newTask);
-      await setStorage({ tasks: taskList });
-      broadcastMessage({ type: 'TASKS_UPDATED', tasks: taskList });
+      org.tasks[id] = newTask;
+      await setStorage({ tabathaOrg: org });
+      // Broadcast with full merged list for backward compatibility
+      const allTasks = Object.values(org.tasks).filter(t => !t.archived);
+      broadcastMessage({ type: 'TASKS_UPDATED', tasks: allTasks });
       return { success: true, task: newTask };
     }
     case 'UPDATE_TASK': {
-      const { tasks: all } = await getStorage('tasks') || {};
-      const taskArr = all || [];
+      const { tabathaOrg } = await getStorage('tabathaOrg');
+      const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
+      if (org.tasks[message.taskId]) {
+        org.tasks[message.taskId] = { ...org.tasks[message.taskId], ...message.updates };
+        await setStorage({ tabathaOrg: org });
+        const allTasks = Object.values(org.tasks).filter(t => !t.archived);
+        broadcastMessage({ type: 'TASKS_UPDATED', tasks: allTasks });
+        return { success: true };
+      }
+      // Fallback: check legacy storage
+      const { tasks: legacyAll } = await getStorage('tasks');
+      const taskArr = legacyAll || [];
       const idx = taskArr.findIndex(t => t.id === message.taskId);
       if (idx >= 0) {
         taskArr[idx] = { ...taskArr[idx], ...message.updates };
@@ -2231,7 +2253,18 @@ async function handleMessage(message, sender) {
       return { error: 'Task not found' };
     }
     case 'DELETE_TASK': {
-      const { tasks: tAll } = await getStorage('tasks') || {};
+      const { tabathaOrg } = await getStorage('tabathaOrg');
+      const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
+      if (org.tasks[message.taskId]) {
+        // Archive instead of hard-delete (safe)
+        org.tasks[message.taskId].archived = true;
+        await setStorage({ tabathaOrg: org });
+        const allTasks = Object.values(org.tasks).filter(t => !t.archived);
+        broadcastMessage({ type: 'TASKS_UPDATED', tasks: allTasks });
+        return { success: true };
+      }
+      // Fallback: remove from legacy storage
+      const { tasks: tAll } = await getStorage('tasks');
       const filtered = (tAll || []).filter(t => t.id !== message.taskId);
       await setStorage({ tasks: filtered });
       broadcastMessage({ type: 'TASKS_UPDATED', tasks: filtered });
@@ -2266,8 +2299,49 @@ async function handleMessage(message, sender) {
     case 'EXTEND_FOCUS_TIMER':
       return { focusEngine: await extendFocusTimer(message.focusId, message.extraMinutes) };
     
-    case 'SET_FUNNEL_STAGE':
-      return { focusEngine: await setFunnelStage(message.focusId, message.stage) };
+    case 'SET_FUNNEL_STAGE': {
+      // Delegate to UPDATE_FOCUS handler logic to enforce state machine
+      const engine = await getFocusEngine();
+      const item = engine.items[message.focusId];
+      if (!item) return { error: 'Focus not found', focusEngine: engine };
+      const from = item.funnelStage || 'unsorted';
+      const to = message.stage;
+      const STAGE_ORDER = { unsorted: 0, backlog: 1, todo: 2, focus: 3, addressing: 4, resolved: 5, roadblocked: 2.5 };
+      const isBackward = (STAGE_ORDER[to] ?? 0) < (STAGE_ORDER[from] ?? 0);
+      const confirmed = !!message.confirmed;
+
+      if (to === 'unsorted' && from !== 'unsorted') return { error: 'Cannot roll back to unsorted', needsConfirm: false, focusEngine: engine };
+      if (from === 'resolved' && to !== 'resolved') {
+        if (!confirmed) return { error: 'Resolved items cannot change stage. Confirm to undo.', needsConfirm: true, focusEngine: engine };
+        item.focusState = 'paused'; item.endedAt = null;
+      }
+      if (item.focusState === 'completed' && to !== 'resolved') {
+        if (!confirmed) return { error: 'This focus is completed. Confirm to reopen.', needsConfirm: true, focusEngine: engine };
+        item.focusState = 'paused'; item.endedAt = null;
+      }
+      if ((from === 'addressing' || from === 'focus') && to === 'todo') return { error: 'Cannot demote from focus/addressing to todo', needsConfirm: false, focusEngine: engine };
+      if (isBackward && !(from === 'roadblocked' && to === 'focus') && !confirmed) return { error: `Rolling back from ${from} to ${to} requires confirmation`, needsConfirm: true, focusEngine: engine };
+      if (to === 'focus' && !(item.label && item.label.trim())) return { error: 'Focus requires a title', needsConfirm: false, focusEngine: engine };
+
+      item.funnelStage = to;
+      if (to === 'resolved') {
+        if (item.lastResumedAt) { item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime()); item.lastResumedAt = null; }
+        item.focusState = 'completed'; item.endedAt = new Date().toISOString();
+        if (engine.activeFocusId === item.id) engine.activeFocusId = null;
+      } else if (to === 'addressing' && item.focusState !== 'active') {
+        if (engine.activeFocusId && engine.activeFocusId !== item.id) {
+          const prev = engine.items[engine.activeFocusId];
+          if (prev && prev.focusState === 'active') {
+            if (prev.lastResumedAt) { prev.elapsedMs = (prev.elapsedMs || 0) + (Date.now() - new Date(prev.lastResumedAt).getTime()); prev.lastResumedAt = null; }
+            prev.focusState = 'paused'; prev.pausedAt = new Date().toISOString();
+          }
+        }
+        item.focusState = 'active'; item.lastResumedAt = new Date().toISOString(); item.startedAt = item.startedAt || new Date().toISOString(); engine.activeFocusId = item.id;
+      }
+      await setFocusEngine(engine);
+      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+      return { focusEngine: engine };
+    }
     
     case 'UPDATE_FOCUS_TAGS':
       return { focusEngine: await updateFocusTags(message.focusId, message.tags) };
@@ -2290,9 +2364,64 @@ async function handleMessage(message, sender) {
         if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
         if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
         if (message.funnelStage !== undefined) {
-          item.funnelStage = message.funnelStage;
+          const from = item.funnelStage || 'unsorted';
+          const to = message.funnelStage;
+
+          // ── STAGE TRANSITION STATE MACHINE ──
+          // Stage hierarchy (forward order):
+          // unsorted(0) → backlog(1) → todo(2) → focus(3) → addressing(4) → resolved(5) → roadblocked(*)
+          const STAGE_ORDER = { unsorted: 0, backlog: 1, todo: 2, focus: 3, addressing: 4, resolved: 5, roadblocked: 2.5 };
+          const fromOrder = STAGE_ORDER[from] ?? 0;
+          const toOrder = STAGE_ORDER[to] ?? 0;
+          const isBackward = toOrder < fromOrder;
+          const confirmed = !!message.confirmed;
+
+          // Rule 1: Nothing rolls back to unsorted
+          if (to === 'unsorted' && from !== 'unsorted') {
+            return { error: 'Cannot roll back to unsorted', needsConfirm: false, focusEngine: engine };
+          }
+
+          // Rule 2: Resolved doesn't roll back unless confirmed (accident)
+          if (from === 'resolved' && to !== 'resolved') {
+            if (!confirmed) {
+              return { error: 'Resolved items cannot change stage. Confirm to undo.', needsConfirm: true, focusEngine: engine };
+            }
+            // Accident override: un-complete the item
+            item.focusState = 'paused';
+            item.endedAt = null;
+          }
+
+          // Rule 3: Completed items cannot restart unless confirmed
+          if (item.focusState === 'completed' && to !== 'resolved') {
+            if (!confirmed) {
+              return { error: 'This focus is completed. Confirm to reopen.', needsConfirm: true, focusEngine: engine };
+            }
+            item.focusState = 'paused';
+            item.endedAt = null;
+          }
+
+          // Rule 4: Addressing/Focus don't roll back to todo
+          if ((from === 'addressing' || from === 'focus') && to === 'todo') {
+            return { error: 'Cannot demote from focus/addressing to todo', needsConfirm: false, focusEngine: engine };
+          }
+
+          // Rule 5: Backward transitions require confirmation (except roadblocked → focus which is allowed)
+          if (isBackward && !(from === 'roadblocked' && to === 'focus')) {
+            if (!confirmed) {
+              return { error: `Rolling back from ${from} to ${to} requires confirmation`, needsConfirm: true, focusEngine: engine };
+            }
+          }
+
+          // Rule 6: 'Focus' stage requires a label (title)
+          if (to === 'focus' && !(item.label && item.label.trim())) {
+            return { error: 'A focus item requires a title before entering focus stage', needsConfirm: false, focusEngine: engine };
+          }
+
+          // ── Apply the stage change ──
+          item.funnelStage = to;
+
           // Auto-sync focusState when stage implies a state change
-          if (message.funnelStage === 'resolved') {
+          if (to === 'resolved') {
             // Save elapsed time before completing
             if (item.lastResumedAt) {
               item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
@@ -2302,7 +2431,7 @@ async function handleMessage(message, sender) {
             item.endedAt = new Date().toISOString();
             // Clear active if this was the active focus
             if (engine.activeFocusId === item.id) engine.activeFocusId = null;
-          } else if (message.funnelStage === 'addressing' && item.focusState !== 'active') {
+          } else if (to === 'addressing' && item.focusState !== 'active') {
             // Addressing = actively working on it — activate this focus
             // Pause current active first
             if (engine.activeFocusId && engine.activeFocusId !== item.id) {
@@ -2640,7 +2769,68 @@ async function handleMessage(message, sender) {
 // EXTENSION INSTALL / STARTUP / RELOAD
 // ============================================================
 
+// ============================================================
+// TASK STORAGE MIGRATION — Legacy → Org Registry (one-time)
+// ============================================================
+
+async function migrateTasksToOrg() {
+  try {
+    const { _tasksMigrated } = await getStorage('_tasksMigrated');
+    if (_tasksMigrated) return; // Already migrated
+
+    const { tasks: legacyTasks, tabathaOrg } = await getStorage(['tasks', 'tabathaOrg']);
+    if (!legacyTasks || legacyTasks.length === 0) {
+      // No legacy tasks — mark as migrated and skip
+      await setStorage({ _tasksMigrated: new Date().toISOString() });
+      return;
+    }
+
+    const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
+    const orgTasks = org.tasks || {};
+    let migratedCount = 0;
+
+    for (const task of legacyTasks) {
+      if (!task.id) continue;
+      // Skip if already in org registry (by ID match)
+      if (orgTasks[task.id]) continue;
+
+      // Normalize status: legacy uses 'active'/'completed'
+      const status = task.status || 'active';
+
+      orgTasks[task.id] = {
+        id: task.id,
+        name: task.name || 'Unnamed Task',
+        description: task.description || '',
+        projectId: task.projectId || null,
+        clientId: task.clientId || null,
+        status: status,
+        createdAt: task.createdAt || new Date().toISOString(),
+        completedAt: task.completedAt || null,
+        archived: task.status === 'archived' || false,
+        // Preserve legacy-specific fields
+        linkedIntents: task.linkedIntents || [],
+      };
+      migratedCount++;
+    }
+
+    org.tasks = orgTasks;
+    await setStorage({
+      tabathaOrg: org,
+      _legacyTasksBackup: legacyTasks, // Backup before clearing
+      tasks: [], // Clear legacy key (empty array to not break old readers)
+      _tasksMigrated: new Date().toISOString()
+    });
+
+    console.log(`Tabatha: Migrated ${migratedCount} legacy tasks to org registry`);
+  } catch (e) {
+    console.error('Tabatha: Task migration failed', e);
+  }
+}
+
 async function initializeState() {
+  // Run one-time task migration first
+  await migrateTasksToOrg();
+
   // Sync existing tabs into storage
   const existingTabs = await chrome.tabs.query({});
   const tabs = await getTabData();

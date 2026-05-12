@@ -75,12 +75,24 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     setEditing(true);
   };
 
-  const saveEdit = () => {
-    actions.updateFocus(activeFocus.id, {
+  const saveEdit = async () => {
+    const resp = await actions.updateFocus(activeFocus.id, {
       label: editLabel,
       timerMinutes: editTimer,
       funnelStage: editFunnel,
     });
+    if (resp?.error) {
+      if (resp.needsConfirm) {
+        if (window.confirm(`⚠️ ${resp.error}`)) {
+          await actions.updateFocus(activeFocus.id, { label: editLabel, timerMinutes: editTimer, funnelStage: editFunnel, confirmed: true });
+        } else {
+          return; // User cancelled — don't close editor
+        }
+      } else {
+        alert(`🚫 ${resp.error}`);
+        return;
+      }
+    }
     setEditing(false);
   };
 
@@ -933,8 +945,19 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                         <button key={key} onClick={async (e) => {
                           e.stopPropagation();
                           if (intent.isFocusItem) {
-                            // Existing focus item — just update stage (no state change)
-                            actions.updateFocus(intent.id, { funnelStage: key });
+                            // Existing focus item — update stage via state machine
+                            const resp = await actions.updateFocus(intent.id, { funnelStage: key });
+                            if (resp?.error) {
+                              if (resp.needsConfirm) {
+                                // Backward transition or resolved rollback — ask for confirmation
+                                if (window.confirm(`⚠️ ${resp.error}`)) {
+                                  await actions.updateFocus(intent.id, { funnelStage: key, confirmed: true });
+                                }
+                              } else {
+                                // Hard blocked (e.g. can't roll back to unsorted)
+                                alert(`🚫 ${resp.error}`);
+                              }
+                            }
                           } else if (key === 'addressing') {
                             // "Addressing" = start & activate immediately
                             await actions.startFocus(intent.label, null, intent.tags);
