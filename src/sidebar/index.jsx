@@ -123,6 +123,8 @@ function Sidebar() {
   const [panel, setPanel] = useState('focus');
   const [search, setSearch] = useState('');
   const [focusInput, setFocusInput] = useState('');
+  const [focusTimer, setFocusTimer] = useState(15);
+  const [showNewIntent, setShowNewIntent] = useState(false);
 
   // Time tracking data arrives reactively via useChromeStorage — no polling needed
 
@@ -174,7 +176,7 @@ function Sidebar() {
   ];
 
   const handleStartFocus = () => {
-    if (focusInput.trim()) { actions.startFocus(focusInput.trim()); setFocusInput(''); }
+    if (focusInput.trim()) { actions.startFocus(focusInput.trim(), focusTimer); setFocusInput(''); setShowNewIntent(false); }
   };
 
   return (
@@ -301,18 +303,37 @@ function Sidebar() {
                     <StagePicker compact currentStage={activeFocus.funnelStage} onChange={(stage) => actions.updateFocus(activeFocus.id, { funnelStage: stage })} />
                   </div>
                 </GlassCard>
-              ) : (
-                <GlassCard style={{ padding:'10px', marginBottom:'6px' }}>
-                  <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Set Focus</div>
-                  <div style={{ display:'flex', gap:'4px' }}>
-                    <input type="text" placeholder="What are you working on?" value={focusInput} onChange={e => setFocusInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleStartFocus()}
-                      style={{ flex:1, background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', padding:'5px 8px', color:'var(--color-text-primary)', fontSize:'11px', outline:'none' }}
-                    />
-                    <Tooltip text="Start focus timer"><button onClick={handleStartFocus} style={btn('var(--color-accent-primary)')}>▶</button></Tooltip>
+              ) : null}
+
+              {/* New Intent Creator — always available */}
+              <GlassCard style={{ padding:'8px', marginBottom:'6px' }}>
+                <div
+                  onClick={() => setShowNewIntent(p => !p)}
+                  style={{ display:'flex', alignItems:'center', gap:'4px', cursor:'pointer', userSelect:'none' }}
+                >
+                  <span style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600 }}>
+                    {activeFocus ? '+ New Intent' : '🎯 Set Focus'}
+                  </span>
+                  <span style={{ fontSize:'8px', color:'var(--color-text-muted)', transform: showNewIntent ? 'rotate(180deg)' : 'rotate(0)', transition:'transform 0.15s' }}>▼</span>
+                </div>
+                {(showNewIntent || !activeFocus) && (
+                  <div style={{ marginTop:'6px' }}>
+                    <div style={{ display:'flex', gap:'4px', marginBottom:'4px' }}>
+                      <input type="text" placeholder="What are you focusing on?" value={focusInput} onChange={e => setFocusInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleStartFocus()}
+                        style={{ flex:1, background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', padding:'5px 8px', color:'var(--color-text-primary)', fontSize:'11px', outline:'none' }}
+                      />
+                      <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                        <input type="number" value={focusTimer} onChange={e => setFocusTimer(Math.max(1, parseInt(e.target.value) || 15))} min={1}
+                          style={{ width:'36px', background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-sm)', padding:'3px', color:'var(--color-text-primary)', fontSize:'10px', outline:'none', textAlign:'center' }}
+                        />
+                        <span style={{ fontSize:'7px', color:'var(--color-text-muted)' }}>min</span>
+                      </div>
+                      <Tooltip text="Start focus"><button onClick={handleStartFocus} style={btn('var(--color-accent-primary)')}>▶</button></Tooltip>
+                    </div>
                   </div>
-                </GlassCard>
-              )}
+                )}
+              </GlassCard>
 
               {/* Queue */}
               {allItems && allItems.length > 0 && (
