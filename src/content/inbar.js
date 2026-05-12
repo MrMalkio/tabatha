@@ -46,21 +46,35 @@
   let pauseNote = '';
   let pausedAt = null;
 
-  // Restore pause state from storage
+  // Restore pause state from storage (this tab or URL-matching paused tab)
+  let matchedPauseFromUrl = false;
   try {
     const tabId = (await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }))?.tabId;
     if (tabId) {
       const stored = await chrome.storage.local.get('pausedIntents');
-      const pauseData = stored.pausedIntents?.[tabId];
+      const pausedIntents = stored.pausedIntents || {};
+      const pauseData = pausedIntents[tabId];
       if (pauseData) {
         isPaused = true;
         pauseNote = pauseData.note || '';
         pausedAt = pauseData.pausedAt;
+      } else {
+        // Check if any OTHER paused tab has the same URL (duplicated/navigated tab)
+        const currentUrl = window.location.href.split('#')[0]; // strip fragment
+        for (const [pid, pdata] of Object.entries(pausedIntents)) {
+          if (pid !== String(tabId) && pdata.url && pdata.url.split('#')[0] === currentUrl && pdata.note) {
+            isPaused = true;
+            pauseNote = pdata.note || '';
+            pausedAt = pdata.pausedAt;
+            matchedPauseFromUrl = true;
+            break;
+          }
+        }
       }
     }
   } catch (e) { /* no stored pause state */ }
 
-  // 3. Create host container
+  // 3. Create host container — uses position:fixed but pushes page via margin
   const host = document.createElement('div');
   host.id = 'tabatha-inbar-host';
   Object.assign(host.style, {
@@ -68,6 +82,7 @@
     [position]: '0',
     left: '0',
     width: '100vw',
+    height: `${BAR_HEIGHT}px`,
     zIndex: '2147483646',
     pointerEvents: 'none',
     transition: 'height 0.2s ease'
@@ -128,7 +143,9 @@
 
     .left, .right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
-    .intent-label { font-weight: 500; color: #eee; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+    .intent-label { font-weight: 500; color: #eee; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; cursor: pointer; transition: color 0.15s; }
+    .intent-label:hover { color: #66bb6a; text-decoration: underline; }
+    .focus-label-left { font-size: 10px; font-weight: 600; color: #00e5ff; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .task-label { font-size: 10px; color: #777; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .timer { font-variant-numeric: tabular-nums; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }
     .timer-up { color: #00e5ff; }
@@ -353,15 +370,15 @@
         ` : `
           <span style="font-size:10px;color:#555;">—</span>
         `}
+        ${focusLabel
+          ? `<span class="divider"></span><span class="badge badge-focus">🎯</span><span class="focus-label-left" title="Active focus: ${focusLabel}">${focusLabel}</span>`
+          : ''
+        }
       </div>
       <div class="center">
         ${tabIntent
-          ? `<span class="intent-label" title="Tab: ${tabIntent}">${tabIntent}</span>`
+          ? `<span class="intent-label" id="intent-label-click" title="Click to mark complete: ${tabIntent}">${tabIntent}</span>`
           : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent">No intent set</span>`
-        }
-        ${focusLabel
-          ? `<span class="divider"></span><span class="badge badge-focus">🎯</span><span class="task-label" title="Central focus: ${focusLabel}">${focusLabel}</span>`
-          : ''
         }
       </div>
       <div class="right">
@@ -420,9 +437,10 @@
     <div class="edit-inner">
       <div class="edit-title">✏️ Edit Intent</div>
       <div class="edit-row">
-        <input class="edit-input" id="edit-intent-input" placeholder="New intent for this tab..." value="${tabIntent || ''}">
+        <input class="edit-input" id="edit-intent-input" placeholder="Intent for this tab..." value="${tabIntent || ''}">
         <button class="edit-save" id="edit-intent-save">Save</button>
       </div>
+      <textarea class="edit-input" id="edit-intent-desc" placeholder="Description (optional)..." style="width:100%;min-height:36px;resize:vertical;margin-bottom:6px;font-size:10px;">${tabContext?.description || ''}</textarea>
       <div class="edit-section">Assign to Focus</div>
       <div id="focus-list" style="max-height:180px;overflow-y:auto;">${buildFocusList()}</div>
       <button class="new-focus-btn" id="new-focus-btn">+ Create new focus from this tab</button>
@@ -470,6 +488,7 @@
       <div class="sticky-body" id="sticky-body-text">${pauseNote || ''}</div>
       <div class="sticky-actions">
         <button class="sticky-edit" id="sticky-edit">✏️ Edit Note</button>
+        ${matchedPauseFromUrl ? `<button class="sticky-resume" id="sticky-new-intent" style="background:#00e5ff;color:#000;">🆕 Start New Intent</button>` : ''}
         <button class="sticky-resume" id="sticky-resume">▶ Resume</button>
       </div>
     </div>
@@ -520,6 +539,7 @@
         pausedAt: new Date().toISOString(),
         intentLabel: intentLabel || '',
         focusLabel: focusLabel || '',
+        url: window.location.href, // Store URL for cross-tab pause note matching
       };
       await chrome.storage.local.set({ pausedIntents });
     } catch (e) { /* storage write failed */ }
@@ -621,6 +641,19 @@
     const stickyResume = shadow.getElementById('sticky-resume');
     if (stickyResume) stickyResume.onclick = doResume;
 
+    // Sticky note "Start New Intent" (for URL-matched pause notes)
+    const stickyNewIntent = shadow.getElementById('sticky-new-intent');
+    if (stickyNewIntent) {
+      stickyNewIntent.onclick = () => {
+        // Clear pause state for THIS tab and open InPop
+        isPaused = false;
+        matchedPauseFromUrl = false;
+        clearPauseState();
+        refreshBar();
+        chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }).catch(() => {});
+      };
+    }
+
     // Sticky note edit
     const stickyEdit = shadow.getElementById('sticky-edit');
     if (stickyEdit) {
@@ -650,17 +683,49 @@
       };
     }
 
-    // Save edited intent
+    // Save edited intent — updates local state + re-renders bar
     const editSaveBtn = shadow.getElementById('edit-intent-save');
     if (editSaveBtn) {
       editSaveBtn.onclick = async () => {
         const inp = shadow.getElementById('edit-intent-input');
+        const descInp = shadow.getElementById('edit-intent-desc');
         const newIntent = inp?.value?.trim();
+        const newDesc = descInp?.value?.trim() || '';
         if (!newIntent) return;
         try {
-          await chrome.runtime.sendMessage({ type: 'SET_INTENT', payload: { intent: newIntent } });
+          await chrome.runtime.sendMessage({ type: 'SET_INTENT', payload: { intent: newIntent, description: newDesc } });
+          // Update local state immediately so bar re-renders
+          tabIntent = newIntent;
+          intentLabel = newIntent;
+          hasContext = true;
           editDropdown.classList.remove('open');
+          // Re-render bar to show updated intent
+          bar.innerHTML = buildBarHTML();
+          intentTimerEl = shadow.getElementById('intent-timer');
+          taskTimerEl = shadow.getElementById('task-timer');
+          countdownEl = shadow.getElementById('focus-countdown');
+          bindBarEvents();
         } catch (e) { /* send failed */ }
+      };
+    }
+
+    // Click intent label to mark intent as complete/resolved for this tab
+    const intentLabelClick = shadow.getElementById('intent-label-click');
+    if (intentLabelClick) {
+      intentLabelClick.onclick = async () => {
+        if (!tabIntent) return;
+        if (!confirm(`Mark intent "${tabIntent}" as resolved?`)) return;
+        try {
+          await chrome.runtime.sendMessage({ type: 'SET_INTENT', payload: { intent: `✅ ${tabIntent}`, resolved: true } });
+          tabIntent = null;
+          intentLabel = focusLabel || null;
+          hasContext = !!intentLabel;
+          bar.innerHTML = buildBarHTML();
+          intentTimerEl = shadow.getElementById('intent-timer');
+          taskTimerEl = shadow.getElementById('task-timer');
+          countdownEl = shadow.getElementById('focus-countdown');
+          bindBarEvents();
+        } catch (e) { /* failed */ }
       };
     }
 

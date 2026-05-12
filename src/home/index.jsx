@@ -501,6 +501,7 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editAsanaGid, setEditAsanaGid] = useState('');
 
   const projectOptions = useMemo(() => orgData?.projectList?.filter(p => !p.archived).map(p => p.name) || [], [orgData]);
   const clientOptions = useMemo(() => orgData?.clientList?.filter(c => !c.archived).map(c => c.name) || [], [orgData]);
@@ -562,11 +563,14 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
     setEditingId(task.id);
     setEditName(task.name);
     setEditDesc(task.description || '');
+    setEditAsanaGid(task.asanaGid || '');
   };
 
   const saveEdit = async () => {
     if (editingId && editName.trim()) {
-      await sendMessage('UPDATE_TASK', { taskId: editingId, updates: { name: editName.trim(), description: editDesc.trim() } });
+      const updates = { name: editName.trim(), description: editDesc.trim() };
+      if (editAsanaGid.trim()) updates.asanaGid = editAsanaGid.trim();
+      await sendMessage('UPDATE_TASK', { taskId: editingId, updates });
     }
     setEditingId(null);
   };
@@ -723,6 +727,9 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
                           />
                           <input value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder="Description..."
                             onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                            style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '2px 6px', color: 'var(--color-text-muted)', fontSize: '10px', outline: 'none', marginTop: '4px', boxSizing: 'border-box' }}
+                          />
+                          <input value={editAsanaGid} onChange={e => setEditAsanaGid(e.target.value)} placeholder="Asana GID (optional)"
                             style={{ width: '100%', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '2px 6px', color: 'var(--color-text-muted)', fontSize: '10px', outline: 'none', marginTop: '4px', boxSizing: 'border-box' }}
                           />
                         </>
