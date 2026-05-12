@@ -55,16 +55,19 @@ function Toggle({ value, onChange }) {
 }
 
 const LOG_COLORS = { error: '#ef5350', warn: '#ffa726', info: '#42a5f5', debug: '#66bb6a' };
-
 // ── DesktopActivityPanel ──
 function DesktopActivityPanel({ settings, updateSetting }) {
   const [companionSessions, setCompanionSessions] = useChromeStorage('companionRecentSessions', []);
-  const [trimBefore, setTrimBefore] = useState('09:00');
+  const [trimFrom, setTrimFrom] = useState('01:00');
+  const [trimTo, setTrimTo] = useState('09:00');
   const [confirmTrim, setConfirmTrim] = useState(false);
+  const [confirmHide, setConfirmHide] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null);
 
   const todayStr = new Date().toLocaleDateString();
+  const hiddenRanges = settings.hiddenActivityRanges || [];
+
   const todaySessions = useMemo(() => {
     const now = new Date();
     const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -77,21 +80,37 @@ function DesktopActivityPanel({ settings, updateSetting }) {
 
   const handleTrim = () => {
     if (!confirmTrim) { setConfirmTrim(true); return; }
-    const [h, m] = trimBefore.split(':').map(Number);
+    const [fh, fm] = trimFrom.split(':').map(Number);
+    const [th, tm] = trimTo.split(':').map(Number);
     const now = new Date();
-    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
-    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const dayEnd = dayStart + 86400000;
+    const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), fh, fm).getTime();
+    const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), th, tm).getTime();
     const updated = (companionSessions || []).filter(s => {
       const ts = new Date(s.started_at || s.startedAt).getTime();
-      if (ts >= dayStart && ts < dayEnd && ts < cutoff) return false;
-      return true;
+      return !(ts >= rangeStart && ts < rangeEnd);
     });
     const removed = (companionSessions || []).length - updated.length;
     setCompanionSessions(updated);
     setConfirmTrim(false);
-    setStatusMsg(`✓ Removed ${removed} session(s) before ${trimBefore} today.`);
-    setTimeout(() => setStatusMsg(null), 5000);
+    flash(`✓ Deleted ${removed} switch(es) between ${trimFrom} – ${trimTo}.`);
+  };
+
+  const handleHide = () => {
+    if (!confirmHide) { setConfirmHide(true); return; }
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const newRange = { date: dateStr, from: trimFrom, to: trimTo };
+    const ranges = [...(settings.hiddenActivityRanges || []), newRange];
+    updateSetting('hiddenActivityRanges', ranges);
+    setConfirmHide(false);
+    flash(`✓ Hidden ${trimFrom} – ${trimTo} from today's activity bar. Data preserved.`);
+  };
+
+  const handleUnhide = (index) => {
+    const ranges = [...(settings.hiddenActivityRanges || [])];
+    ranges.splice(index, 1);
+    updateSetting('hiddenActivityRanges', ranges);
+    flash('✓ Range unhidden.');
   };
 
   const handleClearToday = () => {
@@ -106,13 +125,19 @@ function DesktopActivityPanel({ settings, updateSetting }) {
     const removed = (companionSessions || []).length - updated.length;
     setCompanionSessions(updated);
     setConfirmClear(false);
-    setStatusMsg(`✓ Cleared ${removed} session(s) from today.`);
+    flash(`✓ Cleared ${removed} switch(es) from today.`);
+  };
+
+  const flash = (msg) => {
+    setStatusMsg(msg);
     setTimeout(() => setStatusMsg(null), 5000);
   };
 
+  const cancelAll = () => { setConfirmTrim(false); setConfirmHide(false); setConfirmClear(false); };
+
   return (
     <div>
-      <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>🖥️ Desktop Activity</h2>
+      <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>🖥️ Context Activity</h2>
 
       {statusMsg && (
         <div style={{ padding: '8px 12px', marginBottom: '12px', borderRadius: 'var(--radius-sm)', fontSize: '12px', fontWeight: 500, background: 'rgba(52,168,83,0.15)', color: '#34A853', border: '1px solid #34A85333' }}>
@@ -120,41 +145,81 @@ function DesktopActivityPanel({ settings, updateSetting }) {
         </div>
       )}
 
+      {/* ── Timeline Display ── */}
       <div style={sectionLabel}>Timeline Display</div>
-      <Tooltip text="Filter the homepage activity bar to only show sessions starting at or after this hour. Useful to hide overnight noise." position="bottom">
+      <Tooltip text="Filter the homepage activity bar to only show activity starting at or after this hour. Useful to hide overnight noise." position="bottom">
         <div style={fieldRow}>
           <span style={fieldLabel}>Day start time</span>
           <input type="time" value={settings.activityDayStartTime || '00:00'} onChange={e => updateSetting('activityDayStartTime', e.target.value)} style={inputStyle} />
         </div>
       </Tooltip>
       <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '4px 0 16px', lineHeight: 1.5 }}>
-        The homepage "Desktop Activity — Today" bar will only show sessions starting at or after this time. Set to 00:00 to show the full day. Default: midnight.
+        The homepage "Context Activity — Today" bar will only show activity starting at or after this time.
       </p>
 
-      <div style={sectionLabel}>Today's Data ({todaySessions.length} sessions)</div>
+      {/* ── Min Duration Filter ── */}
+      <div style={sectionLabel}>Minimum Switch Duration</div>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Ignore switches under (seconds)</span>
+        <input type="number" min="0" max="60" step="1"
+          value={settings.activityMinDurationSec ?? 0}
+          onChange={e => updateSetting('activityMinDurationSec', parseInt(e.target.value) || 0)}
+          style={{ ...inputStyle, width: '70px', textAlign: 'center' }}
+        />
+      </div>
+      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '4px 0 16px', lineHeight: 1.5 }}>
+        Rapid app/tab switches shorter than this threshold are filtered out. Adjacent same-category sessions merge into one continuous block. Set 0 to show all. Recommended: 2-3 seconds.
+      </p>
+
+      {/* ── Today's Data ── */}
+      <div style={sectionLabel}>Today's Data ({todaySessions.length} switches)</div>
       <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '-6px 0 10px', lineHeight: 1.5 }}>
-        Today: {todayStr}. Total stored sessions: {(companionSessions || []).length}. Use the tools below to clean up false or overnight activity.
+        Today: {todayStr}. Total stored: {(companionSessions || []).length} switches. Use the tools below to clean up false or overnight activity.
       </p>
 
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '12px' }}>
+      {/* Range picker */}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '8px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600 }}>Trim before</span>
-          <input type="time" value={trimBefore} onChange={e => { setTrimBefore(e.target.value); setConfirmTrim(false); }} style={{ ...inputStyle, width: '100px' }} />
+          <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600 }}>From</span>
+          <input type="time" value={trimFrom} onChange={e => { setTrimFrom(e.target.value); cancelAll(); }} style={{ ...inputStyle, width: '100px' }} />
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600 }}>To</span>
+          <input type="time" value={trimTo} onChange={e => { setTrimTo(e.target.value); cancelAll(); }} style={{ ...inputStyle, width: '100px' }} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
         <button onClick={handleTrim} style={{ padding: '6px 14px', background: confirmTrim ? '#ffa726' : 'var(--color-surface)', color: confirmTrim ? '#000' : 'var(--color-text-primary)', border: `1px solid ${confirmTrim ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', transition: 'all 0.15s' }}>
-          {confirmTrim ? '⚠ Confirm Trim' : '✂ Trim Today'}
+          {confirmTrim ? '⚠ Confirm Delete Range' : '✂ Delete Range'}
+        </button>
+        <button onClick={handleHide} style={{ padding: '6px 14px', background: confirmHide ? '#42a5f5' : 'var(--color-surface)', color: confirmHide ? '#fff' : 'var(--color-text-primary)', border: `1px solid ${confirmHide ? '#42a5f5' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', transition: 'all 0.15s' }}>
+          {confirmHide ? '⚠ Confirm Hide Range' : '👁 Hide Range'}
         </button>
       </div>
-      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '-4px 0 16px', lineHeight: 1.5 }}>
-        Permanently removes today's sessions that started before the specified time. E.g. set 09:00 to remove overnight false activity. This cannot be undone.
+      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '2px 0 12px', lineHeight: 1.5 }}>
+        <strong>Delete</strong> permanently removes data. <strong>Hide</strong> keeps data but filters it from the activity bar. Both affect the selected time range for today only.
       </p>
 
+      {/* Hidden ranges management */}
+      {hiddenRanges.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Hidden ranges</span>
+          {hiddenRanges.map((r, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', fontSize: '11px' }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>{r.date}: {r.from} – {r.to}</span>
+              <button onClick={() => handleUnhide(i)} style={{ padding: '2px 6px', background: 'transparent', color: '#42a5f5', border: '1px solid #42a5f5', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', fontWeight: 600 }}>Unhide</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Clear all today */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-        <button onClick={handleClearToday} style={{ padding: '6px 14px', background: confirmClear ? '#ef5350' : 'transparent', color: confirmClear ? '#fff' : '#ef5350', border: `1px solid #ef5350`, borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', transition: 'all 0.15s' }}>
+        <button onClick={handleClearToday} style={{ padding: '6px 14px', background: confirmClear ? '#ef5350' : 'transparent', color: confirmClear ? '#fff' : '#ef5350', border: '1px solid #ef5350', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', transition: 'all 0.15s' }}>
           {confirmClear ? '⚠ Confirm Clear All Today' : '🗑 Clear All Today'}
         </button>
-        {(confirmTrim || confirmClear) && (
-          <button onClick={() => { setConfirmTrim(false); setConfirmClear(false); }} style={{ padding: '6px 10px', background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
+        {(confirmTrim || confirmHide || confirmClear) && (
+          <button onClick={cancelAll} style={{ padding: '6px 10px', background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
         )}
       </div>
     </div>
@@ -1115,15 +1180,25 @@ const WEBHOOK_EVENTS = [
   'focus_started', 'focus_ended', 'focus_timer_expired', 'focus_resolved',
   'clock_in', 'clock_out', 'break_started', 'break_ended',
   'task_created', 'task_completed', 'context_drift', 'unfocused_nudge',
+  'context_switch',
+];
+
+const INTERVAL_OPTIONS = [
+  { label: 'Real-time', value: 0 },
+  { label: '1 min', value: 60 },
+  { label: '5 min', value: 300 },
+  { label: '15 min', value: 900 },
+  { label: '30 min', value: 1800 },
+  { label: '1 hour', value: 3600 },
 ];
 
 function WebhookSettings() {
-  const [config, setConfig] = useState({ enabled: false, url: '', events: [], secret: '' });
+  const [config, setConfig] = useState({ enabled: false, url: '', events: [], secret: '', intervals: {} });
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     chrome.storage.local.get('tabathaWebhooks', r => {
-      if (r.tabathaWebhooks) setConfig(r.tabathaWebhooks);
+      if (r.tabathaWebhooks) setConfig({ intervals: {}, ...r.tabathaWebhooks });
     });
   }, []);
 
@@ -1140,11 +1215,18 @@ function WebhookSettings() {
     }));
   };
 
+  const setInterval = (ev, seconds) => {
+    setConfig(prev => ({
+      ...prev,
+      intervals: { ...prev.intervals, [ev]: seconds }
+    }));
+  };
+
   return (
     <div>
       <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Webhook Integrations</h2>
       <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
-        Send real-time event notifications to external services (Zapier, Make, custom endpoints).
+        Send real-time or scheduled event notifications to external services (Zapier, Make, custom endpoints).
       </p>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -1180,6 +1262,34 @@ function WebhookSettings() {
                 border: '1px solid var(--color-border)', fontWeight: 500,
               }}
             >{ev}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Interval scheduling */}
+      <div style={{ marginBottom: '12px' }}>
+        <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px' }}>Event intervals (per-event scheduling)</label>
+        <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '0 0 8px', lineHeight: 1.5 }}>
+          Set events to fire at intervals instead of real-time. Batched events are queued and sent together at the next interval tick. Default: real-time.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {(config.events.length > 0 ? config.events : WEBHOOK_EVENTS).map(ev => (
+            <div key={ev} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '4px 0' }}>
+              <span style={{ fontSize: '10px', color: 'var(--color-text-primary)', fontWeight: 500, minWidth: '120px' }}>{ev}</span>
+              <select
+                value={config.intervals?.[ev] || 0}
+                onChange={e => setInterval(ev, parseInt(e.target.value))}
+                style={{
+                  background: 'var(--color-surface)', color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+                  padding: '3px 6px', fontSize: '10px', outline: 'none', cursor: 'pointer',
+                }}
+              >
+                {INTERVAL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
           ))}
         </div>
       </div>

@@ -1610,8 +1610,15 @@ function formatDuration(ms) {
 // ============================================================
 
 function broadcastMessage(message) {
-  chrome.runtime.sendMessage(message).catch(() => {
-    // No listeners — sidebar not open, that's fine
+  // Extension pages (sidebar, popup, home)
+  chrome.runtime.sendMessage(message).catch(() => {});
+  // Content scripts (InBar) — send to all tabs so they update in real-time
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+      }
+    }
   });
 }
 

@@ -3,10 +3,10 @@ import ReactDOM from 'react-dom';
 
 /**
  * UnifiedTimeline — Horizontal timeline bar showing colored segments by category.
- * Each segment represents an app session, sized proportionally to duration.
- * Broken down by minutes with time markers.
+ * Each segment represents an app context switch, sized proportionally to duration.
+ * Shows breaks (amber), clock-in/out markers, and respects min-duration + hidden ranges.
  *
- * Data: chrome.storage.local.companionRecentSessions
+ * Data: chrome.storage.local.companionRecentSessions, clockSession, settings
  */
 
 const CATEGORY_COLORS = {
@@ -19,6 +19,7 @@ const CATEGORY_COLORS = {
   entertainment: '#ef4444',
   browser: '#06b6d4',
   system: '#6b7280',
+  break: '#ffa726',
   unknown: '#4b5563',
 };
 
@@ -32,6 +33,7 @@ const CATEGORY_EMOJI = {
   entertainment: '🎮',
   browser: '🌐',
   system: '⚙️',
+  break: '☕',
   unknown: '❓',
 };
 
@@ -59,20 +61,30 @@ function formatTimeOfDay(isoString) {
 export default function UnifiedTimeline({ compact = false }) {
   const [connected, setConnected] = useState(false);
   const [sessions, setSessions] = useState([]);
+  const [clockSession, setClockSession] = useState(null);
   const [hoveredSession, setHoveredSession] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [dayStartTime, setDayStartTime] = useState('00:00');
+  const [minDurationSec, setMinDurationSec] = useState(0);
+  const [hiddenRanges, setHiddenRanges] = useState([]);
   const barRef = useRef(null);
 
   useEffect(() => {
     // Load initial data
     chrome.storage.local.get(
-      ['companionConnected', 'companionRecentSessions', 'settings'],
+      ['companionConnected', 'companionRecentSessions', 'clockSession', 'settings'],
       (result) => {
         setConnected(!!result.companionConnected);
         setSessions(result.companionRecentSessions || []);
+        setClockSession(result.clockSession || null);
         if (result.settings?.activityDayStartTime) {
           setDayStartTime(result.settings.activityDayStartTime);
+        }
+        if (result.settings?.activityMinDurationSec != null) {
+          setMinDurationSec(result.settings.activityMinDurationSec);
+        }
+        if (result.settings?.hiddenActivityRanges) {
+          setHiddenRanges(result.settings.hiddenActivityRanges);
         }
       }
     );
@@ -85,8 +97,14 @@ export default function UnifiedTimeline({ compact = false }) {
       if (changes.companionRecentSessions) {
         setSessions(changes.companionRecentSessions.newValue || []);
       }
-      if (changes.settings?.newValue?.activityDayStartTime !== undefined) {
-        setDayStartTime(changes.settings.newValue.activityDayStartTime || '00:00');
+      if (changes.clockSession) {
+        setClockSession(changes.clockSession.newValue || null);
+      }
+      if (changes.settings?.newValue) {
+        const s = changes.settings.newValue;
+        if (s.activityDayStartTime !== undefined) setDayStartTime(s.activityDayStartTime || '00:00');
+        if (s.activityMinDurationSec != null) setMinDurationSec(s.activityMinDurationSec);
+        if (s.hiddenActivityRanges) setHiddenRanges(s.hiddenActivityRanges);
       }
     };
 
@@ -94,20 +112,36 @@ export default function UnifiedTimeline({ compact = false }) {
     return () => chrome.storage.local.onChanged.removeListener(listener);
   }, []);
 
-  // Process sessions into timeline segments — filtered to TODAY only, respecting day start time
-  const { segments, timeRange, categoryTotals } = useMemo(() => {
-    if (!sessions.length) return { segments: [], timeRange: null, categoryTotals: {} };
+  // Process sessions into timeline segments — filtered, merged, with breaks
+  const { segments, timeRange, categoryTotals, switchCount, clockMarkers } = useMemo(() => {
+    if (!sessions.length) return { segments: [], timeRange: null, categoryTotals: {}, switchCount: 0, clockMarkers: [] };
 
     // Parse day start time setting (e.g. "09:00")
     const [startH, startM] = (dayStartTime || '00:00').split(':').map(Number);
-
-    // Today's date boundaries — shifted by day start time
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startH, startM).getTime();
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
 
+    const minMs = (minDurationSec || 0) * 1000;
+
+    // Check if a timestamp falls in a hidden range
+    const isHidden = (ms) => {
+      if (!hiddenRanges || !hiddenRanges.length) return false;
+      const d = new Date(ms);
+      const todayDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      for (const range of hiddenRanges) {
+        if (range.date !== todayDate) continue;
+        const [fh, fm] = (range.from || '00:00').split(':').map(Number);
+        const [th, tm] = (range.to || '23:59').split(':').map(Number);
+        const rangeStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), fh, fm).getTime();
+        const rangeEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), th, tm).getTime();
+        if (ms >= rangeStart && ms < rangeEnd) return true;
+      }
+      return false;
+    };
+
     // Filter to completed sessions with duration, TODAY ONLY (after day start time)
-    const completed = sessions
+    let completed = sessions
       .filter(s => s.duration_ms > 0 && (s.started_at || s.startedAt))
       .map(s => ({
         ...s,
@@ -116,9 +150,79 @@ export default function UnifiedTimeline({ compact = false }) {
         durationMs: s.duration_ms,
       }))
       .filter(s => s.startMs >= todayStart && s.startMs < todayEnd)
+      .filter(s => !isHidden(s.startMs))
       .sort((a, b) => a.startMs - b.startMs);
 
-    if (!completed.length) return { segments: [], timeRange: null, categoryTotals: {} };
+    // Count raw switches before filtering by min duration
+    const rawSwitchCount = completed.length;
+
+    // Filter by minimum duration and merge sub-threshold gaps
+    if (minMs > 0) {
+      const merged = [];
+      for (const s of completed) {
+        if (s.durationMs < minMs) {
+          // Sub-threshold: try to extend the previous same-category segment
+          if (merged.length > 0) {
+            const prev = merged[merged.length - 1];
+            // Extend previous segment to cover this gap
+            prev.endMs = Math.max(prev.endMs, s.endMs);
+            prev.durationMs = prev.endMs - prev.startMs;
+          }
+          continue;
+        }
+        // Check if we can merge with previous same-category segment
+        if (merged.length > 0) {
+          const prev = merged[merged.length - 1];
+          if (prev.category === s.category && (s.startMs - prev.endMs) < minMs) {
+            // Merge: extend previous
+            prev.endMs = Math.max(prev.endMs, s.endMs);
+            prev.durationMs = prev.endMs - prev.startMs;
+            continue;
+          }
+        }
+        merged.push({ ...s });
+      }
+      completed = merged;
+    }
+
+    // Add break segments from clockSession
+    if (clockSession?.active && clockSession.breaks?.length) {
+      for (const brk of clockSession.breaks) {
+        const bStart = new Date(brk.start).getTime();
+        const bEnd = new Date(brk.end).getTime();
+        if (bStart >= todayStart && bStart < todayEnd && !isHidden(bStart)) {
+          completed.push({
+            id: `break-${bStart}`,
+            startMs: bStart,
+            endMs: bEnd,
+            durationMs: bEnd - bStart,
+            category: 'break',
+            app_display_name: 'Break',
+            window_title: 'On break',
+            isBreak: true,
+          });
+        }
+      }
+      // Also add active break if currently on break
+      if (clockSession.onBreak && clockSession.breakStartedAt) {
+        const bStart = new Date(clockSession.breakStartedAt).getTime();
+        if (bStart >= todayStart && bStart < todayEnd && !isHidden(bStart)) {
+          completed.push({
+            id: 'break-active',
+            startMs: bStart,
+            endMs: Date.now(),
+            durationMs: Date.now() - bStart,
+            category: 'break',
+            app_display_name: 'Break (active)',
+            window_title: 'Currently on break',
+            isBreak: true,
+          });
+        }
+      }
+      completed.sort((a, b) => a.startMs - b.startMs);
+    }
+
+    if (!completed.length) return { segments: [], timeRange: null, categoryTotals: {}, switchCount: rawSwitchCount, clockMarkers: [] };
 
     const earliest = completed[0].startMs;
     const latest = Math.max(...completed.map(s => s.endMs || s.startMs + s.durationMs));
@@ -138,17 +242,34 @@ export default function UnifiedTimeline({ compact = false }) {
       return {
         ...s,
         left,
-        width: Math.max(width, 0.3), // Minimum visible width
+        width: Math.max(width, 0.3),
         color: CATEGORY_COLORS[s.category] || CATEGORY_COLORS.unknown,
       };
     });
+
+    // Clock-in/out markers
+    const markers = [];
+    if (clockSession?.clockedInAt) {
+      const cinMs = new Date(clockSession.clockedInAt).getTime();
+      if (cinMs >= earliest && cinMs <= latest) {
+        markers.push({ pos: ((cinMs - earliest) / totalSpan) * 100, type: 'in', time: clockSession.clockedInAt });
+      }
+    }
+    if (clockSession?.clockedOutAt) {
+      const coutMs = new Date(clockSession.clockedOutAt).getTime();
+      if (coutMs >= earliest && coutMs <= latest) {
+        markers.push({ pos: ((coutMs - earliest) / totalSpan) * 100, type: 'out', time: clockSession.clockedOutAt });
+      }
+    }
 
     return {
       segments: segs,
       timeRange: { earliest, latest, totalSpan },
       categoryTotals: totals,
+      switchCount: rawSwitchCount,
+      clockMarkers: markers,
     };
-  }, [sessions, dayStartTime]);
+  }, [sessions, dayStartTime, minDurationSec, hiddenRanges, clockSession]);
 
   // Generate minute markers
   const minuteMarkers = useMemo(() => {
@@ -156,14 +277,13 @@ export default function UnifiedTimeline({ compact = false }) {
 
     const markers = [];
     const intervalMs = timeRange.totalSpan > 3600000 * 4
-      ? 3600000  // hour markers for 4+ hour spans
+      ? 3600000
       : timeRange.totalSpan > 3600000
-        ? 1800000 // 30 min markers for 1-4 hour spans
+        ? 1800000
         : timeRange.totalSpan > 1800000
-          ? 600000 // 10 min markers for 30min-1hr spans
-          : 300000; // 5 min markers for shorter spans
+          ? 600000
+          : 300000;
 
-    // Round to the nearest interval
     const firstMarker = Math.ceil(timeRange.earliest / intervalMs) * intervalMs;
 
     for (let t = firstMarker; t < timeRange.latest; t += intervalMs) {
@@ -236,7 +356,7 @@ export default function UnifiedTimeline({ compact = false }) {
           alignItems: 'center',
           gap: '6px',
         }}>
-          🖥️ Desktop Activity — Today
+          🖥️ Context Activity — Today
           <span style={{
             fontSize: '9px',
             opacity: 0.7,
@@ -253,13 +373,27 @@ export default function UnifiedTimeline({ compact = false }) {
             )}
           </span>
         </div>
-        <span style={{
-          fontSize: '10px',
-          color: connected ? '#10ac84' : 'var(--color-text-muted, #5a6270)',
-          fontWeight: 500,
-        }}>
-          {segments.length} sessions
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Clock status */}
+          {clockSession?.active && (
+            <span style={{ fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{ color: '#66bb6a', fontWeight: 600 }}>🟢 {formatTimeOfDay(clockSession.clockedInAt)}</span>
+              {clockSession.onBreak && <span style={{ color: '#ffa726', fontWeight: 600 }}>☕</span>}
+            </span>
+          )}
+          {clockSession?.clockedOutAt && !clockSession?.active && (
+            <span style={{ fontSize: '9px', color: '#ef5350', fontWeight: 600 }}>
+              🔴 {formatTimeOfDay(clockSession.clockedOutAt)}
+            </span>
+          )}
+          <span style={{
+            fontSize: '10px',
+            color: connected ? '#10ac84' : 'var(--color-text-muted, #5a6270)',
+            fontWeight: 500,
+          }}>
+            {switchCount} switches
+          </span>
+        </div>
       </div>
 
       {/* Timeline Bar */}
@@ -287,10 +421,30 @@ export default function UnifiedTimeline({ compact = false }) {
               width: `${seg.width}%`,
               top: 0,
               bottom: 0,
-              background: seg.color,
+              background: seg.isBreak
+                ? `repeating-linear-gradient(45deg, ${CATEGORY_COLORS.break}, ${CATEGORY_COLORS.break} 3px, ${CATEGORY_COLORS.break}88 3px, ${CATEGORY_COLORS.break}88 6px)`
+                : seg.color,
               opacity: hoveredSession === seg ? 1 : 0.75,
               transition: 'opacity 0.15s ease',
               borderRight: seg.width > 0.5 ? '1px solid rgba(0,0,0,0.2)' : 'none',
+            }}
+          />
+        ))}
+
+        {/* Clock-in/out markers */}
+        {clockMarkers.map((m, i) => (
+          <div
+            key={`clock-${i}`}
+            style={{
+              position: 'absolute',
+              left: `${m.pos}%`,
+              top: 0,
+              bottom: 0,
+              width: '2px',
+              background: m.type === 'in' ? '#66bb6a' : '#ef5350',
+              zIndex: 2,
+              pointerEvents: 'none',
+              boxShadow: `0 0 4px ${m.type === 'in' ? '#66bb6a88' : '#ef535088'}`,
             }}
           />
         ))}
@@ -383,7 +537,10 @@ export default function UnifiedTimeline({ compact = false }) {
                 <span style={{ fontWeight: 600, color: hoveredSession.color }}>
                   {formatDuration(hoveredSession.durationMs || hoveredSession.duration_ms)}
                 </span>
-                <span>{formatTimeOfDay(hoveredSession.started_at || hoveredSession.startedAt)}</span>
+                <span>{formatTimeOfDay(hoveredSession.started_at || hoveredSession.startedAt || new Date(hoveredSession.startMs).toISOString())}</span>
+                {hoveredSession.isBreak && (
+                  <span style={{ color: '#ffa726' }}>☕ Break</span>
+                )}
                 {hoveredSession.matched_focus_id && (
                   <span style={{ color: '#10ac84' }}>🎯 Focus matched</span>
                 )}
