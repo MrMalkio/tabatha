@@ -2009,6 +2009,42 @@ async function handleMessage(message, sender) {
         }
         return { success: true };
     }
+
+    // SET_INTENT — from InBar edit dropdown and intent label click
+    case 'SET_INTENT': {
+        if (!sender.tab?.id) return { error: 'No tab context' };
+        const tabs = await getTabData();
+        const tabId = sender.tab.id;
+        if (!tabs[tabId]) {
+            tabs[tabId] = {
+                url: sender.tab.url || '',
+                title: sender.tab.title || 'Untitled',
+                openedAt: new Date().toISOString(),
+                lastActive: new Date().toISOString(),
+                activeTime: 0,
+                context: null,
+                intent: null,
+                contextSource: null,
+            };
+        }
+        const payload = message.payload || {};
+        if (payload.resolved) {
+            // Mark intent as resolved — clear context from this tab
+            tabs[tabId].context = null;
+            tabs[tabId].intent = null;
+            tabs[tabId].contextSource = null;
+            tabs[tabId].resolvedAt = new Date().toISOString();
+        } else {
+            tabs[tabId].context = payload.intent || tabs[tabId].context;
+            tabs[tabId].intent = payload.intent || tabs[tabId].intent;
+            if (payload.description) tabs[tabId].intentDescription = payload.description;
+            tabs[tabId].contextSource = 'user';
+            tabs[tabId].startedAt = new Date().toISOString();
+        }
+        await setTabData(tabs);
+        broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+        return { success: true };
+    }
     
     case 'START_SIDE_QUEST': {
         const tabs = await getTabData();
