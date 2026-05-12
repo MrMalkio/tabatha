@@ -13,23 +13,32 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
     const todayStr = now.toISOString().split('T')[0];
     const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
     
-    // Today's focuses
+    // Today's focuses — items started or created today
     const todayFocuses = (allItems || []).filter(item => {
       const ts = item.startedAt || item.createdAt;
       return ts && ts.startsWith(todayStr);
     });
 
-    // Total focus time today (from time tracking)
+    // Total focus time today — sum elapsed from today's active/paused/completed items
     let todayFocusMs = 0;
-    if (timeTracking) {
-      Object.values(timeTracking).forEach(tt => {
-        if (tt.date === todayStr) todayFocusMs += (tt.totalTime || 0);
+    todayFocuses.forEach(item => {
+      todayFocusMs += (item.elapsedMs || 0);
+    });
+    // Also add from timeTracking byTab if available
+    if (timeTracking?.byTab) {
+      Object.values(timeTracking.byTab).forEach(ms => {
+        if (typeof ms === 'number') todayFocusMs += ms;
       });
     }
 
     // Intent completion rate (last 7 days)
-    const recentIntents = (intentHistory || []).filter(i => new Date(i.createdAt || i.startedAt) >= weekAgo);
-    const resolvedCount = recentIntents.filter(i => i.stage === 'resolved' || i.status === 'completed').length;
+    const recentIntents = (intentHistory || []).filter(i => {
+      const ts = i.createdAt || i.startedAt;
+      return ts && new Date(ts) >= weekAgo;
+    });
+    const resolvedCount = recentIntents.filter(i => 
+      i.stage === 'resolved' || i.status === 'completed' || i.focusState === 'completed'
+    ).length;
     const completionRate = recentIntents.length > 0 ? Math.round((resolvedCount / recentIntents.length) * 100) : 0;
 
     // Top focus labels (most frequent)
@@ -52,9 +61,14 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
       else realmCounts.unset++;
     });
 
-    // Streak — consecutive days with activity
+    // Streak — consecutive days with at least one focus or intent
     let streak = 0;
     const daySet = new Set();
+    // Collect days from all items
+    (allItems || []).forEach(item => {
+      const d = (item.startedAt || item.createdAt || '').split('T')[0];
+      if (d) daySet.add(d);
+    });
     (intentHistory || []).forEach(i => {
       const d = (i.createdAt || i.startedAt || '').split('T')[0];
       if (d) daySet.add(d);
@@ -68,7 +82,18 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
 
     // Task stats from org
     const totalTasks = orgData?.taskList?.length || 0;
-    const openTasks = orgData?.taskList?.filter(t => t.status !== 'complete')?.length || 0;
+    const openTasks = orgData?.taskList?.filter(t => t.status !== 'complete' && t.status !== 'completed')?.length || 0;
+
+    // Category time breakdown
+    const categoryTimes = [];
+    if (timeTracking?.byCategory) {
+      Object.entries(timeTracking.byCategory).forEach(([cat, ms]) => {
+        if (typeof ms === 'number' && ms > 0) {
+          categoryTimes.push({ label: cat, ms });
+        }
+      });
+      categoryTimes.sort((a, b) => b.ms - a.ms);
+    }
 
     return {
       todayFocuses: todayFocuses.length,
@@ -81,6 +106,7 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
       streak,
       totalTasks,
       openTasks,
+      categoryTimes: categoryTimes.slice(0, 5),
     };
   }, [allItems, timeTracking, intentHistory, orgData]);
 
@@ -128,6 +154,24 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
           </div>
         )}
       </GlassCard>
+
+      {/* Category time breakdown */}
+      {metrics.categoryTimes.length > 0 && (
+        <GlassCard style={{ padding: '14px', marginBottom: '12px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-muted)', marginBottom: '10px' }}>⏱ Time by Category</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {metrics.categoryTimes.map(c => (
+              <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ flex: 1, position: 'relative', height: '18px', background: 'var(--color-surface)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: barWidth(c.ms, metrics.categoryTimes[0]?.ms || 1), height: '100%', background: 'var(--color-accent-secondary, var(--color-accent-primary))', borderRadius: '3px', opacity: 0.7 }} />
+                  <span style={{ position: 'absolute', left: '6px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 500 }}>{c.label}</span>
+                </div>
+                <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-muted)', minWidth: '40px', textAlign: 'right' }}>{formatMin(Math.round(c.ms / 60000))}</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
 
       {/* Context Distribution */}
       <GlassCard style={{ padding: '14px' }}>

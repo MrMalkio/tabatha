@@ -76,3 +76,82 @@
   1. Delete `origin/main` via `git push origin --delete main` and set HEAD to `master` in GitHub repo settings
   2. Keep both but update GitHub default branch to `master`
   3. Option 1 ← **suggested**
+
+## 2026-05-11 — Entity Relationship Editing (T3.1)
+- **Noticed while:** User testing Tier 3 Org UI
+- **What:** Link projects to initiatives, tasks to projects, and edit associations after creation.
+- **Why it matters:** Without relationship editing, the org hierarchy is rigid.
+- **Options:**
+  1. Add dropdown selectors in entity detail views for re-parenting ← **suggested**
+  2. Drag-and-drop in tree view
+
+## 2026-05-11 — Extended Keyboard Shortcuts (T5.1)
+- **Noticed while:** User testing Tier 5 shortcuts
+- **What:** Collapse-all shortcut, go-to should scroll+focus, cross-page shortcuts (sidebar toggle).
+- **Why it matters:** Power users need keyboard-driven workflows system-wide.
+- **Options:**
+  1. Extend useKeyboardShortcuts with page-context awareness ← **suggested**
+  2. Use chrome.commands API for cross-page shortcuts
+
+## 2026-05-11 — Multiple Webhook Endpoints (T5.2)
+- **Noticed while:** User testing webhooks
+- **What:** Multiple webhook URLs with independent event subscriptions and secrets.
+- **Why it matters:** Different services need different events.
+- **Options:**
+  1. Refactor storage to array of webhook configs ← **suggested**
+
+## 2026-05-11 — Focus Completion Tab Closure Prompt
+- **Noticed while:** User testing focus resolution
+- **What:** Prompt to close related tabs with notes/park options when completing a focus.
+- **Why it matters:** Follow-through means cleaning up after sessions.
+- **Options:**
+  1. FocusCompletionModal with per-tab park/close/keep toggles ← **suggested**
+
+## 2026-05-11 — Auto-Start Next Focus Should Prompt
+- **Noticed while:** User testing focus resolution
+- **What:** Resolving a focus auto-starts the next one. Should prompt with context notes first.
+- **Why it matters:** Mental transition between focuses prevents context confusion.
+- **Options:**
+  1. "Ready to start?" prompt with task context and confirm/skip ← **suggested**
+
+## 2026-05-11 — Intent Save Button + Task Reassignment
+- **Noticed while:** User testing intent editing
+- **What:** No save button on intent boxes. Need task-to-project reassignment.
+- **Why it matters:** Users unsure if edits saved; task misassignment can't be corrected.
+- **Options:**
+  1. Explicit save/discard buttons + inline project dropdown ← **suggested**
+
+## 2026-05-11 — Tiered Deletion Confirmations
+- **Noticed while:** User testing entity management
+- **What:** Deletion confirmation proportional to tier (Operations=strict, Tasks=undo).
+- **Why it matters:** Accidental Operation deletion could cascade-archive dozens of children.
+- **Options:**
+  1. 3-tier confirmation (quick/standard/strict) based on entity type ← **suggested**
+
+## 2026-05-11 — Missing Tooltips Across UI
+- **Noticed while:** User testing all tiers
+- **What:** Many interactive elements lack tooltips.
+- **Why it matters:** Discoverability for new users.
+- **Options:**
+  1. Audit all buttons/icons and add Tooltip wrappers systematically ← **suggested**
+
+## 2026-05-11 — Voice Input in Popups and InBar
+- **Noticed while:** User testing voice input
+- **What:** Voice input only on homepage. Needed most in popup and InBar.
+- **Why it matters:** Homepage is visited least — voice should be where quick actions happen.
+- **Options:**
+  1. Add VoiceInput to popup focus setter + InBar edit dropdown ← **suggested**
+
+## 2026-05-11 — Mark Intents + Tabs as Complete
+- **Noticed while:** User testing intent management
+- **What:** Mark intents as complete/resolved AND individual tabs within intents. Count toward follow-through.
+- **Why it matters:** Core follow-through tracking.
+- **Options:**
+  1. Completion toggle on intent rows + tab rows, update analytics ← **suggested**
+
+## 2026-05-11 — Google Auth Configuration (T5.4)
+- **Noticed while:** User testing auth
+- **What:** Google login "Authorization page could not be loaded", email confirmation never arrives.
+- **Why it matters:** Blocks cloud sync.
+- **Options:**
+  1. Verify Supabase Auth settings + use chrome.identity for extension ← **suggested**

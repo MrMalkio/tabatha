@@ -22,7 +22,7 @@ export function VoiceInput({ onResult, placeholder = 'Tap mic to speak...', disa
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
@@ -31,6 +31,7 @@ export function VoiceInput({ onResult, placeholder = 'Tap mic to speak...', disa
       setError(null);
     };
 
+    let silenceTimer = null;
     recognition.onresult = (event) => {
       let finalTranscript = '';
       let interimTranscript = '';
@@ -46,6 +47,11 @@ export function VoiceInput({ onResult, placeholder = 'Tap mic to speak...', disa
       if (finalTranscript) {
         onResult?.(finalTranscript.trim());
       }
+      // Reset silence auto-stop timer on every result
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        recognition.stop();
+      }, 3000); // 3s of silence → auto-stop
     };
 
     recognition.onerror = (event) => {

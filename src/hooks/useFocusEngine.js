@@ -149,8 +149,8 @@ export function formatElapsed(ms) {
 export const FUNNEL_STAGES = {
   unsorted: { label: 'Unsorted', icon: '📥', color: '#888' },
   todo: { label: 'Todo', icon: '📋', color: '#64b5f6' },
-  addressing: { label: 'Addressing', icon: '⚡', color: '#ab47bc' },
   focus: { label: 'Focus', icon: '🎯', color: '#ff9800' },
+  addressing: { label: 'Addressing', icon: '⚡', color: '#ab47bc' },
   roadblocked: { label: 'Roadblocked', icon: '🚧', color: '#ef5350' },
   resolved: { label: 'Resolved', icon: '✅', color: '#66bb6a' },
 };

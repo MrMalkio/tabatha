@@ -12,6 +12,14 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
+  // Stable refs so action closures never go stale
+  const onCloseRef = useRef(onClose);
+  const onNavigateRef = useRef(onNavigate);
+  const actionsRef = useRef(actions);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => { onNavigateRef.current = onNavigate; }, [onNavigate]);
+  useEffect(() => { actionsRef.current = actions; }, [actions]);
+
   // Reset on open
   useEffect(() => {
     if (isOpen) {
@@ -26,9 +34,7 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     if (!q) return true;
     const lower = text.toLowerCase();
     const qLower = q.toLowerCase();
-    // Simple substring + word-start match
     if (lower.includes(qLower)) return true;
-    // Character-by-character fuzzy
     let qi = 0;
     for (let i = 0; i < lower.length && qi < qLower.length; i++) {
       if (lower[i] === qLower[qi]) qi++;
@@ -43,23 +49,32 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     if (lower === qLower) return 100;
     if (lower.startsWith(qLower)) return 90;
     if (lower.includes(qLower)) return 70;
-    return 30; // fuzzy char match
+    return 30;
+  }, []);
+
+  // Execute action safely
+  const executeAction = useCallback((actionFn) => {
+    if (typeof actionFn === 'function') {
+      actionFn();
+    }
   }, []);
 
   // Build results
   const results = useMemo(() => {
     const items = [];
+    const close = () => onCloseRef.current?.();
+    const navigate = (t) => { onNavigateRef.current?.(t); close(); };
 
-    // Actions (always available, filtered by query)
+    // Static actions
     const staticActions = [
-      { type: 'action', icon: '🎯', label: 'Set new focus', action: () => { onNavigate?.('focus'); onClose(); } },
-      { type: 'action', icon: '☕', label: 'Take a break', action: () => { actions?.toggleBreak?.(); onClose(); } },
-      { type: 'action', icon: '⏱', label: 'Clock in/out', action: () => { onNavigate?.('clock'); onClose(); } },
-      { type: 'action', icon: '📋', label: 'Create new task', action: () => { onNavigate?.('tasks'); onClose(); } },
-      { type: 'action', icon: '🏢', label: 'View projects', action: () => { onNavigate?.('projects'); onClose(); } },
-      { type: 'action', icon: '🏛️', label: 'View org hierarchy', action: () => { onNavigate?.('org'); onClose(); } },
-      { type: 'action', icon: '⚙️', label: 'Open settings', action: () => { window.open(chrome.runtime.getURL('settings.html')); onClose(); } },
-      { type: 'action', icon: '🎨', label: 'Switch theme', action: () => { onNavigate?.('theme'); onClose(); } },
+      { type: 'action', icon: '🎯', label: 'Set new focus', actionFn: () => navigate('focus') },
+      { type: 'action', icon: '☕', label: 'Take a break', actionFn: () => { actionsRef.current?.toggleBreak?.(); close(); } },
+      { type: 'action', icon: '⏱', label: 'Clock in/out', actionFn: () => navigate('clock') },
+      { type: 'action', icon: '📋', label: 'Create new task', actionFn: () => navigate('tasks') },
+      { type: 'action', icon: '🏢', label: 'View projects', actionFn: () => navigate('projects') },
+      { type: 'action', icon: '🏛️', label: 'View org hierarchy', actionFn: () => navigate('org') },
+      { type: 'action', icon: '⚙️', label: 'Open settings', actionFn: () => { window.open(chrome.runtime.getURL('settings.html')); close(); } },
+      { type: 'action', icon: '🎨', label: 'Switch theme', actionFn: () => navigate('theme') },
     ];
     
     for (const a of staticActions) {
@@ -71,7 +86,12 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
       for (const item of allItems.slice(0, 50)) {
         const label = item.label || item.name || 'Unnamed';
         if (fuzzyMatch(label, query)) {
-          items.push({ type: 'focus', icon: item.type === 'intent' ? '🎯' : '🔵', label, subtitle: item.focusState || item.stage || '', score: fuzzyScore(label, query), action: () => { onClose(); } });
+          items.push({
+            type: 'focus', icon: item.type === 'intent' ? '🎯' : '🔵', label,
+            subtitle: item.focusState || item.stage || '',
+            score: fuzzyScore(label, query),
+            actionFn: () => navigate('intents'),
+          });
         }
       }
     }
@@ -80,7 +100,11 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     if (orgData?.taskList) {
       for (const task of orgData.taskList.slice(0, 30)) {
         if (fuzzyMatch(task.name, query)) {
-          items.push({ type: 'task', icon: '✏️', label: task.name, subtitle: task.status, score: fuzzyScore(task.name, query), action: () => { onNavigate?.('tasks'); onClose(); } });
+          items.push({
+            type: 'task', icon: '✏️', label: task.name, subtitle: task.status,
+            score: fuzzyScore(task.name, query),
+            actionFn: () => navigate('tasks'),
+          });
         }
       }
     }
@@ -89,7 +113,11 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     if (orgData?.projectList) {
       for (const proj of orgData.projectList.slice(0, 20)) {
         if (fuzzyMatch(proj.name, query)) {
-          items.push({ type: 'project', icon: '📁', label: proj.name, subtitle: 'Project', score: fuzzyScore(proj.name, query), action: () => { onNavigate?.('projects'); onClose(); } });
+          items.push({
+            type: 'project', icon: '📁', label: proj.name, subtitle: 'Project',
+            score: fuzzyScore(proj.name, query),
+            actionFn: () => navigate('projects'),
+          });
         }
       }
     }
@@ -98,7 +126,11 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     if (orgData?.clientList) {
       for (const cli of orgData.clientList.slice(0, 20)) {
         if (fuzzyMatch(cli.name, query)) {
-          items.push({ type: 'client', icon: '👤', label: cli.name, subtitle: 'Client', score: fuzzyScore(cli.name, query), action: () => { onNavigate?.('projects'); onClose(); } });
+          items.push({
+            type: 'client', icon: '👤', label: cli.name, subtitle: 'Client',
+            score: fuzzyScore(cli.name, query),
+            actionFn: () => navigate('projects'),
+          });
         }
       }
     }
@@ -109,22 +141,33 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
       for (const tab of tabArr) {
         const label = tab.title || tab.url || 'Tab';
         if (fuzzyMatch(label, query)) {
-          items.push({ type: 'tab', icon: '📑', label, subtitle: tab.context || '', score: fuzzyScore(label, query), action: () => { chrome.tabs.update(Number(tab.tabId || tab.id), { active: true }); onClose(); } });
+          items.push({
+            type: 'tab', icon: '📑', label, subtitle: tab.context || '',
+            score: fuzzyScore(label, query),
+            actionFn: () => { chrome.tabs.update(Number(tab.tabId || tab.id), { active: true }); close(); },
+          });
         }
       }
     }
 
-    // Sort by score (highest first), limit to 15
     return items.sort((a, b) => b.score - a.score).slice(0, 15);
-  }, [query, allItems, orgData, tabs, actions, onClose, onNavigate, fuzzyMatch, fuzzyScore]);
+  }, [query, allItems, orgData, tabs, fuzzyMatch, fuzzyScore]);
 
-  // Keyboard navigation
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') { onClose(); return; }
+  // Handle item selection
+  const selectItem = useCallback((idx) => {
+    const item = results[idx];
+    if (item?.actionFn) {
+      executeAction(item.actionFn);
+    }
+  }, [results, executeAction]);
+
+  // Keyboard navigation — on the container, not just input
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') { onCloseRef.current?.(); return; }
     if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); return; }
-    if (e.key === 'Enter' && results[selectedIdx]) { results[selectedIdx].action(); return; }
-  };
+    if (e.key === 'Enter') { e.preventDefault(); selectItem(selectedIdx); return; }
+  }, [results.length, selectedIdx, selectItem]);
 
   // Scroll selected into view
   useEffect(() => {
@@ -143,7 +186,7 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        onClick={onClose}
+        onClick={() => onCloseRef.current?.()}
         style={{
           position: 'fixed', inset: 0, zIndex: 9999,
           background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
@@ -156,11 +199,13 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
           exit={{ y: -20, opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2 }}
           onClick={e => e.stopPropagation()}
+          onKeyDown={handleKeyDown}
+          tabIndex={-1}
           style={{
             width: '540px', maxWidth: '90vw', maxHeight: '60vh',
             background: 'var(--color-bg-base)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-lg, 12px)', overflow: 'hidden',
-            boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.4)', outline: 'none',
           }}
         >
           {/* Search input */}
@@ -191,7 +236,7 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
             {results.map((r, i) => (
               <div
                 key={`${r.type}-${r.label}-${i}`}
-                onClick={r.action}
+                onClick={(e) => { e.stopPropagation(); selectItem(i); }}
                 onMouseEnter={() => setSelectedIdx(i)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '10px',

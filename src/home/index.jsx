@@ -555,10 +555,19 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
     await actions.startFocus(task.name, null, { task: task.id });
   };
 
+  // Merge legacy tasks + org registry tasks into one unified list
+  const mergedTasks = useMemo(() => {
+    const legacyIds = new Set(tasks.map(t => t.id));
+    const orgTasks = (orgData?.taskList || [])
+      .filter(t => !legacyIds.has(t.id)) // avoid duplicates
+      .map(t => ({ ...t, status: t.status === 'complete' ? 'completed' : (t.status || 'active'), source: 'org' }));
+    return [...tasks.map(t => ({ ...t, source: 'legacy' })), ...orgTasks];
+  }, [tasks, orgData?.taskList]);
+
   const filtered = useMemo(() => {
-    if (filter === 'all') return tasks;
-    return tasks.filter(t => t.status === filter);
-  }, [tasks, filter]);
+    if (filter === 'all') return mergedTasks;
+    return mergedTasks.filter(t => t.status === filter || (filter === 'completed' && t.status === 'complete'));
+  }, [mergedTasks, filter]);
 
   // Find linked intents for each task
   const getLinkedIntents = (taskId) => {
@@ -854,7 +863,7 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '9px', background: funnel.color + '22', color: funnel.color, padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>{funnel.icon} {funnel.label}</span>
+                  <span onClick={(e) => { e.stopPropagation(); if (!isExpanded) toggle(intent.id); }} style={{ fontSize: '9px', background: funnel.color + '22', color: funnel.color, padding: '1px 5px', borderRadius: '3px', fontWeight: 600, cursor: 'pointer' }} title="Click to change stage">{funnel.icon} {funnel.label}</span>
                   {assocTabs.length > 0 && <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{assocTabs.length} tab{assocTabs.length !== 1 ? 's' : ''}</span>}
                   {totalTime > 0 && <span style={{ fontSize: '10px', color: 'var(--color-accent-primary)', fontWeight: 600 }}>{formatTime(totalTime)}</span>}
                   <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{isExpanded ? '▼' : '▶'}</span>
@@ -863,34 +872,25 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
 
               {isExpanded && (
                 <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
-                  {intent.isFocusItem && (
-                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                      <Tooltip text="Edit intent label">
-                        <button onClick={(e) => { e.stopPropagation(); setEditingId(intent.id); setEditLabel(intent.label); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✏️ Rename</button>
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <Tooltip text="Edit intent label">
+                      <button onClick={(e) => { e.stopPropagation(); setEditingId(intent.id); setEditLabel(intent.label); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✏️ Rename</button>
+                    </Tooltip>
+                    <Tooltip text="Link to Task or Merge Intent">
+                      <button onClick={(e) => { e.stopPropagation(); onLinkRequest?.(intent, 'intent'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🔗 Link/Merge</button>
+                    </Tooltip>
+                    <Tooltip text="Link an open tab to this intent">
+                      <button onClick={(e) => { e.stopPropagation(); setLinkingTabFor(isLinkingTab ? null : intent.id); }} style={{ background: isLinkingTab ? 'var(--color-accent-primary)22' : 'transparent', border: `1px solid ${isLinkingTab ? 'var(--color-accent-primary)' : 'var(--color-border)'}`, color: isLinkingTab ? 'var(--color-accent-primary)' : 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>📄 Link Tab</button>
+                    </Tooltip>
+                    {intent.focusState !== 'active' && (
+                      <Tooltip text="Switch to this focus">
+                        <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🎯 Focus</button>
                       </Tooltip>
-                      <Tooltip text="Link to Task or Merge Intent">
-                        <button onClick={(e) => { e.stopPropagation(); onLinkRequest?.(intent, 'intent'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🔗 Link/Merge</button>
-                      </Tooltip>
-                      <Tooltip text="Link an open tab to this intent">
-                        <button onClick={(e) => { e.stopPropagation(); setLinkingTabFor(isLinkingTab ? null : intent.id); }} style={{ background: isLinkingTab ? 'var(--color-accent-primary)22' : 'transparent', border: `1px solid ${isLinkingTab ? 'var(--color-accent-primary)' : 'var(--color-border)'}`, color: isLinkingTab ? 'var(--color-accent-primary)' : 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>📄 Link Tab</button>
-                      </Tooltip>
-                      {intent.focusState !== 'active' && (
-                        <Tooltip text="Switch to this focus">
-                          <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🎯 Focus</button>
-                        </Tooltip>
-                      )}
-                      <Tooltip text="Mark as resolved">
-                        <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✅ Resolved</button>
-                      </Tooltip>
-                    </div>
-                  )}
-                  {!intent.isFocusItem && (
-                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                      <Tooltip text="Link to Task or Merge Intent">
-                        <button onClick={(e) => { e.stopPropagation(); onLinkRequest?.(intent, 'intent'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>🔗 Link/Merge</button>
-                      </Tooltip>
-                    </div>
-                  )}
+                    )}
+                    <Tooltip text="Mark as resolved">
+                      <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(intent.id); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>✅ Resolved</button>
+                    </Tooltip>
+                  </div>
 
                   {/* Inline Tab Picker */}
                   {isLinkingTab && (
@@ -907,20 +907,18 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
                     </div>
                   )}
 
-                  {/* Funnel Stage Editor */}
-                  {intent.isFocusItem && (
-                    <div style={{ marginBottom: '8px' }}>
-                      <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '4px' }}>Stage</div>
-                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                        {Object.entries(FUNNEL_STAGES).map(([key, stage]) => (
-                          <button key={key} onClick={(e) => { e.stopPropagation(); actions.updateFocus(intent.id, { funnelStage: key }); }}
-                            style={{ background: intent.funnelStage === key ? stage.color + '33' : 'transparent', border: `1px solid ${intent.funnelStage === key ? stage.color : 'var(--color-border)'}`, color: intent.funnelStage === key ? stage.color : 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', cursor: 'pointer', fontWeight: intent.funnelStage === key ? 600 : 400 }}>
-                            {stage.icon} {stage.label}
-                          </button>
-                        ))}
-                      </div>
+                  {/* Funnel Stage Editor — always shown */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '4px' }}>Stage</div>
+                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                      {Object.entries(FUNNEL_STAGES).map(([key, stage]) => (
+                        <button key={key} onClick={(e) => { e.stopPropagation(); actions.updateFocus(intent.id, { funnelStage: key }); }}
+                          style={{ background: intent.funnelStage === key ? stage.color + '33' : 'transparent', border: `1px solid ${intent.funnelStage === key ? stage.color : 'var(--color-border)'}`, color: intent.funnelStage === key ? stage.color : 'var(--color-text-muted)', borderRadius: '4px', padding: '2px 6px', fontSize: '9px', cursor: 'pointer', fontWeight: intent.funnelStage === key ? 600 : 400 }}>
+                          {stage.icon} {stage.label}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
                   {assocTabs.length > 0 ? (
                     assocTabs.map(tab => (

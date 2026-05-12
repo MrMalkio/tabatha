@@ -775,31 +775,25 @@ const contextSwitchTracker = (() => {
       const distinct = new Set(history.map(h => h.context)).size;
       if (distinct >= THRESHOLD && now - lastNotified > COOLDOWN_MS) {
         lastNotified = now;
-        // Fire notification
-        chrome.notifications.create(`context-drift-${now}`, {
-          type: 'basic',
-          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-          title: '⚠️ Context Drift Detected',
-          message: `You've switched between ${distinct} different contexts in the last 5 minutes. Consider setting a focus or taking a short break.`,
-          buttons: [{ title: '🎯 Set Focus' }, { title: '☕ Take Break' }],
-          priority: 2,
-        });
+        try {
+          chrome.notifications.create(`context-drift-${now}`, {
+            type: 'basic',
+            iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+            title: '⚠️ Context Drift Detected',
+            message: `You've switched between ${distinct} different contexts in the last 5 minutes. Click to set a focus.`,
+            priority: 2,
+          });
+        } catch (e) { console.warn('[Tabatha] Notification error:', e); }
         logEvent('context_drift', { distinctContexts: distinct, window: '5min' });
       }
     }
   };
 })();
 
-// Handle notification button clicks
-chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
+// Handle notification clicks — open homepage to set focus
+chrome.notifications.onClicked.addListener((notifId) => {
   if (notifId.startsWith('context-drift-') || notifId.startsWith('focus-expired-') || notifId.startsWith('nudge-')) {
-    if (btnIdx === 0) {
-      // Open homepage to set focus
-      chrome.tabs.create({ url: chrome.runtime.getURL('home.html') });
-    } else if (btnIdx === 1) {
-      // Toggle break
-      handleMessage({ type: 'TOGGLE_BREAK' }, {}, () => {});
-    }
+    chrome.tabs.create({ url: chrome.runtime.getURL('home.html') });
     chrome.notifications.clear(notifId);
   }
 });
@@ -816,7 +810,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     await timeTracker.startTracking(activeInfo.tabId, tabData.url, tabData);
     
     // ── Context-switch detection ──
-    contextSwitchTracker.record(tabData.context || tabData.category || 'unknown');
+    // Use domain as primary context signal (user context if set, else domain, else category)
+    let contextSignal = tabData.context;
+    if (!contextSignal && tabData.url) {
+      try { contextSignal = new URL(tabData.url).hostname.replace(/^www\./, ''); } catch (e) {}
+    }
+    contextSignal = contextSignal || tabData.category || 'unknown';
+    contextSwitchTracker.record(contextSignal);
   }
   
   broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
@@ -1196,14 +1196,15 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (!hasActive) {
       const idleState = await chrome.idle.queryState(60);
       if (idleState === 'active') {
-        chrome.notifications.create(`nudge-${Date.now()}`, {
-          type: 'basic',
-          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-          title: '🎯 Tabatha — What are you working on?',
-          message: 'You\'ve been browsing without a focus set. Set one to track your productivity.',
-          buttons: [{ title: '🎯 Set Focus' }, { title: '☕ Take Break' }],
-          priority: 1,
-        });
+        try {
+          chrome.notifications.create(`nudge-${Date.now()}`, {
+            type: 'basic',
+            iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+            title: '🎯 Tabatha — What are you working on?',
+            message: 'You\'ve been browsing without a focus set. Click to set one.',
+            priority: 1,
+          });
+        } catch (e) { console.warn('[Tabatha] Nudge notification error:', e); }
         logEvent('unfocused_nudge', { activeFocusId: engine.activeFocusId });
       }
     }
