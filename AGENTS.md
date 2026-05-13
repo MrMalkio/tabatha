@@ -6,7 +6,7 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 6 | Status: active          -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 7 | Status: active          -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
@@ -72,7 +72,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.
 7. **Practice progressive disclosure.** Do NOT read every file. Read what you need.
 8. **Check `.headbox/sticky-notes/`** at session start for notes left by other agents or humans.
-9. **Number Implementation Plans** — Always uniquely name your implementation plans with an incrementing number AND a descriptive suffix (e.g. `implementation_plan_019_distribution.md`). Before naming, **check `.headbox/plan-registry.md`** for the latest number. Never reuse or overwrite an existing plan number — if a collision occurs, append a letter (e.g. `_012b`) or further context.
+9. **Number Implementation Plans** — Every implementation plan must carry a unique number AND a descriptive suffix in its **document title/heading** (e.g. `# Implementation Plan 019: Distribution Strategy`). Register the number in `.headbox/plan-registry.md` before writing. Never reuse or overwrite an existing plan number — if a collision occurs, append a letter (e.g. `019b`). \n   - **File naming:** If your tool constrains the artifact filename (e.g. always saves as `implementation_plan.md`), that is acceptable — the number in the heading + registry entry is the source of truth. After creation, the file may be renamed to include the number (e.g. `implementation_plan_019_distribution.md`) to make it a distinct artifact rather than an overwritable singleton. The **core invariant is: never overwrite an existing plan**.
 10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion. Format: `> **Current version:** X.Y.Z → **Target version:** X.Y.Z`. **Versioning calculation:** Count all fixes (patch), minor features, and major/breaking changes in the plan. The target version is calculated additively: `MAJOR.+MINOR_COUNT.+FIX_COUNT`. Example: if current is `1.0.0` and the plan has 3 minor features and 4 fixes, the target is `1.3.4`. Major version increments only for breaking/architectural changes.
 11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status (draft/approved/completed/superseded). Check this registry before choosing a plan number.
 
@@ -154,6 +154,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-10 | Antigravity | Desktop Companion Build | Scaffolded tabatha-desktop repo (Tauri 2.x). Built 5 Rust modules: window_monitor (Win32 APIs), activity_log (SQLite), categorizer (50+ apps), ws_server (:9147), main (tray orchestrator). React debug UI. Installed Rust 1.95 + VS Build Tools. Binary compiles and WS server verified end-to-end. Built extension-side CompanionBridge + CompanionStatus.jsx. Idle handler augmented to suppress false-idle when user active in other apps. | Test live window monitoring, build UnifiedTimeline UI, Supabase app_activity migration |
 | 2026-05-10 | Antigravity | Bug Fix Sweep + Task CRUD | Halved corner radius globally (sm:2, md:4, lg:8). Fixed InBar label fallback to activeFocus.label. Made FlipClock responsive (overflow:hidden, flexWrap, 5px margin). Task delete confirmation. Task inline editing (name+desc). Start-intent-from-task button. Link-task-to-intent button + LinkMergeModal type='task' support. CompanionStatus wired into homepage header. | Cross-view focus sync debug, shadcn/ui migration, merge decomp branch |
 | 2026-05-11 | Antigravity | InBar Edit + Retention + v3.12.4 | InBar edit dropdown (✏️ intent editing, focus assignment list, new focus creation). Separated tab intent vs central focus display. Data retention alarm (90d default, configurable). Auto-park paused tabs with note. Tab rename + Link Tab. Logs overhaul (8 types, filter chips, pagination). Version 3.12.4-alpha released to master. | InBar intent live-reload after edit, blocked/task log emission, browser retention setting |
+| 2026-05-12 | Antigravity | Headbox Updates Extraction | Reviewed full thread history (534 log entries). Extracted 11 operational rules/preferences into `headbox_updates-003.md`. Topics: branch-first workflow, worktree isolation, parallel refactor safety, handoff prompts, full file paths in plans, debug gating, version parity, terminology glossary, scope doc versioning, isolated refactor tracks. | Review & apply pending-updates-003 rules to AGENTS.md + vendor sync |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
