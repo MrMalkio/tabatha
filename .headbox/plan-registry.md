@@ -20,6 +20,12 @@
 | 020 | activity_editor | 2026-05-12 | Activity Editor + Timeline enhancements + InBar sync fix | draft |
 | 021 | intent_focus_pipeline | 2026-05-12 | Intent→Focus pipeline + Browser Profile defaults | draft |
 
+| 022 | focus_timer_idle_tracking | 2026-05-13 | Focus Timer Harmonization & Deep Activity Tracking | draft |
+
 ---
 
-> **Next available number:** 022
+| 023 | efficiency_decomp | 2026-05-13 | Efficiency-Driven Decomposition — audit-informed monolith breakup + storage caps | draft |
+
+---
+
+> **Next available number:** 024

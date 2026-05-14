@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 7 | Status: active          -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 8 | Status: active          -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 3.20.0
-- **Current focus:** v3.x Stabilization — State machine, task migration, display parity, ecosystem audit
+- **Current version:** 3.34.5-α
+- **Current focus:** Decomp Planning — Dual audit complete, Plan 023 drafted, user feedback collected, awaiting approval for refactor/decomp-v2
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -154,7 +154,9 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-10 | Antigravity | Desktop Companion Build | Scaffolded tabatha-desktop repo (Tauri 2.x). Built 5 Rust modules: window_monitor (Win32 APIs), activity_log (SQLite), categorizer (50+ apps), ws_server (:9147), main (tray orchestrator). React debug UI. Installed Rust 1.95 + VS Build Tools. Binary compiles and WS server verified end-to-end. Built extension-side CompanionBridge + CompanionStatus.jsx. Idle handler augmented to suppress false-idle when user active in other apps. | Test live window monitoring, build UnifiedTimeline UI, Supabase app_activity migration |
 | 2026-05-10 | Antigravity | Bug Fix Sweep + Task CRUD | Halved corner radius globally (sm:2, md:4, lg:8). Fixed InBar label fallback to activeFocus.label. Made FlipClock responsive (overflow:hidden, flexWrap, 5px margin). Task delete confirmation. Task inline editing (name+desc). Start-intent-from-task button. Link-task-to-intent button + LinkMergeModal type='task' support. CompanionStatus wired into homepage header. | Cross-view focus sync debug, shadcn/ui migration, merge decomp branch |
 | 2026-05-11 | Antigravity | InBar Edit + Retention + v3.12.4 | InBar edit dropdown (✏️ intent editing, focus assignment list, new focus creation). Separated tab intent vs central focus display. Data retention alarm (90d default, configurable). Auto-park paused tabs with note. Tab rename + Link Tab. Logs overhaul (8 types, filter chips, pagination). Version 3.12.4-alpha released to master. | InBar intent live-reload after edit, blocked/task log emission, browser retention setting |
+| 2026-05-13 | Antigravity | Plan 022 + Sticky Notes | Diagnosed focus timer popup stacking (dual root cause: singleton overlay + context-timer re-arm loop). Reviewed all 8 feature requests from user. Created 8 sticky notes in .headbox/sticky-notes/ for post-refactor: popup stacking, popup harmony, timer new options (let me cook/snooze), video call idle suppression, sub-intents, parallel focuses, priority P1-P5, categories expansion, cross-window timer sync, deep activity logging. Fixed Headbox rule 9 (plan naming). Corrected plan version to 3.34.5-a → 3.42.9-a. | Execute Plan 022 after refactor lands |
 | 2026-05-12 | Antigravity | Headbox Updates Extraction | Reviewed full thread history (534 log entries). Extracted 11 operational rules/preferences into `headbox_updates-003.md`. Topics: branch-first workflow, worktree isolation, parallel refactor safety, handoff prompts, full file paths in plans, debug gating, version parity, terminology glossary, scope doc versioning, isolated refactor tracks. | Review & apply pending-updates-003 rules to AGENTS.md + vendor sync |
+| 2026-05-13 | Antigravity | Efficiency Audit + Plan 023 | Full ecosystem audit (extension, desktop companion, screensaver). Cross-referenced with Codex audit. Created Plan 023: Efficiency-Driven Decomposition. Assessed refactor/service-arch branch (57 behind, archive recommended). Registered Plan 023 in plan-registry. Collected user feedback on caps, privacy, branching, parallelization. Identified 4 branches + 1 stale worktree for cleanup. | Address user feedback (task files, branch cleanup, parallel strategy, storage key explainer). Execute Plan 023 after approval. |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
