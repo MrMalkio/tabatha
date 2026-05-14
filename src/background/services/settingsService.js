@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, getSettings, setStorage } from './storageService.js';
+import { scheduleSessionSnapshotAlarm } from '../bootstrap.js';
 
 export async function handleMessage(type, message) {
   switch (type) {
@@ -18,11 +19,11 @@ async function updateSettings(message) {
   const validation = validateStorageSettings(updates.storage);
   if (validation.error) return { error: validation.error };
 
-  const settings = await getSettings();
+  const previous = await getSettings();
   const nextSettings = {
-    ...settings,
+    ...previous,
     ...updates,
-    storage: validation.storage ? { ...settings.storage, ...validation.storage } : settings.storage
+    storage: validation.storage ? { ...previous.storage, ...validation.storage } : previous.storage
   };
 
   await setStorage({ settings: nextSettings });
@@ -35,6 +36,15 @@ async function updateSettings(message) {
     chrome.alarms.create('auto-export', { periodInMinutes: nextSettings.autoExportIntervalMinutes });
   } else {
     chrome.alarms.clear('auto-export');
+  }
+
+  // Re-arm the snapshot alarm if its cadence just changed.
+  if (
+    validation.storage
+    && validation.storage.snapshotIntervalMinutes !== undefined
+    && validation.storage.snapshotIntervalMinutes !== previous?.storage?.snapshotIntervalMinutes
+  ) {
+    await scheduleSessionSnapshotAlarm();
   }
 
   return { settings: nextSettings };

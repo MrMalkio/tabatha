@@ -173,7 +173,7 @@ Session/context history, flow recall, markdown export.
 | 5 | `REOPEN_FLOW` | 1816 | Reopen a previously saved flow |
 | 6 | `EXPORT_MARKDOWN` | 1865 | Export session data as markdown |
 
-> **Note:** 6 entries — `GET_LATEST_SESSION` is also claimed by clockService. Needs resolution during extraction (likely stays in sessionService, clock delegates).
+> **Resolved (Task 03):** `GET_LATEST_SESSION` is owned by sessionService (same `{ session }` shape, source is the `sessions` snapshot list). clockService keeps `GET_LAST_SESSION` for its stints-based view.
 
 **Dependencies:** storageService, notificationService
 

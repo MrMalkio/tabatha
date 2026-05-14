@@ -14,6 +14,18 @@ import { useAuth } from '../hooks/useAuth';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 
+function getIntentContext(entry) {
+  return entry?.context ?? entry?.newContext ?? '';
+}
+
+function isIntentChangeEntry(entry) {
+  return entry?.action === 'change'
+    || entry?.oldIntent !== undefined
+    || entry?.newIntent !== undefined
+    || entry?.oldContext !== undefined
+    || entry?.newContext !== undefined;
+}
+
 // ── Styles ──
 const NAV_WIDTH = 220;
 const sectionLabel = { fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '10px', marginTop: '16px' };
@@ -306,7 +318,10 @@ function Settings() {
   const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
   const [blockedSites, setBlockedSites] = useChromeStorage('blockedSites', []);
   const [urlRules, setUrlRules] = useChromeStorage('urlRules', []);
-  const [intentChangeLog] = useChromeStorage('intentChangeLog', []);
+  const intentChangeLog = useMemo(
+    () => (intentHistory || []).filter(isIntentChangeEntry),
+    [intentHistory]
+  );
 
   // Supabase Auth State (via useAuth hook)
   const { session, profile, orgs, teams, loading: authLoading, signIn, signOut, refreshProfile, isSignedIn } = useAuth();
@@ -1030,7 +1045,7 @@ function Settings() {
                   <div key={i} style={{ ...fieldRow, padding: '3px 0' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '11px', fontWeight: 500 }}>{entry.action.replace(/_/g, ' ')} — {entry.domain}</div>
-                      {entry.context && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>"{entry.context}"</div>}
+                      {getIntentContext(entry) && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>"{getIntentContext(entry)}"</div>}
                     </div>
                     <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', flexShrink: 0 }}>{new Date(entry.timestamp).toLocaleTimeString()}</span>
                   </div>

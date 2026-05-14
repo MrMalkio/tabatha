@@ -28,6 +28,14 @@ import { logger } from '../services/logger';
 import CompanionStatus from '../components/CompanionStatus';
 import UnifiedTimeline from '../components/UnifiedTimeline';
 
+function isIntentChangeEntry(entry) {
+  return entry?.action === 'change'
+    || entry?.oldIntent !== undefined
+    || entry?.newIntent !== undefined
+    || entry?.oldContext !== undefined
+    || entry?.newContext !== undefined;
+}
+
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
@@ -850,13 +858,14 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
       const focusLabels = new Set(allItems.map(i => i.label.toLowerCase()));
       const seen = new Set();
       intentHistory.forEach(entry => {
-        if (entry.context && !focusLabels.has(entry.context.toLowerCase()) && !seen.has(entry.context.toLowerCase())) {
-          seen.add(entry.context.toLowerCase());
-          const histId = `hist_${entry.context.replace(/\s/g, '_').slice(0, 20)}`;
+        const context = entry.context ?? entry.newContext;
+        if (context && !focusLabels.has(context.toLowerCase()) && !seen.has(context.toLowerCase())) {
+          seen.add(context.toLowerCase());
+          const histId = `hist_${context.replace(/\s/g, '_').slice(0, 20)}`;
           if (!map[histId]) {
             map[histId] = {
               id: histId,
-              label: entry.context,
+              label: context,
               funnelStage: 'unsorted',
               focusState: null,
               createdAt: entry.timestamp,
@@ -1070,7 +1079,6 @@ function Home() {
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [clockHistory] = useChromeStorage('clockHistory', []);
   const [companionRecentSessions] = useChromeStorage('companionRecentSessions', []);
-  const [intentChangeLog] = useChromeStorage('intentChangeLog', []);
   const { activeFocus, allItems, history, actions, engine } = useFocusEngine();
   const orgData = useOrgData();
   const [activePanel, setActivePanel] = useState('logs');
@@ -1178,6 +1186,10 @@ function Home() {
   const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐', 'neo-brutalism':'🟨', 'glass-ocean':'🌊', 'retro-pixel':'👾', 'solarized-warm':'📖', 'high-contrast-dark':'⚫' };
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const [intentHistory] = useChromeStorage('intentHistory', []);
+  const intentChangeLog = useMemo(
+    () => (intentHistory || []).filter(isIntentChangeEntry),
+    [intentHistory]
+  );
   const [clockSession] = useChromeStorage('clockSession', { active: false });
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'org', label: '🏛️ Org' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 

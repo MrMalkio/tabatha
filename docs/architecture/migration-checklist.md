@@ -72,10 +72,10 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_TIME_TRACKING` | tabTrackingService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `LOG_INTENT_ACTION` | tabTrackingService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 3 | `chrome.tabs.onActivated` (time) | tabTrackingService | ⬜ | ⬜ | — | ⬜ | Listener, no response shape |
-| 4 | `chrome.tabs.onRemoved` (time) | tabTrackingService | ⬜ | ⬜ | — | ⬜ | Listener, no response shape |
+| 1 | `GET_TIME_TRACKING` | tabTrackingService | ✅ | ✅ | ✅ | ⬜ | |
+| 2 | `LOG_INTENT_ACTION` | tabTrackingService | ✅ | ✅ | ✅ | ⬜ | Now writes union-shape rows via `appendIntentHistory` |
+| 3 | `chrome.tabs.onActivated` (time) | tabService | ⬜ | ⬜ | — | ⬜ | Listener stays in background.js until Task 04a moves tab lifecycle |
+| 4 | `chrome.tabs.onRemoved` (time) | tabTrackingService | ✅ | ✅ | — | ⬜ | `aggregateAndPruneTabTime` invoked from background.js before tab delete |
 
 ---
 
@@ -119,9 +119,9 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_CATEGORIES` | categoryService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `CREATE_CATEGORY` | categoryService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 3 | `CLONE_CATEGORY` | categoryService | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_CATEGORIES` | categoryService | ✅ | ✅ | ✅ | ⬜ | |
+| 2 | `CREATE_CATEGORY` | categoryService | ✅ | ✅ | ✅ | ⬜ | |
+| 3 | `CLONE_CATEGORY` | categoryService | ✅ | ✅ | ✅ | ⬜ | |
 
 ---
 
@@ -138,15 +138,16 @@
 
 ---
 
-## sessionService.js — 5 handlers
+## sessionService.js — 6 handlers
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_SESSIONS` | sessionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `GET_CLOSED_CONTEXTS` | sessionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 3 | `GET_FLOW_RECALL` | sessionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 4 | `REOPEN_FLOW` | sessionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 5 | `EXPORT_MARKDOWN` | sessionService | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_SESSIONS` | sessionService | ✅ | ✅ | ✅ | ⬜ | |
+| 2 | `GET_LATEST_SESSION` | sessionService | ✅ | ✅ | ✅ | ⬜ | Resolved ownership from clockService |
+| 3 | `GET_CLOSED_CONTEXTS` | sessionService | ✅ | ✅ | ✅ | ⬜ | |
+| 4 | `GET_FLOW_RECALL` | sessionService | ✅ | ✅ | ✅ | ⬜ | |
+| 5 | `REOPEN_FLOW` | sessionService | ✅ | ✅ | ✅ | ⬜ | |
+| 6 | `EXPORT_MARKDOWN` | sessionService | ✅ | ✅ | ✅ | ⬜ | Snapshot alarm now dispatched from `bootstrap.js`, cadence from `settings.storage.snapshotIntervalMinutes` |
 
 ---
 

@@ -31,6 +31,18 @@ const LOG_TYPES = {
   task:    { icon: '✅', label: 'Task Update', color: '#4caf50' },
 };
 
+function getIntentContext(entry) {
+  return entry?.context ?? entry?.newContext ?? '';
+}
+
+function isIntentChangeEntry(entry) {
+  return entry?.action === 'change'
+    || entry?.oldIntent !== undefined
+    || entry?.newIntent !== undefined
+    || entry?.oldContext !== undefined
+    || entry?.newContext !== undefined;
+}
+
 export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHistory, focusHistory, intentChangeLog }) {
   const [filterDate, setFilterDate] = useState('');
   const [filterIntent, setFilterIntent] = useState('');
@@ -74,11 +86,12 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
       intentHistory.forEach((entry, idx) => {
         let domain = '';
         try { domain = new URL(entry.url).hostname; } catch(e) { domain = ''; }
+        const context = getIntentContext(entry);
         list.push({
           id: `intent-${idx}`, logType: 'intent',
           date: entry.timestamp || entry.changedAt || new Date().toISOString(),
-          label: entry.context || entry.title || 'Intent set',
-          intent: entry.context || '',
+          label: context || entry.newIntent || entry.title || 'Intent set',
+          intent: context || entry.newIntent || '',
           category: entry.category || '',
           domain, duration: entry.duration || 0,
         });
@@ -118,16 +131,22 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
       });
     }
 
-    // 5. Context Set (from intentChangeLog)
-    if (intentChangeLog && Array.isArray(intentChangeLog)) {
-      intentChangeLog.forEach((entry, idx) => {
+    // 5. Context Set (canonical intentHistory change entries, with legacy fallback)
+    const contextChanges = intentChangeLog && intentChangeLog.length
+      ? intentChangeLog
+      : (intentHistory || []).filter(isIntentChangeEntry);
+    if (contextChanges && Array.isArray(contextChanges)) {
+      contextChanges.forEach((entry, idx) => {
         let domain = '';
         try { domain = new URL(entry.url).hostname; } catch(e) {}
+        const from = entry.from ?? entry.oldContext ?? entry.oldIntent ?? '(none)';
+        const to = entry.to ?? entry.newContext ?? entry.newIntent ?? '(none)';
+        entry = { ...entry, from, to };
         list.push({
           id: `ctx-${idx}`, logType: 'context',
           date: entry.timestamp || new Date().toISOString(),
           label: `${entry.from || '(none)'} → ${entry.to || '(none)'}`,
-          intent: entry.to || '',
+          intent: to || '',
           category: entry.source || 'manual',
           domain, duration: 0,
         });
