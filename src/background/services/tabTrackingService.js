@@ -33,16 +33,18 @@ export async function handleMessage(type, message) {
 export async function appendIntentHistory(entry) {
   const { intentHistory } = await getStorage('intentHistory');
   const history = Array.isArray(intentHistory) ? intentHistory : [];
+  const context = entry.context ?? entry.newContext ?? null;
   history.unshift({
     timestamp: new Date().toISOString(),
     tabId: entry.tabId ?? null,
     url: entry.url ?? null,
     domain: entry.domain ?? null,
     action: entry.action ?? null,
+    context,
     oldIntent: entry.oldIntent ?? null,
     newIntent: entry.newIntent ?? null,
     oldContext: entry.oldContext ?? null,
-    newContext: entry.newContext ?? null,
+    newContext: context,
     focusId: entry.focusId ?? null
   });
   await setStorage({ intentHistory: history });
@@ -62,6 +64,7 @@ async function logIntentAction(message) {
     url: message.url,
     domain: message.domain,
     action: message.action,
+    context: message.context ?? null,
     newContext: message.context ?? null,
     focusId: message.focusId ?? null
   });

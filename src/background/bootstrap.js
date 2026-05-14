@@ -46,10 +46,11 @@ export async function migrateIntentChangeLog() {
       url: c.url ?? null,
       domain: c.domain ?? null,
       action: 'change',
+      context: c.newContext ?? c.context ?? null,
       oldIntent: c.oldIntent ?? null,
       newIntent: c.newIntent ?? null,
       oldContext: c.oldContext ?? null,
-      newContext: c.newContext ?? null,
+      newContext: c.newContext ?? c.context ?? null,
       focusId: null
     }));
 
