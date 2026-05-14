@@ -13,7 +13,7 @@
 
 ## Project State
 
-- **Current version:** 0.2.1-alpha
+- **Current version:** 3.34.5
 - **Current focus:** Phase 3/4 — Deep Customization & Sync (InPop 2.0, InBar, BlockGate, and Supabase integration complete)
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`

@@ -1,4 +1,4 @@
-# Agent Instructions — Tabatha
+﻿# Agent Instructions — Tabatha
 
 > This project uses **Headbox** for standardized agent instructions.
 > All agents (Claude, Gemini, Codex, Cursor, Copilot, etc.) follow the same rules below.
@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 3.34.5-α
+- **Current version:** 3.34.5
 - **Current focus:** Decomp Planning — Dual audit complete, Plan 023 drafted, user feedback collected, awaiting approval for refactor/decomp-v2
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
@@ -157,6 +157,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-13 | Antigravity | Plan 022 + Sticky Notes | Diagnosed focus timer popup stacking (dual root cause: singleton overlay + context-timer re-arm loop). Reviewed all 8 feature requests from user. Created 8 sticky notes in .headbox/sticky-notes/ for post-refactor: popup stacking, popup harmony, timer new options (let me cook/snooze), video call idle suppression, sub-intents, parallel focuses, priority P1-P5, categories expansion, cross-window timer sync, deep activity logging. Fixed Headbox rule 9 (plan naming). Corrected plan version to 3.34.5-a → 3.42.9-a. | Execute Plan 022 after refactor lands |
 | 2026-05-12 | Antigravity | Headbox Updates Extraction | Reviewed full thread history (534 log entries). Extracted 11 operational rules/preferences into `headbox_updates-003.md`. Topics: branch-first workflow, worktree isolation, parallel refactor safety, handoff prompts, full file paths in plans, debug gating, version parity, terminology glossary, scope doc versioning, isolated refactor tracks. | Review & apply pending-updates-003 rules to AGENTS.md + vendor sync |
 | 2026-05-13 | Antigravity | Efficiency Audit + Plan 023 | Full ecosystem audit (extension, desktop companion, screensaver). Cross-referenced with Codex audit. Created Plan 023: Efficiency-Driven Decomposition. Assessed refactor/service-arch branch (57 behind, archive recommended). Registered Plan 023 in plan-registry. Collected user feedback on caps, privacy, branching, parallelization. Identified 4 branches + 1 stale worktree for cleanup. | Address user feedback (task files, branch cleanup, parallel strategy, storage key explainer). Execute Plan 023 after approval. |
+| 2026-05-14 | Antigravity | Plan 023 Task 00: Pre-Decomp | Created docs/architecture/ (4 docs: decomp plan, service map, migration checklist, message contracts -- all master-aligned at 79 handlers). Wired version sync script (version:sync, version:check, prebuild). Synced all files to v3.34.5. Installed pre-commit hook. Removed stale worktree. Archived refactor/service-arch as tag. Created privacy-modes-future sticky note. | Confirm+delete feat/follow-through-engine + feat/v3-ux-overhaul branches, push tags, merge to master, begin Task 01. |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
