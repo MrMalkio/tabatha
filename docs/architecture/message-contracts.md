@@ -153,8 +153,8 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_SETTINGS` | — | `{ settings }` | ⬜ |
-| `UPDATE_SETTINGS` | `{ updates }` | `{ success, settings }` | ⬜ |
+| `GET_SETTINGS` | — | `{ settings }` | ✅ |
+| `UPDATE_SETTINGS` | `{ settings }` (`{ updates }` also accepted by service) | `{ settings }` or `{ error }` for invalid `settings.storage` | ✅ |
 
 ---
 
@@ -162,11 +162,11 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `OPEN_POPUP` | `{ tabId? }` | `{ success }` or `{ error }` | ⬜ |
-| `GET_INBAR_DATA` | — (uses sender.tab) | `{ show, tabContext, activeFocus, activeFocusId, allFocusItems, settings }` | ⬜ |
-| `GET_INBAR_NOTES` | — (uses sender.tab) | `{ note }` | ⬜ |
-| `SAVE_INBAR_NOTE` | `{ note, tabId? }` | `{ success }` | ⬜ |
-| `START_POMODORO` | `{ minutes }` | `{ success }` | ⬜ |
+| `OPEN_POPUP` | `{ tabId? }` | `{ success }` or `{ error }` | ✅ |
+| `GET_INBAR_DATA` | — (uses sender.tab) | `{ show, tabContext, activeFocus, activeFocusId, allFocusItems, settings }` | ✅ |
+| `GET_INBAR_NOTES` | — (uses sender.tab) | `{ note }` | ✅ |
+| `SAVE_INBAR_NOTE` | `{ note, tabId? }` | `{ success }` | ✅ |
+| `START_POMODORO` | `{ minutes }` | `{ success }` | ✅ |
 
 ---
 
@@ -184,15 +184,34 @@ Each entry documents:
 
 ## Broadcast Messages (outbound, not request/response)
 
-These are sent via `broadcastMessage()` and don't have response shapes:
+These are sent through `notificationService` helpers and don't have response shapes.
 
-| Broadcast Type | Emitted By | Payload |
-|---------------|-----------|---------|
-| `TAB_UPDATED` | tabService | `{ tabId, tabData }` |
-| `FOCUS_ENGINE_UPDATED` | focusService | — (listeners re-fetch) |
-| `TASKS_UPDATED` | taskService | `{ tasks }` |
-| `SETTINGS_UPDATED` | settingsService | `{ settings }` |
-| `COMPANION_STATUS_CHANGED` | companionService | `{ connected, ... }` |
+| Broadcast Type | Scope | Reason |
+|---------------|-------|--------|
+| `FOCUS_ENGINE_UPDATED` | `broadcastAll` | Extension UI re-fetches focus state; InBar content script re-fetches data |
+| `TAB_UPDATED` | `broadcastAll` | Extension UI refreshes tab state; InBar content script re-fetches data |
+| `WELCOME_BACK` | `broadcastAll` | Home page shows return overlay; InBar may show paused-focus resume affordance |
+| `FOCUS_TIMER_EXPIRED` | `broadcastAll` | InBar shows the interrupting timer alert |
+| `AUTO_BREAK` | `broadcastToExtension` | Extension UI only |
+| `CONTEXT_REMINDER` | `broadcastToExtension` | Extension UI only |
+| `GROUPS_UPDATED` | `broadcastToExtension` | Extension UI only |
+| `INTENT_HISTORY_UPDATED` | `broadcastToExtension` | Extension UI only |
+| `INTENT_REINFORCEMENT` | `broadcastToExtension` | Extension UI only |
+| `OFF_CHROME_ACTIVE` | `broadcastToExtension` | Extension UI only |
+| `OFF_CHROME_RETURN` | `broadcastToExtension` | Extension UI only |
+| `PARKED_TABS_UPDATED` | `broadcastToExtension` | Extension UI only |
+| `POMODORO_COMPLETE` | `broadcastToExtension` | Extension UI only |
+| `POMODORO_STARTED` | `broadcastToExtension` | Extension UI only |
+| `PROMPT_PURPOSE` | `broadcastToExtension` | No content-script listener exists today |
+| `SUGAR_BOX_UPDATED` | `broadcastToExtension` | Extension UI only |
+| `TABS_BATCH_UPDATED` | `broadcastToExtension` | Extension UI only |
+| `TAB_ACTIVATED` | `broadcastToExtension` | Extension UI only |
+| `TAB_CREATED` | `broadcastToExtension` | Extension UI only |
+| `TAB_REMOVED` | `broadcastToExtension` | Extension UI only |
+| `TASKS_UPDATED` | `broadcastToExtension` | Extension UI only |
+| `USER_IDLE` | `broadcastToExtension` | Extension UI only |
+| `CLOCK_SESSION_UPDATED` | `broadcastToExtension` | Clock service receives the scoped helper from the router |
+| `STORAGE_CAP_WARNING` | `chrome.runtime.sendMessage` | Archive service warning, extension UI only |
 
 ---
 

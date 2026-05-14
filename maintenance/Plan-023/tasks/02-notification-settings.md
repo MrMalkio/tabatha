@@ -34,9 +34,9 @@ Remove the corresponding cases from the inline switch.
 
 ## Verification
 
-- [ ] `npm run build` passes
+- [x] `npm run build` passes
 - [ ] Open popup → renders
 - [ ] Open InBar on any tab → data renders, notes save
 - [ ] Settings → change → reload → values persist
 - [ ] No "Could not establish connection" errors in service worker console (means broadcasts are correctly scoped)
-- [ ] message-contracts.md updated for every message type touched
+- [x] message-contracts.md updated for every message type touched

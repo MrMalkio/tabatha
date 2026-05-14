@@ -202,7 +202,7 @@ Broadcasting, InBar data, popup triggering.
 | 4 | `SAVE_INBAR_NOTE` | 2781 | Save InBar note |
 | 5 | `START_POMODORO` | 1827 | Begin a pomodoro timer |
 
-**Exports:** `broadcastMessage(msg)` — used by all other services.
+**Exports:** `broadcastToExtension(msg)`, `broadcastToAllTabs(msg)`, `broadcastAll(msg)` — used by background listeners and other services to avoid spraying extension-only events at content scripts.
 
 **Dependencies:** storageService, focusService (GET_INBAR_DATA needs focus engine + tab context)
 

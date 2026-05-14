@@ -423,3 +423,32 @@ Build InBar Pause + Sticky Note overlay feature (UI-only, safe during decomp)
 - Finalize commit (remove `wip:` prefix)
 - Merge `chore/plan-023-pre-decomp` ? master
 - Begin Task 01 (Phase 1 foundation)
+
+---
+
+## Session - 2026-05-14 (Plan 023 Task 02: Notification + Settings Services)
+
+**Agent:** Codex
+**Branch:** `refactor/decomp-v2-communication`
+**Goal:** Initiate Task 02 - extract notification and settings handlers from `background.js`.
+
+### What Was Done
+
+- [x] Created `refactor/decomp-v2-communication` from `origin/refactor/decomp-v2-foundation`
+- [x] Added `src/background/services/notificationService.js` for `OPEN_POPUP`, `GET_INBAR_DATA`, `GET_INBAR_NOTES`, `SAVE_INBAR_NOTE`, and `START_POMODORO`
+- [x] Added `src/background/services/settingsService.js` for `GET_SETTINGS` and `UPDATE_SETTINGS`
+- [x] Registered both services in the router and removed their legacy switch cases
+- [x] Replaced `broadcastMessage` with scoped helpers: `broadcastToExtension` for extension-only events, `broadcastAll` for InBar-relevant events
+- [x] Updated `docs/architecture/message-contracts.md`, `migration-checklist.md`, `service-map.md`, the task checklist, and the semantic changes ledger
+- [x] Verified `npm run build` passes
+
+### Key Findings
+
+- Only the InBar content script currently listens to background broadcasts from tabs.
+- `FOCUS_ENGINE_UPDATED`, `TAB_UPDATED`, `WELCOME_BACK`, and `FOCUS_TIMER_EXPIRED` need all-target delivery; the rest can stay extension-runtime scoped.
+- `UPDATE_SETTINGS` now rejects invalid `settings.storage` blocks before persisting.
+
+### Next Steps
+
+- Load unpacked extension and verify popup render, InBar data/notes save, settings persistence, and service worker console scoping.
+- Continue Plan 023 with Task 03 data services after manual checks or merge into the integration branch.
