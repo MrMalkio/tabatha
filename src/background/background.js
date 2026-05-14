@@ -1,5 +1,5 @@
 // Tabatha — Service Worker (background.js)
-// Core orchestrator for tab tracking, context/intent, priority, locking, 
+// Core orchestrator for tab tracking, context/intent, priority, locking,
 // groups, categories, time tracking, and markdown export.
 
 import { supabase } from '../services/supabaseClient';
@@ -7,6 +7,31 @@ import * as timeTracker from '../services/timeTracking.js';
 import { createClockService } from './clock.js';
 import { companionBridge } from './companion-bridge.js';
 import { fireWebhook } from './webhooks.js';
+import {
+  DEFAULT_SETTINGS,
+  PRIORITY_LEVELS,
+  BUILT_IN_CATEGORIES,
+  DEFAULT_FOCUS_ENGINE,
+  STAGE_ORDER
+} from './constants.js';
+import {
+  detectCategory,
+  patternToRegex,
+  getUrlBase,
+  formatDuration
+} from './helpers.js';
+import {
+  getStorage,
+  setStorage,
+  getSettings,
+  getTabData,
+  getSubGroups,
+  getCategories,
+  getClosedContexts,
+  getSessions,
+  getTimeTracking
+} from './services/storageService.js';
+import { registerBootstrap } from './bootstrap.js';
 
 // ============================================================
 // LOGGING
@@ -22,100 +47,12 @@ function logEvent(type, data = {}) {
   });
 }
 
-// ============================================================
-// CONSTANTS & DEFAULTS
-// ============================================================
-
-const DEFAULT_SETTINGS = {
-  globalTimerMinutes: 15,
-  idleThresholdMinutes: 5,
-  exportPath: 'Tabatha',
-  autoExportEnabled: false,
-  autoExportIntervalMinutes: 60
-};
-
-const PRIORITY_LEVELS = {
-  critical: { label: '🔴 Critical', color: 'red', order: 0 },
-  high:     { label: '🟠 High',     color: 'orange', order: 1 },
-  medium:   { label: '🟡 Medium',   color: 'yellow', order: 2 },
-  low:      { label: '🟢 Low',      color: 'green', order: 3 },
-  none:     { label: '⚪ None',     color: 'grey', order: 4 }
-};
-
-const BUILT_IN_CATEGORIES = {
-  work:      { name: 'Work',      icon: '💼', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  media:     { name: 'Media',     icon: '🎵', builtIn: true, persistent: false, urlPatterns: ['*://music.youtube.com/*', '*://open.spotify.com/*', '*://soundcloud.com/*', '*://podcasts.google.com/*', '*://podcasts.apple.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  meeting:   { name: 'Meeting',   icon: '📹', builtIn: true, persistent: false, urlPatterns: ['*://meet.google.com/*', '*://zoom.us/*', '*://teams.microsoft.com/*', '*://app.webex.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  reference: { name: 'Reference', icon: '📚', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  messaging: { name: 'Messaging', icon: '💬', builtIn: true, persistent: true,  urlPatterns: ['*://web.whatsapp.com/*', '*://discord.com/*', '*://slack.com/*', '*://telegram.org/*', '*://messages.google.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  email:     { name: 'Email',     icon: '📧', builtIn: true, persistent: true,  urlPatterns: ['*://mail.google.com/*', '*://outlook.live.com/*', '*://outlook.office365.com/*', '*://mail.yahoo.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  learning:  { name: 'Learning',  icon: '🎓', builtIn: true, persistent: false, urlPatterns: ['*://udemy.com/*', '*://coursera.org/*', '*://edx.org/*', '*://stackoverflow.com/*', '*://github.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  entertainment: { name: 'Entertainment', icon: '🎮', builtIn: true, persistent: false, urlPatterns: ['*://twitch.tv/*', '*://netflix.com/*', '*://hulu.com/*', '*://steamcommunity.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  unknown:   { name: 'Unknown',   icon: '❓', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: true, trackTime: true, timerEnabled: true } }
-};
-
-// ============================================================
-// STORAGE HELPERS
-// ============================================================
-
-async function getStorage(keys) {
-  return chrome.storage.local.get(keys);
-}
-
-async function setStorage(data) {
-  return chrome.storage.local.set(data);
-}
-
-async function getSettings() {
-  const { settings } = await getStorage('settings');
-  return { ...DEFAULT_SETTINGS, ...settings };
-}
-
-async function getTabData() {
-  const { tabs } = await getStorage('tabs');
-  return tabs || {};
-}
-
+// setTabData stays local because it fires the Supabase sync debouncer.
 async function setTabData(tabs) {
   const result = await setStorage({ tabs });
   triggerSync();
   return result;
 }
-
-async function getSubGroups() {
-  const { subGroups } = await getStorage('subGroups');
-  return subGroups || {};
-}
-
-async function getCategories() {
-  const { categories } = await getStorage('categories');
-  return { ...BUILT_IN_CATEGORIES, ...categories };
-}
-
-async function getClosedContexts() {
-  const { closedContexts } = await getStorage('closedContexts');
-  return closedContexts || [];
-}
-
-async function getSessions() {
-  const { sessions } = await getStorage('sessions');
-  return sessions || [];
-}
-
-async function getTimeTracking() {
-  const { timeTracking } = await getStorage('timeTracking');
-  return timeTracking || { byTab: {}, byGroup: {}, bySubGroup: {}, byCategory: {}, byProject: {} };
-}
-
-// ============================================================
-// FOCUS ENGINE — Storage & Logic
-// ============================================================
-
-const DEFAULT_FOCUS_ENGINE = {
-  activeFocusId: null,
-  items: {},
-  history: []
-};
 
 // ============================================================
 // SUPABASE SYNC
@@ -545,40 +482,6 @@ async function tryAssociateTab(tabId) {
       }
     }
   } catch (e) { /* invalid URLs */ }
-}
-
-// ============================================================
-// TAB CATEGORY DETECTION
-// ============================================================
-
-function detectCategory(url, audible, categories) {
-  if (!url) return 'unknown';
-  
-  for (const [catId, cat] of Object.entries(categories)) {
-    if (catId === 'unknown' || catId === 'work') continue;
-    if (!cat.rules?.autoDetect) continue;
-    
-    for (const pattern of cat.urlPatterns || []) {
-      const regex = patternToRegex(pattern);
-      if (regex && regex.test(url)) return catId;
-    }
-  }
-  
-  // Fallback: if tab is audible and matches video URLs, classify as media
-  if (audible && url.match(/youtube\.com\/watch/)) return 'media';
-  
-  return 'unknown';
-}
-
-function patternToRegex(pattern) {
-  try {
-    // Split on wildcards first, escape each segment, then rejoin with .*
-    const parts = pattern.split('*');
-    const escaped = parts.map(p => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&'));
-    return new RegExp('^' + escaped.join('.*') + '$');
-  } catch {
-    return null;
-  }
 }
 
 // ============================================================
@@ -1279,15 +1182,6 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   }
 });
 
-function getUrlBase(url) {
-  try {
-    const u = new URL(url);
-    return u.origin + u.pathname;
-  } catch {
-    return null;
-  }
-}
-
 // ============================================================
 // TAB LOCKING — CLOSE PROTECTION
 // ============================================================
@@ -1611,16 +1505,6 @@ async function exportMarkdown() {
   return md;
 }
 
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
-}
-
 // ============================================================
 // MESSAGE ROUTING
 // ============================================================
@@ -1641,17 +1525,35 @@ function broadcastMessage(message) {
 // ── Service instances ──
 const clockService = createClockService(getStorage, setStorage, broadcastMessage);
 
+// ── Router skeleton ──
+// Services land in Plan 023 Tasks 02+. Each registered entry must expose
+// `handleMessage(type, message, sender)` and return `undefined` to indicate
+// the message is not theirs (the router then falls through to
+// `handleLegacyMessage`). Anything else — including `null`, `{}`, or an
+// error object — is treated as a handled response.
+const services = [];
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender)
-    .then(sendResponse)
-    .catch(err => {
+  (async () => {
+    try {
+      for (const svc of services) {
+        const result = await svc.handleMessage(message?.type, message, sender);
+        if (result !== undefined) {
+          sendResponse(result);
+          return;
+        }
+      }
+      const legacy = await handleLegacyMessage(message, sender);
+      sendResponse(legacy);
+    } catch (err) {
       console.error('[Tabatha] handleMessage Error:', err);
       sendResponse({ error: err.message || 'Unknown error' });
-    });
+    }
+  })();
   return true; // Async response
 });
 
-async function handleMessage(message, sender) {
+async function handleLegacyMessage(message, sender) {
   switch (message.type) {
     // --- Tab Data ---
     case 'GET_ALL_TABS':
@@ -2351,9 +2253,8 @@ async function handleMessage(message, sender) {
         if (updates.funnelStage !== undefined) {
           const from = task.funnelStage || 'unsorted';
           const to = updates.funnelStage;
-          const TASK_STAGE_ORDER = { unsorted: 0, backlog: 1, todo: 2, focus: 3, addressing: 4, resolved: 5, roadblocked: 2.5 };
-          const fromOrder = TASK_STAGE_ORDER[from] ?? 0;
-          const toOrder = TASK_STAGE_ORDER[to] ?? 0;
+          const fromOrder = STAGE_ORDER[from] ?? 0;
+          const toOrder = STAGE_ORDER[to] ?? 0;
           const isBackward = toOrder < fromOrder;
           const confirmed = !!message.confirmed;
 
@@ -2456,7 +2357,6 @@ async function handleMessage(message, sender) {
       if (!item) return { error: 'Focus not found', focusEngine: engine };
       const from = item.funnelStage || 'unsorted';
       const to = message.stage;
-      const STAGE_ORDER = { unsorted: 0, backlog: 1, todo: 2, focus: 3, addressing: 4, resolved: 5, roadblocked: 2.5 };
       const isBackward = (STAGE_ORDER[to] ?? 0) < (STAGE_ORDER[from] ?? 0);
       const confirmed = !!message.confirmed;
 
@@ -2520,8 +2420,7 @@ async function handleMessage(message, sender) {
           // ── STAGE TRANSITION STATE MACHINE ──
           // Stage hierarchy (forward order):
           // unsorted(0) → backlog(1) → todo(2) → focus(3) → addressing(4) → resolved(5) → roadblocked(*)
-          const STAGE_ORDER = { unsorted: 0, backlog: 1, todo: 2, focus: 3, addressing: 4, resolved: 5, roadblocked: 2.5 };
-          const fromOrder = STAGE_ORDER[from] ?? 0;
+              const fromOrder = STAGE_ORDER[from] ?? 0;
           const toOrder = STAGE_ORDER[to] ?? 0;
           const isBackward = toOrder < fromOrder;
           const confirmed = !!message.confirmed;
@@ -2912,194 +2811,11 @@ async function handleMessage(message, sender) {
 }
 
 // ============================================================
-// EXTENSION INSTALL / STARTUP
+// EXTENSION INSTALL / STARTUP / RELOAD / RETENTION
 // ============================================================
-
-// ============================================================
-// EXTENSION INSTALL / STARTUP / RELOAD
-// ============================================================
-
-// ============================================================
-// TASK STORAGE MIGRATION — Legacy → Org Registry (one-time)
-// ============================================================
-
-async function migrateTasksToOrg() {
-  try {
-    const { _tasksMigrated } = await getStorage('_tasksMigrated');
-    if (_tasksMigrated) return; // Already migrated
-
-    const { tasks: legacyTasks, tabathaOrg } = await getStorage(['tasks', 'tabathaOrg']);
-    if (!legacyTasks || legacyTasks.length === 0) {
-      // No legacy tasks — mark as migrated and skip
-      await setStorage({ _tasksMigrated: new Date().toISOString() });
-      return;
-    }
-
-    const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
-    const orgTasks = org.tasks || {};
-    let migratedCount = 0;
-
-    for (const task of legacyTasks) {
-      if (!task.id) continue;
-      // Skip if already in org registry (by ID match)
-      if (orgTasks[task.id]) continue;
-
-      // Normalize status: legacy uses 'active'/'completed'
-      const status = task.status || 'active';
-
-      orgTasks[task.id] = {
-        id: task.id,
-        name: task.name || 'Unnamed Task',
-        description: task.description || '',
-        projectId: task.projectId || null,
-        clientId: task.clientId || null,
-        status: status,
-        funnelStage: status === 'completed' ? 'resolved' : 'unsorted',
-        createdAt: task.createdAt || new Date().toISOString(),
-        completedAt: task.completedAt || null,
-        archived: task.status === 'archived' || false,
-        // Preserve legacy-specific fields
-        linkedIntents: task.linkedIntents || [],
-      };
-      migratedCount++;
-    }
-
-    org.tasks = orgTasks;
-    await setStorage({
-      tabathaOrg: org,
-      _legacyTasksBackup: legacyTasks, // Backup before clearing
-      tasks: [], // Clear legacy key (empty array to not break old readers)
-      _tasksMigrated: new Date().toISOString()
-    });
-
-    console.log(`Tabatha: Migrated ${migratedCount} legacy tasks to org registry`);
-  } catch (e) {
-    console.error('Tabatha: Task migration failed', e);
-  }
-}
-
-async function initializeState() {
-  // Run one-time task migration first
-  await migrateTasksToOrg();
-
-  // Sync existing tabs into storage
-  const existingTabs = await chrome.tabs.query({});
-  const tabs = await getTabData();
-  const categories = await getCategories();
-  
-  for (const tab of existingTabs) {
-    if (!tabs[tab.id]) {
-      tabs[tab.id] = {
-        url: tab.url || '',
-        title: tab.title || 'Tab',
-        openedAt: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
-        activeTime: 0,
-        context: null,
-        intent: null,
-        priority: 'none',
-        locked: false,
-        urlLocked: false,
-        urlLockScope: null,
-        groupId: tab.groupId !== chrome.tabGroups?.TAB_GROUP_ID_NONE ? tab.groupId : null,
-        subGroupId: null,
-        category: detectCategory(tab.url || '', tab.audible, categories),
-        parentTabId: null,
-        timerOverrideMinutes: null,
-        ignored: false,
-        persistent: false
-      };
-    }
-  }
-  
-  // Clean up tabs that no longer exist
-  const existingTabIds = new Set(existingTabs.map(t => t.id));
-  for (const tabId of Object.keys(tabs)) {
-    if (!existingTabIds.has(parseInt(tabId))) {
-      delete tabs[tabId];
-    }
-  }
-  
-  await setTabData(tabs);
-  console.log('Tabatha: State initialized', Object.keys(tabs).length, 'tabs');
-}
-
-// Run on Install/Update
-chrome.runtime.onInstalled.addListener(async (details) => {
-    // Initialize defaults if fresh install
-  if (details.reason === 'install') {
-    await setStorage({
-      tabs: {},
-      subGroups: {},
-      categories: BUILT_IN_CATEGORIES,
-      closedContexts: [],
-      sessions: [],
-      timeTracking: { byTab: {}, byGroup: {}, bySubGroup: {}, byCategory: {}, byProject: {} },
-      settings: DEFAULT_SETTINGS
-    });
-  }
-  
-  await initializeState();
-});
-
-// Run on Browser Startup
-chrome.runtime.onStartup.addListener(async () => {
-  await initializeState();
-});
-
-// Run immediately (for development reloads where listeners might not fire exactly as expected)
-initializeState();
-
-// ============================================================
-// DATA RETENTION — Desktop/Companion Activity Pruning
-// ============================================================
-
-const RETENTION_ALARM = 'tabatha-data-retention';
-const DEFAULT_RETENTION_DAYS = 90;
-
-async function runRetentionCleanup() {
-  try {
-    const { settings = {} } = await getStorage('settings');
-    const retentionDays = settings.desktopRetentionDays || DEFAULT_RETENTION_DAYS;
-    const cutoff = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
-
-    // Prune companionRecentSessions
-    const { companionRecentSessions = [] } = await getStorage('companionRecentSessions');
-    if (companionRecentSessions.length > 0) {
-      const kept = companionRecentSessions.filter(s => {
-        const ts = new Date(s.started_at || s.startedAt || s.start || s.timestamp || 0).getTime();
-        return ts > cutoff;
-      });
-      if (kept.length < companionRecentSessions.length) {
-        await setStorage({ companionRecentSessions: kept });
-        console.log(`Tabatha: Retention pruned ${companionRecentSessions.length - kept.length} companion sessions (>${retentionDays}d)`);
-      }
-    }
-
-    // Prune desktopActivity entries
-    const { desktopActivity = [] } = await getStorage('desktopActivity');
-    if (desktopActivity.length > 0) {
-      const kept = desktopActivity.filter(a => {
-        const ts = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-        return ts > cutoff;
-      });
-      if (kept.length < desktopActivity.length) {
-        await setStorage({ desktopActivity: kept });
-        console.log(`Tabatha: Retention pruned ${desktopActivity.length - kept.length} desktop activity entries`);
-      }
-    }
-  } catch (e) {
-    console.warn('Tabatha: Retention cleanup error', e);
-  }
-}
-
-// Register daily alarm
-chrome.alarms.create(RETENTION_ALARM, { periodInMinutes: 1440 }); // 24h
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === RETENTION_ALARM) runRetentionCleanup();
-});
-
-// Run once on startup
-runRetentionCleanup();
+// Lifecycle, legacy-task migration, and retention cleanup live in
+// `./bootstrap.js`. registerBootstrap() wires the listeners and runs the
+// initial pass.
+registerBootstrap();
 
 // Notification click handler merged into single listener above (L757)
