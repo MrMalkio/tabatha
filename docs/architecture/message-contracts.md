@@ -107,10 +107,10 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_SAVED_GROUPS` | — | `{ groups }` | ⬜ |
-| `CREATE_GROUP` | `{ name, ... }` | `{ success, group }` | ⬜ |
-| `CREATE_SUB_GROUP` | `{ parentId, name }` | `{ success }` | ⬜ |
-| `GET_SUB_GROUPS` | `{ parentId }` | `{ subGroups }` | ⬜ |
+| `GET_SAVED_GROUPS` | — | `{ savedGroups }` (map of `groupId → { id, title, color, collapsed, tabIds, tabCount }`); `{ savedGroups: {} }` on failure | ✅ — verified against legacy behaviour |
+| `CREATE_GROUP` | `{ tabIds, name, priority }` | `{ groupId }` | ✅ — verified against legacy behaviour |
+| `CREATE_SUB_GROUP` | `{ name }` | `{ id }` | ✅ — verified against legacy behaviour |
+| `GET_SUB_GROUPS` | — | `{ subGroups }` (map of `subGroupId → { name, projectId, chromeGroupIds, settings }`) | ✅ — verified against legacy behaviour |
 
 ---
 
@@ -128,12 +128,12 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `CHECK_BLOCKED_SITE` | — (uses sender.tab.url) | `{ blocked }` | ⬜ |
-| `UNBLOCK_SITE_TEMPORARILY` | `{ domain, minutes, why, intent }` | `{ success, expiresAt }` | ⬜ |
-| `MANAGE_BLOCKED_SITES` | `{ action, domain? }` | `{ sites }` | ⬜ |
-| `ADD_TO_SUGAR_BOX` | `{ url, title, ... }` | `{ success }` | ⬜ |
-| `PARK_TAB` | `{ tabId, note? }` | `{ success }` | ⬜ |
-| `START_SIDE_QUEST` | `{ tabId, ... }` | `{ success }` | ⬜ |
+| `CHECK_BLOCKED_SITE` | — (uses `sender.tab.url`) | `{ blocked }` | ✅ — verified against legacy behaviour |
+| `UNBLOCK_SITE_TEMPORARILY` | `{ domain, minutes, why, intent }` | `{ success, expiresAt }` | ✅ — verified against legacy behaviour |
+| `MANAGE_BLOCKED_SITES` | `{ action: 'add' \| 'remove' \| 'list', domain? }` | `{ sites }` | ✅ — verified against legacy behaviour |
+| `ADD_TO_SUGAR_BOX` | `{ url, title }` (uses `sender.tab.id` to close the tab) | `{ success }` | ✅ — FIFO cap (`settings.storage.sugarBoxCap`, default 500) archives oldest via `archiveService` |
+| `PARK_TAB` | `{ url, title, context?, note? }` (uses `sender.tab.id` to close the tab) | `{ success }` | ✅ — warns once when `parkedTabs.length === settings.storage.parkedTabsWarnAt` |
+| `START_SIDE_QUEST` | `{ context, minutes }` (uses `sender.tab.id`) | `{ success }` | ✅ — cross-service: calls `focusService.pauseActiveFocus('side-quest')` |
 
 ---
 
@@ -201,6 +201,7 @@ These are sent through `notificationService` helpers and don't have response sha
 | `OFF_CHROME_ACTIVE` | `broadcastToExtension` | Extension UI only |
 | `OFF_CHROME_RETURN` | `broadcastToExtension` | Extension UI only |
 | `PARKED_TABS_UPDATED` | `broadcastToExtension` | Extension UI only |
+| `PARKED_TABS_WARNING` | `broadcastToExtension` | Fires once when `parkedTabs.length` crosses `settings.storage.parkedTabsWarnAt` |
 | `POMODORO_COMPLETE` | `broadcastToExtension` | Extension UI only |
 | `POMODORO_STARTED` | `broadcastToExtension` | Extension UI only |
 | `PROMPT_PURPOSE` | `broadcastToExtension` | No content-script listener exists today |
@@ -220,6 +221,9 @@ These are sent through `notificationService` helpers and don't have response sha
 
 | Date | Handler | Change | Reason |
 |------|---------|--------|--------|
+| 2026-05-14 | `ADD_TO_SUGAR_BOX` | List now capped at `settings.storage.sugarBoxCap` (default 500). Dropped entries route through `archiveService.archiveBeforeCap`. Response shape unchanged; emits `STORAGE_CAP_WARNING` broadcast when entries fall off. | Task 05a sugar-box cap efficiency fix |
+| 2026-05-14 | `PARK_TAB` | Emits new `PARKED_TABS_WARNING` broadcast once when `parkedTabs.length` reaches `settings.storage.parkedTabsWarnAt`. Request/response shapes unchanged. | Task 05a parked-tabs warning |
+| 2026-05-14 | `START_SIDE_QUEST` | Now delegates focus pausing to `focusService.pauseActiveFocus('side-quest')`. Request/response shapes unchanged. | Task 05a service extraction |
 | 2026-05-14 | `DELETE_TASK` / archived `UPDATE_TASK` | Archived org tasks now receive `archivedAt`; tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` to `_archivedTasks`. Request/response shapes unchanged. | Task 04c cold-store efficiency fix |
 | 2026-05-14 | `COMPLETE_FOCUS` | Dropped `focusEngine.history` entries are archived through `archiveBeforeCap` before applying `settings.storage.focusHistoryCap`. Request/response shapes unchanged. | Task 04b history retention fix |
 | 2026-05-14 | `chrome.tabs.onRemoved` | Closed tabs with saved InBar notes now write the note into `closedContexts` before `inbarNotes[tabId]` is pruned. Request/response shapes unchanged. | Task 04a lifecycle cleanup |
