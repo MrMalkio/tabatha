@@ -8,7 +8,6 @@ import { createClockService } from './clock.js';
 import { companionBridge } from './companion-bridge.js';
 import { fireWebhook } from './webhooks.js';
 import {
-  PRIORITY_LEVELS,
   DEFAULT_FOCUS_ENGINE,
   STAGE_ORDER
 } from './constants.js';
@@ -19,8 +18,7 @@ import {
   getStorage,
   setStorage,
   getSettings,
-  getTabData,
-  getSubGroups
+  getTabData
 } from './services/storageService.js';
 import * as notificationService from './services/notificationService.js';
 import {
@@ -46,6 +44,13 @@ import {
 } from './services/tabService.js';
 import * as focusService from './services/focusService.js';
 import { configureFocusService } from './services/focusService.js';
+import * as groupService from './services/groupService.js';
+import {
+  configureGroupService,
+  registerGroupServiceListeners
+} from './services/groupService.js';
+import * as blockgateService from './services/blockgateService.js';
+import { configureBlockgateService } from './services/blockgateService.js';
 import { registerBootstrap } from './bootstrap.js';
 
 // ============================================================
@@ -580,73 +585,11 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
 
 // ============================================================
-// CHROME TAB GROUPS — BIDIRECTIONAL SYNC
+// CHROME TAB GROUPS
 // ============================================================
-
-// When Chrome creates or updates a tab group, sync to Tabatha's tab data
-chrome.tabGroups.onUpdated.addListener(async (group) => {
-  try {
-    // Get all tabs in this group
-    const tabsInGroup = await chrome.tabs.query({ groupId: group.id });
-    const tabs = await getTabData();
-    let changed = false;
-    for (const tab of tabsInGroup) {
-      if (tabs[tab.id]) {
-        tabs[tab.id].groupId = group.id;
-        tabs[tab.id].groupTitle = group.title || null;
-        tabs[tab.id].groupColor = group.color || null;
-        changed = true;
-      }
-    }
-    if (changed) {
-      await setTabData(tabs);
-      broadcastToExtension({ type: 'GROUPS_UPDATED' });
-    }
-  } catch (e) { /* group may be stale */ }
-});
-
-// When a tab group is removed, clear groupId from affected tabs
-chrome.tabGroups.onRemoved.addListener(async (group) => {
-  try {
-    const tabs = await getTabData();
-    let changed = false;
-    for (const [tabId, data] of Object.entries(tabs)) {
-      if (data.groupId === group.id) {
-        data.groupId = null;
-        data.groupTitle = null;
-        data.groupColor = null;
-        changed = true;
-      }
-    }
-    if (changed) {
-      await setTabData(tabs);
-      broadcastToExtension({ type: 'GROUPS_UPDATED' });
-    }
-  } catch (e) { /* ignore */ }
-});
-
-// When a tab moves into/out of a group, update its data
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.groupId !== undefined) {
-    const tabs = await getTabData();
-    if (tabs[tabId]) {
-      const noGroup = changeInfo.groupId === chrome.tabGroups?.TAB_GROUP_ID_NONE || changeInfo.groupId === -1;
-      tabs[tabId].groupId = noGroup ? null : changeInfo.groupId;
-      if (noGroup) {
-        tabs[tabId].groupTitle = null;
-        tabs[tabId].groupColor = null;
-      } else {
-        try {
-          const group = await chrome.tabGroups.get(changeInfo.groupId);
-          tabs[tabId].groupTitle = group.title || null;
-          tabs[tabId].groupColor = group.color || null;
-        } catch (e) { /* group may not exist yet */ }
-      }
-      await setTabData(tabs);
-      broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-    }
-  }
-});
+// Tab-group lifecycle listeners and CRUD handlers live in
+// `./services/groupService.js`. They are registered below alongside the
+// router setup so background.js stays orchestration-only.
 
 // ============================================================
 // IDLE / OFF-CHROME CONTEXT
@@ -1010,56 +953,6 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   }
 });
 
-// ============================================================
-// CHROME TAB GROUP INTEGRATION
-// ============================================================
-
-async function createOrUpdateGroup(tabIds, groupName, priority) {
-  const color = PRIORITY_LEVELS[priority]?.color || 'grey';
-  
-  const groupId = await chrome.tabs.group({ tabIds });
-  await chrome.tabGroups.update(groupId, {
-    title: groupName,
-    color,
-    collapsed: false
-  });
-  
-  // Update tab data with group ID
-  const tabs = await getTabData();
-  for (const tabId of tabIds) {
-    if (tabs[tabId]) {
-      tabs[tabId].groupId = groupId;
-    }
-  }
-  await setTabData(tabs);
-  
-  return groupId;
-}
-
-// ============================================================
-// SUB-GROUPS (Tabatha hierarchy beyond Chrome flat groups)
-// ============================================================
-
-async function createSubGroup(name, chromeGroupIds = [], projectId = null, settings = {}) {
-  const subGroups = await getSubGroups();
-  const id = `sg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-  
-  subGroups[id] = {
-    name,
-    projectId,
-    chromeGroupIds,
-    settings: {
-      timersEnabled: true,
-      autoContext: true,
-      lockingEnabled: true,
-      ...settings
-    }
-  };
-  
-  await setStorage({ subGroups });
-  return id;
-}
-
 // Sync to Supabase every 5 minutes
 chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 
@@ -1075,6 +968,8 @@ configureTabService({ getFocusEngine, setFocusEngine, addFocus, setTabData, logE
 
 const clockService = createClockService(getStorage, setStorage, broadcastToExtension);
 configureFocusService({ companionBridge, triggerSync, getTabData, setTabData, clockService, fireWebhook });
+configureGroupService({ setTabData });
+configureBlockgateService({ setTabData });
 
 // ── Router skeleton ──
 // Services land in Plan 023 Tasks 02+. Each registered entry must expose
@@ -1090,7 +985,9 @@ const services = [
   sessionService,
   taskService,
   tabService,
-  focusService
+  focusService,
+  groupService,
+  blockgateService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1103,7 +1000,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
       }
-      const legacy = await handleLegacyMessage(message, sender);
+      const legacy = await handleLegacyMessage(message);
       sendResponse(legacy);
     } catch (err) {
       console.error('[Tabatha] handleMessage Error:', err);
@@ -1113,168 +1010,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // Async response
 });
 
-async function handleLegacyMessage(message, sender) {
+async function handleLegacyMessage(message) {
   switch (message.type) {
-    // --- Groups ---
-    case 'GET_SAVED_GROUPS': {
-      try {
-        const allGroups = await chrome.tabGroups.query({});
-        const tabs = await getTabData();
-        const savedGroups = {};
-        for (const group of allGroups) {
-          const groupTabs = await chrome.tabs.query({ groupId: group.id });
-          savedGroups[group.id] = {
-            id: group.id,
-            title: group.title || 'Untitled Group',
-            color: group.color,
-            collapsed: group.collapsed,
-            tabIds: groupTabs.map(t => t.id),
-            tabCount: groupTabs.length,
-          };
-        }
-        return { savedGroups };
-      } catch (e) {
-        return { savedGroups: {} };
-      }
-    }
-
-    case 'CREATE_GROUP': {
-      const groupId = await createOrUpdateGroup(message.tabIds, message.name, message.priority);
-      return { groupId };
-    }
-    
-    case 'CREATE_SUB_GROUP': {
-      const id = await createSubGroup(message.name);
-      return { id };
-    }
-    
-    case 'GET_SUB_GROUPS':
-      return { subGroups: await getSubGroups() };
-    
-    case 'START_SIDE_QUEST': {
-        const tabs = await getTabData();
-        if (tabs[sender.tab.id]) {
-            tabs[sender.tab.id].context = message.context;
-            tabs[sender.tab.id].intent = 'Side Quest';
-            await setTabData(tabs);
-            broadcastAll({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
-            
-            // Auto-pause the active focus when going on a side quest
-            const engine = await getFocusEngine();
-            if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
-              const activeFocus = engine.items[engine.activeFocusId];
-              if (activeFocus.focusState === 'active') {
-                if (activeFocus.lastResumedAt) {
-                  activeFocus.elapsedMs = (activeFocus.elapsedMs || 0) + (Date.now() - new Date(activeFocus.lastResumedAt).getTime());
-                  activeFocus.lastResumedAt = null;
-                }
-                activeFocus.focusState = 'paused';
-                activeFocus.pausedAt = new Date().toISOString();
-                activeFocus.pausedReason = 'side_quest';
-                await setFocusEngine(engine);
-                broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-              }
-            }
-            
-            // Start 5m timer
-            chrome.alarms.create(`context-timer-${sender.tab.id}`, { delayInMinutes: message.minutes });
-        }
-        return { success: true };
-    }
-    
-    case 'ADD_TO_SUGAR_BOX': {
-        // Simple storage for now
-        const { sugarBox } = await getStorage('sugarBox');
-        const list = sugarBox || [];
-        list.push({ url: message.url, title: message.title, addedAt: new Date().toISOString() });
-        await setStorage({ sugarBox: list });
-        
-        await chrome.tabs.remove(sender.tab.id);
-        
-        // Notify sidebar?
-        broadcastToExtension({ type: 'SUGAR_BOX_UPDATED' });
-        return { success: true };
-    }
-    
-    case 'PARK_TAB': {
-        const { parkedTabs } = await getStorage('parkedTabs');
-        const list = parkedTabs || [];
-        const exists = list.find(t => t.url === message.url);
-        if (!exists) {
-            list.push({ url: message.url, title: message.title, context: message.context || null, note: message.note || null, parkedAt: new Date().toISOString() });
-            await setStorage({ parkedTabs: list });
-            broadcastToExtension({ type: 'PARKED_TABS_UPDATED' });
-        }
-        try { await chrome.tabs.remove(sender.tab.id); } catch(e) { /* ignore */ }
-        return { success: true };
-    }
-    
-
-    // --- Site Blocking ---
-    case 'CHECK_BLOCKED_SITE': {
-        const { blockedSites, tempUnblocked } = await getStorage(['blockedSites', 'tempUnblocked']);
-        const sites = blockedSites || [];
-        const temp = tempUnblocked || {};
-        const domain = new URL(sender.tab.url).hostname;
-        
-        // Check if domain matches a blocked pattern
-        const isBlocked = sites.some(s => {
-          if (s === domain) return true;
-          // Wildcard: *.example.com matches sub.example.com
-          if (s.startsWith('*.') && domain.endsWith(s.slice(2))) return true;
-          // Suffix match: example.com matches www.example.com
-          if (domain.endsWith('.' + s)) return true;
-          return false;
-        });
-        
-        if (!isBlocked) return { blocked: false };
-        
-        // Check temp unblock
-        if (temp[domain] && new Date(temp[domain].expiresAt) > new Date()) {
-          return { blocked: false };
-        }
-        
-        return { blocked: true };
-    }
-    
-    case 'UNBLOCK_SITE_TEMPORARILY': {
-        const { tempUnblocked } = await getStorage('tempUnblocked');
-        const temp = tempUnblocked || {};
-        const expiresAt = new Date(Date.now() + message.minutes * 60 * 1000).toISOString();
-        temp[message.domain] = {
-          expiresAt,
-          why: message.why,
-          intent: message.intent,
-          unlockedAt: new Date().toISOString()
-        };
-        await setStorage({ tempUnblocked: temp });
-        
-        // Set alarm to re-block
-        chrome.alarms.create(`blockgate-${message.domain}`, { delayInMinutes: message.minutes });
-        
-        return { success: true, expiresAt };
-    }
-    
-    case 'MANAGE_BLOCKED_SITES': {
-        const { blockedSites } = await getStorage('blockedSites');
-        const sites = blockedSites || [];
-        
-        if (message.action === 'add' && message.domain) {
-          if (!sites.includes(message.domain)) {
-            sites.push(message.domain);
-            await setStorage({ blockedSites: sites });
-          }
-        } else if (message.action === 'remove' && message.domain) {
-          const filtered = sites.filter(s => s !== message.domain);
-          await setStorage({ blockedSites: filtered });
-          return { sites: filtered };
-        } else if (message.action === 'list') {
-          return { sites };
-        }
-        
-        return { sites };
-    }
-
     // --- Clock In/Out (synced bidirectionally with companion) ---
     case 'CLOCK_IN': {
         const result = await clockService.clockIn();
@@ -1378,6 +1115,7 @@ async function handleLegacyMessage(message, sender) {
 // `./bootstrap.js`. registerBootstrap() wires the listeners and runs the
 // initial pass.
 registerTabServiceListeners();
+registerGroupServiceListeners();
 registerBootstrap();
 
 // Notification click handler merged into single listener above (L757)
