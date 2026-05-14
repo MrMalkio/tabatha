@@ -38,6 +38,7 @@ import * as sessionService from './services/sessionService.js';
 import {
   configureSessionService
 } from './services/sessionService.js';
+import * as taskService from './services/taskService.js';
 import * as tabService from './services/tabService.js';
 import {
   configureTabService,
@@ -1084,6 +1085,7 @@ const services = [
   tabTrackingService,
   categoryService,
   sessionService,
+  taskService,
   tabService
 ];
 
@@ -1254,122 +1256,6 @@ async function handleLegacyMessage(message, sender) {
         }
         return { success: true };
     }
-
-    // --- Tasks CRUD ---
-    case 'GET_TASKS': {
-      // Return tasks from org registry (primary) + any remaining legacy tasks
-      const { tabathaOrg, tasks: legacyTasks } = await getStorage(['tabathaOrg', 'tasks']);
-      const orgTasks = Object.values(tabathaOrg?.tasks || {}).filter(t => !t.archived);
-      const legacy = (legacyTasks || []);
-      const orgIds = new Set(orgTasks.map(t => t.id));
-      const merged = [...orgTasks, ...legacy.filter(t => !orgIds.has(t.id))];
-      return { tasks: merged };
-    }
-    case 'CREATE_TASK': {
-      // Write directly to org registry
-      const { tabathaOrg } = await getStorage('tabathaOrg');
-      const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
-      const id = `task_${Date.now()}`;
-      const newTask = {
-        id,
-        name: message.name,
-        description: message.description || '',
-        projectId: message.projectId || null,
-        clientId: message.clientId || null,
-        status: 'active',
-        funnelStage: 'unsorted', // Tasks always start unsorted
-        linkedIntents: [],
-        createdAt: new Date().toISOString(),
-        completedAt: null,
-        archived: false,
-      };
-      org.tasks[id] = newTask;
-      await setStorage({ tabathaOrg: org });
-      // Broadcast with full merged list for backward compatibility
-      const allTasks = Object.values(org.tasks).filter(t => !t.archived);
-      broadcastToExtension({ type: 'TASKS_UPDATED', tasks: allTasks });
-      return { success: true, task: newTask };
-    }
-    case 'UPDATE_TASK': {
-      const { tabathaOrg } = await getStorage('tabathaOrg');
-      const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
-      if (org.tasks[message.taskId]) {
-        const task = org.tasks[message.taskId];
-        const updates = message.updates || {};
-
-        // ── TASK STAGE GATING ──
-        if (updates.funnelStage !== undefined) {
-          const from = task.funnelStage || 'unsorted';
-          const to = updates.funnelStage;
-          const fromOrder = STAGE_ORDER[from] ?? 0;
-          const toOrder = STAGE_ORDER[to] ?? 0;
-          const isBackward = toOrder < fromOrder;
-          const confirmed = !!message.confirmed;
-
-          // Gate 1: Nothing rolls back to unsorted
-          if (to === 'unsorted' && from !== 'unsorted') {
-            return { error: 'Tasks cannot roll back to unsorted', needsConfirm: false };
-          }
-
-          // Gate 2: todo → focus requires name and description
-          if (to === 'focus' && from === 'todo') {
-            if (!(task.name && task.name.trim()) || !(task.description && task.description.trim())) {
-              return { error: 'Task needs a name and description before entering focus', needsConfirm: false };
-            }
-          }
-
-          // Gate 3: focus → addressing requires confirmation
-          if (to === 'addressing' && (from === 'focus' || from === 'todo')) {
-            if (!confirmed) {
-              return { error: 'Moving to addressing will make this your active task. Confirm?', needsConfirm: true };
-            }
-          }
-
-          // Gate 4: Backward transitions require confirmation (except roadblocked → focus)
-          if (isBackward && !(from === 'roadblocked' && to === 'focus')) {
-            if (!confirmed) {
-              return { error: `Rolling task back from ${from} to ${to} requires confirmation`, needsConfirm: true };
-            }
-          }
-        }
-
-        org.tasks[message.taskId] = { ...task, ...updates };
-        await setStorage({ tabathaOrg: org });
-        const allTasks = Object.values(org.tasks).filter(t => !t.archived);
-        broadcastToExtension({ type: 'TASKS_UPDATED', tasks: allTasks });
-        return { success: true };
-      }
-      // Fallback: check legacy storage
-      const { tasks: legacyAll } = await getStorage('tasks');
-      const taskArr = legacyAll || [];
-      const idx = taskArr.findIndex(t => t.id === message.taskId);
-      if (idx >= 0) {
-        taskArr[idx] = { ...taskArr[idx], ...message.updates };
-        await setStorage({ tasks: taskArr });
-        broadcastToExtension({ type: 'TASKS_UPDATED', tasks: taskArr });
-        return { success: true };
-      }
-      return { error: 'Task not found' };
-    }
-    case 'DELETE_TASK': {
-      const { tabathaOrg } = await getStorage('tabathaOrg');
-      const org = tabathaOrg || { clients: {}, projects: {}, tasks: {}, operations: {}, initiatives: {} };
-      if (org.tasks[message.taskId]) {
-        // Archive instead of hard-delete (safe)
-        org.tasks[message.taskId].archived = true;
-        await setStorage({ tabathaOrg: org });
-        const allTasks = Object.values(org.tasks).filter(t => !t.archived);
-        broadcastToExtension({ type: 'TASKS_UPDATED', tasks: allTasks });
-        return { success: true };
-      }
-      // Fallback: remove from legacy storage
-      const { tasks: tAll } = await getStorage('tasks');
-      const filtered = (tAll || []).filter(t => t.id !== message.taskId);
-      await setStorage({ tasks: filtered });
-      broadcastToExtension({ type: 'TASKS_UPDATED', tasks: filtered });
-      return { success: true };
-    }
-
     // --- Focus Engine ---
     case 'GET_FOCUS_ENGINE':
       return { focusEngine: await getFocusEngine() };
