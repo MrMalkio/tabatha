@@ -44,28 +44,28 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_ALL_TABS` | — | `{ tabs }` | ⬜ |
-| `GET_TAB` | `{ tabId }` | `{ tab }` | ⬜ |
-| `UPDATE_TAB` | `{ tabId, updates }` | `{ success }` | ⬜ |
-| `BATCH_UPDATE_CONTEXT` | `{ tabIds, context }` | `{ success }` | ⬜ |
-| `SET_PRIORITY` | `{ tabId, priority }` | `{ success }` | ⬜ |
-| `TOGGLE_LOCK` | `{ tabId }` | `{ success }` | ⬜ |
-| `UPDATE_TAB_TITLE` | `{ tabId, title }` | `{ success }` | ⬜ |
-| `TOGGLE_URL_LOCK` | `{ tabId, scope? }` | `{ success }` | ⬜ |
-| `REQUEST_CLOSE` | `{ tabId }` | `{ success }` | ⬜ |
-| `CANCEL_CLOSE` | `{ tabId }` | `{ success }` | ⬜ |
-| `BULK_CLOSE` | `{ tabIds }` | `{ success }` | ⬜ |
-| `FOCUS_TAB` | `{ tabId }` | `{ success }` | ⬜ |
-| `CHECK_CONTEXT_NEEDED` | — (uses sender.tab) | `{ needed, tabData, ... }` | ⬜ |
-| `SET_TAB_CONTEXT` | `{ tabId, context, ... }` | `{ success }` | ⬜ |
-| `SET_INTENT` | `{ tabId, intent, ... }` | `{ success }` | ⬜ |
-| `SKIP_DOMAIN` | `{ domain }` | `{ success }` | ⬜ |
-| `ASSOCIATE_TAB_WITH_FOCUS` | `{ tabId, focusId }` | `{ success }` | ⬜ |
-| `GET_CURRENT_TAB_ID` | — (uses sender.tab) | `{ tabId }` | ⬜ |
-| `CLOSE_TAB` | `{ tabId }` | `{ success }` | ⬜ |
-| `LINK_TAB_TO_INTENT` | `{ tabId, targetIntentId }` | `{ success }` | ⬜ |
-| `RENAME_TAB` | `{ tabId, newTitle }` | `{ success }` | ⬜ |
-| `UPDATE_TAB_CONTEXT` | `{ tabId, context }` | `{ success }` | ⬜ |
+| `GET_ALL_TABS` | — | `{ tabs }` | ✅ |
+| `GET_TAB` | `{ tabId }` | `{ tab }` | ✅ |
+| `UPDATE_TAB` | `{ tabId, updates }` | `{ success }` | ✅ |
+| `BATCH_UPDATE_CONTEXT` | `{ updates: [{ tabId, context, intent }] }` | `{ success }` | ✅ |
+| `SET_PRIORITY` | `{ tabId, priority }` | `{ success }` | ✅ |
+| `TOGGLE_LOCK` | `{ tabId }` | `{ success }` | ✅ |
+| `UPDATE_TAB_TITLE` | `{ tabId, title }` | `{ success }` | ✅ |
+| `TOGGLE_URL_LOCK` | `{ tabId, scope? }` | `{ success }` | ✅ |
+| `REQUEST_CLOSE` | `{ tabId }` | `{ closed }` or `{ closed, needsConfirmation, tabData }` | ✅ |
+| `CANCEL_CLOSE` | `{ tabId }` | `{ success }` | ✅ |
+| `BULK_CLOSE` | `{ tabIds, context?, intent? }` | `{ closed, needsConfirmation }` | ✅ |
+| `FOCUS_TAB` | `{ tabId }` | `{ success }` | ✅ |
+| `CHECK_CONTEXT_NEEDED` | — (uses sender.tab) | `{ needed }` or `{ needed, inheritedContext, inheritedIntent, contextSource }` | ✅ |
+| `SET_TAB_CONTEXT` | `{ context, intent?, category? }` (uses sender.tab) | `{ success }` or `{ error }` | ✅ |
+| `SET_INTENT` | `{ payload }` (uses sender.tab) | `{ success }` or `{ error }` | ✅ |
+| `SKIP_DOMAIN` | `{ domain }` | `{ success }` | ✅ |
+| `ASSOCIATE_TAB_WITH_FOCUS` | `{ tabId?, focusId }` | `{ success }` | ✅ |
+| `GET_CURRENT_TAB_ID` | — (uses sender.tab) | `{ tabId }` | ✅ |
+| `CLOSE_TAB` | `{ tabId }` | `{ success }` | ✅ |
+| `LINK_TAB_TO_INTENT` | `{ tabId, targetIntentId }` | `{ success }` | ✅ |
+| `RENAME_TAB` | `{ tabId, newTitle }` | `{ success }` | ✅ |
+| `UPDATE_TAB_CONTEXT` | `{ tabId, context }` | `{ success }` | ✅ |
 
 ---
 
@@ -220,4 +220,4 @@ These are sent through `notificationService` helpers and don't have response sha
 
 | Date | Handler | Change | Reason |
 |------|---------|--------|--------|
-| — | — | — | No changes yet |
+| 2026-05-14 | `chrome.tabs.onRemoved` | Closed tabs with saved InBar notes now write the note into `closedContexts` before `inbarNotes[tabId]` is pruned. Request/response shapes unchanged. | Task 04a lifecycle cleanup |

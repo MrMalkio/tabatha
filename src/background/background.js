@@ -8,15 +8,11 @@ import { createClockService } from './clock.js';
 import { companionBridge } from './companion-bridge.js';
 import { fireWebhook } from './webhooks.js';
 import {
-  DEFAULT_SETTINGS,
   PRIORITY_LEVELS,
-  BUILT_IN_CATEGORIES,
   DEFAULT_FOCUS_ENGINE,
   STAGE_ORDER
 } from './constants.js';
 import {
-  detectCategory,
-  patternToRegex,
   getUrlBase
 } from './helpers.js';
 import {
@@ -24,8 +20,7 @@ import {
   setStorage,
   getSettings,
   getTabData,
-  getSubGroups,
-  getCategories
+  getSubGroups
 } from './services/storageService.js';
 import * as notificationService from './services/notificationService.js';
 import {
@@ -36,16 +31,18 @@ import {
 import * as settingsService from './services/settingsService.js';
 import * as tabTrackingService from './services/tabTrackingService.js';
 import {
-  configureTabTrackingService,
-  appendIntentHistory,
-  aggregateAndPruneTabTime
+  configureTabTrackingService
 } from './services/tabTrackingService.js';
 import * as categoryService from './services/categoryService.js';
 import * as sessionService from './services/sessionService.js';
 import {
-  configureSessionService,
-  appendClosedContext
+  configureSessionService
 } from './services/sessionService.js';
+import * as tabService from './services/tabService.js';
+import {
+  configureTabService,
+  registerTabServiceListeners
+} from './services/tabService.js';
 import { registerBootstrap } from './bootstrap.js';
 
 // ============================================================
@@ -502,193 +499,7 @@ async function tryAssociateTab(tabId) {
 // ============================================================
 // TAB LIFECYCLE TRACKING
 // ============================================================
-
-chrome.tabs.onCreated.addListener(async (tab) => {
-  const tabs = await getTabData();
-  const categories = await getCategories();
-  const settings = await getSettings();
-  
-  const isFromOpener = !!tab.openerTabId;
-  let inheritedContext = null;
-  let inheritedIntent = null;
-  let inheritedSubGroupId = null;
-  let parentCategory = null;
-  
-  // If opened from a parent tab, inherit context
-  if (isFromOpener && tabs[tab.openerTabId]) {
-    const parent = tabs[tab.openerTabId];
-    inheritedContext = parent.context;
-    inheritedIntent = parent.intent;
-    inheritedSubGroupId = parent.subGroupId;
-    parentCategory = parent.category;
-  }
-  
-  const detectedCategory = detectCategory(tab.url || tab.pendingUrl || '', false, categories);
-  
-  tabs[tab.id] = {
-    url: tab.url || tab.pendingUrl || '',
-    title: tab.title || 'New Tab',
-    openedAt: new Date().toISOString(),
-    lastActive: new Date().toISOString(),
-    activeTime: 0,
-    context: inheritedContext,
-    intent: inheritedIntent,
-    contextSource: inheritedContext ? 'inherited' : null,
-    priority: 'none',
-    locked: false,
-    urlLocked: false,
-    urlLockScope: null,
-    groupId: tab.groupId !== chrome.tabGroups?.TAB_GROUP_ID_NONE ? tab.groupId : null,
-    subGroupId: inheritedSubGroupId,
-    category: parentCategory || detectedCategory,
-    parentTabId: tab.openerTabId || null,
-    timerOverrideMinutes: null,
-    ignored: false,
-    persistent: false
-  };
-
-  // Auto-apply URL rules
-  try {
-    const { urlRules } = await getStorage('urlRules');
-    if (urlRules && urlRules.length > 0) {
-      const tabUrl = (tab.url || tab.pendingUrl || '').toLowerCase();
-      for (const rule of urlRules) {
-        if (!rule.autoApply) continue;
-        const pattern = rule.pattern.toLowerCase();
-        // Simple matching: domain contains or URL contains pattern
-        if (tabUrl.includes(pattern)) {
-          if (rule.defaultIntent) {
-            tabs[tab.id].intent = rule.defaultIntent;
-            tabs[tab.id].contextSource = 'url_rule';
-          }
-          if (rule.defaultContext) {
-            tabs[tab.id].context = rule.defaultContext;
-            if (!tabs[tab.id].contextSource) tabs[tab.id].contextSource = 'url_rule';
-          }
-          break; // first match wins
-        }
-      }
-    }
-  } catch (e) { /* non-critical */ }
-  
-  await setTabData(tabs);
-  
-  // Set context timer
-  const timerMinutes = settings.globalTimerMinutes;
-  if (timerMinutes > 0) {
-    chrome.alarms.create(`context-timer-${tab.id}`, { delayInMinutes: timerMinutes });
-  }
-  
-  // If this is a scratch-opened tab (no opener, no inherited context), notify sidebar to prompt
-  if (!isFromOpener && detectedCategory === 'unknown') {
-    broadcastToExtension({ type: 'PROMPT_PURPOSE', tabId: tab.id });
-  }
-  
-  broadcastToExtension({ type: 'TAB_CREATED', tabId: tab.id, tabData: tabs[tab.id] });
-});
-
-chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-  const tabs = await getTabData();
-  const tabData = tabs[tabId];
-  
-  if (tabData) {
-    // Check if tab was paused — auto-park with note
-    const { pausedIntents = {} } = await getStorage('pausedIntents');
-    const pauseData = pausedIntents[tabId];
-    if (pauseData) {
-      const { parkedTabs = [] } = await getStorage('parkedTabs');
-      parkedTabs.unshift({
-        url: tabData.url,
-        title: tabData.customTitle || tabData.title,
-        context: tabData.context || tabData.intent || pauseData.intentLabel || '',
-        note: pauseData.note || '',
-        parkedAt: new Date().toISOString(),
-        pausedAt: pauseData.pausedAt,
-        source: 'auto-park',
-      });
-      await setStorage({ parkedTabs: parkedTabs.slice(0, 200) });
-      // Clean up pause state
-      delete pausedIntents[tabId];
-      await setStorage({ pausedIntents });
-    }
-
-    // Save to closed contexts if it had context (capped via settings.storage.closedContextsCap)
-    if (tabData.context || tabData.intent) {
-      await appendClosedContext({
-        url: tabData.url,
-        title: tabData.title,
-        context: tabData.context,
-        intent: tabData.intent,
-        priority: tabData.priority,
-        closedAt: new Date().toISOString(),
-        activeTime: tabData.activeTime,
-        groupName: null,
-        subGroupId: tabData.subGroupId,
-        category: tabData.category
-      });
-    }
-
-    // Aggregate tracked time into group buckets before we lose the per-tab row.
-    await aggregateAndPruneTabTime(tabId, tabData);
-
-    delete tabs[tabId];
-    await setTabData(tabs);
-  }
-
-  await timeTracker.stopTracking(tabId);
-  
-  // Clear alarm
-  chrome.alarms.clear(`context-timer-${tabId}`);
-  
-  broadcastToExtension({ type: 'TAB_REMOVED', tabId });
-});
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  const tabs = await getTabData();
-  if (!tabs[tabId]) return;
-  
-  if (changeInfo.url) {
-    await timeTracker.stopTracking(tabId);
-    tabs[tabId].url = changeInfo.url;
-    // Re-detect category on URL change
-    const categories = await getCategories();
-    const newCat = detectCategory(changeInfo.url, tab.audible, categories);
-    if (tabs[tabId].category === 'unknown') {
-      tabs[tabId].category = newCat;
-    }
-    await timeTracker.startTracking(tabId, changeInfo.url, tabs[tabId]);
-  }
-  if (changeInfo.title) {
-    tabs[tabId].title = changeInfo.title;
-    
-    // Asana auto-intent: when an Asana task page title loads, auto-set context
-    if (!tabs[tabId].context && !tabs[tabId].intent) {
-      try {
-        const asanaMatch = (tabs[tabId].url || '').match(/app\.asana\.com\/0\/\d+\/(\d+)/);
-        if (asanaMatch && changeInfo.title && changeInfo.title !== 'Asana' && changeInfo.title !== 'Loading...') {
-          const taskName = changeInfo.title.replace(/\s*[-\u2013\u2014]\s*Asana\s*$/i, '').replace(/\s*[-\u2013\u2014]\s*[^-\u2013\u2014]+$/, '').trim();
-          if (taskName) {
-            tabs[tabId].context = taskName;
-            tabs[tabId].intent = 'asana_auto';
-            tabs[tabId].contextSource = 'asana_auto';
-            tabs[tabId].category = 'work';
-            tabs[tabId].asanaTaskGid = asanaMatch[1];
-          }
-        }
-      } catch (e) { /* ignore */ }
-    }
-  }
-  if (changeInfo.audible !== undefined) {
-    const categories = await getCategories();
-    const detected = detectCategory(tabs[tabId].url, changeInfo.audible, categories);
-    if (detected !== 'unknown' && tabs[tabId].category === 'unknown') {
-      tabs[tabId].category = detected;
-    }
-  }
-  
-  await setTabData(tabs);
-  broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-});
+// onCreated/onRemoved/onUpdated are registered by tabService.
 
 // ============================================================
 // TIME TRACKING DELEGATED TO SERVICE
@@ -1197,43 +1008,6 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 });
 
 // ============================================================
-// TAB LOCKING — CLOSE PROTECTION
-// ============================================================
-
-// We can't directly prevent tab close in MV3, so we use a different approach:
-// When a locked tab is about to close, we show a warning in the sidebar.
-// The actual multi-step close is enforced through the sidebar UI.
-// The service worker tracks pending close confirmations.
-
-const pendingCloseConfirmations = new Map();
-
-async function requestTabClose(tabId) {
-  const tabs = await getTabData();
-  const tabData = tabs[tabId];
-  
-  if (!tabData) {
-    await chrome.tabs.remove(tabId);
-    return { closed: true };
-  }
-  
-  if (tabData.locked) {
-    if (pendingCloseConfirmations.has(tabId)) {
-      // Second confirmation — actually close
-      pendingCloseConfirmations.delete(tabId);
-      await chrome.tabs.remove(tabId);
-      return { closed: true };
-    } else {
-      // First attempt — request confirmation
-      pendingCloseConfirmations.set(tabId, Date.now());
-      return { closed: false, needsConfirmation: true, tabData };
-    }
-  }
-  
-  await chrome.tabs.remove(tabId);
-  return { closed: true };
-}
-
-// ============================================================
 // CHROME TAB GROUP INTEGRATION
 // ============================================================
 
@@ -1283,50 +1057,6 @@ async function createSubGroup(name, chromeGroupIds = [], projectId = null, setti
   return id;
 }
 
-// ============================================================
-// BULK OPERATIONS
-// ============================================================
-
-async function bulkCloseTabs(tabIds, sharedContext, sharedIntent) {
-  const tabs = await getTabData();
-
-  for (const tabId of tabIds) {
-    const tabData = tabs[tabId];
-    if (tabData) {
-      await appendClosedContext({
-        url: tabData.url,
-        title: tabData.title,
-        context: sharedContext || tabData.context,
-        intent: sharedIntent || tabData.intent,
-        priority: tabData.priority,
-        closedAt: new Date().toISOString(),
-        activeTime: tabData.activeTime,
-        groupName: null,
-        subGroupId: tabData.subGroupId,
-        category: tabData.category
-      });
-    }
-  }
-  
-  // Remove non-locked tabs, collect locked ones for confirmation
-  const lockedTabs = [];
-  const closableTabs = [];
-  
-  for (const tabId of tabIds) {
-    if (tabs[tabId]?.locked) {
-      lockedTabs.push(tabId);
-    } else {
-      closableTabs.push(tabId);
-    }
-  }
-  
-  if (closableTabs.length > 0) {
-    await chrome.tabs.remove(closableTabs);
-  }
-  
-  return { closed: closableTabs, needsConfirmation: lockedTabs };
-}
-
 // Sync to Supabase every 5 minutes
 chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 
@@ -1338,6 +1068,7 @@ chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 configureNotificationService({ getTabData, setTabData, getFocusEngine });
 configureTabTrackingService({ broadcastToExtension, triggerSync });
 configureSessionService({ setTabData });
+configureTabService({ getFocusEngine, setFocusEngine, addFocus, setTabData, logEvent });
 
 const clockService = createClockService(getStorage, setStorage, broadcastToExtension);
 
@@ -1352,7 +1083,8 @@ const services = [
   settingsService,
   tabTrackingService,
   categoryService,
-  sessionService
+  sessionService,
+  tabService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1377,116 +1109,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleLegacyMessage(message, sender) {
   switch (message.type) {
-    // --- Tab Data ---
-    case 'GET_ALL_TABS':
-      return { tabs: await getTabData() };
-    
-    case 'GET_TAB':
-      const allTabs = await getTabData();
-      return { tab: allTabs[message.tabId] };
-    
-    case 'UPDATE_TAB': {
-      const tabs = await getTabData();
-      if (tabs[message.tabId]) {
-        Object.assign(tabs[message.tabId], message.updates);
-        await setTabData(tabs);
-        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
-      }
-      return { success: true };
-    }
-    
-    case 'BATCH_UPDATE_CONTEXT': {
-      const tabs = await getTabData();
-      for (const { tabId, context, intent } of message.updates) {
-        if (tabs[tabId]) {
-          tabs[tabId].context = context;
-          tabs[tabId].intent = intent;
-        }
-      }
-      await setTabData(tabs);
-      broadcastToExtension({ type: 'TABS_BATCH_UPDATED' });
-      return { success: true };
-    }
-    
-    // --- Priority ---
-    case 'SET_PRIORITY': {
-      const tabs = await getTabData();
-      if (tabs[message.tabId]) {
-        tabs[message.tabId].priority = message.priority;
-        await setTabData(tabs);
-        
-        // Update Chrome tab group color if in a group
-        if (tabs[message.tabId].groupId) {
-          try {
-            const color = PRIORITY_LEVELS[message.priority]?.color || 'grey';
-            await chrome.tabGroups.update(tabs[message.tabId].groupId, { color });
-          } catch (e) { /* group may not exist */ }
-        }
-        
-        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
-      }
-      return { success: true };
-    }
-    
-    // --- Locking ---
-    case 'TOGGLE_LOCK': {
-      const tabs = await getTabData();
-      if (tabs[message.tabId]) {
-        tabs[message.tabId].locked = !tabs[message.tabId].locked;
-        await setTabData(tabs);
-        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
-      }
-      return { success: true };
-    }
-    
-    case 'UPDATE_TAB_TITLE': {
-        const tabs = await getTabData();
-        if (tabs[message.tabId]) {
-            tabs[message.tabId].customTitle = message.title;
-            await setTabData(tabs);
-            broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
-        }
-        return { success: true };
-    }
-    
-    case 'TOGGLE_URL_LOCK': {
-      const tabs = await getTabData();
-      if (tabs[message.tabId]) {
-        tabs[message.tabId].urlLocked = !tabs[message.tabId].urlLocked;
-        if (tabs[message.tabId].urlLocked) {
-          tabs[message.tabId].urlLockScope = tabs[message.tabId].url;
-        } else {
-          tabs[message.tabId].urlLockScope = null;
-        }
-        await setTabData(tabs);
-        
-        // Inject/remove content script
-        if (tabs[message.tabId].urlLocked) {
-          try {
-            await chrome.scripting.executeScript({
-              target: { tabId: message.tabId },
-              files: ['url-lock.js']
-            });
-          } catch (e) { console.error('Could not inject url-lock script', e); }
-        }
-        
-        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
-      }
-      return { success: true };
-    }
-    
-    // --- Close ---
-    case 'REQUEST_CLOSE':
-      return await requestTabClose(message.tabId);
-    
-    case 'CANCEL_CLOSE':
-      pendingCloseConfirmations.delete(message.tabId);
-      return { success: true };
-    
-    // --- Bulk ---
-    case 'BULK_CLOSE':
-      return await bulkCloseTabs(message.tabIds, message.context, message.intent);
-    
     // --- Groups ---
     case 'GET_SAVED_GROUPS': {
       try {
@@ -1522,253 +1144,6 @@ async function handleLegacyMessage(message, sender) {
     
     case 'GET_SUB_GROUPS':
       return { subGroups: await getSubGroups() };
-    
-    // --- Focus Tab ---
-    case 'FOCUS_TAB':
-      try {
-        const tab = await chrome.tabs.get(message.tabId);
-        await chrome.windows.update(tab.windowId, { focused: true });
-        await chrome.tabs.update(message.tabId, { active: true });
-      } catch (e) { /* tab may not exist */ }
-      return { success: true };
-
-    // --- Gatekeeper ---
-    case 'CHECK_CONTEXT_NEEDED': {
-        // Check if gatekeeper is globally disabled
-        const { settings: gkSettings } = await getStorage('settings');
-        if (gkSettings && gkSettings.gatekeeperEnabled === false) return { needed: false };
-        
-        const tabs = await getTabData();
-        const tabData = tabs[sender.tab.id];
-        if (!tabData) return { needed: false };
-        
-        // INTERCEPTION LOGIC:
-        // 1. Not from an opener (fresh tab navigation)
-        // 2. No context set yet
-        // 3. Not a built-in page (newtab, extensions, etc.)
-        // 4. Not an "Unloaded" tab being restored
-        
-        const isBuiltIn = sender.tab.url.startsWith('chrome://') || sender.tab.url.startsWith('chrome-extension://');
-        if (isBuiltIn) return { needed: false };
-        
-        // If it already has USER-EXPLICIT or URL-RULE context/intent, skip.
-        // Inherited and auto-detected contexts should still prompt.
-        if ((tabData.context || tabData.intent) && (tabData.contextSource === 'user' || tabData.contextSource === 'url_rule')) return { needed: false };
-        
-        // --- Asana URL auto-intent ---
-        // Detect Asana task URLs and auto-set context from the task title
-        try {
-          const asanaMatch = sender.tab.url.match(/app\.asana\.com\/0\/\d+\/(\d+)/);
-          if (asanaMatch) {
-            // Use the page title which Asana sets to the task name
-            const pageTitle = sender.tab.title || '';
-            // Asana titles follow pattern: "Task Name - Project - Asana" or just "Task Name"
-            const taskName = pageTitle.replace(/\s*[-–—]\s*Asana\s*$/i, '').replace(/\s*[-–—]\s*[^-–—]+$/, '').trim();
-            if (taskName && taskName !== 'Asana' && taskName !== 'Loading...') {
-              tabData.context = taskName;
-              tabData.intent = 'asana_auto';
-              tabData.contextSource = 'asana_auto';
-              tabData.category = 'work';
-              tabData.asanaTaskGid = asanaMatch[1];
-              tabs[sender.tab.id] = tabData;
-              await setTabData(tabs);
-              broadcastAll({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData });
-              // Auto-associate with active focus
-              if (!gkSettings || gkSettings.autoAssociateTabs !== false) {
-                const engine = await getFocusEngine();
-                if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
-                  const focus = engine.items[engine.activeFocusId];
-                  if (!focus.associatedTabIds.includes(sender.tab.id)) {
-                    focus.associatedTabIds.push(sender.tab.id);
-                    await setFocusEngine(engine);
-                  }
-                }
-              }
-              return { needed: false };
-            }
-          }
-        } catch (e) { /* not an Asana URL or title parsing failed */ }
-        
-        // Check if restoring a parked tab
-        try {
-          const { parkedTabs } = await getStorage('parkedTabs');
-          if (parkedTabs) {
-            const parkedIdx = parkedTabs.findIndex(t => t.url === sender.tab.url);
-            if (parkedIdx !== -1) {
-              const parkedData = parkedTabs[parkedIdx];
-              tabData.intent = parkedData.context || 'Restored from Parked';
-              tabs[sender.tab.id] = tabData;
-              await setTabData(tabs);
-              parkedTabs.splice(parkedIdx, 1);
-              await setStorage({ parkedTabs });
-              broadcastToExtension({ type: 'PARKED_TABS_UPDATED' });
-              return { needed: false };
-            }
-          }
-        } catch (e) { /* ignore */ }
-        
-        // Check if domain is skipped
-        try {
-          const domain = new URL(sender.tab.url).hostname;
-          const { skippedDomains } = await getStorage('skippedDomains');
-          if (skippedDomains && skippedDomains.includes(domain)) return { needed: false };
-        } catch (e) { /* invalid URL */ }
-        
-        // Auto-associate tab with active focus if setting enabled
-        if (!gkSettings || gkSettings.autoAssociateTabs !== false) {
-          const engine = await getFocusEngine();
-          if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
-            const focus = engine.items[engine.activeFocusId];
-            if (!focus.associatedTabIds.includes(sender.tab.id)) {
-              focus.associatedTabIds.push(sender.tab.id);
-              await setFocusEngine(engine);
-            }
-          }
-        }
-        
-        return {
-          needed: true,
-          inheritedContext: tabData.context || null,
-          inheritedIntent: tabData.intent || null,
-          contextSource: tabData.contextSource || null,
-        };
-    }
-    
-    case 'SET_TAB_CONTEXT': {
-        const tabs = await getTabData();
-        // Create tab entry if it doesn't exist yet (gatekeeper can fire before onTabCreated)
-        if (!tabs[sender.tab.id]) {
-            tabs[sender.tab.id] = {
-                url: sender.tab.url || '',
-                title: sender.tab.title || 'Untitled',
-                openedAt: new Date().toISOString(),
-                lastActive: new Date().toISOString(),
-                activeTime: 0,
-                context: null,
-                intent: null,
-                priority: 'none',
-                locked: false,
-                urlLocked: false,
-                urlLockScope: null,
-                groupId: null,
-                subGroupId: null,
-                category: 'unknown',
-                parentTabId: sender.tab.openerTabId || null,
-                timerOverrideMinutes: null,
-                ignored: false,
-                persistent: false
-            };
-        }
-        const oldIntent = tabs[sender.tab.id].intent;
-        const oldContext = tabs[sender.tab.id].context;
-        tabs[sender.tab.id].context = message.context;
-        tabs[sender.tab.id].category = message.category || tabs[sender.tab.id].category || 'unknown';
-        tabs[sender.tab.id].intent = message.intent;
-        tabs[sender.tab.id].contextSource = 'user';
-        await setTabData(tabs);
-        broadcastAll({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
-
-        // Log intent change — single canonical intentHistory key (Plan 023 §2).
-        if (message.intent !== oldIntent || message.context !== oldContext) {
-          try {
-            const domain = new URL(sender.tab.url || '').hostname.replace(/^www\./, '');
-            await appendIntentHistory({
-              tabId: sender.tab.id,
-              url: sender.tab.url,
-              domain,
-              action: 'change',
-              context: message.context || null,
-              oldIntent: oldIntent || null,
-              newIntent: message.intent || null,
-              oldContext: oldContext || null,
-              newContext: message.context || null
-            });
-          } catch (e) { /* non-critical */ }
-        }
-        return { success: true };
-    }
-
-    // SET_INTENT — from InBar edit dropdown and intent label click
-    case 'SET_INTENT': {
-        if (!sender.tab?.id) return { error: 'No tab context' };
-        const tabs = await getTabData();
-        const tabId = sender.tab.id;
-        if (!tabs[tabId]) {
-            tabs[tabId] = {
-                url: sender.tab.url || '',
-                title: sender.tab.title || 'Untitled',
-                openedAt: new Date().toISOString(),
-                lastActive: new Date().toISOString(),
-                activeTime: 0,
-                context: null,
-                intent: null,
-                contextSource: null,
-            };
-        }
-        const payload = message.payload || {};
-        if (payload.resolved) {
-            // Mark intent as resolved — clear context from this tab
-            tabs[tabId].context = null;
-            tabs[tabId].intent = null;
-            tabs[tabId].contextSource = null;
-            tabs[tabId].resolvedAt = new Date().toISOString();
-        } else {
-            tabs[tabId].context = payload.intent || tabs[tabId].context;
-            tabs[tabId].intent = payload.intent || tabs[tabId].intent;
-            if (payload.description) tabs[tabId].intentDescription = payload.description;
-            tabs[tabId].contextSource = 'user';
-            tabs[tabId].startedAt = new Date().toISOString();
-
-            // ── Intent→Focus Bridge ──
-            // Auto-queue a focus item when an intent doesn't match active focus
-            const intentLabel = payload.intent;
-            if (intentLabel) {
-              try {
-                const { tabathaSettings } = await getStorage('tabathaSettings');
-                const bridgeMode = tabathaSettings?.intentBridgeMode || 'smart_dedup';
-                
-                if (bridgeMode !== 'manual') {
-                  const engine = await getFocusEngine();
-                  const activeFocus = engine.activeFocusId ? engine.items[engine.activeFocusId] : null;
-                  const activeLabel = activeFocus?.label?.toLowerCase()?.trim() || '';
-                  const newLabel = intentLabel.toLowerCase().trim();
-                  
-                  // Check for existing focus with same label (any state)
-                  const existingMatch = Object.values(engine.items).find(
-                    item => item.label?.toLowerCase()?.trim() === newLabel && item.focusState !== 'completed'
-                  );
-                  
-                  const shouldAutoQueue = bridgeMode === 'always' 
-                    ? !existingMatch   // Always: create if no existing match
-                    : newLabel !== activeLabel && !existingMatch; // Smart dedup: also skip if matches active
-                  
-                  if (shouldAutoQueue) {
-                    const defaultRealm = tabathaSettings?.defaultRealm || '';
-                    const result = await addFocus(intentLabel, 15, { realm: defaultRealm });
-                    // Link this tab to the newly created focus
-                    const newItem = result.engine.items[result.newFocusId];
-                    if (newItem) {
-                      newItem.associatedTabIds = [...(newItem.associatedTabIds || []), tabId];
-                      await setFocusEngine(result.engine);
-                    }
-                    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-                  } else if (existingMatch) {
-                    // Link tab to the existing matching focus
-                    if (!existingMatch.associatedTabIds?.includes(tabId)) {
-                      existingMatch.associatedTabIds = [...(existingMatch.associatedTabIds || []), tabId];
-                      await setFocusEngine(engine);
-                    }
-                  }
-                }
-              } catch (bridgeErr) {
-                console.warn('[Intent Bridge] Error:', bridgeErr);
-              }
-            }
-        }
-        await setTabData(tabs);
-        broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-        return { success: true };
-    }
     
     case 'START_SIDE_QUEST': {
         const tabs = await getTabData();
@@ -1828,68 +1203,6 @@ async function handleLegacyMessage(message, sender) {
         return { success: true };
     }
     
-    case 'SKIP_DOMAIN': {
-        const { skippedDomains } = await getStorage('skippedDomains');
-        const list = skippedDomains || [];
-        if (!list.includes(message.domain)) {
-          list.push(message.domain);
-          await setStorage({ skippedDomains: list });
-        }
-        return { success: true };
-    }
-    
-    case 'ASSOCIATE_TAB_WITH_FOCUS': {
-        const engine = await getFocusEngine();
-        const focusId = message.focusId;
-        const tabId = message.tabId || (sender.tab ? sender.tab.id : null);
-        if (focusId && engine.items[focusId] && tabId) {
-          if (!engine.items[focusId].associatedTabIds.includes(tabId)) {
-            engine.items[focusId].associatedTabIds.push(tabId);
-            await setFocusEngine(engine);
-            broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-          }
-        }
-        return { success: true };
-    }
-
-    case 'GET_CURRENT_TAB_ID': {
-        return { tabId: sender.tab ? sender.tab.id : null };
-    }
-    
-    case 'CLOSE_TAB': {
-        try { await chrome.tabs.remove(message.tabId); } catch(e) { /* tab may not exist */ }
-        return { success: true };
-    }
-
-    // --- Link/Merge Actions ---
-    case 'LINK_TAB_TO_INTENT': {
-        const engine = await getFocusEngine();
-        const tabs = await getTabData();
-        const { tabId, targetIntentId } = message;
-
-        if (engine.items[targetIntentId]) {
-          // Remove from other intents
-          Object.values(engine.items).forEach(intent => {
-            intent.associatedTabIds = intent.associatedTabIds.filter(id => id !== tabId);
-          });
-          // Add to new intent
-          if (!engine.items[targetIntentId].associatedTabIds.includes(tabId)) {
-            engine.items[targetIntentId].associatedTabIds.push(tabId);
-          }
-          await setFocusEngine(engine);
-          
-          // Update tab's internal context/intent if applicable
-          if (tabs[tabId]) {
-            tabs[tabId].intent = engine.items[targetIntentId].label;
-            await setTabData(tabs);
-            broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-          }
-          
-          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-        }
-        return { success: true };
-    }
-
     case 'LINK_INTENT_TO_TASK': {
         const engine = await getFocusEngine();
         const { intentId, taskId, newTaskName } = message;
@@ -2298,29 +1611,6 @@ async function handleLegacyMessage(message, sender) {
         return { focusEngine: engine };
     }
 
-    case 'RENAME_TAB': {
-        const tabs = await getTabData();
-        if (tabs[message.tabId]) {
-          tabs[message.tabId].customTitle = message.newTitle;
-          await setTabData(tabs);
-          broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
-        }
-        return { success: true };
-    }
-
-    case 'UPDATE_TAB_CONTEXT': {
-        const tabs = await getTabData();
-        const { tabId, context } = message;
-        if (tabs[tabId]) {
-          tabs[tabId].context = context;
-          tabs[tabId].intent = context;
-          await setTabData(tabs);
-          broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-          logEvent('tab_reassigned', { tabId, newContext: context });
-        }
-        return { success: true };
-    }
-
     // --- Site Blocking ---
     case 'CHECK_BLOCKED_SITE': {
         const { blockedSites, tempUnblocked } = await getStorage(['blockedSites', 'tempUnblocked']);
@@ -2488,6 +1778,7 @@ async function handleLegacyMessage(message, sender) {
 // Lifecycle, legacy-task migration, and retention cleanup live in
 // `./bootstrap.js`. registerBootstrap() wires the listeners and runs the
 // initial pass.
+registerTabServiceListeners();
 registerBootstrap();
 
 // Notification click handler merged into single listener above (L757)

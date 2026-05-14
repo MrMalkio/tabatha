@@ -33,7 +33,7 @@ Focus engine lifecycle: create, switch, complete, tag, merge, pause/resume.
 
 ## tabService.js — 21 handlers
 
-Tab state management: context, intent, locks, priorities, categories, URL locks.
+Tab state management: context, intent, locks, priorities, categories, URL locks, and tab lifecycle listeners.
 
 | # | Handler | Line (approx) | Description |
 |---|---------|--------------|-------------|
@@ -62,7 +62,9 @@ Tab state management: context, intent, locks, priorities, categories, URL locks.
 
 > **Note:** 22 entries — `UPDATE_TAB_CONTEXT` was added post-v1 audit. Actual unique cases = 22.
 
-**Dependencies:** storageService, notificationService, categoryService, focusService (for LINK_TAB_TO_INTENT, ASSOCIATE_TAB_WITH_FOCUS)
+**Dependencies:** storageService, notificationService, categoryService, tabTrackingService, sessionService, focusService fallback hooks (for SET_INTENT, LINK_TAB_TO_INTENT, ASSOCIATE_TAB_WITH_FOCUS)
+
+**Lifecycle notes:** `chrome.tabs.onCreated`, the main URL/title/audible `chrome.tabs.onUpdated`, and `chrome.tabs.onRemoved` are registered by `tabService`. The tab-group sync `chrome.tabs.onUpdated` listener remains with groupService work.
 
 ---
 

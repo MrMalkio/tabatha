@@ -43,28 +43,28 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_ALL_TABS` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `GET_TAB` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 3 | `UPDATE_TAB` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 4 | `BATCH_UPDATE_CONTEXT` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 5 | `SET_PRIORITY` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 6 | `TOGGLE_LOCK` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 7 | `UPDATE_TAB_TITLE` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 8 | `TOGGLE_URL_LOCK` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 9 | `REQUEST_CLOSE` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 10 | `CANCEL_CLOSE` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 11 | `BULK_CLOSE` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 12 | `FOCUS_TAB` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 13 | `CHECK_CONTEXT_NEEDED` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | Complex — URL rules, domain skipping |
-| 14 | `SET_TAB_CONTEXT` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 15 | `SET_INTENT` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | Complex — focus engine integration |
-| 16 | `SKIP_DOMAIN` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 17 | `ASSOCIATE_TAB_WITH_FOCUS` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 18 | `GET_CURRENT_TAB_ID` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 19 | `CLOSE_TAB` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 20 | `LINK_TAB_TO_INTENT` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 21 | `RENAME_TAB` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 22 | `UPDATE_TAB_CONTEXT` | tabService | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_ALL_TABS` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 2 | `GET_TAB` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 3 | `UPDATE_TAB` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 4 | `BATCH_UPDATE_CONTEXT` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 5 | `SET_PRIORITY` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 6 | `TOGGLE_LOCK` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 7 | `UPDATE_TAB_TITLE` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 8 | `TOGGLE_URL_LOCK` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 9 | `REQUEST_CLOSE` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 10 | `CANCEL_CLOSE` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 11 | `BULK_CLOSE` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 12 | `FOCUS_TAB` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 13 | `CHECK_CONTEXT_NEEDED` | tabService | ✅ | ✅ | ✅ | ⬜ | Complex — URL rules, domain skipping |
+| 14 | `SET_TAB_CONTEXT` | tabService | ✅ | ✅ | ✅ | ⬜ | Writes canonical `intentHistory` rows |
+| 15 | `SET_INTENT` | tabService | ✅ | ✅ | ✅ | ⬜ | Focus bridge falls back to legacy inline logic until focusService is merged |
+| 16 | `SKIP_DOMAIN` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 17 | `ASSOCIATE_TAB_WITH_FOCUS` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 18 | `GET_CURRENT_TAB_ID` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 19 | `CLOSE_TAB` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 20 | `LINK_TAB_TO_INTENT` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 21 | `RENAME_TAB` | tabService | ✅ | ✅ | ✅ | ⬜ | |
+| 22 | `UPDATE_TAB_CONTEXT` | tabService | ✅ | ✅ | ✅ | ⬜ | |
 
 ---
 
@@ -194,9 +194,9 @@
 | 4 | `patternToRegex()` | `helpers.js` | ⬜ | ⬜ | |
 | 5 | `formatTime()` / `formatDuration()` | `helpers.js` | ⬜ | ⬜ | |
 | 6 | `detectCategory()` | `helpers.js` | ⬜ | ⬜ | |
-| 7 | `chrome.tabs.onCreated` | `tabService.js` | ⬜ | ⬜ | |
-| 8 | `chrome.tabs.onUpdated` | `tabService.js` | ⬜ | ⬜ | |
-| 9 | `chrome.tabs.onRemoved` | Split: tabService + tabTrackingService | ⬜ | ⬜ | |
+| 7 | `chrome.tabs.onCreated` | `tabService.js` | ✅ | ✅ | |
+| 8 | `chrome.tabs.onUpdated` | `tabService.js` | ✅ | ✅ | Main tab URL/title/audible listener extracted; tab-group sync listener remains pending groupService |
+| 9 | `chrome.tabs.onRemoved` | Split: tabService + tabTrackingService | ✅ | ✅ | Archives InBar notes to `closedContexts`, prunes `inbarNotes`, and delegates time aggregation to tabTrackingService |
 | 10 | `chrome.tabs.onActivated` | `tabTrackingService.js` | ⬜ | ⬜ | |
 | 11 | `chrome.idle.onStateChanged` | `clockService.js` | ⬜ | ⬜ | |
 | 12 | `chrome.alarms.onAlarm` | Router (delegates) | ⬜ | ⬜ | |
