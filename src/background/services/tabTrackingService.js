@@ -4,13 +4,22 @@
 // time-bucket pruning that runs when a tab closes.
 // ════════════════════════════════════════════
 
-import { getStorage, setStorage, getTimeTracking, enforceArrayCap } from './storageService.js';
+import * as timeTracker from '../../services/timeTracking.js';
+import { getStorage, setStorage, getTimeTracking, getTabData, enforceArrayCap } from './storageService.js';
 import { archiveBeforeCap } from './archiveService.js';
+import { broadcastToExtension } from './notificationService.js';
 
 let injectedDeps = {};
+let activationListenerRegistered = false;
 
 export function configureTabTrackingService(deps = {}) {
   injectedDeps = { ...injectedDeps, ...deps };
+}
+
+export function registerTabTrackingListeners() {
+  if (activationListenerRegistered) return;
+  activationListenerRegistered = true;
+  chrome.tabs.onActivated.addListener(handleTabActivated);
 }
 
 export async function handleMessage(type, message) {
@@ -56,6 +65,15 @@ export async function appendIntentHistory(entry) {
   }
 
   return history;
+}
+
+export function logEvent(type, data = {}) {
+  const entry = { type, ...data, ts: new Date().toISOString() };
+  chrome.storage.local.get('tabathaLogs', r => {
+    const logs = r.tabathaLogs || [];
+    logs.push(entry);
+    chrome.storage.local.set({ tabathaLogs: logs.slice(-500) });
+  });
 }
 
 async function logIntentAction(message) {
@@ -112,4 +130,67 @@ export async function aggregateAndPruneTabTime(tabId, tabData) {
   delete byTab[tabId];
   timeTracking.byTab = byTab;
   await setStorage({ timeTracking });
+}
+
+const contextSwitchTracker = (() => {
+  const history = [];
+  const WINDOW_MS = 5 * 60 * 1000;
+  const THRESHOLD = 4;
+  const COOLDOWN_MS = 10 * 60 * 1000;
+  let lastNotified = 0;
+
+  return {
+    record(context) {
+      const now = Date.now();
+      history.push({ context, ts: now });
+      while (history.length > 0 && now - history[0].ts > WINDOW_MS) history.shift();
+
+      const distinct = new Set(history.map(h => h.context)).size;
+      if (distinct < THRESHOLD || now - lastNotified <= COOLDOWN_MS) return;
+
+      lastNotified = now;
+      try {
+        chrome.notifications.create(`context-drift-${now}`, {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+          title: 'Context Drift Detected',
+          message: `You've switched between ${distinct} different contexts in the last 5 minutes. Click to set a focus.`,
+          priority: 2
+        });
+      } catch (e) {
+        console.warn('[Tabatha] Notification error:', e);
+      }
+      logEvent('context_drift', { distinctContexts: distinct, window: '5min' });
+    }
+  };
+})();
+
+async function handleTabActivated(activeInfo) {
+  const tabs = await getTabData();
+  const tabData = tabs[activeInfo.tabId];
+
+  if (tabData) {
+    tabData.lastActive = new Date().toISOString();
+    await setTabData(tabs);
+    await timeTracker.startTracking(activeInfo.tabId, tabData.url, tabData);
+
+    let contextSignal = tabData.context;
+    if (!contextSignal && tabData.url) {
+      try {
+        contextSignal = new URL(tabData.url).hostname.replace(/^www\./, '');
+      } catch { /* ignore invalid URL */ }
+    }
+    contextSignal = contextSignal || tabData.category || 'unknown';
+    contextSwitchTracker.record(contextSignal);
+  }
+
+  broadcastToExtension({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
+  injectedDeps.tryAssociateTab?.(activeInfo.tabId);
+}
+
+async function setTabData(tabs) {
+  if (injectedDeps.setTabData) return injectedDeps.setTabData(tabs);
+  const result = await setStorage({ tabs });
+  injectedDeps.triggerSync?.();
+  return result;
 }

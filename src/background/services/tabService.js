@@ -6,7 +6,7 @@
 
 import * as timeTracker from '../../services/timeTracking.js';
 import { PRIORITY_LEVELS } from '../constants.js';
-import { detectCategory } from '../helpers.js';
+import { detectCategory, getUrlBase } from '../helpers.js';
 import {
   getStorage,
   setStorage,
@@ -21,6 +21,7 @@ import { appendClosedContext } from './sessionService.js';
 
 let injectedDeps = {};
 let listenersRegistered = false;
+let urlLockListenerRegistered = false;
 
 const serviceFlags = {
   focus: { ready: false }
@@ -44,6 +45,12 @@ export function registerTabServiceListeners() {
   chrome.tabs.onUpdated.addListener(handleTabUpdated);
 
   runOneShotCleanup();
+}
+
+export function registerUrlLockNavigationListener() {
+  if (urlLockListenerRegistered) return;
+  urlLockListenerRegistered = true;
+  chrome.webNavigation.onBeforeNavigate.addListener(handleBeforeNavigate);
 }
 
 export async function handleMessage(type, message, sender) {
@@ -264,6 +271,40 @@ async function handleTabUpdated(tabId, changeInfo, tab) {
 
   await setTabData(tabs);
   broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+}
+
+async function handleBeforeNavigate(details) {
+  if (details.frameId !== 0) return;
+
+  const tabs = await getTabData();
+  const tabData = tabs[details.tabId];
+  if (!tabData?.urlLocked) return;
+
+  const currentBase = getUrlBase(tabData.urlLockScope || tabData.url);
+  const newBase = getUrlBase(details.url);
+  if (!(currentBase && newBase && currentBase !== newBase)) return;
+
+  try {
+    chrome.tabs.update(details.tabId, { url: tabData.urlLockScope || tabData.url });
+    const newTab = await chrome.tabs.create({
+      url: details.url,
+      openerTabId: details.tabId,
+      active: true
+    });
+
+    setTimeout(() => {
+      broadcastToExtension({
+        type: 'PROMPT_PURPOSE',
+        tabId: newTab.id,
+        reason: 'url_lock_redirect',
+        fromTabId: details.tabId,
+        fromContext: tabData.context
+      });
+    }, 500);
+
+  } catch (e) {
+    console.warn('[Tabatha] URL lock redirect failed:', e);
+  }
 }
 
 async function updateTab(message) {

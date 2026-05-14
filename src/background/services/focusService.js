@@ -8,9 +8,16 @@ import { archiveBeforeCap } from './archiveService.js';
 import { broadcastAll, broadcastToExtension } from './notificationService.js';
 
 let injectedDeps = {};
+let focusAlarmsRegistered = false;
 
 export function configureFocusService(deps = {}) {
   injectedDeps = { ...injectedDeps, ...deps };
+}
+
+export function registerFocusServiceAlarms() {
+  if (focusAlarmsRegistered) return;
+  focusAlarmsRegistered = true;
+  chrome.alarms.create('unfocused-nudge', { periodInMinutes: 10 });
 }
 
 export async function handleMessage(type, message) {
