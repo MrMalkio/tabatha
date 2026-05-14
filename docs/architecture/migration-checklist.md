@@ -97,10 +97,10 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_TASKS` | taskService | ⬜ | ⬜ | ⬜ | ⬜ | Org + legacy merge |
-| 2 | `CREATE_TASK` | taskService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 3 | `UPDATE_TASK` | taskService | ⬜ | ⬜ | ⬜ | ⬜ | Funnel stage gating |
-| 4 | `DELETE_TASK` | taskService | ⬜ | ⬜ | ⬜ | ⬜ | Soft delete (archive) |
+| 1 | `GET_TASKS` | taskService | ✅ | ✅ | ✅ | ⬜ | Org + legacy merge; cold-stores archived org tasks past `settings.storage.archivedTasksColdAfterDays` |
+| 2 | `CREATE_TASK` | taskService | ✅ | ✅ | ✅ | ⬜ | Creates org-registry tasks in `unsorted` stage |
+| 3 | `UPDATE_TASK` | taskService | ✅ | ✅ | ✅ | ⬜ | Funnel stage gating preserved; archive updates stamp `archivedAt` |
+| 4 | `DELETE_TASK` | taskService | ✅ | ✅ | ✅ | ⬜ | Soft delete now stamps `archivedAt`; old archived tasks move to `_archivedTasks` |
 
 ---
 

@@ -103,16 +103,18 @@ Already partially extracted as `clock.js`. Move to `services/` and wrap.
 
 ## taskService.js — 4 handlers
 
-Task CRUD with org registry (legacy fallback).
+Task CRUD with org registry (legacy fallback) and archived-task cold storage.
 
 | # | Handler | Line (approx) | Description |
 |---|---------|--------------|-------------|
 | 1 | `GET_TASKS` | 2309 | Return merged org + legacy tasks |
 | 2 | `CREATE_TASK` | 2318 | Create task in org registry |
 | 3 | `UPDATE_TASK` | 2343 | Update task (with funnel stage gating) |
-| 4 | `DELETE_TASK` | 2405 | Archive task (soft delete) |
+| 4 | `DELETE_TASK` | 2405 | Archive task (soft delete) and stamp `archivedAt` for cold storage |
 
 **Dependencies:** storageService, notificationService
+
+**Storage notes:** archived org tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` into `_archivedTasks`; public task message response shapes stay unchanged.
 
 ---
 
