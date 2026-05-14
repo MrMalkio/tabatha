@@ -1,21 +1,16 @@
-/**
- * CompanionBridge — WebSocket client for Tabatha Desktop Companion
- * 
- * Connects to the local desktop companion (ws://localhost:9147)
- * to receive OS-level window activity and sync timeclock state.
- * 
- * This module runs in the service worker context and:
- * - Receives APP_SWITCH events (which app the user is focused on)
- * - Receives IDLE_STATE events (OS-level idle detection)  
- * - Syncs CLOCK_STATE bidirectionally
- * - Sends FOCUS_UPDATE when the user changes focus in the extension
- * - Stores companion status in chrome.storage.local
- */
+// ============================================================
+// Tabatha - Companion Service (Plan 023 Task 05b)
+// Owns the desktop companion WebSocket lifecycle and the companion
+// runtime-message handlers.
+// ============================================================
 
-const WS_URL = 'ws://localhost:9147';
-const RECONNECT_INTERVAL_MS = 5000;    // Retry every 5s
-const MAX_RECONNECT_INTERVAL_MS = 30000; // Cap at 30s
-const HEARTBEAT_INTERVAL_MS = 30000;    // Ping every 30s
+import {
+  COMPANION_HEARTBEAT_MS,
+  COMPANION_RECONNECT_BASE_MS,
+  COMPANION_RECONNECT_MAX_MS,
+  COMPANION_WS_URL
+} from '../constants.js';
+import { broadcastToExtension } from './notificationService.js';
 
 class CompanionBridge {
   constructor() {
@@ -23,35 +18,36 @@ class CompanionBridge {
     this.connected = false;
     this.reconnectTimer = null;
     this.heartbeatTimer = null;
-    this.reconnectDelay = RECONNECT_INTERVAL_MS;
-    this.listeners = new Map(); // event -> Set<callback>
+    this.reconnectDelay = COMPANION_RECONNECT_BASE_MS;
+    this.listeners = new Map();
     this.companionStatus = null;
     this.lastAppSwitch = null;
     this.desktopClock = null;
-    
-    // Auto-connect on construction
+    this.initialized = false;
+    this.lastBroadcastedIdleState = null;
+  }
+
+  initialize() {
+    if (this.initialized) return;
+    this.initialized = true;
     this.connect();
   }
 
-  // ─── Connection Management ─────────────────────────────────
-
   connect() {
     if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
-      return; // Already connected or connecting
+      return;
     }
 
     try {
-      this.ws = new WebSocket(WS_URL);
+      this.ws = new WebSocket(COMPANION_WS_URL);
 
       this.ws.onopen = () => {
         console.log('[CompanionBridge] Connected to desktop companion');
         this.connected = true;
-        this.reconnectDelay = RECONNECT_INTERVAL_MS; // Reset backoff
+        this.reconnectDelay = COMPANION_RECONNECT_BASE_MS;
         this._startHeartbeat();
         this._updateStorageStatus(true);
         this._emit('connected', {});
-
-        // Send current focus if available
         this._syncCurrentFocus();
       };
 
@@ -64,8 +60,7 @@ class CompanionBridge {
         }
       };
 
-      this.ws.onerror = (err) => {
-        // Errors are normal when companion isn't running — log quietly
+      this.ws.onerror = () => {
         console.debug('[CompanionBridge] WebSocket error (companion may not be running)');
       };
 
@@ -99,8 +94,8 @@ class CompanionBridge {
     this._clearReconnect();
     this.reconnectTimer = setTimeout(() => {
       this.connect();
-      // Exponential backoff
-      this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, MAX_RECONNECT_INTERVAL_MS);
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, COMPANION_RECONNECT_MAX_MS);
+      console.debug(`[CompanionBridge] Next reconnect delay: ${this.reconnectDelay}ms`);
     }, this.reconnectDelay);
   }
 
@@ -115,7 +110,7 @@ class CompanionBridge {
     this._stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
       this.send({ type: 'PING' });
-    }, HEARTBEAT_INTERVAL_MS);
+    }, COMPANION_HEARTBEAT_MS);
   }
 
   _stopHeartbeat() {
@@ -125,8 +120,6 @@ class CompanionBridge {
     }
   }
 
-  // ─── Send Messages ────────────────────────────────────────
-
   send(msg) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
@@ -135,41 +128,33 @@ class CompanionBridge {
     return false;
   }
 
-  /** Notify companion of the current focus */
   sendFocusUpdate(focusId, label) {
     return this.send({
       type: 'FOCUS_UPDATE',
       focus_id: focusId || null,
-      label: label || null,
+      label: label || null
     });
   }
 
-  /** Clock in via companion */
   sendClockIn(label) {
     return this.send({ type: 'CLOCK_IN', label: label || null });
   }
 
-  /** Clock out via companion */
   sendClockOut() {
     return this.send({ type: 'CLOCK_OUT' });
   }
 
-  /** Toggle break via companion */
   sendToggleBreak() {
     return this.send({ type: 'TOGGLE_BREAK' });
   }
 
-  /** Request daily summary from companion */
   requestSummary(date) {
     return this.send({ type: 'REQUEST_SUMMARY', date: date || null });
   }
 
-  /** Request current clock state */
   requestClockState() {
     return this.send({ type: 'GET_CLOCK_STATE' });
   }
-
-  // ─── Message Handling ─────────────────────────────────────
 
   _handleMessage(msg) {
     switch (msg.type) {
@@ -208,22 +193,17 @@ class CompanionBridge {
       displayName: msg.app_display_name,
       windowTitle: msg.window_title,
       category: msg.category,
-      timestamp: msg.timestamp,
+      timestamp: msg.timestamp
     };
 
-    // Store in chrome.storage for UI access
-    chrome.storage.local.set({
-      companionActiveApp: this.lastAppSwitch,
-    });
-
+    chrome.storage.local.set({ companionActiveApp: this.lastAppSwitch });
     this._emit('appSwitch', this.lastAppSwitch);
 
-    // If the user switched away from Chrome, signal that to the idle system
-    const isChrome = msg.app_name.toLowerCase() === 'chrome.exe';
+    const isChrome = msg.app_name?.toLowerCase() === 'chrome.exe';
     if (!isChrome) {
       this._emit('chromeBlurred', {
         app: msg.app_display_name,
-        category: msg.category,
+        category: msg.category
       });
     } else {
       this._emit('chromeFocused', {});
@@ -234,13 +214,11 @@ class CompanionBridge {
     const session = msg.session;
     this._emit('appSessionEnd', session);
 
-    // Store recent sessions for the timeline
     chrome.storage.local.get('companionRecentSessions', (result) => {
       const sessions = result.companionRecentSessions || [];
       sessions.unshift(session);
-      // Keep sessions from last 7 days — real pruning handled by retention alarm
       const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
-      const recentSessions = sessions.filter(s => {
+      const recentSessions = sessions.filter((s) => {
         const ts = new Date(s.started_at || s.startedAt || s.start || s.timestamp || 0).getTime();
         return ts > cutoff;
       });
@@ -253,42 +231,41 @@ class CompanionBridge {
       version: msg.version,
       uptimeMs: msg.uptime_ms,
       tracking: msg.tracking,
-      connectedClients: msg.connected_clients,
+      connectedClients: msg.connected_clients
     };
 
-    chrome.storage.local.set({
-      companionStatus: this.companionStatus,
-    });
-
+    chrome.storage.local.set({ companionStatus: this.companionStatus });
     this._emit('companionStatus', this.companionStatus);
   }
 
   _handleClockState(msg) {
     this.desktopClock = msg.clock;
-
-    chrome.storage.local.set({
-      companionClock: msg.clock,
-    });
-
+    chrome.storage.local.set({ companionClock: msg.clock });
     this._emit('clockState', msg.clock);
   }
 
   _handleDailySummary(msg) {
-    chrome.storage.local.set({
-      companionDailySummary: msg.summary,
-    });
-
+    chrome.storage.local.set({ companionDailySummary: msg.summary });
     this._emit('dailySummary', msg.summary);
   }
 
   _handleIdleState(msg) {
-    this._emit('idleState', {
+    const state = msg.is_idle ? 'idle' : 'active';
+    const payload = {
       isIdle: msg.is_idle,
-      idleMs: msg.idle_ms,
-    });
-  }
+      idleMs: msg.idle_ms
+    };
 
-  // ─── Helpers ──────────────────────────────────────────────
+    this._emit('idleState', payload);
+    if (state !== this.lastBroadcastedIdleState) {
+      this.lastBroadcastedIdleState = state;
+      broadcastToExtension({
+        type: 'COMPANION_IDLE_STATE',
+        state,
+        ...payload
+      });
+    }
+  }
 
   async _syncCurrentFocus() {
     try {
@@ -297,19 +274,17 @@ class CompanionBridge {
       if (focus && focus.active && focus.id) {
         this.sendFocusUpdate(focus.id, focus.label);
       }
-    } catch (e) {
-      // Ignore — focus state may not exist yet
+    } catch {
+      // Focus state may not exist yet.
     }
   }
 
   _updateStorageStatus(connected) {
     chrome.storage.local.set({
       companionConnected: connected,
-      companionLastSeen: connected ? Date.now() : null,
+      companionLastSeen: connected ? Date.now() : null
     });
   }
-
-  // ─── Event System ─────────────────────────────────────────
 
   on(event, callback) {
     if (!this.listeners.has(event)) {
@@ -328,14 +303,14 @@ class CompanionBridge {
     const set = this.listeners.get(event);
     if (set) {
       for (const cb of set) {
-        try { cb(data); } catch (e) {
+        try {
+          cb(data);
+        } catch (e) {
           console.error(`[CompanionBridge] Error in ${event} listener:`, e);
         }
       }
     }
   }
-
-  // ─── Status Accessors ─────────────────────────────────────
 
   get isConnected() {
     return this.connected;
@@ -354,6 +329,81 @@ class CompanionBridge {
   }
 }
 
-// Export singleton
 export const companionBridge = new CompanionBridge();
-export default CompanionBridge;
+
+export function initialize() {
+  companionBridge.initialize();
+}
+
+export function getConnectionStatus() {
+  return {
+    connected: companionBridge.isConnected,
+    status: companionBridge.status,
+    activeApp: companionBridge.activeApp,
+    clock: companionBridge.clockState
+  };
+}
+
+export function sendClockEvent(event) {
+  switch (event?.type || event) {
+    case 'clock_in':
+    case 'CLOCK_IN':
+      return companionBridge.sendClockIn(event?.label);
+
+    case 'clock_out':
+    case 'CLOCK_OUT':
+      return companionBridge.sendClockOut();
+
+    case 'toggle_break':
+    case 'clock_break':
+    case 'TOGGLE_BREAK':
+      return companionBridge.sendToggleBreak();
+
+    default:
+      return false;
+  }
+}
+
+export function heartbeat() {
+  if (!companionBridge.isConnected) return false;
+  return companionBridge.send({ type: 'PING' });
+}
+
+export async function handleMessage(type, message) {
+  switch (type) {
+    case 'GET_COMPANION_STATUS':
+      return getConnectionStatus();
+
+    case 'GET_COMPANION_SUMMARY':
+      if (companionBridge.isConnected) {
+        companionBridge.requestSummary(message.date);
+        return { requested: true };
+      }
+      return { connected: false };
+
+    case 'COMPANION_CLOCK_IN':
+      if (companionBridge.isConnected) {
+        companionBridge.sendClockIn(message.label);
+        return { sent: true };
+      }
+      return { connected: false };
+
+    case 'COMPANION_CLOCK_OUT':
+      if (companionBridge.isConnected) {
+        companionBridge.sendClockOut();
+        return { sent: true };
+      }
+      return { connected: false };
+
+    case 'COMPANION_CLOCK_BREAK':
+    case 'COMPANION_TOGGLE_BREAK':
+      if (companionBridge.isConnected) {
+        companionBridge.sendToggleBreak();
+        return { sent: true };
+      }
+      return { connected: false };
+
+    default:
+      return undefined;
+  }
+}

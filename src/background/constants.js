@@ -67,3 +67,8 @@ export const STAGE_ORDER = {
 
 export const RETENTION_ALARM = 'tabatha-data-retention';
 export const DEFAULT_RETENTION_DAYS = 90;
+
+export const COMPANION_WS_URL = 'ws://localhost:9147';
+export const COMPANION_HEARTBEAT_MS = 30000;
+export const COMPANION_RECONNECT_BASE_MS = 5000;
+export const COMPANION_RECONNECT_MAX_MS = 30000;

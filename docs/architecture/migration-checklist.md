@@ -171,15 +171,15 @@
 
 ---
 
-## companionService.js — 5 handlers
+## companionService.js — 5 handlers (+ 1 break alias)
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_COMPANION_STATUS` | companionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `GET_COMPANION_SUMMARY` | companionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 3 | `COMPANION_CLOCK_IN` | companionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 4 | `COMPANION_CLOCK_OUT` | companionService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 5 | `COMPANION_TOGGLE_BREAK` | companionService | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_COMPANION_STATUS` | companionService | ✅ | ✅ | ✅ | ⬜ | WebSocket lifecycle now initializes via bootstrap |
+| 2 | `GET_COMPANION_SUMMARY` | companionService | ✅ | ✅ | ✅ | ⬜ | |
+| 3 | `COMPANION_CLOCK_IN` | companionService | ✅ | ✅ | ✅ | ⬜ | |
+| 4 | `COMPANION_CLOCK_OUT` | companionService | ✅ | ✅ | ✅ | ⬜ | |
+| 5 | `COMPANION_TOGGLE_BREAK` | companionService | ✅ | ✅ | ✅ | ⬜ | `COMPANION_CLOCK_BREAK` alias also supported |
 
 ---
 
