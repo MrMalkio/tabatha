@@ -4,7 +4,6 @@
 
 import { supabase } from '../services/supabaseClient';
 import * as timeTracker from '../services/timeTracking.js';
-import { createClockService } from './clock.js';
 import { companionBridge } from './companion-bridge.js';
 import { fireWebhook } from './webhooks.js';
 import {
@@ -44,6 +43,13 @@ import {
 } from './services/tabService.js';
 import * as focusService from './services/focusService.js';
 import { configureFocusService } from './services/focusService.js';
+import * as clockService from './services/clockService.js';
+import {
+  configureClockService,
+  endBreakIfActive,
+  toggleBreak as clockToggleBreak
+} from './services/clockService.js';
+import * as clockTickService from './services/clockTickService.js';
 import * as groupService from './services/groupService.js';
 import {
   configureGroupService,
@@ -675,7 +681,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
         const { clockSession } = await getStorage('clockSession');
         if (clockSession?.active && clockSession?.onBreak) {
           if (settings.autoResumeFromBreak) {
-            await clockService.toggleBreak(); // auto-resume
+            await endBreakIfActive(); // auto-resume
           }
         }
         idleAutoBreakApplied = false;
@@ -729,7 +735,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (state === 'idle' || state === 'locked') {
       const { clockSession } = await getStorage('clockSession');
       if (clockSession?.active && !clockSession?.onBreak) {
-        await clockService.toggleBreak(); // auto-put on break
+        await clockToggleBreak(); // auto-put on break
         idleAutoBreakApplied = true;
         broadcastToExtension({ type: 'AUTO_BREAK', reason: 'idle_5min' });
       }
@@ -966,7 +972,7 @@ configureTabTrackingService({ broadcastToExtension, triggerSync });
 configureSessionService({ setTabData });
 configureTabService({ getFocusEngine, setFocusEngine, addFocus, setTabData, logEvent });
 
-const clockService = createClockService(getStorage, setStorage, broadcastToExtension);
+configureClockService({ companionBridge, fireWebhook, getFocusEngine, setFocusEngine });
 configureFocusService({ companionBridge, triggerSync, getTabData, setTabData, clockService, fireWebhook });
 configureGroupService({ setTabData });
 configureBlockgateService({ setTabData });
@@ -983,6 +989,8 @@ const services = [
   tabTrackingService,
   categoryService,
   sessionService,
+  clockService,
+  clockTickService,
   taskService,
   tabService,
   focusService,
@@ -1012,60 +1020,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleLegacyMessage(message) {
   switch (message.type) {
-    // --- Clock In/Out (synced bidirectionally with companion) ---
-    case 'CLOCK_IN': {
-        const result = await clockService.clockIn();
-        // Sync to desktop companion
-        if (companionBridge.isConnected) {
-          companionBridge.sendClockIn(message.label);
-        }
-        fireWebhook('clock_in', { label: message.label });
-        return result;
-    }
-    
-    case 'CLOCK_OUT': {
-        const result = await clockService.clockOut();
-        if (companionBridge.isConnected) {
-          companionBridge.sendClockOut();
-        }
-        fireWebhook('clock_out', {});
-        return result;
-    }
-    
-    case 'GET_CLOCK_STATUS':
-        return await clockService.getClockStatus();
-    
-    case 'TOGGLE_BREAK': {
-        const result = await clockService.toggleBreak();
-        if (companionBridge.isConnected) {
-          companionBridge.sendToggleBreak();
-        }
-        // If going ON break → auto-pause active focus
-        if (result.onBreak) {
-          const engine = await getFocusEngine();
-          if (engine.activeFocusId) {
-            const active = engine.items[engine.activeFocusId];
-            if (active && active.focusState === 'active') {
-              if (active.lastResumedAt) {
-                active.elapsedMs = (active.elapsedMs || 0) + (Date.now() - new Date(active.lastResumedAt).getTime());
-                active.lastResumedAt = null;
-              }
-              active.focusState = 'paused';
-              active.pausedAt = new Date().toISOString();
-              await setFocusEngine(engine);
-              broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-            }
-          }
-        }
-        return result;
-    }
-
-    case 'GET_LAST_SESSION':
-        return await clockService.getLastSession();
-
-    case 'GET_CLOCK_HISTORY':
-        return await clockService.getClockHistory();
-
     // --- Desktop Companion ---
     case 'GET_COMPANION_STATUS':
         return {

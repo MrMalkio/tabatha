@@ -85,21 +85,38 @@ Active/passive time tracking, heartbeats, tab closures.
 
 ---
 
-## clockService.js — 7 handlers
+## clockService.js — 6 handlers ✅ (Task 04d)
 
-Already partially extracted as `clock.js`. Move to `services/` and wrap.
+Extracted from `clock.js` factory into `services/clockService.js`. Wraps `createClockService()` with standardised `handleMessage()` + `configureClockService()` DI pattern.
 
-| # | Handler | Line (approx) | Description |
-|---|---------|--------------|-------------|
-| 1 | `CLOCK_IN` | 2819 | Start a new stint |
-| 2 | `CLOCK_OUT` | 2829 | End current stint |
-| 3 | `TOGGLE_BREAK` | 2841 | Start/end a break (auto-pauses focus) |
-| 4 | `GET_CLOCK_STATUS` | 2838 | Return current clock session state |
-| 5 | `GET_CLOCK_HISTORY` | 2869 | Return all historical stints |
-| 6 | `GET_LAST_SESSION` | 2866 | Return most recent completed stint |
-| 7 | `GET_LATEST_SESSION` | 1836 | Return latest session data |
+| # | Handler | Description |
+|---|---------|-------------|
+| 1 | `CLOCK_IN` | Start a new stint (+ companion bridge sync, webhook) |
+| 2 | `CLOCK_OUT` | End current stint (+ companion bridge sync, webhook) |
+| 3 | `TOGGLE_BREAK` | Start/end a break (auto-pauses active focus via injected deps) |
+| 4 | `GET_CLOCK_STATUS` | Return current clock session state |
+| 5 | `GET_CLOCK_HISTORY` | Return all historical stints |
+| 6 | `GET_LAST_SESSION` | Return most recent completed stint |
 
-**Dependencies:** storageService, notificationService, companionBridge, focusService (TOGGLE_BREAK auto-pauses active focus)
+> **Note:** `GET_LATEST_SESSION` ownership resolved to sessionService (Task 03). Removed from clockService.
+
+**Cross-service exports:** `endBreakIfActive()` (for focusService.RESUME_FOCUS), `toggleBreak()` (for idle handler), `sendClockEventToCompanion()` (Phase 5).
+
+**Dependencies:** storageService, notificationService, companionBridge (injected), focusEngine (injected), webhooks (injected)
+
+---
+
+## clockTickService.js — 3 handlers ✅ (Task 04d)
+
+Central 1Hz tick broadcaster. Subscriber-counting pattern: interval only runs when ≥1 consumer.
+
+| # | Handler | Description |
+|---|---------|-------------|
+| 1 | `TICK_SUBSCRIBE` | Increment subscriber count, start interval if first |
+| 2 | `TICK_UNSUBSCRIBE` | Decrement subscriber count, stop interval when 0 |
+| 3 | `GET_TICK_STATUS` | Return active/subscriber count |
+
+**Dependencies:** notificationService (broadcastToExtension)
 
 ---
 

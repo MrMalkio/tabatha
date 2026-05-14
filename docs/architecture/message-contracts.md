@@ -82,13 +82,23 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `CLOCK_IN` | `{ label? }` | `{ clockSession, ... }` | ⬜ |
-| `CLOCK_OUT` | — | `{ clockSession, ... }` | ⬜ |
-| `TOGGLE_BREAK` | — | `{ onBreak, ... }` | ⬜ |
-| `GET_CLOCK_STATUS` | — | `{ clockSession, clockedIn, onBreak, ... }` | ⬜ |
-| `GET_CLOCK_HISTORY` | — | `{ history }` | ⬜ |
-| `GET_LAST_SESSION` | — | `{ session }` | ⬜ |
+| `CLOCK_IN` | `{ label? }` | `{ session }` or `{ error, session? }` | ✅ — verified against `clock.js` factory |
+| `CLOCK_OUT` | — | `{ session }` or `{ error }` | ✅ — verified against `clock.js` factory |
+| `TOGGLE_BREAK` | — | `{ session }` or `{ error }` | ✅ — auto-pauses active focus when break starts |
+| `GET_CLOCK_STATUS` | — | `{ session }` | ✅ — returns `{ active: false }` fallback when no session exists |
+| `GET_CLOCK_HISTORY` | — | `{ history }` | ✅ — computed duration fields preserved |
+| `GET_LAST_SESSION` | — | `{ lastSession }` | ✅ — computed duration fields preserved |
 | `GET_LATEST_SESSION` | — | `{ session }` | ✅ — owned by sessionService (see below); listed here only for cross-reference |
+
+---
+
+## clockTickService
+
+| Message Type | Request | Response | Status |
+|-------------|---------|----------|--------|
+| `TICK_SUBSCRIBE` | — | `{ subscribed: true, subscribers }` | ✅ — starts singleton 1Hz interval on first subscriber |
+| `TICK_UNSUBSCRIBE` | — | `{ subscribed: false, subscribers }` | ✅ — clears interval when subscriber count reaches 0 |
+| `GET_TICK_STATUS` | — | `{ active, subscribers }` | ✅ |
 
 ---
 
