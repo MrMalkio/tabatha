@@ -380,3 +380,46 @@ Build InBar Pause + Sticky Note overlay feature (UI-only, safe during decomp)
 - InBar intent live-reload after edit (currently needs page refresh)
 - Settings UI for browser data retention
 - Blocked site + task update log types need background event emission to populate
+
+---
+
+## Session — 2026-05-14 (Plan 023 Task 00: Pre-Decomp)
+
+**Agent:** Antigravity (Claude Opus 4.6 Thinking)
+**Branch:** `chore/plan-023-pre-decomp`
+**Goal:** Execute Task 00 — architecture docs, version sync, branch cleanup, privacy sticky
+
+### What Was Done
+
+- [x] **Architecture Docs** — Created `docs/architecture/` with 4 master-aligned documents:
+  - `service-decomp-plan.md` — Full decomp plan updated for 79 handlers / 2920 lines (was 62 / 2302 in archived branch)
+  - `service-map.md` — Complete handler-to-service mapping with line numbers
+  - `migration-checklist.md` — Fresh checklist with all handlers in unchecked state
+  - `message-contracts.md` — Frozen response-shape registry for every message type
+- [x] **Version Sync** — Wired `scripts/sync-version.mjs` into `package.json`:
+  - `npm run version:sync` — propagate manifest version to all files
+  - `npm run version:check` — CI/pre-commit guard
+  - `npm run prebuild` — auto-sync before every build
+  - Installed `.git/hooks/pre-commit` (plain shell, no Husky)
+  - Synced all files from 3.31.5 ? 3.34.5 (manifest is source of truth)
+- [x] **Branch Cleanup (partial)**:
+  - Removed stale `Tabatha-service-arch` worktree (was clean)
+  - Archived `refactor/service-arch` as tag `archive/service-arch-v1`
+  - Deleted `refactor/service-arch` branch
+  - PENDING: `feat/follow-through-engine` and `feat/v3-ux-overhaul` archive+delete (awaiting user confirmation)
+  - PENDING: `git push origin --tags`
+- [x] **Privacy Sticky Note** — Created `.headbox/sticky-notes/privacy-modes-future.md`
+- [x] **Build Verified** — `npm run build` passes (prebuild hook fires correctly)
+
+### Decisions
+- Counted 79 unique message handlers on master (vs 62 in the old branch) — 17 new handlers added since service-arch was created
+- `companionService` added as 12th service (was not in original plan)
+- `UPDATE_TAB_CONTEXT` discovered as 22nd tab handler (post-v1 addition)
+- Pre-commit hook is plain bash (no Husky dependency)
+
+### Next Steps
+- Confirm deletion of `feat/follow-through-engine` and `feat/v3-ux-overhaul` branches
+- Push archive tags to origin
+- Finalize commit (remove `wip:` prefix)
+- Merge `chore/plan-023-pre-decomp` ? master
+- Begin Task 01 (Phase 1 foundation)

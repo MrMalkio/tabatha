@@ -96,7 +96,7 @@ ADD_TO_SUGAR_BOX, PARK_TAB
 
 ## Project State
 
-- **Current version:** 1.0.0-alpha
+- **Current version:** 3.34.5
 - **Current focus:** Phase 2 — Rapid Access & Management (React migration complete)
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension
 - **Dev command:** `npm run dev`
