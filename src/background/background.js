@@ -46,7 +46,8 @@ import * as clockService from './services/clockService.js';
 import {
   configureClockService,
   endBreakIfActive,
-  toggleBreak as clockToggleBreak
+  consumeIdleAutoBreakApplied,
+  resetIdleAutoBreakApplied
 } from './services/clockService.js';
 import * as clockTickService from './services/clockTickService.js';
 import * as companionService from './services/companionService.js';
@@ -58,7 +59,12 @@ import {
 } from './services/groupService.js';
 import * as blockgateService from './services/blockgateService.js';
 import { configureBlockgateService } from './services/blockgateService.js';
-import { registerBootstrap } from './bootstrap.js';
+import * as alarmService from './services/alarmService.js';
+import {
+  configureAlarmService,
+  registerAlarmServiceListener
+} from './services/alarmService.js';
+import { registerBootstrap, runRetentionCleanup } from './bootstrap.js';
 
 // ============================================================
 // LOGGING
@@ -603,9 +609,10 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // ============================================================
 
 let userIdleSince = null;
-let idleAutoBreakApplied = false;
 
-// Set idle detection interval to 60 seconds (1 minute)
+// Set idle detection interval to 60 seconds (1 minute).
+// `idleAutoBreakApplied` lives in clockService — see
+// consumeIdleAutoBreakApplied / resetIdleAutoBreakApplied.
 chrome.idle.setDetectionInterval(60);
 
 chrome.idle.onStateChanged.addListener(async (newState) => {
@@ -631,7 +638,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
     // User went idle
     await timeTracker.stopAllTracking();
     userIdleSince = new Date().toISOString();
-    idleAutoBreakApplied = false;
+    resetIdleAutoBreakApplied();
 
     // Auto-pause active focus when going idle
     const engine = await getFocusEngine();
@@ -678,14 +685,14 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
       // If user was auto-put on break, auto-resume or prompt
       let pausedFocusId = null;
       let pausedFocusLabel = null;
-      if (idleAutoBreakApplied) {
+      const wasAutoBreakApplied = consumeIdleAutoBreakApplied();
+      if (wasAutoBreakApplied) {
         const { clockSession } = await getStorage('clockSession');
         if (clockSession?.active && clockSession?.onBreak) {
           if (settings.autoResumeFromBreak) {
             await endBreakIfActive(); // auto-resume
           }
         }
-        idleAutoBreakApplied = false;
       }
 
       // Find the most recently paused focus to offer resumption
@@ -705,7 +712,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
         idleDurationMs: idleDuration,
         pausedFocusId,
         pausedFocusLabel,
-        wasOnBreak: idleAutoBreakApplied
+        wasOnBreak: wasAutoBreakApplied
       });
 
       if (idleDuration > (settings.idleThresholdMinutes || 5) * 60 * 1000) {
@@ -724,22 +731,6 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
         });
       }
       userIdleSince = null;
-    }
-  }
-});
-
-// Handle the 5-minute auto-break alarm
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'idle-auto-break') {
-    // Check if user is still idle
-    const state = await chrome.idle.queryState(60);
-    if (state === 'idle' || state === 'locked') {
-      const { clockSession } = await getStorage('clockSession');
-      if (clockSession?.active && !clockSession?.onBreak) {
-        await clockToggleBreak(); // auto-put on break
-        idleAutoBreakApplied = true;
-        broadcastToExtension({ type: 'AUTO_BREAK', reason: 'idle_5min' });
-      }
     }
   }
 });
@@ -782,135 +773,15 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
   }
 });
 
-// Set idle detection interval (1 min = idle, 5 min = auto-break handled below)
-chrome.idle.setDetectionInterval(60); // 1 minute granularity
-
 // ============================================================
-// CONTEXT TIMER / ALARMS
+// PERIODIC ALARM CADENCES
 // ============================================================
-
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name.startsWith('context-timer-')) {
-    const tabId = parseInt(alarm.name.replace('context-timer-', ''));
-    const tabs = await getTabData();
-    const tabData = tabs[tabId];
-    
-    if (tabData && !tabData.ignored && !tabData.context) {
-      // Tab has been open for threshold without context — prompt
-      broadcastToExtension({
-        type: 'CONTEXT_REMINDER',
-        tabId,
-        tabData
-      });
-      
-      // Also show a notification
-      chrome.notifications.create(`context-${tabId}`, {
-        type: 'basic',
-        iconUrl: 'icons/icon128.png',
-        title: 'Tabatha — Context Needed',
-        message: `"${tabData.title}" has been open for a while. What are you working on?`
-      });
-    } else if (tabData && tabData.context) {
-      // Tab has context — send reinforcement reminder
-      const settings = await getSettings();
-      const timerMinutes = tabData.timerOverrideMinutes || settings.globalTimerMinutes;
-      
-      broadcastToExtension({
-        type: 'INTENT_REINFORCEMENT',
-        tabId,
-        tabData
-      });
-      
-      // Re-arm timer
-      chrome.alarms.create(`context-timer-${tabId}`, { delayInMinutes: timerMinutes });
-    }
-  }
-  
-  if (alarm.name === 'auto-export') {
-    await sessionService.exportMarkdown();
-  }
-
-  // 'session-snapshot' alarm is now dispatched by bootstrap.js to
-  // sessionService.saveSessionSnapshot — see registerBootstrap().
-
-  if (alarm.name === 'supabase-sync') {
-    await syncToSupabase();
-  }
-  
-  if (alarm.name === 'pomodoro-timer') {
-      // Notify user
-      chrome.notifications.create('pomodoro-done', {
-          type: 'basic',
-          iconUrl: 'icons/icon128.png',
-          title: 'Tabatha — Timer Complete!',
-          message: 'Time is up! Take a break or refocus.',
-          requireInteraction: true
-      });
-      broadcastToExtension({ type: 'POMODORO_COMPLETE' });
-  }
-  
-  // Focus Engine timer — transitions to 'drifted', counts up
-  if (alarm.name.startsWith('focus-timer-')) {
-    const focusId = alarm.name.replace('focus-timer-', '');
-    const engine = await getFocusEngine();
-    const item = engine.items[focusId];
-    if (item && item.focusState === 'active') {
-      item.focusState = 'drifted';
-      // Accumulate elapsed time up to now
-      if (item.lastResumedAt) {
-        item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
-        item.lastResumedAt = new Date().toISOString(); // reset for countup tracking
-      }
-      await setFocusEngine(engine);
-      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-      
-      // Interrupting notification with action buttons
-      chrome.notifications.create(`focus-drift-${focusId}`, {
-        type: 'basic',
-        iconUrl: 'icons/icon128.png',
-        title: '⏰ Tabatha — Focus Timer Expired',
-        message: `"${item.label}" — Your allotted ${item.timerMinutes}m is up. Add more time or move to the next item.`,
-        requireInteraction: true,
-        priority: 2,
-        buttons: [
-          { title: '⏱️ Extend 5 min' },
-          { title: '➡️ Complete & Move On' }
-        ]
-      });
-
-      // Broadcast to all tabs so InBar can show interrupting alert
-      broadcastAll({
-        type: 'FOCUS_TIMER_EXPIRED',
-        focusId,
-        label: item.label,
-        timerMinutes: item.timerMinutes,
-        elapsedMs: item.elapsedMs
-      });
-    }
-  }
-
-  // ── Unfocused Nudge ──
-  // Every 10 min: if no active focus is set and user is not idle, nudge them
-  if (alarm.name === 'unfocused-nudge') {
-    const engine = await getFocusEngine();
-    const hasActive = engine.activeFocusId && engine.items[engine.activeFocusId]?.focusState === 'active';
-    if (!hasActive) {
-      const idleState = await chrome.idle.queryState(60);
-      if (idleState === 'active') {
-        try {
-          chrome.notifications.create(`nudge-${Date.now()}`, {
-            type: 'basic',
-            iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-            title: '🎯 Tabatha — What are you working on?',
-            message: 'You\'ve been browsing without a focus set. Click to set one.',
-            priority: 1,
-          });
-        } catch (e) { console.warn('[Tabatha] Nudge notification error:', e); }
-        logEvent('unfocused_nudge', { activeFocusId: engine.activeFocusId });
-      }
-    }
-  }
-});
+// Dispatch lives in alarmService. These create() calls just ensure the
+// cadence alarms are registered on every service worker start. The names
+// are owned by:
+//   - `unfocused-nudge` → focusService.handleUnfocusedNudge
+//   - `context-timer-<id>` → tabService.handleContextTimerExpired (per-tab,
+//     created from tabService.registerTabServiceListeners)
 
 // Create the unfocused nudge recurring alarm (every 10 min)
 chrome.alarms.create('unfocused-nudge', { periodInMinutes: 10 });
@@ -977,6 +848,14 @@ configureClockService({ companionBridge, fireWebhook, getFocusEngine, setFocusEn
 configureFocusService({ companionBridge, triggerSync, getTabData, setTabData, clockService, fireWebhook });
 configureGroupService({ setTabData });
 configureBlockgateService({ setTabData });
+configureAlarmService({
+  syncToSupabase,
+  runRetentionCleanup,
+  getAuthSession: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
+  }
+});
 
 // ── Router skeleton ──
 // Services land in Plan 023 Tasks 02+. Each registered entry must expose
@@ -997,7 +876,8 @@ const services = [
   tabService,
   focusService,
   groupService,
-  blockgateService
+  blockgateService,
+  alarmService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1035,6 +915,7 @@ async function handleLegacyMessage(message) {
 // initial pass.
 registerTabServiceListeners();
 registerGroupServiceListeners();
+registerAlarmServiceListener();
 registerBootstrap();
 
 // Notification click handler merged into single listener above (L757)

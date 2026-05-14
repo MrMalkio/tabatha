@@ -2,7 +2,7 @@
 
 > Every message handler in master's `background.js` (v3.34.5-α, 2920 lines) mapped to its target service module.  
 > Use this as the extraction guide for `refactor/decomp-v2`.  
-> **79 handlers across 13 services** (desktop companion WebSocket handlers now live inside companionService).
+> **79 handlers across 14 services** (`alarmService` consolidates `chrome.alarms.onAlarm` dispatch and owns no runtime handlers).
 
 ---
 
@@ -248,6 +248,27 @@ Desktop companion WebSocket lifecycle and runtime-message proxy.
 
 ---
 
+## alarmService.js — 0 message handlers ✅ (Task 05c)
+
+Single `chrome.alarms.onAlarm` listener. Owns no runtime messages — exists to consolidate alarm dispatch so each owning service exposes a focused handler that alarmService routes to by name.
+
+| Alarm name | Owner |
+|---|---|
+| `focus-timer-<id>` (dynamic) | `focusService.handleFocusTimerExpired` |
+| `context-timer-<id>` (dynamic) | `tabService.handleContextTimerExpired` |
+| `blockgate-<domain>` (dynamic) | no-op (temp-unblock expiry is enforced inline in `CHECK_BLOCKED_SITE`) |
+| `idle-auto-break` | `clockService.handleIdleAutoBreak` |
+| `unfocused-nudge` | `focusService.handleUnfocusedNudge` |
+| `pomodoro-timer` | `notificationService.handlePomodoroComplete` |
+| `auto-export` | `sessionService.exportMarkdown` |
+| `session-snapshot` | `sessionService.saveSessionSnapshot` |
+| `tabatha-data-retention` | `bootstrap.runRetentionCleanup` (injected) |
+| `supabase-sync` | inline `syncToSupabase` in `background.js`, **auth-guarded** by alarmService before dispatch |
+
+**Dependencies:** owning-service alarm handlers; injected `syncToSupabase`, `runRetentionCleanup`, and `getAuthSession` callback.
+
+---
+
 ## companionService.js — 6 WebSocket message handlers
 
 These are handled internally by companionService, NOT through the chrome.runtime.onMessage router:
@@ -278,7 +299,7 @@ These are handled internally by companionService, NOT through the chrome.runtime
 | `chrome.tabs.onRemoved` | `tabService.js` + `tabTrackingService.js` | Tab close handler |
 | `chrome.tabs.onActivated` | `tabTrackingService.js` | Tab switch — time tracking |
 | `chrome.idle.onStateChanged` | `clockService.js` | Idle/active detection |
-| `chrome.alarms.onAlarm` | Router (delegates) | Timer alarms, auto-break, etc. |
+| `chrome.alarms.onAlarm` | `alarmService.js` ✅ (Task 05c) | Single listener; routes by alarm name to the owning service's handler |
 | `chrome.tabGroups.*` | `groupService.js` | Tab group sync listeners |
 | `initializeState()` | Router | Startup initialization |
 | `migrateTasksToOrg()` | `taskService.js` | One-time legacy migration |

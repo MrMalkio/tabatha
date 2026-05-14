@@ -618,6 +618,83 @@ export async function pauseActiveFocus(reason) {
   return engine;
 }
 
+// Focus-timer alarm handler. Routed from alarmService when a
+// `focus-timer-<focusId>` alarm fires. Transitions the active focus into
+// `drifted` state, fires the interrupting notification, and broadcasts
+// FOCUS_TIMER_EXPIRED so the InBar can surface the alert.
+export async function handleFocusTimerExpired(focusId) {
+  const engine = await getFocusEngine();
+  const item = engine.items[focusId];
+  if (!item || item.focusState !== 'active') return;
+
+  item.focusState = 'drifted';
+  if (item.lastResumedAt) {
+    item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    item.lastResumedAt = new Date().toISOString();
+  }
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+
+  chrome.notifications.create(`focus-drift-${focusId}`, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: '⏰ Tabatha — Focus Timer Expired',
+    message: `"${item.label}" — Your allotted ${item.timerMinutes}m is up. Add more time or move to the next item.`,
+    requireInteraction: true,
+    priority: 2,
+    buttons: [
+      { title: '⏱️ Extend 5 min' },
+      { title: '➡️ Complete & Move On' }
+    ]
+  });
+
+  broadcastAll({
+    type: 'FOCUS_TIMER_EXPIRED',
+    focusId,
+    label: item.label,
+    timerMinutes: item.timerMinutes,
+    elapsedMs: item.elapsedMs
+  });
+}
+
+// Unfocused-nudge alarm handler. Routed from alarmService when the
+// recurring `unfocused-nudge` alarm fires. Surfaces a notification only
+// when the user is actively browsing without any active focus.
+export async function handleUnfocusedNudge() {
+  const engine = await getFocusEngine();
+  const hasActive =
+    engine.activeFocusId && engine.items[engine.activeFocusId]?.focusState === 'active';
+  if (hasActive) return;
+
+  const idleState = await chrome.idle.queryState(60);
+  if (idleState !== 'active') return;
+
+  try {
+    chrome.notifications.create(`nudge-${Date.now()}`, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title: '🎯 Tabatha — What are you working on?',
+      message: 'You\'ve been browsing without a focus set. Click to set one.',
+      priority: 1
+    });
+  } catch (e) {
+    console.warn('[Tabatha] Nudge notification error:', e);
+  }
+
+  // Inline log write — preserves the previous logEvent behavior without
+  // pulling logEvent into focusService as a dep.
+  try {
+    const { tabathaLogs } = await getStorage('tabathaLogs');
+    const logs = tabathaLogs || [];
+    logs.push({
+      type: 'unfocused_nudge',
+      activeFocusId: engine.activeFocusId,
+      ts: new Date().toISOString()
+    });
+    await setStorage({ tabathaLogs: logs.slice(-500) });
+  } catch { /* ignore log write failures */ }
+}
+
 export async function markFocusDrifted(focusId) {
   const engine = await getFocusEngine();
   const item = engine.items[focusId];

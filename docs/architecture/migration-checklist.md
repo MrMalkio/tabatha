@@ -198,7 +198,7 @@
 | 9 | `chrome.tabs.onRemoved` | Split: tabService + tabTrackingService | ✅ | ✅ | Archives InBar notes to `closedContexts`, prunes `inbarNotes`, and delegates time aggregation to tabTrackingService |
 | 10 | `chrome.tabs.onActivated` | `tabTrackingService.js` | ⬜ | ⬜ | |
 | 11 | `chrome.idle.onStateChanged` | `clockService.js` | ⬜ | ⬜ | |
-| 12 | `chrome.alarms.onAlarm` | Router (delegates) | ⬜ | ⬜ | |
+| 12 | `chrome.alarms.onAlarm` | `alarmService.js` | ✅ | ✅ | Consolidated to a single listener; routes by name to handlers exposed on focusService / tabService / notificationService / clockService / sessionService. `supabase-sync` is auth-guarded before dispatch. |
 | 13 | `chrome.tabGroups.*` | `groupService.js` | ⬜ | ⬜ | |
 | 14 | `initializeState()` | Router | ⬜ | ⬜ | |
 | 15 | `migrateTasksToOrg()` | `taskService.js` | ⬜ | ⬜ | |
@@ -211,3 +211,4 @@
 |------|-------|-------|--------|-------|
 | 2026-05-14 | Task 04d | clockService extraction (6 handlers) | ✅ Build green | Companion bridge + webhook injected via configureClockService; endBreakIfActive cross-service export added |
 | 2026-05-14 | Task 04d | clockTickService (TICK broadcaster) | ✅ Build green | 3 new message types: TICK_SUBSCRIBE, TICK_UNSUBSCRIBE, GET_TICK_STATUS |
+| 2026-05-14 | Task 05c | alarmService consolidation (3 listeners → 1) | ✅ Build green, single `onAlarm.addListener` grep-verified | Removed duplicate `chrome.idle.setDetectionInterval(60)`; auth-guarded `supabase-sync` dispatch; `idleAutoBreakApplied` flag moved into clockService (consume/reset). |

@@ -29,6 +29,37 @@ export function configureClockService(injected = {}) {
 // ── Core clock instance ──
 const clock = createClockService(getStorage, setStorage, broadcastToExtension);
 
+// ── Idle auto-break coordination ──
+// alarmService writes this flag from the `idle-auto-break` handler;
+// background.js's idle.onStateChanged 'active' branch consumes it to
+// decide whether to auto-resume from break.
+let idleAutoBreakApplied = false;
+
+export function consumeIdleAutoBreakApplied() {
+  const v = idleAutoBreakApplied;
+  idleAutoBreakApplied = false;
+  return v;
+}
+
+export function resetIdleAutoBreakApplied() {
+  idleAutoBreakApplied = false;
+}
+
+// idle-auto-break alarm handler. Routed from alarmService when the
+// 5-minute idle alarm fires. If the user is still idle and clocked-in
+// without an active break, toggle to break.
+export async function handleIdleAutoBreak() {
+  const state = await chrome.idle.queryState(60);
+  if (state !== 'idle' && state !== 'locked') return;
+
+  const { clockSession } = await getStorage('clockSession');
+  if (!(clockSession?.active && !clockSession?.onBreak)) return;
+
+  await clock.toggleBreak();
+  idleAutoBreakApplied = true;
+  broadcastToExtension({ type: 'AUTO_BREAK', reason: 'idle_5min' });
+}
+
 // ── Public cross-service helpers ──
 
 /**
