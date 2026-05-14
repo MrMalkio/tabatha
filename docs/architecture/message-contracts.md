@@ -82,13 +82,23 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `CLOCK_IN` | `{ label? }` | `{ clockSession, ... }` | ⬜ |
-| `CLOCK_OUT` | — | `{ clockSession, ... }` | ⬜ |
-| `TOGGLE_BREAK` | — | `{ onBreak, ... }` | ⬜ |
-| `GET_CLOCK_STATUS` | — | `{ clockSession, clockedIn, onBreak, ... }` | ⬜ |
-| `GET_CLOCK_HISTORY` | — | `{ history }` | ⬜ |
-| `GET_LAST_SESSION` | — | `{ session }` | ⬜ |
-| `GET_LATEST_SESSION` | — | `{ session }` | ⬜ |
+| `CLOCK_IN` | `{ label? }` | `{ session }` or `{ error, session }` | ✅ |
+| `CLOCK_OUT` | — | `{ session }` or `{ error }` | ✅ |
+| `TOGGLE_BREAK` | — | `{ session }` | ✅ |
+| `GET_CLOCK_STATUS` | — | `{ session }` | ✅ |
+| `GET_CLOCK_HISTORY` | — | `{ history }` | ✅ |
+| `GET_LAST_SESSION` | — | `{ lastSession }` | ✅ |
+| `GET_LATEST_SESSION` | — | `{ session }` | ✅ — owned by sessionService (see below); listed here only for cross-reference |
+
+---
+
+## clockTickService
+
+| Message Type | Request | Response | Status |
+|-------------|---------|----------|--------|
+| `TICK_SUBSCRIBE` | — | `{ subscribed: true, subscribers }` | ✅ |
+| `TICK_UNSUBSCRIBE` | — | `{ subscribed: false, subscribers }` | ✅ |
+| `GET_TICK_STATUS` | — | `{ active, subscribers }` | ✅ |
 
 ---
 
@@ -219,4 +229,5 @@ These are sent through `notificationService` helpers and don't have response sha
 
 | Date | Handler | Change | Reason |
 |------|---------|--------|--------|
-| — | — | — | No changes yet |
+| 2026-05-14 | clockService (6 handlers) | Response shapes verified; `{ session }` wrapper confirmed for all clock ops | Task 04d extraction |
+| 2026-05-14 | clockTickService (3 handlers) | New service added: TICK_SUBSCRIBE, TICK_UNSUBSCRIBE, GET_TICK_STATUS | Task 04d — central 1Hz tick broadcaster |

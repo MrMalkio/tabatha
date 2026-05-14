@@ -83,13 +83,13 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `CLOCK_IN` | clockService | ⬜ | ⬜ | ⬜ | ⬜ | Companion bridge sync |
-| 2 | `CLOCK_OUT` | clockService | ⬜ | ⬜ | ⬜ | ⬜ | Companion bridge sync |
-| 3 | `TOGGLE_BREAK` | clockService | ⬜ | ⬜ | ⬜ | ⬜ | Auto-pauses active focus |
-| 4 | `GET_CLOCK_STATUS` | clockService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 5 | `GET_CLOCK_HISTORY` | clockService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 6 | `GET_LAST_SESSION` | clockService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 7 | `GET_LATEST_SESSION` | clockService | ⬜ | ⬜ | ⬜ | ⬜ | Shared with sessionService? |
+| 1 | `CLOCK_IN` | clockService | ✅ | ✅ | ✅ | ⬜ | Companion bridge sync injected via configureClockService |
+| 2 | `CLOCK_OUT` | clockService | ✅ | ✅ | ✅ | ⬜ | Companion bridge sync injected via configureClockService |
+| 3 | `TOGGLE_BREAK` | clockService | ✅ | ✅ | ✅ | ⬜ | Auto-pauses active focus via injected getFocusEngine/setFocusEngine |
+| 4 | `GET_CLOCK_STATUS` | clockService | ✅ | ✅ | ✅ | ⬜ | |
+| 5 | `GET_CLOCK_HISTORY` | clockService | ✅ | ✅ | ✅ | ⬜ | |
+| 6 | `GET_LAST_SESSION` | clockService | ✅ | ✅ | ✅ | ⬜ | |
+| 7 | `GET_LATEST_SESSION` | sessionService | ✅ | ✅ | ✅ | ⬜ | Ownership resolved to sessionService (Task 03) |
 
 ---
 
@@ -209,4 +209,5 @@
 
 | Date | Phase | Check | Result | Notes |
 |------|-------|-------|--------|-------|
-| — | — | — | — | No extractions started yet |
+| 2026-05-14 | Task 04d | clockService extraction (6 handlers) | ✅ Build green | Companion bridge + webhook injected via configureClockService; endBreakIfActive cross-service export added |
+| 2026-05-14 | Task 04d | clockTickService (TICK broadcaster) | ✅ Build green | 3 new message types: TICK_SUBSCRIBE, TICK_UNSUBSCRIBE, GET_TICK_STATUS |

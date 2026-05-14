@@ -4,7 +4,7 @@
 
 import { supabase } from '../services/supabaseClient';
 import * as timeTracker from '../services/timeTracking.js';
-import { createClockService } from './clock.js';
+
 import { companionBridge } from './companion-bridge.js';
 import { fireWebhook } from './webhooks.js';
 import {
@@ -38,6 +38,13 @@ import {
   configureNotificationService
 } from './services/notificationService.js';
 import * as settingsService from './services/settingsService.js';
+import * as clockService from './services/clockService.js';
+import {
+  configureClockService,
+  endBreakIfActive,
+  toggleBreak as clockToggleBreak
+} from './services/clockService.js';
+import * as clockTickService from './services/clockTickService.js';
 import { registerBootstrap } from './bootstrap.js';
 
 // ============================================================
@@ -910,7 +917,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
         const { clockSession } = await getStorage('clockSession');
         if (clockSession?.active && clockSession?.onBreak) {
           if (settings.autoResumeFromBreak) {
-            await clockService.toggleBreak(); // auto-resume
+            await endBreakIfActive(); // auto-resume
           }
         }
         idleAutoBreakApplied = false;
@@ -964,7 +971,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (state === 'idle' || state === 'locked') {
       const { clockSession } = await getStorage('clockSession');
       if (clockSession?.active && !clockSession?.onBreak) {
-        await clockService.toggleBreak(); // auto-put on break
+        await clockToggleBreak(); // auto-put on break
         idleAutoBreakApplied = true;
         broadcastToExtension({ type: 'AUTO_BREAK', reason: 'idle_5min' });
       }
@@ -1518,8 +1525,7 @@ async function exportMarkdown() {
 
 // ── Service instances ──
 configureNotificationService({ getTabData, setTabData, getFocusEngine });
-
-const clockService = createClockService(getStorage, setStorage, broadcastToExtension);
+configureClockService({ companionBridge, fireWebhook, getFocusEngine, setFocusEngine });
 
 // ── Router skeleton ──
 // Services land in Plan 023 Tasks 02+. Each registered entry must expose
@@ -1527,7 +1533,7 @@ const clockService = createClockService(getStorage, setStorage, broadcastToExten
 // the message is not theirs (the router then falls through to
 // `handleLegacyMessage`). Anything else — including `null`, `{}`, or an
 // error object — is treated as a handled response.
-const services = [notificationService, settingsService];
+const services = [notificationService, settingsService, clockService, clockTickService];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
@@ -2522,10 +2528,7 @@ async function handleLegacyMessage(message, sender) {
         broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         // Auto-end break if currently on break
         try {
-          const clockSession = (await getStorage('clockSession')).clockSession;
-          if (clockSession && clockSession.onBreak) {
-            await clockService.toggleBreak();
-          }
+          await endBreakIfActive();
         } catch(e) { /* ignore */ }
         return { focusEngine: engine };
     }
@@ -2618,59 +2621,9 @@ async function handleLegacyMessage(message, sender) {
         return { sites };
     }
 
-    // --- Clock In/Out (synced bidirectionally with companion) ---
-    case 'CLOCK_IN': {
-        const result = await clockService.clockIn();
-        // Sync to desktop companion
-        if (companionBridge.isConnected) {
-          companionBridge.sendClockIn(message.label);
-        }
-        fireWebhook('clock_in', { label: message.label });
-        return result;
-    }
-    
-    case 'CLOCK_OUT': {
-        const result = await clockService.clockOut();
-        if (companionBridge.isConnected) {
-          companionBridge.sendClockOut();
-        }
-        fireWebhook('clock_out', {});
-        return result;
-    }
-    
-    case 'GET_CLOCK_STATUS':
-        return await clockService.getClockStatus();
-    
-    case 'TOGGLE_BREAK': {
-        const result = await clockService.toggleBreak();
-        if (companionBridge.isConnected) {
-          companionBridge.sendToggleBreak();
-        }
-        // If going ON break → auto-pause active focus
-        if (result.onBreak) {
-          const engine = await getFocusEngine();
-          if (engine.activeFocusId) {
-            const active = engine.items[engine.activeFocusId];
-            if (active && active.focusState === 'active') {
-              if (active.lastResumedAt) {
-                active.elapsedMs = (active.elapsedMs || 0) + (Date.now() - new Date(active.lastResumedAt).getTime());
-                active.lastResumedAt = null;
-              }
-              active.focusState = 'paused';
-              active.pausedAt = new Date().toISOString();
-              await setFocusEngine(engine);
-              broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-            }
-          }
-        }
-        return result;
-    }
-
-    case 'GET_LAST_SESSION':
-        return await clockService.getLastSession();
-
-    case 'GET_CLOCK_HISTORY':
-        return await clockService.getClockHistory();
+    // --- Clock In/Out — now handled by clockService (Plan 023 Task 04d) ---
+    // CLOCK_IN, CLOCK_OUT, GET_CLOCK_STATUS, TOGGLE_BREAK,
+    // GET_LAST_SESSION, GET_CLOCK_HISTORY → clockService.handleMessage()
 
     // --- Desktop Companion ---
     case 'GET_COMPANION_STATUS':
