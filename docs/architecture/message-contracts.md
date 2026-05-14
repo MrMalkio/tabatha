@@ -96,10 +96,10 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_TASKS` | — | `{ tasks }` | ⬜ |
-| `CREATE_TASK` | `{ name, description?, projectId?, clientId? }` | `{ success, task }` | ⬜ |
-| `UPDATE_TASK` | `{ taskId, updates, confirmed? }` | `{ success }` or `{ error, needsConfirm }` | ⬜ |
-| `DELETE_TASK` | `{ taskId }` | `{ success }` | ⬜ |
+| `GET_TASKS` | — | `{ tasks }` | ✅ |
+| `CREATE_TASK` | `{ name, description?, projectId?, clientId? }` | `{ success, task }` | ✅ |
+| `UPDATE_TASK` | `{ taskId, updates, confirmed? }` | `{ success }` or `{ error, needsConfirm }` | ✅ |
+| `DELETE_TASK` | `{ taskId }` | `{ success }` | ✅ |
 
 ---
 
@@ -220,4 +220,4 @@ These are sent through `notificationService` helpers and don't have response sha
 
 | Date | Handler | Change | Reason |
 |------|---------|--------|--------|
-| — | — | — | No changes yet |
+| 2026-05-14 | `DELETE_TASK` / archived `UPDATE_TASK` | Archived org tasks now receive `archivedAt`; tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` to `_archivedTasks`. Request/response shapes unchanged. | Task 04c cold-store efficiency fix |
