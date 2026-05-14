@@ -1,41 +1,17 @@
 // ════════════════════════════════════════════
-// Tabatha — Storage Helpers (background module)
-// Shared constants and chrome.storage wrappers
+// Tabatha — Storage Service (canonical background storage layer)
+// Wraps chrome.storage.local. Constants are re-exported from
+// ../constants.js so callers can import everything from this module.
 // ════════════════════════════════════════════
 
-export const DEFAULT_SETTINGS = {
-  globalTimerMinutes: 15,
-  idleThresholdMinutes: 5,
-  exportPath: 'Tabatha',
-  autoExportEnabled: false,
-  autoExportIntervalMinutes: 60
-};
+export {
+  DEFAULT_SETTINGS,
+  PRIORITY_LEVELS,
+  BUILT_IN_CATEGORIES,
+  DEFAULT_FOCUS_ENGINE
+} from '../constants.js';
 
-export const PRIORITY_LEVELS = {
-  critical: { label: '🔴 Critical', color: 'red', order: 0 },
-  high:     { label: '🟠 High',     color: 'orange', order: 1 },
-  medium:   { label: '🟡 Medium',   color: 'yellow', order: 2 },
-  low:      { label: '🟢 Low',      color: 'green', order: 3 },
-  none:     { label: '⚪ None',     color: 'grey', order: 4 }
-};
-
-export const BUILT_IN_CATEGORIES = {
-  work:      { name: 'Work',      icon: '💼', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  media:     { name: 'Media',     icon: '🎵', builtIn: true, persistent: false, urlPatterns: ['*://music.youtube.com/*', '*://open.spotify.com/*', '*://soundcloud.com/*', '*://podcasts.google.com/*', '*://podcasts.apple.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  meeting:   { name: 'Meeting',   icon: '📹', builtIn: true, persistent: false, urlPatterns: ['*://meet.google.com/*', '*://zoom.us/*', '*://teams.microsoft.com/*', '*://app.webex.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  reference: { name: 'Reference', icon: '📚', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  messaging: { name: 'Messaging', icon: '💬', builtIn: true, persistent: true,  urlPatterns: ['*://web.whatsapp.com/*', '*://discord.com/*', '*://slack.com/*', '*://telegram.org/*', '*://messages.google.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  email:     { name: 'Email',     icon: '📧', builtIn: true, persistent: true,  urlPatterns: ['*://mail.google.com/*', '*://outlook.live.com/*', '*://outlook.office365.com/*', '*://mail.yahoo.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  learning:  { name: 'Learning',  icon: '🎓', builtIn: true, persistent: false, urlPatterns: ['*://udemy.com/*', '*://coursera.org/*', '*://edx.org/*', '*://stackoverflow.com/*', '*://github.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: true } },
-  entertainment: { name: 'Entertainment', icon: '🎮', builtIn: true, persistent: false, urlPatterns: ['*://twitch.tv/*', '*://netflix.com/*', '*://hulu.com/*', '*://steamcommunity.com/*'], rules: { autoDetect: true, promptOnOpen: false, trackTime: true, timerEnabled: false } },
-  unknown:   { name: 'Unknown',   icon: '❓', builtIn: true, persistent: false, urlPatterns: [], rules: { autoDetect: false, promptOnOpen: true, trackTime: true, timerEnabled: true } }
-};
-
-export const DEFAULT_FOCUS_ENGINE = {
-  activeFocusId: null,
-  items: {},
-  history: []
-};
+import { DEFAULT_SETTINGS, BUILT_IN_CATEGORIES, DEFAULT_FOCUS_ENGINE } from '../constants.js';
 
 // ── Chrome storage wrappers ──
 
@@ -49,7 +25,7 @@ export async function setStorage(data) {
 
 export async function getSettings() {
   const { settings } = await getStorage('settings');
-  return { ...DEFAULT_SETTINGS, ...settings };
+  return { ...DEFAULT_SETTINGS, ...settings, storage: { ...DEFAULT_SETTINGS.storage, ...(settings?.storage || {}) } };
 }
 
 export async function getTabData() {
@@ -89,4 +65,55 @@ export async function getFocusEngine() {
 
 export async function setFocusEngine(engine) {
   await setStorage({ focusEngine: engine });
+}
+
+// ── Cap enforcement & cleanup primitives ──
+
+// Enforce a FIFO cap on an array-valued chrome.storage key. The cap is read
+// from settings.storage[capSetting] (with DEFAULT_SETTINGS.storage as the
+// fallback). Returns { dropped, kept } so callers can route dropped entries
+// to archiveService.archiveBeforeCap before they're lost.
+export async function enforceArrayCap(key, capSetting) {
+  const settings = await getSettings();
+  const cap = settings?.storage?.[capSetting] ?? DEFAULT_SETTINGS.storage[capSetting];
+  if (!Number.isFinite(cap) || cap <= 0) {
+    return { dropped: [], kept: [] };
+  }
+
+  const raw = await getStorage(key);
+  const arr = Array.isArray(raw?.[key]) ? raw[key] : [];
+  if (arr.length <= cap) {
+    return { dropped: [], kept: arr };
+  }
+
+  // Keep the most recent `cap` entries. Treat the tail as "newest" — this
+  // matches the existing `logs.slice(-500)` pattern in background.js. If a
+  // future caller stores newest-first, it should pre-sort before persisting.
+  const dropped = arr.slice(0, arr.length - cap);
+  const kept = arr.slice(arr.length - cap);
+  await setStorage({ [key]: kept });
+  return { dropped, kept };
+}
+
+// Generalised stale-key pruner. Removes entries from an object-valued
+// chrome.storage key whose keys aren't in the live set. Today the only
+// caller is the bootstrap tabs cleanup; services in Tasks 04+ will use it
+// for inbarNotes and other per-tab buckets.
+export async function pruneStaleKeys(storageKey, liveKeys) {
+  const raw = await getStorage(storageKey);
+  const bucket = raw?.[storageKey];
+  if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) return { removed: 0 };
+
+  const live = new Set(Array.from(liveKeys, k => String(k)));
+  let removed = 0;
+  for (const k of Object.keys(bucket)) {
+    if (!live.has(String(k))) {
+      delete bucket[k];
+      removed++;
+    }
+  }
+  if (removed > 0) {
+    await setStorage({ [storageKey]: bucket });
+  }
+  return { removed };
 }
