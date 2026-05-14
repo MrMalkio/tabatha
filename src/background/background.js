@@ -44,6 +44,8 @@ import {
   configureTabService,
   registerTabServiceListeners
 } from './services/tabService.js';
+import * as focusService from './services/focusService.js';
+import { configureFocusService } from './services/focusService.js';
 import { registerBootstrap } from './bootstrap.js';
 
 // ============================================================
@@ -1072,6 +1074,7 @@ configureSessionService({ setTabData });
 configureTabService({ getFocusEngine, setFocusEngine, addFocus, setTabData, logEvent });
 
 const clockService = createClockService(getStorage, setStorage, broadcastToExtension);
+configureFocusService({ companionBridge, triggerSync, getTabData, setTabData, clockService, fireWebhook });
 
 // ── Router skeleton ──
 // Services land in Plan 023 Tasks 02+. Each registered entry must expose
@@ -1086,7 +1089,8 @@ const services = [
   categoryService,
   sessionService,
   taskService,
-  tabService
+  tabService,
+  focusService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1205,297 +1209,6 @@ async function handleLegacyMessage(message, sender) {
         return { success: true };
     }
     
-    case 'LINK_INTENT_TO_TASK': {
-        const engine = await getFocusEngine();
-        const { intentId, taskId, newTaskName } = message;
-        
-        let finalTaskId = taskId;
-        if (newTaskName) {
-           const { tasks } = await getStorage('tasks') || { tasks: [] };
-           finalTaskId = `task_${Date.now()}`;
-           tasks.push({ id: finalTaskId, name: newTaskName, createdAt: new Date().toISOString() });
-           await setStorage({ tasks });
-           // Ideally we'd broadcast TASKS_UPDATED if UI expects it
-           broadcastToExtension({ type: 'TASKS_UPDATED', tasks }); 
-        }
-        
-        if (engine.items[intentId]) {
-          engine.items[intentId].tags = engine.items[intentId].tags || {};
-          engine.items[intentId].tags.task = finalTaskId;
-          await setFocusEngine(engine);
-          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-        }
-        return { success: true };
-    }
-
-    case 'MERGE_INTENTS': {
-        const engine = await getFocusEngine();
-        const { sourceIntentId, targetIntentId } = message;
-        
-        if (engine.items[sourceIntentId] && engine.items[targetIntentId]) {
-          const source = engine.items[sourceIntentId];
-          const target = engine.items[targetIntentId];
-          
-          // Merge tabs
-          const newTabs = [...new Set([...target.associatedTabIds, ...source.associatedTabIds])];
-          target.associatedTabIds = newTabs;
-          
-          // Merge elapsed time
-          target.elapsedMs = (target.elapsedMs || 0) + (source.elapsedMs || 0);
-          
-          // Delete old intent
-          delete engine.items[sourceIntentId];
-          
-          // Fix active focus if it was the source
-          if (engine.activeFocusId === sourceIntentId) {
-            engine.activeFocusId = targetIntentId;
-          }
-          
-          await setFocusEngine(engine);
-          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-        }
-        return { success: true };
-    }
-    // --- Focus Engine ---
-    case 'GET_FOCUS_ENGINE':
-      return { focusEngine: await getFocusEngine() };
-    
-    case 'START_FOCUS': {
-      const result = await startFocus(message.label, message.timerMinutes, message.tags);
-      // Notify desktop companion of new focus
-      if (companionBridge.isConnected && result.activeId) {
-        const active = result.items[result.activeId];
-        companionBridge.sendFocusUpdate(result.activeId, active?.label);
-      }
-      return { focusEngine: result };
-    }
-    
-    case 'ADD_FOCUS': {
-      const result = await addFocus(message.label, message.timerMinutes, message.tags);
-      return { focusEngine: result.engine, newFocusId: result.newFocusId };
-    }
-    
-    case 'SWITCH_FOCUS':
-      return { focusEngine: await switchFocus(message.focusId) };
-    
-    case 'COMPLETE_FOCUS':
-      return { focusEngine: await completeFocus(message.focusId) };
-    
-    case 'EXTEND_FOCUS_TIMER':
-      return { focusEngine: await extendFocusTimer(message.focusId, message.extraMinutes) };
-    
-    case 'SET_FUNNEL_STAGE': {
-      // Delegate to UPDATE_FOCUS handler logic to enforce state machine
-      const engine = await getFocusEngine();
-      const item = engine.items[message.focusId];
-      if (!item) return { error: 'Focus not found', focusEngine: engine };
-      const from = item.funnelStage || 'unsorted';
-      const to = message.stage;
-      const isBackward = (STAGE_ORDER[to] ?? 0) < (STAGE_ORDER[from] ?? 0);
-      const confirmed = !!message.confirmed;
-
-      if (to === 'unsorted' && from !== 'unsorted') return { error: 'Cannot roll back to unsorted', needsConfirm: false, focusEngine: engine };
-      if (from === 'resolved' && to !== 'resolved') {
-        if (!confirmed) return { error: 'Resolved items cannot change stage. Confirm to undo.', needsConfirm: true, focusEngine: engine };
-        item.focusState = 'paused'; item.endedAt = null;
-      }
-      if (item.focusState === 'completed' && to !== 'resolved') {
-        if (!confirmed) return { error: 'This focus is completed. Confirm to reopen.', needsConfirm: true, focusEngine: engine };
-        item.focusState = 'paused'; item.endedAt = null;
-      }
-      if ((from === 'addressing' || from === 'focus') && to === 'todo') return { error: 'Cannot demote from focus/addressing to todo', needsConfirm: false, focusEngine: engine };
-      if (isBackward && !(from === 'roadblocked' && to === 'focus') && !confirmed) return { error: `Rolling back from ${from} to ${to} requires confirmation`, needsConfirm: true, focusEngine: engine };
-      if (to === 'focus' && !(item.label && item.label.trim())) return { error: 'Focus requires a title', needsConfirm: false, focusEngine: engine };
-
-      item.funnelStage = to;
-      if (to === 'resolved') {
-        if (item.lastResumedAt) { item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime()); item.lastResumedAt = null; }
-        item.focusState = 'completed'; item.endedAt = new Date().toISOString();
-        if (engine.activeFocusId === item.id) engine.activeFocusId = null;
-      } else if (to === 'addressing' && item.focusState !== 'active') {
-        if (engine.activeFocusId && engine.activeFocusId !== item.id) {
-          const prev = engine.items[engine.activeFocusId];
-          if (prev && prev.focusState === 'active') {
-            if (prev.lastResumedAt) { prev.elapsedMs = (prev.elapsedMs || 0) + (Date.now() - new Date(prev.lastResumedAt).getTime()); prev.lastResumedAt = null; }
-            prev.focusState = 'paused'; prev.pausedAt = new Date().toISOString();
-          }
-        }
-        item.focusState = 'active'; item.lastResumedAt = new Date().toISOString(); item.startedAt = item.startedAt || new Date().toISOString(); engine.activeFocusId = item.id;
-      }
-      await setFocusEngine(engine);
-      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-      return { focusEngine: engine };
-    }
-    
-    case 'UPDATE_FOCUS_TAGS':
-      return { focusEngine: await updateFocusTags(message.focusId, message.tags) };
-
-    case 'RENAME_FOCUS': {
-        const engine = await getFocusEngine();
-        if (engine.items[message.focusId]) {
-          engine.items[message.focusId].label = message.newLabel;
-          await setFocusEngine(engine);
-          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-        }
-        return { focusEngine: engine };
-    }
-
-    case 'UPDATE_FOCUS': {
-        const engine = await getFocusEngine();
-        const item = engine.items[message.focusId];
-        if (!item) return { error: 'Focus not found', focusEngine: engine };
-        if (message.label !== undefined) item.label = message.label;
-        if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
-        if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
-        if (message.funnelStage !== undefined) {
-          const from = item.funnelStage || 'unsorted';
-          const to = message.funnelStage;
-
-          // ── STAGE TRANSITION STATE MACHINE ──
-          // Stage hierarchy (forward order):
-          // unsorted(0) → backlog(1) → todo(2) → focus(3) → addressing(4) → resolved(5) → roadblocked(*)
-              const fromOrder = STAGE_ORDER[from] ?? 0;
-          const toOrder = STAGE_ORDER[to] ?? 0;
-          const isBackward = toOrder < fromOrder;
-          const confirmed = !!message.confirmed;
-
-          // Rule 1: Nothing rolls back to unsorted
-          if (to === 'unsorted' && from !== 'unsorted') {
-            return { error: 'Cannot roll back to unsorted', needsConfirm: false, focusEngine: engine };
-          }
-
-          // Rule 2: Resolved doesn't roll back unless confirmed (accident)
-          if (from === 'resolved' && to !== 'resolved') {
-            if (!confirmed) {
-              return { error: 'Resolved items cannot change stage. Confirm to undo.', needsConfirm: true, focusEngine: engine };
-            }
-            // Accident override: un-complete the item
-            item.focusState = 'paused';
-            item.endedAt = null;
-          }
-
-          // Rule 3: Completed items cannot restart unless confirmed
-          if (item.focusState === 'completed' && to !== 'resolved') {
-            if (!confirmed) {
-              return { error: 'This focus is completed. Confirm to reopen.', needsConfirm: true, focusEngine: engine };
-            }
-            item.focusState = 'paused';
-            item.endedAt = null;
-          }
-
-          // Rule 4: Addressing/Focus don't roll back to todo
-          if ((from === 'addressing' || from === 'focus') && to === 'todo') {
-            return { error: 'Cannot demote from focus/addressing to todo', needsConfirm: false, focusEngine: engine };
-          }
-
-          // Rule 5: Backward transitions require confirmation (except roadblocked → focus which is allowed)
-          if (isBackward && !(from === 'roadblocked' && to === 'focus')) {
-            if (!confirmed) {
-              return { error: `Rolling back from ${from} to ${to} requires confirmation`, needsConfirm: true, focusEngine: engine };
-            }
-          }
-
-          // Rule 6: 'Focus' stage requires a label (title)
-          if (to === 'focus' && !(item.label && item.label.trim())) {
-            return { error: 'A focus item requires a title before entering focus stage', needsConfirm: false, focusEngine: engine };
-          }
-
-          // ── Apply the stage change ──
-          item.funnelStage = to;
-
-          // Auto-sync focusState when stage implies a state change
-          if (to === 'resolved') {
-            // Save elapsed time before completing
-            if (item.lastResumedAt) {
-              item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
-              item.lastResumedAt = null;
-            }
-            item.focusState = 'completed';
-            item.endedAt = new Date().toISOString();
-            // Clear active if this was the active focus
-            if (engine.activeFocusId === item.id) engine.activeFocusId = null;
-          } else if (to === 'addressing' && item.focusState !== 'active') {
-            // Addressing = actively working on it — activate this focus
-            // Pause current active first
-            if (engine.activeFocusId && engine.activeFocusId !== item.id) {
-              const prev = engine.items[engine.activeFocusId];
-              if (prev && prev.focusState === 'active') {
-                if (prev.lastResumedAt) {
-                  prev.elapsedMs = (prev.elapsedMs || 0) + (Date.now() - new Date(prev.lastResumedAt).getTime());
-                  prev.lastResumedAt = null;
-                }
-                prev.focusState = 'paused';
-                prev.pausedAt = new Date().toISOString();
-              }
-            }
-            item.focusState = 'active';
-            item.lastResumedAt = new Date().toISOString();
-            item.startedAt = item.startedAt || new Date().toISOString();
-            engine.activeFocusId = item.id;
-          }
-        }
-        await setFocusEngine(engine);
-        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-        return { focusEngine: engine };
-    }
-
-    case 'PAUSE_FOCUS': {
-        const engine = await getFocusEngine();
-        const focusId = message.focusId || engine.activeFocusId;
-        const item = focusId ? engine.items[focusId] : null;
-        if (!item) return { error: 'Focus not found', focusEngine: engine };
-        // Save elapsed time
-        if (item.lastResumedAt) {
-          item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
-          item.lastResumedAt = null;
-        }
-        item.focusState = 'paused';
-        item.pausedAt = new Date().toISOString();
-        // Revert addressing → focus since it no longer has active attention
-        if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
-        await setFocusEngine(engine);
-        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-        return { focusEngine: engine };
-    }
-
-    case 'RESUME_FOCUS': {
-        const engine = await getFocusEngine();
-        const focusId = message.focusId;
-        const item = focusId ? engine.items[focusId] : null;
-        if (!item) return { error: 'Focus not found', focusEngine: engine };
-        // If another focus is currently active, pause it first
-        if (engine.activeFocusId && engine.activeFocusId !== focusId) {
-          const current = engine.items[engine.activeFocusId];
-          if (current && current.focusState === 'active') {
-            if (current.lastResumedAt) {
-              current.elapsedMs = (current.elapsedMs || 0) + (Date.now() - new Date(current.lastResumedAt).getTime());
-              current.lastResumedAt = null;
-            }
-            current.focusState = 'paused';
-            current.pausedAt = new Date().toISOString();
-            // Demote from addressing since it's losing attention
-            if (current.funnelStage === 'addressing') current.funnelStage = 'focus';
-          }
-        }
-        item.focusState = 'active';
-        item.lastResumedAt = new Date().toISOString();
-        item.pausedAt = null;
-        // Auto-promote to addressing — this now has active attention
-        if (item.funnelStage === 'focus' || item.funnelStage === 'todo' || item.funnelStage === 'unsorted') {
-          item.funnelStage = 'addressing';
-        }
-        engine.activeFocusId = focusId;
-        await setFocusEngine(engine);
-        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-        // Auto-end break if currently on break
-        try {
-          const clockSession = (await getStorage('clockSession')).clockSession;
-          if (clockSession && clockSession.onBreak) {
-            await clockService.toggleBreak();
-          }
-        } catch(e) { /* ignore */ }
-        return { focusEngine: engine };
-    }
 
     // --- Site Blocking ---
     case 'CHECK_BLOCKED_SITE': {

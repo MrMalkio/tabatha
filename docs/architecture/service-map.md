@@ -8,7 +8,7 @@
 
 ## focusService.js — 14 handlers
 
-Focus engine lifecycle: create, switch, complete, tag, merge, pause/resume.
+Focus engine lifecycle: create, switch, complete, tag, merge, pause/resume, and history retention.
 
 | # | Handler | Line (approx) | Description |
 |---|---------|--------------|-------------|
@@ -27,7 +27,9 @@ Focus engine lifecycle: create, switch, complete, tag, merge, pause/resume.
 | 13 | `LINK_INTENT_TO_TASK` | 2256 | Link a focus item to a task |
 | 14 | `MERGE_INTENTS` | 2279 | Merge two focus items (tabs + time) |
 
-**Dependencies:** storageService, notificationService, clockService (RESUME_FOCUS auto-ends break)
+**Dependencies:** storageService, notificationService, archiveService, clockService (RESUME_FOCUS auto-ends break)
+
+**Storage notes:** `COMPLETE_FOCUS` now routes entries dropped by `settings.storage.focusHistoryCap` through `archiveBeforeCap('focusEngine.history', ...)` before capping.
 
 ---
 

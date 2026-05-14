@@ -23,20 +23,20 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_FOCUS_ENGINE` | — | `{ focusEngine }` | ⬜ |
-| `START_FOCUS` | `{ label, timerMinutes, tags }` | `{ focusEngine }` | ⬜ |
-| `ADD_FOCUS` | `{ label, timerMinutes, tags }` | `{ focusEngine, newFocusId }` | ⬜ |
-| `SWITCH_FOCUS` | `{ focusId }` | `{ focusEngine }` | ⬜ |
-| `COMPLETE_FOCUS` | `{ focusId }` | `{ focusEngine }` | ⬜ |
-| `EXTEND_FOCUS_TIMER` | `{ focusId, extraMinutes }` | `{ focusEngine }` | ⬜ |
-| `SET_FUNNEL_STAGE` | `{ focusId, stage, confirmed? }` | `{ focusEngine }` or `{ error, needsConfirm, focusEngine }` | ⬜ |
-| `UPDATE_FOCUS_TAGS` | `{ focusId, tags }` | `{ focusEngine }` | ⬜ |
-| `RENAME_FOCUS` | `{ focusId, newLabel }` | `{ focusEngine }` | ⬜ |
-| `UPDATE_FOCUS` | `{ focusId, label?, timerMinutes?, tags?, funnelStage?, confirmed? }` | `{ focusEngine }` or `{ error, needsConfirm, focusEngine }` | ⬜ |
-| `PAUSE_FOCUS` | `{ focusId? }` | `{ focusEngine }` or `{ error, focusEngine }` | ⬜ |
-| `RESUME_FOCUS` | `{ focusId }` | `{ focusEngine }` or `{ error, focusEngine }` | ⬜ |
-| `LINK_INTENT_TO_TASK` | `{ intentId, taskId?, newTaskName? }` | `{ success }` | ⬜ |
-| `MERGE_INTENTS` | `{ sourceIntentId, targetIntentId }` | `{ success }` | ⬜ |
+| `GET_FOCUS_ENGINE` | — | `{ focusEngine }` | ✅ |
+| `START_FOCUS` | `{ label, timerMinutes, tags }` | `{ focusEngine }` | ✅ |
+| `ADD_FOCUS` | `{ label, timerMinutes, tags }` | `{ focusEngine, newFocusId }` | ✅ |
+| `SWITCH_FOCUS` | `{ focusId }` | `{ focusEngine }` | ✅ |
+| `COMPLETE_FOCUS` | `{ focusId }` | `{ focusEngine }` | ✅ |
+| `EXTEND_FOCUS_TIMER` | `{ focusId, extraMinutes }` | `{ focusEngine }` | ✅ |
+| `SET_FUNNEL_STAGE` | `{ focusId, stage, confirmed? }` | `{ focusEngine }` or `{ error, needsConfirm, focusEngine }` | ✅ |
+| `UPDATE_FOCUS_TAGS` | `{ focusId, tags }` | `{ focusEngine }` | ✅ |
+| `RENAME_FOCUS` | `{ focusId, newLabel }` | `{ focusEngine }` | ✅ |
+| `UPDATE_FOCUS` | `{ focusId, label?, timerMinutes?, tags?, funnelStage?, confirmed? }` | `{ focusEngine }` or `{ error, needsConfirm, focusEngine }` | ✅ |
+| `PAUSE_FOCUS` | `{ focusId? }` | `{ focusEngine }` or `{ error, focusEngine }` | ✅ |
+| `RESUME_FOCUS` | `{ focusId }` | `{ focusEngine }` or `{ error, focusEngine }` | ✅ |
+| `LINK_INTENT_TO_TASK` | `{ intentId, taskId?, newTaskName? }` | `{ success }` | ✅ |
+| `MERGE_INTENTS` | `{ sourceIntentId, targetIntentId }` | `{ success }` | ✅ |
 
 ---
 
@@ -221,4 +221,5 @@ These are sent through `notificationService` helpers and don't have response sha
 | Date | Handler | Change | Reason |
 |------|---------|--------|--------|
 | 2026-05-14 | `DELETE_TASK` / archived `UPDATE_TASK` | Archived org tasks now receive `archivedAt`; tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` to `_archivedTasks`. Request/response shapes unchanged. | Task 04c cold-store efficiency fix |
+| 2026-05-14 | `COMPLETE_FOCUS` | Dropped `focusEngine.history` entries are archived through `archiveBeforeCap` before applying `settings.storage.focusHistoryCap`. Request/response shapes unchanged. | Task 04b history retention fix |
 | 2026-05-14 | `chrome.tabs.onRemoved` | Closed tabs with saved InBar notes now write the note into `closedContexts` before `inbarNotes[tabId]` is pruned. Request/response shapes unchanged. | Task 04a lifecycle cleanup |
