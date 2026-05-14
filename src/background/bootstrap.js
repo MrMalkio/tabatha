@@ -19,6 +19,51 @@ import {
   RETENTION_ALARM,
   DEFAULT_RETENTION_DAYS
 } from './constants.js';
+import { saveSessionSnapshot } from './services/sessionService.js';
+
+export const SESSION_SNAPSHOT_ALARM = 'session-snapshot';
+
+// ── INTENT HISTORY MIGRATION — intentChangeLog → intentHistory (one-time) ──
+// Plan 023 §2 resolution: merge the two near-redundant logs into a single
+// intentHistory key with the union shape. Runs once per profile; once the
+// flag is set, we stop touching the legacy key.
+export async function migrateIntentChangeLog() {
+  try {
+    const { _intentLogMigrated } = await getStorage('_intentLogMigrated');
+    if (_intentLogMigrated) return;
+
+    const { intentChangeLog = [], intentHistory = [] } =
+      await getStorage(['intentChangeLog', 'intentHistory']);
+
+    if (!intentChangeLog.length) {
+      await setStorage({ _intentLogMigrated: new Date().toISOString() });
+      return;
+    }
+
+    const projected = intentChangeLog.map((c) => ({
+      timestamp: c.timestamp,
+      tabId: c.tabId ?? null,
+      url: c.url ?? null,
+      domain: c.domain ?? null,
+      action: 'change',
+      oldIntent: c.oldIntent ?? null,
+      newIntent: c.newIntent ?? null,
+      oldContext: c.oldContext ?? null,
+      newContext: c.newContext ?? null,
+      focusId: null
+    }));
+
+    const merged = [...intentHistory, ...projected]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, DEFAULT_SETTINGS.storage.intentHistoryCap);
+
+    await setStorage({ intentHistory: merged, _intentLogMigrated: new Date().toISOString() });
+    await chrome.storage.local.remove('intentChangeLog');
+    console.log(`Tabatha: Merged ${intentChangeLog.length} intentChangeLog entries into intentHistory`);
+  } catch (e) {
+    console.error('Tabatha: intentChangeLog migration failed', e);
+  }
+}
 
 // ── TASK STORAGE MIGRATION — Legacy → Org Registry (one-time) ──
 export async function migrateTasksToOrg() {
@@ -93,6 +138,9 @@ async function ensureStorageSettings() {
 export async function initializeState() {
   // Settings migration first (so downstream reads see the storage block).
   await ensureStorageSettings();
+
+  // One-time intent log merge (Plan 023 §2).
+  await migrateIntentChangeLog();
 
   // One-time legacy task migration.
   await migrateTasksToOrg();
@@ -176,6 +224,23 @@ export async function runRetentionCleanup() {
   }
 }
 
+// ── Session snapshot alarm ──
+// The period is user-tunable via settings.storage.snapshotIntervalMinutes.
+// settingsService re-invokes this on UPDATE_SETTINGS when the value changes.
+export async function scheduleSessionSnapshotAlarm() {
+  try {
+    const settings = await getSettings();
+    const minutes = Number(settings?.storage?.snapshotIntervalMinutes)
+      || DEFAULT_SETTINGS.storage.snapshotIntervalMinutes;
+    chrome.alarms.create(SESSION_SNAPSHOT_ALARM, { periodInMinutes: minutes });
+  } catch (e) {
+    console.warn('Tabatha: snapshot alarm registration failed; using default cadence', e);
+    chrome.alarms.create(SESSION_SNAPSHOT_ALARM, {
+      periodInMinutes: DEFAULT_SETTINGS.storage.snapshotIntervalMinutes
+    });
+  }
+}
+
 // ── Lifecycle registration ──
 // Called once from background.js at module load.
 export function registerBootstrap() {
@@ -192,19 +257,23 @@ export function registerBootstrap() {
       });
     }
     await initializeState();
+    await scheduleSessionSnapshotAlarm();
   });
 
   chrome.runtime.onStartup.addListener(async () => {
     await initializeState();
+    await scheduleSessionSnapshotAlarm();
   });
 
-  // Daily retention alarm.
+  // Daily retention alarm + snapshot dispatcher.
   chrome.alarms.create(RETENTION_ALARM, { periodInMinutes: 1440 });
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === RETENTION_ALARM) runRetentionCleanup();
+    if (alarm.name === SESSION_SNAPSHOT_ALARM) saveSessionSnapshot();
   });
 
   // Run once immediately to cover dev reloads / first-load.
   initializeState();
   runRetentionCleanup();
+  scheduleSessionSnapshotAlarm();
 }

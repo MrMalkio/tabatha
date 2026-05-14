@@ -73,8 +73,8 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_TIME_TRACKING` | — | `{ timeTracking }` | ⬜ |
-| `LOG_INTENT_ACTION` | `{ action, tabId, ... }` | `{ success }` | ⬜ |
+| `GET_TIME_TRACKING` | — | `{ timeTracking }` | ✅ |
+| `LOG_INTENT_ACTION` | `{ action, url, domain, context?, focusId?, tabId? }` | `{ success }` | ✅ |
 
 ---
 
@@ -88,7 +88,7 @@ Each entry documents:
 | `GET_CLOCK_STATUS` | — | `{ clockSession, clockedIn, onBreak, ... }` | ⬜ |
 | `GET_CLOCK_HISTORY` | — | `{ history }` | ⬜ |
 | `GET_LAST_SESSION` | — | `{ session }` | ⬜ |
-| `GET_LATEST_SESSION` | — | `{ session }` | ⬜ |
+| `GET_LATEST_SESSION` | — | `{ session }` | ✅ — owned by sessionService (see below); listed here only for cross-reference |
 
 ---
 
@@ -118,9 +118,9 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_CATEGORIES` | — | `{ categories }` | ⬜ |
-| `CREATE_CATEGORY` | `{ name, patterns, ... }` | `{ success }` | ⬜ |
-| `CLONE_CATEGORY` | `{ categoryId }` | `{ success }` | ⬜ |
+| `GET_CATEGORIES` | — | `{ categories }` | ✅ |
+| `CREATE_CATEGORY` | `{ id, data }` | `{ categories }` | ✅ — verified against legacy behaviour |
+| `CLONE_CATEGORY` | `{ sourceId, newId, overrides? }` | `{ categories }` | ✅ — verified against legacy behaviour |
 
 ---
 
@@ -141,11 +141,12 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_SESSIONS` | — | `{ sessions }` | ⬜ |
-| `GET_CLOSED_CONTEXTS` | — | `{ closedContexts }` | ⬜ |
-| `GET_FLOW_RECALL` | `{ url? }` | `{ flows }` | ⬜ |
-| `REOPEN_FLOW` | `{ flowId }` | `{ success }` | ⬜ |
-| `EXPORT_MARKDOWN` | — | `{ markdown }` | ⬜ |
+| `GET_SESSIONS` | — | `{ sessions }` | ✅ |
+| `GET_LATEST_SESSION` | — | `{ session }` | ✅ — ownership resolved to sessionService (was ambiguous with clockService) |
+| `GET_CLOSED_CONTEXTS` | — | `{ closedContexts }` | ✅ |
+| `GET_FLOW_RECALL` | — | `{ flows }` | ✅ — verified against legacy behaviour (no `url` parameter) |
+| `REOPEN_FLOW` | `{ flowKey, newIntent? }` | `{ tabIds }` | ✅ — verified against legacy behaviour |
+| `EXPORT_MARKDOWN` | — | `{ success, content }` | ✅ — verified against legacy behaviour (returns `content`, not `markdown`) |
 
 ---
 

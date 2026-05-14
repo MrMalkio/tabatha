@@ -17,8 +17,7 @@ import {
 import {
   detectCategory,
   patternToRegex,
-  getUrlBase,
-  formatDuration
+  getUrlBase
 } from './helpers.js';
 import {
   getStorage,
@@ -26,10 +25,7 @@ import {
   getSettings,
   getTabData,
   getSubGroups,
-  getCategories,
-  getClosedContexts,
-  getSessions,
-  getTimeTracking
+  getCategories
 } from './services/storageService.js';
 import * as notificationService from './services/notificationService.js';
 import {
@@ -38,6 +34,18 @@ import {
   configureNotificationService
 } from './services/notificationService.js';
 import * as settingsService from './services/settingsService.js';
+import * as tabTrackingService from './services/tabTrackingService.js';
+import {
+  configureTabTrackingService,
+  appendIntentHistory,
+  aggregateAndPruneTabTime
+} from './services/tabTrackingService.js';
+import * as categoryService from './services/categoryService.js';
+import * as sessionService from './services/sessionService.js';
+import {
+  configureSessionService,
+  appendClosedContext
+} from './services/sessionService.js';
 import { registerBootstrap } from './bootstrap.js';
 
 // ============================================================
@@ -604,10 +612,9 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
       await setStorage({ pausedIntents });
     }
 
-    // Save to closed contexts if it had context
+    // Save to closed contexts if it had context (capped via settings.storage.closedContextsCap)
     if (tabData.context || tabData.intent) {
-      const closedContexts = await getClosedContexts();
-      closedContexts.unshift({
+      await appendClosedContext({
         url: tabData.url,
         title: tabData.title,
         context: tabData.context,
@@ -615,18 +622,19 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
         priority: tabData.priority,
         closedAt: new Date().toISOString(),
         activeTime: tabData.activeTime,
-        groupName: null, // Will be resolved from group data
+        groupName: null,
         subGroupId: tabData.subGroupId,
         category: tabData.category
       });
-      // Keep last 500 closed contexts
-      await setStorage({ closedContexts: closedContexts.slice(0, 500) });
     }
-    
+
+    // Aggregate tracked time into group buckets before we lose the per-tab row.
+    await aggregateAndPruneTabTime(tabId, tabData);
+
     delete tabs[tabId];
     await setTabData(tabs);
   }
-  
+
   await timeTracker.stopTracking(tabId);
   
   // Clear alarm
@@ -1055,13 +1063,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
   
   if (alarm.name === 'auto-export') {
-    await exportMarkdown();
+    await sessionService.exportMarkdown();
   }
-  
-  if (alarm.name === 'session-snapshot') {
-    await saveSessionSnapshot();
-  }
-  
+
+  // 'session-snapshot' alarm is now dispatched by bootstrap.js to
+  // sessionService.saveSessionSnapshot — see registerBootstrap().
+
   if (alarm.name === 'supabase-sync') {
     await syncToSupabase();
   }
@@ -1277,49 +1284,16 @@ async function createSubGroup(name, chromeGroupIds = [], projectId = null, setti
 }
 
 // ============================================================
-// CUSTOM CATEGORIES
-// ============================================================
-
-async function createCategory(id, categoryData) {
-  const categories = await getCategories();
-  categories[id] = {
-    builtIn: false,
-    ...categoryData
-  };
-  await setStorage({ categories });
-  return categories;
-}
-
-async function cloneCategory(sourceId, newId, overrides = {}) {
-  const categories = await getCategories();
-  const source = categories[sourceId];
-  if (!source) return null;
-  
-  const cloned = {
-    ...JSON.parse(JSON.stringify(source)),
-    builtIn: false,
-    clonedFrom: sourceId,
-    name: overrides.name || `${source.name} (Copy)`,
-    ...overrides
-  };
-  
-  categories[newId] = cloned;
-  await setStorage({ categories });
-  return categories;
-}
-
-// ============================================================
 // BULK OPERATIONS
 // ============================================================
 
 async function bulkCloseTabs(tabIds, sharedContext, sharedIntent) {
   const tabs = await getTabData();
-  const closedContexts = await getClosedContexts();
-  
+
   for (const tabId of tabIds) {
     const tabData = tabs[tabId];
     if (tabData) {
-      closedContexts.unshift({
+      await appendClosedContext({
         url: tabData.url,
         title: tabData.title,
         context: sharedContext || tabData.context,
@@ -1333,8 +1307,6 @@ async function bulkCloseTabs(tabIds, sharedContext, sharedIntent) {
       });
     }
   }
-  
-  await setStorage({ closedContexts: closedContexts.slice(0, 500) });
   
   // Remove non-locked tabs, collect locked ones for confirmation
   const lockedTabs = [];
@@ -1355,162 +1327,8 @@ async function bulkCloseTabs(tabIds, sharedContext, sharedIntent) {
   return { closed: closableTabs, needsConfirmation: lockedTabs };
 }
 
-// ============================================================
-// "RETURN TO FLOW" — SESSION RECALL
-// ============================================================
-
-async function getFlowRecallData() {
-  const closedContexts = await getClosedContexts();
-  const subGroups = await getSubGroups();
-  
-  // Group closed contexts by sub-group or context
-  const flows = {};
-  for (const ctx of closedContexts) {
-    const key = ctx.subGroupId || ctx.context || 'ungrouped';
-    if (!flows[key]) {
-      flows[key] = {
-        context: ctx.context,
-        intent: ctx.intent,
-        subGroupId: ctx.subGroupId,
-        subGroupName: ctx.subGroupId ? subGroups[ctx.subGroupId]?.name : null,
-        tabs: []
-      };
-    }
-    flows[key].tabs.push(ctx);
-  }
-  
-  return flows;
-}
-
-async function reopenFlow(flowKey, newSessionIntent) {
-  const flows = await getFlowRecallData();
-  const flow = flows[flowKey];
-  if (!flow) return;
-  
-  const tabIds = [];
-  for (const ctx of flow.tabs) {
-    if (ctx.url) {
-      const tab = await chrome.tabs.create({ url: ctx.url, active: false });
-      tabIds.push(tab.id);
-      
-      // Restore context on the new tab
-      const tabs = await getTabData();
-      if (tabs[tab.id]) {
-        tabs[tab.id].context = ctx.context;
-        tabs[tab.id].intent = newSessionIntent || ctx.intent;
-        tabs[tab.id].priority = ctx.priority;
-        tabs[tab.id].category = ctx.category;
-        await setTabData(tabs);
-      }
-    }
-  }
-  
-  return tabIds;
-}
-
-// ============================================================
-// SESSION SNAPSHOTS
-// ============================================================
-
-async function saveSessionSnapshot() {
-  const tabs = await getTabData();
-  const sessions = await getSessions();
-  
-  const snapshot = {
-    snapshotAt: new Date().toISOString(),
-    tabCount: Object.keys(tabs).length,
-    tabs: { ...tabs }
-  };
-  
-  // Keep last 50 snapshots
-  sessions.unshift(snapshot);
-  await setStorage({ sessions: sessions.slice(0, 50) });
-}
-
-// Save a snapshot every 5 minutes
-chrome.alarms.create('session-snapshot', { periodInMinutes: 5 });
-
 // Sync to Supabase every 5 minutes
 chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
-
-// ============================================================
-// MARKDOWN EXPORT
-// ============================================================
-
-async function exportMarkdown() {
-  const tabs = await getTabData();
-  const subGroups = await getSubGroups();
-  const categories = await getCategories();
-  const closedContexts = await getClosedContexts();
-  const timeTracking = await getTimeTracking();
-  const settings = await getSettings();
-  
-  let md = `# Tabatha Context — ${new Date().toLocaleString()}\n\n`;
-  md += `> Auto-generated by Tabatha. Designed for AI agent consumption.\n\n`;
-  
-  // Active tabs by group
-  md += `## Active Tabs (${Object.keys(tabs).length})\n\n`;
-  
-  const grouped = {};
-  for (const [tabId, tab] of Object.entries(tabs)) {
-    const key = tab.subGroupId || tab.groupId || 'ungrouped';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push({ tabId, ...tab });
-  }
-  
-  for (const [groupKey, groupTabs] of Object.entries(grouped)) {
-    const groupName = subGroups[groupKey]?.name || `Group ${groupKey}`;
-    md += `### ${groupKey === 'ungrouped' ? 'Ungrouped' : groupName}\n\n`;
-    
-    for (const tab of groupTabs) {
-      const priority = PRIORITY_LEVELS[tab.priority]?.label || '⚪ None';
-      const catIcon = categories[tab.category]?.icon || '❓';
-      const time = formatDuration(tab.activeTime || 0);
-      const locked = tab.locked ? '🔒' : '';
-      const urlLocked = tab.urlLocked ? '🔗' : '';
-      
-      md += `- ${priority} ${catIcon} ${locked}${urlLocked} **${tab.title}**\n`;
-      md += `  - URL: ${tab.url}\n`;
-      if (tab.context) md += `  - Context: ${tab.context}\n`;
-      if (tab.intent) md += `  - Intent: ${tab.intent}\n`;
-      md += `  - Active time: ${time}\n`;
-      md += `  - Opened: ${tab.openedAt}\n\n`;
-    }
-  }
-  
-  // Closed contexts
-  if (closedContexts.length > 0) {
-    md += `## Recently Closed Contexts\n\n`;
-    for (const ctx of closedContexts.slice(0, 20)) {
-      md += `- **${ctx.title}** (${ctx.priority})\n`;
-      if (ctx.context) md += `  - Context: ${ctx.context}\n`;
-      md += `  - URL: ${ctx.url}\n`;
-      md += `  - Closed: ${ctx.closedAt}\n\n`;
-    }
-  }
-  
-  // Time summary
-  md += `## Time Summary\n\n`;
-  md += `| Category | Time |\n|----------|------|\n`;
-  for (const [cat, ms] of Object.entries(timeTracking.byCategory)) {
-    const catName = categories[cat]?.name || cat;
-    md += `| ${catName} | ${formatDuration(ms)} |\n`;
-  }
-  md += `\n`;
-  
-  // Download the file
-  const blob = new Blob([md], { type: 'text/markdown' });
-  const url = URL.createObjectURL(blob);
-  
-  chrome.downloads.download({
-    url,
-    filename: `${settings.exportPath}/context.md`,
-    saveAs: false,
-    conflictAction: 'overwrite'
-  });
-  
-  return md;
-}
 
 // ============================================================
 // MESSAGE ROUTING
@@ -1518,6 +1336,8 @@ async function exportMarkdown() {
 
 // ── Service instances ──
 configureNotificationService({ getTabData, setTabData, getFocusEngine });
+configureTabTrackingService({ broadcastToExtension, triggerSync });
+configureSessionService({ setTabData });
 
 const clockService = createClockService(getStorage, setStorage, broadcastToExtension);
 
@@ -1527,7 +1347,13 @@ const clockService = createClockService(getStorage, setStorage, broadcastToExten
 // the message is not theirs (the router then falls through to
 // `handleLegacyMessage`). Anything else — including `null`, `{}`, or an
 // error object — is treated as a handled response.
-const services = [notificationService, settingsService];
+const services = [
+  notificationService,
+  settingsService,
+  tabTrackingService,
+  categoryService,
+  sessionService
+];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
@@ -1697,44 +1523,6 @@ async function handleLegacyMessage(message, sender) {
     case 'GET_SUB_GROUPS':
       return { subGroups: await getSubGroups() };
     
-    // --- Categories ---
-    case 'GET_CATEGORIES':
-      return { categories: await getCategories() };
-    
-    case 'CREATE_CATEGORY':
-      return { categories: await createCategory(message.id, message.data) };
-    
-    case 'CLONE_CATEGORY':
-      return { categories: await cloneCategory(message.sourceId, message.newId, message.overrides) };
-    
-    // --- Flow Recall ---
-    case 'GET_FLOW_RECALL':
-      return { flows: await getFlowRecallData() };
-    
-    case 'REOPEN_FLOW':
-      return { tabIds: await reopenFlow(message.flowKey, message.newIntent) };
-
-    // --- Closed Contexts ---
-    case 'GET_CLOSED_CONTEXTS':
-      return { closedContexts: await getClosedContexts() };
-    
-    // --- Time Tracking ---
-    case 'GET_TIME_TRACKING':
-      return { timeTracking: await getTimeTracking() };
-      
-    // --- Sessions ---
-    case 'GET_SESSIONS':
-      return { sessions: await getSessions() };
-    
-    case 'GET_LATEST_SESSION':
-      const sessions = await getSessions();
-      return { session: sessions[0] || null };
-    
-    // --- Export ---
-    case 'EXPORT_MARKDOWN':
-      const md = await exportMarkdown();
-      return { success: true, content: md };
-    
     // --- Focus Tab ---
     case 'FOCUS_TAB':
       try {
@@ -1880,23 +1668,20 @@ async function handleLegacyMessage(message, sender) {
         await setTabData(tabs);
         broadcastAll({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
 
-        // Log intent change for URL Rules changelog
+        // Log intent change — single canonical intentHistory key (Plan 023 §2).
         if (message.intent !== oldIntent || message.context !== oldContext) {
           try {
             const domain = new URL(sender.tab.url || '').hostname.replace(/^www\./, '');
-            const { intentChangeLog } = await getStorage('intentChangeLog');
-            const log = intentChangeLog || [];
-            log.unshift({
-              timestamp: new Date().toISOString(),
+            await appendIntentHistory({
               tabId: sender.tab.id,
               url: sender.tab.url,
               domain,
+              action: 'change',
               oldIntent: oldIntent || null,
               newIntent: message.intent || null,
               oldContext: oldContext || null,
-              newContext: message.context || null,
+              newContext: message.context || null
             });
-            await setStorage({ intentChangeLog: log.slice(0, 500) }); // keep last 500
           } catch (e) { /* non-critical */ }
         }
         return { success: true };
@@ -2049,24 +1834,6 @@ async function handleLegacyMessage(message, sender) {
           list.push(message.domain);
           await setStorage({ skippedDomains: list });
         }
-        return { success: true };
-    }
-    
-    case 'LOG_INTENT_ACTION': {
-        const { intentHistory } = await getStorage('intentHistory');
-        const history = intentHistory || [];
-        history.unshift({
-          action: message.action,
-          context: message.context || null,
-          focusId: message.focusId || null,
-          url: message.url,
-          domain: message.domain,
-          timestamp: new Date().toISOString()
-        });
-        // Keep last 500
-        await setStorage({ intentHistory: history.slice(0, 500) });
-        broadcastToExtension({ type: 'INTENT_HISTORY_UPDATED' });
-        triggerSync();
         return { success: true };
     }
     
