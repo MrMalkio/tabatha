@@ -185,11 +185,12 @@ Each entry documents:
 
 | Message Type | Request | Response | Status |
 |-------------|---------|----------|--------|
-| `GET_COMPANION_STATUS` | — | `{ connected, status, activeApp, clock }` | ⬜ |
-| `GET_COMPANION_SUMMARY` | `{ date? }` | `{ requested }` or `{ connected: false }` | ⬜ |
-| `COMPANION_CLOCK_IN` | `{ label? }` | `{ sent }` or `{ connected: false }` | ⬜ |
-| `COMPANION_CLOCK_OUT` | — | `{ sent }` or `{ connected: false }` | ⬜ |
-| `COMPANION_TOGGLE_BREAK` | — | `{ sent }` or `{ connected: false }` | ⬜ |
+| `GET_COMPANION_STATUS` | — | `{ connected, status, activeApp, clock }` | ✅ — now handled by companionService |
+| `GET_COMPANION_SUMMARY` | `{ date? }` | `{ requested }` or `{ connected: false }` | ✅ |
+| `COMPANION_CLOCK_IN` | `{ label? }` | `{ sent }` or `{ connected: false }` | ✅ |
+| `COMPANION_CLOCK_OUT` | — | `{ sent }` or `{ connected: false }` | ✅ |
+| `COMPANION_TOGGLE_BREAK` | — | `{ sent }` or `{ connected: false }` | ✅ — legacy/current message type |
+| `COMPANION_CLOCK_BREAK` | — | `{ sent }` or `{ connected: false }` | ✅ — alias for task-spec compatibility |
 
 ---
 
@@ -223,6 +224,7 @@ These are sent through `notificationService` helpers and don't have response sha
 | `TASKS_UPDATED` | `broadcastToExtension` | Extension UI only |
 | `USER_IDLE` | `broadcastToExtension` | Extension UI only |
 | `CLOCK_SESSION_UPDATED` | `broadcastToExtension` | Clock service receives the scoped helper from the router |
+| `COMPANION_IDLE_STATE` | `broadcastToExtension` | Fires only when desktop idle state changes (`idle` ↔ `active`) |
 | `STORAGE_CAP_WARNING` | `chrome.runtime.sendMessage` | Archive service warning, extension UI only |
 
 ---

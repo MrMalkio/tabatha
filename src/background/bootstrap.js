@@ -20,6 +20,7 @@ import {
   DEFAULT_RETENTION_DAYS
 } from './constants.js';
 import { saveSessionSnapshot } from './services/sessionService.js';
+import { initialize as initializeCompanionService } from './services/companionService.js';
 
 export const SESSION_SNAPSHOT_ALARM = 'session-snapshot';
 
@@ -245,6 +246,8 @@ export async function scheduleSessionSnapshotAlarm() {
 // ── Lifecycle registration ──
 // Called once from background.js at module load.
 export function registerBootstrap() {
+  initializeCompanionService();
+
   chrome.runtime.onInstalled.addListener(async (details) => {
     if (details.reason === 'install') {
       await setStorage({

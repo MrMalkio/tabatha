@@ -2,7 +2,7 @@
 
 > Every message handler in master's `background.js` (v3.34.5-α, 2920 lines) mapped to its target service module.  
 > Use this as the extraction guide for `refactor/decomp-v2`.  
-> **79 handlers across 12 services** (+ 6 companion-bridge handlers handled separately).
+> **79 handlers across 13 services** (desktop companion WebSocket handlers now live inside companionService).
 
 ---
 
@@ -231,25 +231,26 @@ Broadcasting, InBar data, popup triggering.
 
 ---
 
-## companionService.js — 5 handlers
+## companionService.js — 5 handlers (+ 1 break alias)
 
-Desktop companion proxy.
+Desktop companion WebSocket lifecycle and runtime-message proxy.
 
 | # | Handler | Line (approx) | Description |
 |---|---------|--------------|-------------|
-| 1 | `GET_COMPANION_STATUS` | 2873 | Return WebSocket connection state |
-| 2 | `GET_COMPANION_SUMMARY` | 2881 | Request daily summary from desktop |
-| 3 | `COMPANION_CLOCK_IN` | 2888 | Forward clock-in to desktop |
-| 4 | `COMPANION_CLOCK_OUT` | 2895 | Forward clock-out to desktop |
-| 5 | `COMPANION_TOGGLE_BREAK` | 2902 | Forward break toggle to desktop |
+| 1 | `GET_COMPANION_STATUS` | services/companionService.js | Return WebSocket connection state |
+| 2 | `GET_COMPANION_SUMMARY` | services/companionService.js | Request daily summary from desktop |
+| 3 | `COMPANION_CLOCK_IN` | services/companionService.js | Forward clock-in to desktop |
+| 4 | `COMPANION_CLOCK_OUT` | services/companionService.js | Forward clock-out to desktop |
+| 5 | `COMPANION_TOGGLE_BREAK` | services/companionService.js | Forward break toggle to desktop |
+| alias | `COMPANION_CLOCK_BREAK` | services/companionService.js | Compatibility alias for break toggle |
 
-**Dependencies:** companion-bridge.js
+**Dependencies:** storage APIs, notificationService, companion WebSocket constants.
 
 ---
 
-## companion-bridge.js — 6 WebSocket message handlers (separate from router)
+## companionService.js — 6 WebSocket message handlers
 
-These are handled internally by the companion bridge, NOT through the chrome.runtime.onMessage router:
+These are handled internally by companionService, NOT through the chrome.runtime.onMessage router:
 
 | # | WS Message Type | Description |
 |---|----------------|-------------|

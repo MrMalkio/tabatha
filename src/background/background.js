@@ -4,7 +4,6 @@
 
 import { supabase } from '../services/supabaseClient';
 import * as timeTracker from '../services/timeTracking.js';
-import { companionBridge } from './companion-bridge.js';
 import { fireWebhook } from './webhooks.js';
 import {
   DEFAULT_FOCUS_ENGINE,
@@ -50,6 +49,8 @@ import {
   toggleBreak as clockToggleBreak
 } from './services/clockService.js';
 import * as clockTickService from './services/clockTickService.js';
+import * as companionService from './services/companionService.js';
+import { companionBridge } from './services/companionService.js';
 import * as groupService from './services/groupService.js';
 import {
   configureGroupService,
@@ -991,6 +992,7 @@ const services = [
   sessionService,
   clockService,
   clockTickService,
+  companionService,
   taskService,
   tabService,
   focusService,
@@ -1020,43 +1022,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleLegacyMessage(message) {
   switch (message.type) {
-    // --- Desktop Companion ---
-    case 'GET_COMPANION_STATUS':
-        return {
-          connected: companionBridge.isConnected,
-          status: companionBridge.status,
-          activeApp: companionBridge.activeApp,
-          clock: companionBridge.clockState,
-        };
-
-    case 'GET_COMPANION_SUMMARY':
-        if (companionBridge.isConnected) {
-          companionBridge.requestSummary(message.date);
-          return { requested: true };
-        }
-        return { connected: false };
-
-    case 'COMPANION_CLOCK_IN':
-        if (companionBridge.isConnected) {
-          companionBridge.sendClockIn(message.label);
-          return { sent: true };
-        }
-        return { connected: false };
-
-    case 'COMPANION_CLOCK_OUT':
-        if (companionBridge.isConnected) {
-          companionBridge.sendClockOut();
-          return { sent: true };
-        }
-        return { connected: false };
-
-    case 'COMPANION_TOGGLE_BREAK':
-        if (companionBridge.isConnected) {
-          companionBridge.sendToggleBreak();
-          return { sent: true };
-        }
-        return { connected: false };
-
     default:
       return { error: 'Unknown message type' };
   }
