@@ -22,20 +22,20 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_FOCUS_ENGINE` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `START_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | Companion bridge integration |
-| 3 | `ADD_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 4 | `SWITCH_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 5 | `COMPLETE_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 6 | `EXTEND_FOCUS_TIMER` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 7 | `SET_FUNNEL_STAGE` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | Complex state machine |
-| 8 | `UPDATE_FOCUS_TAGS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 9 | `RENAME_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 10 | `UPDATE_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | Duplicated stage machine — merge with SET_FUNNEL_STAGE |
-| 11 | `PAUSE_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 12 | `RESUME_FOCUS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | Auto-ends break via clockService |
-| 13 | `LINK_INTENT_TO_TASK` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | Creates task if newTaskName provided |
-| 14 | `MERGE_INTENTS` | focusService | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 1 | `GET_FOCUS_ENGINE` | focusService | ✅ | ✅ | ✅ | ⬜ | |
+| 2 | `START_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | Companion bridge integration preserved |
+| 3 | `ADD_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | |
+| 4 | `SWITCH_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | |
+| 5 | `COMPLETE_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | Archives dropped `focusEngine.history` entries before capping |
+| 6 | `EXTEND_FOCUS_TIMER` | focusService | ✅ | ✅ | ✅ | ⬜ | |
+| 7 | `SET_FUNNEL_STAGE` | focusService | ✅ | ✅ | ✅ | ⬜ | Uses shared stage transition helper |
+| 8 | `UPDATE_FOCUS_TAGS` | focusService | ✅ | ✅ | ✅ | ⬜ | |
+| 9 | `RENAME_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | |
+| 10 | `UPDATE_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | Uses shared stage transition helper |
+| 11 | `PAUSE_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | |
+| 12 | `RESUME_FOCUS` | focusService | ✅ | ✅ | ✅ | ⬜ | Auto-ends break through injected clock fallback |
+| 13 | `LINK_INTENT_TO_TASK` | focusService | ✅ | ✅ | ✅ | ⬜ | Creates legacy task if `newTaskName` provided |
+| 14 | `MERGE_INTENTS` | focusService | ✅ | ✅ | ✅ | ⬜ | |
 
 ---
 

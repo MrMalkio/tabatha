@@ -1,0 +1,675 @@
+// Tabatha - Focus Service (Plan 023 Task 04b)
+// Owns focus lifecycle, focus funnel transitions, and intent/focus linking.
+
+import { DEFAULT_FOCUS_ENGINE, DEFAULT_SETTINGS, STAGE_ORDER } from '../constants.js';
+import { fireWebhook as defaultFireWebhook } from '../webhooks.js';
+import { getStorage, setStorage, getSettings } from './storageService.js';
+import { archiveBeforeCap } from './archiveService.js';
+import { broadcastAll, broadcastToExtension } from './notificationService.js';
+
+let injectedDeps = {};
+
+export function configureFocusService(deps = {}) {
+  injectedDeps = { ...injectedDeps, ...deps };
+}
+
+export async function handleMessage(type, message) {
+  switch (type) {
+    case 'GET_FOCUS_ENGINE':
+      return { focusEngine: await getFocusEngine() };
+
+    case 'START_FOCUS': {
+      const result = await startFocus(message.label, message.timerMinutes, message.tags);
+      const companionBridge = injectedDeps.companionBridge;
+      if (companionBridge?.isConnected && result.activeId) {
+        const active = result.items[result.activeId];
+        companionBridge.sendFocusUpdate(result.activeId, active?.label);
+      }
+      return { focusEngine: result };
+    }
+
+    case 'ADD_FOCUS': {
+      const result = await addFocus(message.label, message.timerMinutes, message.tags);
+      return { focusEngine: result.engine, newFocusId: result.newFocusId };
+    }
+
+    case 'SWITCH_FOCUS':
+      return { focusEngine: await switchFocus(message.focusId) };
+
+    case 'COMPLETE_FOCUS':
+      return { focusEngine: await completeFocus(message.focusId) };
+
+    case 'EXTEND_FOCUS_TIMER':
+      return { focusEngine: await extendFocusTimer(message.focusId, message.extraMinutes) };
+
+    case 'SET_FUNNEL_STAGE':
+      return setFunnelStage(message.focusId, message.stage, message.confirmed);
+
+    case 'UPDATE_FOCUS_TAGS':
+      return { focusEngine: await updateFocusTags(message.focusId, message.tags) };
+
+    case 'RENAME_FOCUS':
+      return renameFocus(message.focusId, message.newLabel);
+
+    case 'UPDATE_FOCUS':
+      return updateFocus(message);
+
+    case 'PAUSE_FOCUS':
+      return pauseFocus(message.focusId);
+
+    case 'RESUME_FOCUS':
+      return resumeFocus(message.focusId);
+
+    case 'LINK_INTENT_TO_TASK':
+      return linkIntentToTask(message);
+
+    case 'MERGE_INTENTS':
+      return mergeIntents(message.sourceIntentId, message.targetIntentId);
+
+    default:
+      return undefined;
+  }
+}
+
+export async function getFocusEngine() {
+  const { focusEngine } = await getStorage('focusEngine');
+  const engine = focusEngine ? { ...focusEngine } : { ...DEFAULT_FOCUS_ENGINE };
+  if (!engine.items) engine.items = {};
+  if (!engine.history) engine.history = [];
+  return engine;
+}
+
+export async function setFocusEngine(engine) {
+  const result = await setStorage({ focusEngine: engine });
+  injectedDeps.triggerSync?.();
+  return result;
+}
+
+function generateFocusId() {
+  return `f_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+}
+
+async function applyDefaultRealm(tags = {}) {
+  if (tags.realm) return tags;
+  try {
+    const { tabathaSettings } = await getStorage('tabathaSettings');
+    if (tabathaSettings?.defaultRealm) return { ...tags, realm: tabathaSettings.defaultRealm };
+  } catch { /* ignore */ }
+  return tags;
+}
+
+function addElapsedSinceResume(item) {
+  if (item?.lastResumedAt) {
+    item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    item.lastResumedAt = null;
+  }
+}
+
+function pauseItem(item, reason) {
+  addElapsedSinceResume(item);
+  item.focusState = 'paused';
+  item.pausedAt = new Date().toISOString();
+  if (reason) item.pausedReason = reason;
+  if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
+}
+
+async function persistFocusHistoryCap(engine) {
+  const settings = await getSettings();
+  const cap = settings?.storage?.focusHistoryCap ?? DEFAULT_SETTINGS.storage.focusHistoryCap;
+  if (!Number.isFinite(cap) || cap <= 0 || engine.history.length <= cap) return;
+
+  const dropped = engine.history.slice(cap);
+  engine.history = engine.history.slice(0, cap);
+  await archiveBeforeCap('focusEngine.history', dropped, 'localArchive');
+}
+
+function fireWebhook(type, data) {
+  const fn = injectedDeps.fireWebhook || defaultFireWebhook;
+  return fn(type, data);
+}
+
+export async function startFocus(label, timerMinutes = 15, tags = {}) {
+  const engine = await getFocusEngine();
+  const id = generateFocusId();
+  const resolvedTags = await applyDefaultRealm(tags);
+
+  if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+    const current = engine.items[engine.activeFocusId];
+    if (current.focusState === 'active' || current.focusState === 'drifted') {
+      pauseItem(current);
+      chrome.alarms.clear(`focus-timer-${engine.activeFocusId}`);
+    }
+  }
+
+  const associatedTabIds = [];
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.id) associatedTabIds.push(activeTab.id);
+  } catch { /* no active tab */ }
+
+  engine.items[id] = {
+    id,
+    label,
+    focusState: 'active',
+    funnelStage: 'addressing',
+    createdAt: new Date().toISOString(),
+    startedAt: new Date().toISOString(),
+    lastResumedAt: new Date().toISOString(),
+    endedAt: null,
+    pausedAt: null,
+    timerMinutes,
+    elapsedMs: 0,
+    overMs: 0,
+    associatedTabIds,
+    tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
+    parentFocusId: engine.activeFocusId || null,
+    contextSwitchCount: 0,
+    priority: 5
+  };
+
+  engine.activeFocusId = id;
+  await setFocusEngine(engine);
+
+  if (timerMinutes > 0) {
+    chrome.alarms.create(`focus-timer-${id}`, { delayInMinutes: timerMinutes });
+  }
+
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  fireWebhook('focus_started', { id, label, timerMinutes, tags: resolvedTags });
+  return engine;
+}
+
+export async function addFocus(label, timerMinutes = 15, tags = {}) {
+  const engine = await getFocusEngine();
+  const id = generateFocusId();
+  const resolvedTags = await applyDefaultRealm(tags);
+
+  engine.items[id] = {
+    id,
+    label,
+    focusState: 'paused',
+    funnelStage: 'todo',
+    createdAt: new Date().toISOString(),
+    startedAt: null,
+    lastResumedAt: null,
+    endedAt: null,
+    pausedAt: null,
+    timerMinutes,
+    elapsedMs: 0,
+    overMs: 0,
+    associatedTabIds: [],
+    tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
+    parentFocusId: engine.activeFocusId || null,
+    contextSwitchCount: 0
+  };
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { engine, newFocusId: id };
+}
+
+export async function switchFocus(focusId) {
+  const engine = await getFocusEngine();
+  if (!engine.items[focusId]) return engine;
+
+  if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+    const current = engine.items[engine.activeFocusId];
+    if (current.focusState === 'active' || current.focusState === 'drifted') {
+      pauseItem(current);
+      chrome.alarms.clear(`focus-timer-${engine.activeFocusId}`);
+    }
+  }
+
+  const target = engine.items[focusId];
+  target.focusState = 'active';
+  target.funnelStage = target.funnelStage === 'todo' || target.funnelStage === 'unsorted' ? 'focus' : target.funnelStage;
+  target.lastResumedAt = new Date().toISOString();
+  if (!target.startedAt) target.startedAt = new Date().toISOString();
+  target.pausedAt = null;
+  target.contextSwitchCount = (target.contextSwitchCount || 0) + 1;
+
+  engine.activeFocusId = focusId;
+  await setFocusEngine(engine);
+
+  const totalTimerMs = target.timerMinutes * 60 * 1000;
+  const remaining = totalTimerMs - (target.elapsedMs || 0);
+  if (remaining > 0) {
+    chrome.alarms.create(`focus-timer-${focusId}`, { delayInMinutes: remaining / 60000 });
+  }
+
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.id && !target.associatedTabIds.includes(activeTab.id)) {
+      target.associatedTabIds.push(activeTab.id);
+      await setFocusEngine(engine);
+    }
+  } catch { /* no active tab */ }
+
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return engine;
+}
+
+export async function completeFocus(focusId) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  if (!id || !engine.items[id]) return engine;
+
+  const item = engine.items[id];
+  if (item.focusState === 'active' || item.focusState === 'drifted') {
+    addElapsedSinceResume(item);
+  }
+  item.focusState = 'completed';
+  item.funnelStage = 'resolved';
+  item.endedAt = new Date().toISOString();
+
+  chrome.alarms.clear(`focus-timer-${id}`);
+
+  engine.history.unshift({ ...item });
+  delete engine.items[id];
+  await persistFocusHistoryCap(engine);
+
+  if (engine.activeFocusId === id) {
+    engine.activeFocusId = null;
+    const nextPaused = Object.values(engine.items)
+      .filter(i => i.focusState === 'paused')
+      .sort((a, b) => new Date(b.pausedAt || b.createdAt) - new Date(a.pausedAt || a.createdAt))[0];
+    if (nextPaused) {
+      nextPaused.focusState = 'active';
+      nextPaused.lastResumedAt = new Date().toISOString();
+      if (!nextPaused.startedAt) nextPaused.startedAt = new Date().toISOString();
+      nextPaused.pausedAt = null;
+      engine.activeFocusId = nextPaused.id;
+
+      const totalTimerMs = nextPaused.timerMinutes * 60 * 1000;
+      const remaining = totalTimerMs - (nextPaused.elapsedMs || 0);
+      if (remaining > 0) {
+        chrome.alarms.create(`focus-timer-${nextPaused.id}`, { delayInMinutes: remaining / 60000 });
+      }
+    }
+  }
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  fireWebhook('focus_resolved', { id, label: item.label, elapsedMs: item.elapsedMs });
+  return engine;
+}
+
+export async function extendFocusTimer(focusId, extraMinutes = 5) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  if (!id || !engine.items[id]) return engine;
+
+  const item = engine.items[id];
+  item.timerMinutes = (item.timerMinutes || 0) + extraMinutes;
+
+  if (item.focusState === 'drifted') {
+    if (item.lastResumedAt) {
+      item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    }
+    item.focusState = 'active';
+    item.lastResumedAt = new Date().toISOString();
+  }
+
+  const totalTimerMs = item.timerMinutes * 60 * 1000;
+  let elapsed = item.elapsedMs || 0;
+  if (item.focusState === 'active' && item.lastResumedAt) {
+    elapsed += Date.now() - new Date(item.lastResumedAt).getTime();
+  }
+  const remaining = totalTimerMs - elapsed;
+
+  chrome.alarms.clear(`focus-timer-${id}`);
+  if (remaining > 0) {
+    chrome.alarms.create(`focus-timer-${id}`, { delayInMinutes: remaining / 60000 });
+  }
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return engine;
+}
+
+async function updateFocusTags(focusId, tags) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  if (!id || !engine.items[id]) return engine;
+  engine.items[id].tags = { ...engine.items[id].tags, ...tags };
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return engine;
+}
+
+async function renameFocus(focusId, newLabel) {
+  const engine = await getFocusEngine();
+  if (engine.items[focusId]) {
+    engine.items[focusId].label = newLabel;
+    await setFocusEngine(engine);
+    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  }
+  return { focusEngine: engine };
+}
+
+function applyStageTransition(engine, item, newStage, confirmed = false) {
+  const from = item.funnelStage || 'unsorted';
+  const to = newStage;
+  const isBackward = (STAGE_ORDER[to] ?? 0) < (STAGE_ORDER[from] ?? 0);
+
+  if (to === 'unsorted' && from !== 'unsorted') {
+    return { error: 'Cannot roll back to unsorted', needsConfirm: false };
+  }
+  if (from === 'resolved' && to !== 'resolved') {
+    if (!confirmed) return { error: 'Resolved items cannot change stage. Confirm to undo.', needsConfirm: true };
+    item.focusState = 'paused';
+    item.endedAt = null;
+  }
+  if (item.focusState === 'completed' && to !== 'resolved') {
+    if (!confirmed) return { error: 'This focus is completed. Confirm to reopen.', needsConfirm: true };
+    item.focusState = 'paused';
+    item.endedAt = null;
+  }
+  if ((from === 'addressing' || from === 'focus') && to === 'todo') {
+    return { error: 'Cannot demote from focus/addressing to todo', needsConfirm: false };
+  }
+  if (isBackward && !(from === 'roadblocked' && to === 'focus') && !confirmed) {
+    return { error: `Rolling back from ${from} to ${to} requires confirmation`, needsConfirm: true };
+  }
+  if (to === 'focus' && !(item.label && item.label.trim())) {
+    return { error: 'Focus requires a title', needsConfirm: false };
+  }
+
+  item.funnelStage = to;
+
+  if (to === 'resolved') {
+    addElapsedSinceResume(item);
+    item.focusState = 'completed';
+    item.endedAt = new Date().toISOString();
+    if (engine.activeFocusId === item.id) engine.activeFocusId = null;
+  } else if (to === 'addressing' && item.focusState !== 'active') {
+    if (engine.activeFocusId && engine.activeFocusId !== item.id) {
+      const prev = engine.items[engine.activeFocusId];
+      if (prev?.focusState === 'active') pauseItem(prev);
+    }
+    item.focusState = 'active';
+    item.lastResumedAt = new Date().toISOString();
+    item.startedAt = item.startedAt || new Date().toISOString();
+    engine.activeFocusId = item.id;
+  }
+
+  return {};
+}
+
+async function setFunnelStage(focusId, stage, confirmed) {
+  const engine = await getFocusEngine();
+  const item = engine.items[focusId];
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  const result = applyStageTransition(engine, item, stage, !!confirmed);
+  if (result.error) return { ...result, focusEngine: engine };
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+async function updateFocus(message) {
+  const engine = await getFocusEngine();
+  const item = engine.items[message.focusId];
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  if (message.label !== undefined) item.label = message.label;
+  if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
+  if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
+  if (message.funnelStage !== undefined) {
+    const result = applyStageTransition(engine, item, message.funnelStage, !!message.confirmed);
+    if (result.error) {
+      const error = result.error === 'Focus requires a title'
+        ? 'A focus item requires a title before entering focus stage'
+        : result.error;
+      return { ...result, error, focusEngine: engine };
+    }
+  }
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+async function pauseFocus(focusId) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  const item = id ? engine.items[id] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  pauseItem(item);
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+async function resumeFocus(focusId) {
+  const engine = await getFocusEngine();
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  if (engine.activeFocusId && engine.activeFocusId !== focusId) {
+    const current = engine.items[engine.activeFocusId];
+    if (current?.focusState === 'active') pauseItem(current);
+  }
+
+  item.focusState = 'active';
+  item.lastResumedAt = new Date().toISOString();
+  item.pausedAt = null;
+  if (item.funnelStage === 'focus' || item.funnelStage === 'todo' || item.funnelStage === 'unsorted') {
+    item.funnelStage = 'addressing';
+  }
+  engine.activeFocusId = focusId;
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  await endBreakIfActive();
+  return { focusEngine: engine };
+}
+
+async function endBreakIfActive() {
+  try {
+    if (injectedDeps.endBreakIfActive) {
+      await injectedDeps.endBreakIfActive();
+      return;
+    }
+
+    const { clockSession } = await getStorage('clockSession');
+    if (clockSession?.active && clockSession?.onBreak && injectedDeps.clockService?.toggleBreak) {
+      await injectedDeps.clockService.toggleBreak();
+    }
+  } catch { /* ignore */ }
+}
+
+async function linkIntentToTask(message) {
+  const engine = await getFocusEngine();
+  const { intentId, taskId, newTaskName } = message;
+
+  let finalTaskId = taskId;
+  if (newTaskName) {
+    const { tasks = [] } = await getStorage('tasks');
+    finalTaskId = `task_${Date.now()}`;
+    tasks.push({ id: finalTaskId, name: newTaskName, createdAt: new Date().toISOString() });
+    await setStorage({ tasks });
+    broadcastToExtension({ type: 'TASKS_UPDATED', tasks });
+  }
+
+  if (engine.items[intentId]) {
+    engine.items[intentId].tags = engine.items[intentId].tags || {};
+    engine.items[intentId].tags.task = finalTaskId;
+    await setFocusEngine(engine);
+    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  }
+  return { success: true };
+}
+
+async function mergeIntents(sourceIntentId, targetIntentId) {
+  const engine = await getFocusEngine();
+
+  if (engine.items[sourceIntentId] && engine.items[targetIntentId]) {
+    const source = engine.items[sourceIntentId];
+    const target = engine.items[targetIntentId];
+
+    target.associatedTabIds = [...new Set([...target.associatedTabIds, ...source.associatedTabIds])];
+    target.elapsedMs = (target.elapsedMs || 0) + (source.elapsedMs || 0);
+    delete engine.items[sourceIntentId];
+
+    if (engine.activeFocusId === sourceIntentId) {
+      engine.activeFocusId = targetIntentId;
+    }
+
+    await setFocusEngine(engine);
+    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  }
+  return { success: true };
+}
+
+export async function associateTabWithFocus(focusId, tabId) {
+  const engine = await getFocusEngine();
+  if (focusId && engine.items[focusId] && tabId) {
+    const associated = engine.items[focusId].associatedTabIds || [];
+    if (!associated.includes(tabId)) {
+      engine.items[focusId].associatedTabIds = [...associated, tabId];
+      await setFocusEngine(engine);
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+    }
+  }
+  return engine;
+}
+
+export async function linkTabToFocus(focusId, tabId) {
+  const engine = await getFocusEngine();
+  const tabs = await getTabData();
+
+  if (engine.items[focusId]) {
+    Object.values(engine.items).forEach(intent => {
+      intent.associatedTabIds = (intent.associatedTabIds || []).filter(id => id !== tabId);
+    });
+    if (!engine.items[focusId].associatedTabIds.includes(tabId)) {
+      engine.items[focusId].associatedTabIds.push(tabId);
+    }
+    await setFocusEngine(engine);
+
+    if (tabs[tabId]) {
+      tabs[tabId].intent = engine.items[focusId].label;
+      await setTabData(tabs);
+      broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+    }
+
+    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  }
+  return engine;
+}
+
+export async function autoQueueFromIntent(intent, tabId) {
+  if (!intent) return { skipped: true };
+
+  try {
+    const { tabathaSettings } = await getStorage('tabathaSettings');
+    const bridgeMode = tabathaSettings?.intentBridgeMode || 'smart_dedup';
+    if (bridgeMode === 'manual') return { skipped: true, bridgeMode };
+
+    const engine = await getFocusEngine();
+    const activeFocus = engine.activeFocusId ? engine.items[engine.activeFocusId] : null;
+    const activeLabel = activeFocus?.label?.toLowerCase()?.trim() || '';
+    const newLabel = intent.toLowerCase().trim();
+    const existingMatch = Object.values(engine.items).find(
+      item => item.label?.toLowerCase()?.trim() === newLabel && item.focusState !== 'completed'
+    );
+    const shouldAutoQueue = bridgeMode === 'always'
+      ? !existingMatch
+      : newLabel !== activeLabel && !existingMatch;
+
+    if (shouldAutoQueue) {
+      const defaultRealm = tabathaSettings?.defaultRealm || '';
+      const result = await addFocus(intent, 15, { realm: defaultRealm });
+      const newItem = result.engine.items[result.newFocusId];
+      if (newItem && tabId) {
+        newItem.associatedTabIds = [...(newItem.associatedTabIds || []), tabId];
+        await setFocusEngine(result.engine);
+      }
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      return { engine: result.engine, newFocusId: result.newFocusId };
+    }
+
+    if (existingMatch && tabId && !existingMatch.associatedTabIds?.includes(tabId)) {
+      existingMatch.associatedTabIds = [...(existingMatch.associatedTabIds || []), tabId];
+      await setFocusEngine(engine);
+    }
+
+    return { engine, linkedFocusId: existingMatch?.id || null };
+  } catch (bridgeErr) {
+    console.warn('[Intent Bridge] Error:', bridgeErr);
+    return { error: bridgeErr.message || 'Intent bridge failed' };
+  }
+}
+
+export async function pauseActiveFocus(reason) {
+  const engine = await getFocusEngine();
+  if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+    const active = engine.items[engine.activeFocusId];
+    if (active.focusState === 'active') {
+      pauseItem(active, reason);
+      await setFocusEngine(engine);
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+    }
+  }
+  return engine;
+}
+
+export async function markFocusDrifted(focusId) {
+  const engine = await getFocusEngine();
+  const item = engine.items[focusId];
+  if (item?.focusState === 'active') {
+    item.focusState = 'drifted';
+    if (item.lastResumedAt) {
+      item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+      item.lastResumedAt = new Date().toISOString();
+    }
+    await setFocusEngine(engine);
+    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  }
+  return { engine, item };
+}
+
+export async function tryAssociateTab(tabId) {
+  const engine = await getFocusEngine();
+  if (!engine.activeFocusId) return;
+  const active = engine.items[engine.activeFocusId];
+  if (!active || active.focusState !== 'active') return;
+  if (active.associatedTabIds.includes(tabId)) return;
+
+  const tabs = await getTabData();
+  const tab = tabs[tabId];
+  if (!tab) return;
+
+  if (tab.parentTabId && active.associatedTabIds.includes(tab.parentTabId)) {
+    active.associatedTabIds.push(tabId);
+    await setFocusEngine(engine);
+    return;
+  }
+
+  try {
+    const tabDomain = new URL(tab.url).hostname;
+    for (const assocId of active.associatedTabIds) {
+      const assocTab = tabs[assocId];
+      if (assocTab) {
+        const assocDomain = new URL(assocTab.url).hostname;
+        if (tabDomain === assocDomain) {
+          active.associatedTabIds.push(tabId);
+          await setFocusEngine(engine);
+          return;
+        }
+      }
+    }
+  } catch { /* invalid URLs */ }
+}
+
+async function getTabData() {
+  return injectedDeps.getTabData ? injectedDeps.getTabData() : getStorage('tabs').then(({ tabs }) => tabs || {});
+}
+
+async function setTabData(tabs) {
+  return injectedDeps.setTabData ? injectedDeps.setTabData(tabs) : setStorage({ tabs });
+}

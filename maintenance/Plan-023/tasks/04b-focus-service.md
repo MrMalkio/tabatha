@@ -13,8 +13,8 @@
 ## Files created
 - `src/background/services/focusService.js`
 
-## Handlers owned (~14 cases)
-`GET_FOCUS_ENGINE`, `CREATE_FOCUS`, `UPDATE_FOCUS`, `DELETE_FOCUS`, `ACTIVATE_FOCUS`, `COMPLETE_FOCUS`, `PAUSE_FOCUS`, `RESUME_FOCUS`, `SET_FUNNEL_STAGE`, `ADD_FOCUS_ITEM`, `MERGE_INTENTS`, `LINK_TAB_TO_INTENT`, `ASSOCIATE_TAB_WITH_FOCUS`, `MOVE_FOCUS_ITEM`. Confirm via grep.
+## Handlers owned (14 cases)
+`GET_FOCUS_ENGINE`, `START_FOCUS`, `ADD_FOCUS`, `SWITCH_FOCUS`, `COMPLETE_FOCUS`, `EXTEND_FOCUS_TIMER`, `SET_FUNNEL_STAGE`, `UPDATE_FOCUS_TAGS`, `RENAME_FOCUS`, `UPDATE_FOCUS`, `PAUSE_FOCUS`, `RESUME_FOCUS`, `LINK_INTENT_TO_TASK`, `MERGE_INTENTS`.
 
 ## Internal exports for cross-service callers
 - `autoQueueFromIntent(intent, tabId)` — called by `tabService.SET_INTENT`.
@@ -36,8 +36,11 @@ const services = [..., focusService];
 ```
 
 ## Verification
-- [ ] Create focus → activate → add items → switch active → complete
-- [ ] Funnel stage transitions (queued → planning → active → done) all fire
-- [ ] Pause focus → break starts; resume focus → break ends
-- [ ] history cap drops oldest into archive
-- [ ] message-contracts.md updated
+- [x] Start focus → add focus → switch active → update → complete
+- [x] Funnel stage transition gates preserved in service smoke test
+- [ ] Pause focus → break starts; resume focus → break ends in extension
+- [x] history cap drops oldest into archive
+- [x] message-contracts.md updated
+- [x] `npm run build`
+- [x] `npm run version:check`
+- [x] `git diff --check`
