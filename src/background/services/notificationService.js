@@ -25,6 +25,19 @@ export function broadcastAll(message) {
   broadcastToAllTabs(message);
 }
 
+// Pomodoro-timer alarm handler. Routed from alarmService when the
+// `pomodoro-timer` alarm fires.
+export async function handlePomodoroComplete() {
+  chrome.notifications.create('pomodoro-done', {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: 'Tabatha — Timer Complete!',
+    message: 'Time is up! Take a break or refocus.',
+    requireInteraction: true
+  });
+  broadcastToExtension({ type: 'POMODORO_COMPLETE' });
+}
+
 export async function handleMessage(type, message, sender) {
   switch (type) {
     case 'START_POMODORO':

@@ -19,7 +19,6 @@ import {
   RETENTION_ALARM,
   DEFAULT_RETENTION_DAYS
 } from './constants.js';
-import { saveSessionSnapshot } from './services/sessionService.js';
 import { initialize as initializeCompanionService } from './services/companionService.js';
 
 export const SESSION_SNAPSHOT_ALARM = 'session-snapshot';
@@ -270,11 +269,9 @@ export function registerBootstrap() {
   });
 
   // Daily retention alarm + snapshot dispatcher.
+  // Dispatch lives in alarmService — bootstrap only ensures the cadence
+  // alarm is registered.
   chrome.alarms.create(RETENTION_ALARM, { periodInMinutes: 1440 });
-  chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === RETENTION_ALARM) runRetentionCleanup();
-    if (alarm.name === SESSION_SNAPSHOT_ALARM) saveSessionSnapshot();
-  });
 
   // Run once immediately to cover dev reloads / first-load.
   initializeState();

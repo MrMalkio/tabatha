@@ -628,6 +628,34 @@ async function updateTabContext(message) {
   return { success: true };
 }
 
+// Context-timer alarm handler. Routed from alarmService when a
+// `context-timer-<tabId>` alarm fires. Either prompts for context if the
+// tab still lacks one, or fires an intent-reinforcement reminder and
+// re-arms the alarm.
+export async function handleContextTimerExpired(tabId) {
+  const tabs = await getTabData();
+  const tabData = tabs[tabId];
+  if (!tabData) return;
+
+  if (!tabData.ignored && !tabData.context) {
+    broadcastToExtension({ type: 'CONTEXT_REMINDER', tabId, tabData });
+    chrome.notifications.create(`context-${tabId}`, {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'Tabatha — Context Needed',
+      message: `"${tabData.title}" has been open for a while. What are you working on?`
+    });
+    return;
+  }
+
+  if (tabData.context) {
+    const settings = await getSettings();
+    const timerMinutes = tabData.timerOverrideMinutes || settings.globalTimerMinutes;
+    broadcastToExtension({ type: 'INTENT_REINFORCEMENT', tabId, tabData });
+    chrome.alarms.create(`context-timer-${tabId}`, { delayInMinutes: timerMinutes });
+  }
+}
+
 export async function tryAssociateTab(tabId) {
   const engine = await getFocusEngine();
   if (!engine.activeFocusId) return;

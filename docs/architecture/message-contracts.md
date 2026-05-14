@@ -194,6 +194,12 @@ Each entry documents:
 
 ---
 
+## alarmService
+
+`alarmService` owns the single `chrome.alarms.onAlarm` listener and exposes no runtime message handlers (`handleMessage` always returns `undefined`). See `service-map.md` for the alarm-name → owning-service routing table.
+
+---
+
 ## Broadcast Messages (outbound, not request/response)
 
 These are sent through `notificationService` helpers and don't have response shapes.
@@ -233,6 +239,7 @@ These are sent through `notificationService` helpers and don't have response sha
 
 | Date | Handler | Change | Reason |
 |------|---------|--------|--------|
+| 2026-05-14 | `chrome.alarms.onAlarm` | Consolidated three listener registrations (two in `background.js`, one in `bootstrap.js`) into a single dispatcher in `alarmService`. `supabase-sync` is now auth-guarded before dispatch; duplicate `chrome.idle.setDetectionInterval(60)` removed. Message-router shapes unchanged. | Task 05c alarm consolidation |
 | 2026-05-14 | `ADD_TO_SUGAR_BOX` | List now capped at `settings.storage.sugarBoxCap` (default 500). Dropped entries route through `archiveService.archiveBeforeCap`. Response shape unchanged; emits `STORAGE_CAP_WARNING` broadcast when entries fall off. | Task 05a sugar-box cap efficiency fix |
 | 2026-05-14 | `PARK_TAB` | Emits new `PARKED_TABS_WARNING` broadcast once when `parkedTabs.length` reaches `settings.storage.parkedTabsWarnAt`. Request/response shapes unchanged. | Task 05a parked-tabs warning |
 | 2026-05-14 | `START_SIDE_QUEST` | Now delegates focus pausing to `focusService.pauseActiveFocus('side-quest')`. Request/response shapes unchanged. | Task 05a service extraction |
