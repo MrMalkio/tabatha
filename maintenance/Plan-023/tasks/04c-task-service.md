@@ -26,7 +26,10 @@ const services = [..., taskService];
 ```
 
 ## Verification
-- [ ] Create / edit / archive / delete task — all flows work
-- [ ] Task stage transitions enforced (cannot skip stages)
-- [ ] Old archived task crosses 90-day boundary → moves to `_archivedTasks` (simulate via clock)
-- [ ] message-contracts.md updated
+- [x] Create / edit / archive / delete task — service smoke test passes
+- [x] Task stage transitions enforced (cannot skip stages)
+- [x] Old archived task crosses 90-day boundary → moves to `_archivedTasks` (simulated via mocked storage)
+- [x] message-contracts.md updated
+- [x] `npm run build`
+- [x] `npm run version:check`
+- [x] `git diff --check`

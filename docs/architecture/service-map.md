@@ -8,7 +8,7 @@
 
 ## focusService.js — 14 handlers
 
-Focus engine lifecycle: create, switch, complete, tag, merge, pause/resume.
+Focus engine lifecycle: create, switch, complete, tag, merge, pause/resume, and history retention.
 
 | # | Handler | Line (approx) | Description |
 |---|---------|--------------|-------------|
@@ -27,13 +27,15 @@ Focus engine lifecycle: create, switch, complete, tag, merge, pause/resume.
 | 13 | `LINK_INTENT_TO_TASK` | 2256 | Link a focus item to a task |
 | 14 | `MERGE_INTENTS` | 2279 | Merge two focus items (tabs + time) |
 
-**Dependencies:** storageService, notificationService, clockService (RESUME_FOCUS auto-ends break)
+**Dependencies:** storageService, notificationService, archiveService, clockService (RESUME_FOCUS auto-ends break)
+
+**Storage notes:** `COMPLETE_FOCUS` now routes entries dropped by `settings.storage.focusHistoryCap` through `archiveBeforeCap('focusEngine.history', ...)` before capping.
 
 ---
 
 ## tabService.js — 21 handlers
 
-Tab state management: context, intent, locks, priorities, categories, URL locks.
+Tab state management: context, intent, locks, priorities, categories, URL locks, and tab lifecycle listeners.
 
 | # | Handler | Line (approx) | Description |
 |---|---------|--------------|-------------|
@@ -62,7 +64,9 @@ Tab state management: context, intent, locks, priorities, categories, URL locks.
 
 > **Note:** 22 entries — `UPDATE_TAB_CONTEXT` was added post-v1 audit. Actual unique cases = 22.
 
-**Dependencies:** storageService, notificationService, categoryService, focusService (for LINK_TAB_TO_INTENT, ASSOCIATE_TAB_WITH_FOCUS)
+**Dependencies:** storageService, notificationService, categoryService, tabTrackingService, sessionService, focusService fallback hooks (for SET_INTENT, LINK_TAB_TO_INTENT, ASSOCIATE_TAB_WITH_FOCUS)
+
+**Lifecycle notes:** `chrome.tabs.onCreated`, the main URL/title/audible `chrome.tabs.onUpdated`, and `chrome.tabs.onRemoved` are registered by `tabService`. The tab-group sync `chrome.tabs.onUpdated` listener remains with groupService work.
 
 ---
 
@@ -118,16 +122,18 @@ Central 1Hz tick broadcaster. Subscriber-counting pattern: interval only runs wh
 
 ## taskService.js — 4 handlers
 
-Task CRUD with org registry (legacy fallback).
+Task CRUD with org registry (legacy fallback) and archived-task cold storage.
 
 | # | Handler | Line (approx) | Description |
 |---|---------|--------------|-------------|
 | 1 | `GET_TASKS` | 2309 | Return merged org + legacy tasks |
 | 2 | `CREATE_TASK` | 2318 | Create task in org registry |
 | 3 | `UPDATE_TASK` | 2343 | Update task (with funnel stage gating) |
-| 4 | `DELETE_TASK` | 2405 | Archive task (soft delete) |
+| 4 | `DELETE_TASK` | 2405 | Archive task (soft delete) and stamp `archivedAt` for cold storage |
 
 **Dependencies:** storageService, notificationService
+
+**Storage notes:** archived org tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` into `_archivedTasks`; public task message response shapes stay unchanged.
 
 ---
 
@@ -190,7 +196,7 @@ Session/context history, flow recall, markdown export.
 | 5 | `REOPEN_FLOW` | 1816 | Reopen a previously saved flow |
 | 6 | `EXPORT_MARKDOWN` | 1865 | Export session data as markdown |
 
-> **Note:** 6 entries — `GET_LATEST_SESSION` is also claimed by clockService. Needs resolution during extraction (likely stays in sessionService, clock delegates).
+> **Resolved (Task 03):** `GET_LATEST_SESSION` is owned by sessionService (same `{ session }` shape, source is the `sessions` snapshot list). clockService keeps `GET_LAST_SESSION` for its stints-based view.
 
 **Dependencies:** storageService, notificationService
 

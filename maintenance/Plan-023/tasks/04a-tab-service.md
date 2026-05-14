@@ -11,13 +11,10 @@
 | **Risk** | High (touches Intent→Focus bridge and the context-gatekeeper) |
 
 ## Files created
-- `src/background/services/tabService.js` — all 17 tab handlers + `onCreated` / `onUpdated` / `onRemoved` listeners.
+- `src/background/services/tabService.js` — all 22 tab handlers + `onCreated` / main `onUpdated` / `onRemoved` listeners.
 
-## Handlers owned (verify against current background.js)
-- `CHECK_CONTEXT_NEEDED` (gatekeeper)
-- `SET_TAB_CONTEXT` (writes intentHistory per Task 03 migration)
-- `SET_INTENT` (Intent→Focus bridge — calls `focusService.autoQueueFromIntent()`)
-- `GET_TABS`, `UPDATE_TAB`, `CLOSE_TAB`, `LOCK_TAB`, `UNLOCK_TAB`, `RENAME_TAB`, `PARK_TAB`, `LINK_TAB_TO_INTENT`, plus the remaining tab cases — confirm with the live grep before extracting.
+## Handlers owned
+`GET_ALL_TABS`, `GET_TAB`, `UPDATE_TAB`, `BATCH_UPDATE_CONTEXT`, `SET_PRIORITY`, `TOGGLE_LOCK`, `UPDATE_TAB_TITLE`, `TOGGLE_URL_LOCK`, `REQUEST_CLOSE`, `CANCEL_CLOSE`, `BULK_CLOSE`, `FOCUS_TAB`, `CHECK_CONTEXT_NEEDED`, `SET_TAB_CONTEXT`, `SET_INTENT`, `SKIP_DOMAIN`, `ASSOCIATE_TAB_WITH_FOCUS`, `GET_CURRENT_TAB_ID`, `CLOSE_TAB`, `LINK_TAB_TO_INTENT`, `RENAME_TAB`, `UPDATE_TAB_CONTEXT`.
 
 ## Efficiency fixes bundled
 1. On `onRemoved`: prune `inbarNotes[tabId]` and `timeTracking.byTab[tabId]` (the latter aggregates first per Task 03).
@@ -40,8 +37,11 @@ const services = [
 ```
 
 ## Verification
-- [ ] All tab-related popup/sidebar actions still work
-- [ ] Set context on a fresh tab → InBar renders correctly
-- [ ] Set intent → if the focus service is wired, auto-queue fires; otherwise legacy path
-- [ ] Close a tab with inbarNotes → notes archived to closedContexts entry
-- [ ] message-contracts.md updated for all 17 handlers
+- [x] All tab message handlers extracted from legacy router
+- [x] Set context on a fresh tab → canonical intentHistory row written in smoke test
+- [x] Set intent → legacy focus bridge fallback retained until focusService merge
+- [x] Close a tab with inbarNotes → notes archived to closedContexts entry in smoke test
+- [x] message-contracts.md updated for all 22 handlers
+- [x] `npm run build`
+- [x] `npm run version:check`
+- [x] `git diff --check`

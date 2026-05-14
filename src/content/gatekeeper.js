@@ -44,9 +44,10 @@
       const seen = new Set();
       const activeLabels = new Set(focusItems.map(f => f.label.toLowerCase()));
       for (const entry of stored.intentHistory) {
-        if (entry.context && new Date(entry.timestamp).toDateString() === today && !seen.has(entry.context.toLowerCase()) && !activeLabels.has(entry.context.toLowerCase())) {
-          seen.add(entry.context.toLowerCase());
-          recentIntents.push(entry.context);
+        const context = entry.context ?? entry.newContext;
+        if (context && new Date(entry.timestamp).toDateString() === today && !seen.has(context.toLowerCase()) && !activeLabels.has(context.toLowerCase())) {
+          seen.add(context.toLowerCase());
+          recentIntents.push(context);
           if (recentIntents.length >= 5) break;
         }
       }

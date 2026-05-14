@@ -44,7 +44,7 @@ function syncMarkdownLine(path, label, pattern, replacement) {
   const raw = readFileSync(path, 'utf8');
   const match = raw.match(pattern);
   if (!match) return;
-  if (match[0] === replacement) return;
+  if (match[0].trimEnd() === replacement) return;
   drift.push(`${label}: "${match[0].trim()}" → "${replacement.trim()}"`);
   if (!CHECK_ONLY) {
     writeFileSync(path, raw.replace(pattern, replacement));

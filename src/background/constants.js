@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
     focusHistoryCap: 200,
     parkedTabsCap: 200,
     parkedTabsWarnAt: 180,
+    sugarBoxCap: 500,
     pendingTimeLogsCap: 5000,
     pendingTimeLogsWarnAt: 4000,
     archivedTasksColdAfterDays: 90
