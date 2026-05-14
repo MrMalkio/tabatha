@@ -154,8 +154,8 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `GET_SETTINGS` | settingsService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `UPDATE_SETTINGS` | settingsService | ⬜ | ⬜ | ⬜ | ⬜ | Broadcasts to all tabs |
+| 1 | `GET_SETTINGS` | settingsService | ✅ | ✅ | ✅ | ⬜ | Manual extension reload still pending |
+| 2 | `UPDATE_SETTINGS` | settingsService | ✅ | ✅ | ✅ | ⬜ | Validates `settings.storage`; manual persistence test still pending |
 
 ---
 
@@ -163,11 +163,11 @@
 
 | # | Handler | Service | Extracted? | Build green? | Same response shape? | Manual test pass? | Notes |
 |---|---------|---------|-----------|-------------|----------------------|-------------------|-------|
-| 1 | `OPEN_POPUP` | notificationService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 2 | `GET_INBAR_DATA` | notificationService | ⬜ | ⬜ | ⬜ | ⬜ | Cross-service: focus + tab + time |
-| 3 | `GET_INBAR_NOTES` | notificationService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 4 | `SAVE_INBAR_NOTE` | notificationService | ⬜ | ⬜ | ⬜ | ⬜ | |
-| 5 | `START_POMODORO` | notificationService | ⬜ | ⬜ | ⬜ | ⬜ | |
+| 1 | `OPEN_POPUP` | notificationService | ✅ | ✅ | ✅ | ⬜ | Manual gatekeeper injection test still pending |
+| 2 | `GET_INBAR_DATA` | notificationService | ✅ | ✅ | ✅ | ⬜ | Cross-service deps injected from router; manual InBar render test still pending |
+| 3 | `GET_INBAR_NOTES` | notificationService | ✅ | ✅ | ✅ | ⬜ | Manual note load test still pending |
+| 4 | `SAVE_INBAR_NOTE` | notificationService | ✅ | ✅ | ✅ | ⬜ | Manual note save test still pending |
+| 5 | `START_POMODORO` | notificationService | ✅ | ✅ | ✅ | ⬜ | Manual timer alarm test still pending |
 
 ---
 

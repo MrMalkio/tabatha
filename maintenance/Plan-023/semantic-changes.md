@@ -24,6 +24,7 @@
 
 | Date | Phase | Task | Change | Category | Notes |
 |---|---|---|---|---|---|
+| 2026-05-14 | 2 | 02-notification-settings | Extracted notificationService and settingsService from the background router; scoped outbound broadcasts to extension-only vs InBar-relevant all-target messages; added validation for `settings.storage` writes. | `internal-only` | Behavior and response shapes preserved for migrated handlers except invalid `settings.storage` writes now return `{ error }` before persisting. |
 | 2026-05-14 | 1 | 01-foundation | Extracted constants/helpers/bootstrap from background.js; added router skeleton (`services[]` + `handleLegacyMessage` fall-through); added `storage` block to `DEFAULT_SETTINGS` with additive migration; added `enforceArrayCap` + `pruneStaleKeys` to storageService; added `archiveService.archiveBeforeCap` primitive. | `internal-only` + `internal-schema` | Settings migration is additive (defaults seeded only when missing). `services.length === 0` after this task — services land in Tasks 02+. Cap defaults match prior hard-coded values (logsCap 500, focusHistoryCap 200). |
 | | | | | | |
 

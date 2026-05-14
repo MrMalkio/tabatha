@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 8 | Status: active          -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 9 | Status: active          -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
 - **Current version:** 3.34.5
-- **Current focus:** Decomp Planning — Dual audit complete, Plan 023 drafted, user feedback collected, awaiting approval for refactor/decomp-v2
+- **Current focus:** Plan 023 Task 02 — notification/settings service extraction started; build green, manual extension checks pending
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -158,6 +158,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-12 | Antigravity | Headbox Updates Extraction | Reviewed full thread history (534 log entries). Extracted 11 operational rules/preferences into `headbox_updates-003.md`. Topics: branch-first workflow, worktree isolation, parallel refactor safety, handoff prompts, full file paths in plans, debug gating, version parity, terminology glossary, scope doc versioning, isolated refactor tracks. | Review & apply pending-updates-003 rules to AGENTS.md + vendor sync |
 | 2026-05-13 | Antigravity | Efficiency Audit + Plan 023 | Full ecosystem audit (extension, desktop companion, screensaver). Cross-referenced with Codex audit. Created Plan 023: Efficiency-Driven Decomposition. Assessed refactor/service-arch branch (57 behind, archive recommended). Registered Plan 023 in plan-registry. Collected user feedback on caps, privacy, branching, parallelization. Identified 4 branches + 1 stale worktree for cleanup. | Address user feedback (task files, branch cleanup, parallel strategy, storage key explainer). Execute Plan 023 after approval. |
 | 2026-05-14 | Antigravity | Plan 023 Task 00: Pre-Decomp | Created docs/architecture/ (4 docs: decomp plan, service map, migration checklist, message contracts -- all master-aligned at 79 handlers). Wired version sync script (version:sync, version:check, prebuild). Synced all files to v3.34.5. Installed pre-commit hook. Removed stale worktree. Archived refactor/service-arch as tag. Created privacy-modes-future sticky note. | Confirm+delete feat/follow-through-engine + feat/v3-ux-overhaul branches, push tags, merge to master, begin Task 01. |
+| 2026-05-14 | Codex | Plan 023 Task 02: Notification + Settings Services | Created `refactor/decomp-v2-communication` from `origin/refactor/decomp-v2-foundation`. Extracted `notificationService.js` and `settingsService.js`, registered both in the router, removed their legacy switch cases, scoped background broadcasts to extension-only vs InBar-relevant all-target delivery, updated architecture docs/checklists/semantic ledger, and verified `npm run build`. | Load unpacked extension and manually verify popup render, InBar data/notes, settings persistence, and service worker console broadcast scoping. |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

@@ -31,6 +31,13 @@ import {
   getSessions,
   getTimeTracking
 } from './services/storageService.js';
+import * as notificationService from './services/notificationService.js';
+import {
+  broadcastAll,
+  broadcastToExtension,
+  configureNotificationService
+} from './services/notificationService.js';
+import * as settingsService from './services/settingsService.js';
 import { registerBootstrap } from './bootstrap.js';
 
 // ============================================================
@@ -248,7 +255,7 @@ async function startFocus(label, timerMinutes = 15, tags = {}) {
     chrome.alarms.create(`focus-timer-${id}`, { delayInMinutes: timerMinutes });
   }
   
-  broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   fireWebhook('focus_started', { id, label, timerMinutes, tags });
   return engine;
 }
@@ -286,7 +293,7 @@ async function addFocus(label, timerMinutes = 15, tags = {}) {
   };
   
   await setFocusEngine(engine);
-  broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return { engine, newFocusId: id };
 }
 
@@ -337,7 +344,7 @@ async function switchFocus(focusId) {
     }
   } catch (e) { /* no active tab */ }
   
-  broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return engine;
 }
 
@@ -386,7 +393,7 @@ async function completeFocus(focusId) {
   }
   
   await setFocusEngine(engine);
-  broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   fireWebhook('focus_resolved', { id, label: item.label, elapsedMs: item.elapsedMs });
   return engine;
 }
@@ -423,7 +430,7 @@ async function extendFocusTimer(focusId, extraMinutes = 5) {
   }
   
   await setFocusEngine(engine);
-  broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return engine;
 }
 
@@ -432,7 +439,7 @@ async function setFunnelStage(focusId, stage) {
   if (!engine.items[focusId]) return engine;
   engine.items[focusId].funnelStage = stage;
   await setFocusEngine(engine);
-  broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return engine;
 }
 
@@ -442,7 +449,7 @@ async function updateFocusTags(focusId, tags) {
   if (!id || !engine.items[id]) return engine;
   engine.items[id].tags = { ...engine.items[id].tags, ...tags };
   await setFocusEngine(engine);
-  broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return engine;
 }
 
@@ -566,10 +573,10 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   
   // If this is a scratch-opened tab (no opener, no inherited context), notify sidebar to prompt
   if (!isFromOpener && detectedCategory === 'unknown') {
-    broadcastMessage({ type: 'PROMPT_PURPOSE', tabId: tab.id });
+    broadcastToExtension({ type: 'PROMPT_PURPOSE', tabId: tab.id });
   }
   
-  broadcastMessage({ type: 'TAB_CREATED', tabId: tab.id, tabData: tabs[tab.id] });
+  broadcastToExtension({ type: 'TAB_CREATED', tabId: tab.id, tabData: tabs[tab.id] });
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
@@ -625,7 +632,7 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
   // Clear alarm
   chrome.alarms.clear(`context-timer-${tabId}`);
   
-  broadcastMessage({ type: 'TAB_REMOVED', tabId });
+  broadcastToExtension({ type: 'TAB_REMOVED', tabId });
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
@@ -672,7 +679,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
   
   await setTabData(tabs);
-  broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+  broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
 });
 
 // ============================================================
@@ -742,7 +749,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     contextSwitchTracker.record(contextSignal);
   }
   
-  broadcastMessage({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
+  broadcastToExtension({ type: 'TAB_ACTIVATED', tabId: activeInfo.tabId });
   
   // Auto-associate activated tab with current focus
   tryAssociateTab(activeInfo.tabId);
@@ -771,7 +778,7 @@ chrome.tabGroups.onUpdated.addListener(async (group) => {
     }
     if (changed) {
       await setTabData(tabs);
-      broadcastMessage({ type: 'GROUPS_UPDATED' });
+      broadcastToExtension({ type: 'GROUPS_UPDATED' });
     }
   } catch (e) { /* group may be stale */ }
 });
@@ -791,7 +798,7 @@ chrome.tabGroups.onRemoved.addListener(async (group) => {
     }
     if (changed) {
       await setTabData(tabs);
-      broadcastMessage({ type: 'GROUPS_UPDATED' });
+      broadcastToExtension({ type: 'GROUPS_UPDATED' });
     }
   } catch (e) { /* ignore */ }
 });
@@ -814,7 +821,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         } catch (e) { /* group may not exist yet */ }
       }
       await setTabData(tabs);
-      broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+      broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
     }
   }
 });
@@ -839,7 +846,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
       // If user switched to another app recently (<2min ago), don't treat as idle
       if (offChromeMs < 120000) {
         console.log('[idle] Suppressed — user active in:', activeApp.displayName);
-        broadcastMessage({
+        broadcastToExtension({
           type: 'OFF_CHROME_ACTIVE',
           app: activeApp.displayName,
           category: activeApp.category,
@@ -867,12 +874,12 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
         active.pausedAt = new Date().toISOString();
         if (active.funnelStage === 'addressing') active.funnelStage = 'focus';
         await setFocusEngine(engine);
-        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
       }
     }
 
     // Log idle event
-    broadcastMessage({ type: 'USER_IDLE', since: userIdleSince });
+    broadcastToExtension({ type: 'USER_IDLE', since: userIdleSince });
 
     // Schedule auto-break check after 5 minutes
     chrome.alarms.create('idle-auto-break', { delayInMinutes: 5 });
@@ -920,7 +927,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
       }
 
       // Broadcast welcome back with idle duration + paused focus
-      broadcastMessage({
+      broadcastAll({
         type: 'WELCOME_BACK',
         idleSince: userIdleSince,
         idleDurationMs: idleDuration,
@@ -930,7 +937,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
       });
 
       if (idleDuration > (settings.idleThresholdMinutes || 5) * 60 * 1000) {
-        broadcastMessage({
+        broadcastToExtension({
           type: 'OFF_CHROME_RETURN',
           idleSince: userIdleSince,
           idleDurationMs: idleDuration
@@ -959,7 +966,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       if (clockSession?.active && !clockSession?.onBreak) {
         await clockService.toggleBreak(); // auto-put on break
         idleAutoBreakApplied = true;
-        broadcastMessage({ type: 'AUTO_BREAK', reason: 'idle_5min' });
+        broadcastToExtension({ type: 'AUTO_BREAK', reason: 'idle_5min' });
       }
     }
   }
@@ -982,7 +989,7 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
             await chrome.windows.update(tab.windowId, { focused: true });
             await chrome.tabs.update(tabId, { active: true });
         } catch (e) { /* tab may not exist */ }
-        broadcastMessage({ type: 'PROMPT_PURPOSE', tabId });
+        broadcastToExtension({ type: 'PROMPT_PURPOSE', tabId });
     }
 });
 
@@ -993,11 +1000,11 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
     if (buttonIndex === 0) {
       // Extend 5 min
       await extendFocusTimer(focusId, 5);
-      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
     } else if (buttonIndex === 1) {
       // Complete & Move On
       await completeFocus(focusId);
-      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
     }
     chrome.notifications.clear(notificationId);
   }
@@ -1018,7 +1025,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     
     if (tabData && !tabData.ignored && !tabData.context) {
       // Tab has been open for threshold without context — prompt
-      broadcastMessage({
+      broadcastToExtension({
         type: 'CONTEXT_REMINDER',
         tabId,
         tabData
@@ -1036,7 +1043,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       const settings = await getSettings();
       const timerMinutes = tabData.timerOverrideMinutes || settings.globalTimerMinutes;
       
-      broadcastMessage({
+      broadcastToExtension({
         type: 'INTENT_REINFORCEMENT',
         tabId,
         tabData
@@ -1068,7 +1075,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
           message: 'Time is up! Take a break or refocus.',
           requireInteraction: true
       });
-      broadcastMessage({ type: 'POMODORO_COMPLETE' });
+      broadcastToExtension({ type: 'POMODORO_COMPLETE' });
   }
   
   // Focus Engine timer — transitions to 'drifted', counts up
@@ -1084,7 +1091,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         item.lastResumedAt = new Date().toISOString(); // reset for countup tracking
       }
       await setFocusEngine(engine);
-      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
       
       // Interrupting notification with action buttons
       chrome.notifications.create(`focus-drift-${focusId}`, {
@@ -1101,7 +1108,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       });
 
       // Broadcast to all tabs so InBar can show interrupting alert
-      broadcastMessage({
+      broadcastAll({
         type: 'FOCUS_TIMER_EXPIRED',
         focusId,
         label: item.label,
@@ -1168,7 +1175,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
       
       // Prompt for purpose of new tab
       setTimeout(() => {
-        broadcastMessage({
+        broadcastToExtension({
           type: 'PROMPT_PURPOSE',
           tabId: newTab.id,
           reason: 'url_lock_redirect',
@@ -1509,21 +1516,10 @@ async function exportMarkdown() {
 // MESSAGE ROUTING
 // ============================================================
 
-function broadcastMessage(message) {
-  // Extension pages (sidebar, popup, home)
-  chrome.runtime.sendMessage(message).catch(() => {});
-  // Content scripts (InBar) — send to all tabs so they update in real-time
-  chrome.tabs.query({}, (tabs) => {
-    for (const tab of tabs) {
-      if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, message).catch(() => {});
-      }
-    }
-  });
-}
-
 // ── Service instances ──
-const clockService = createClockService(getStorage, setStorage, broadcastMessage);
+configureNotificationService({ getTabData, setTabData, getFocusEngine });
+
+const clockService = createClockService(getStorage, setStorage, broadcastToExtension);
 
 // ── Router skeleton ──
 // Services land in Plan 023 Tasks 02+. Each registered entry must expose
@@ -1531,7 +1527,7 @@ const clockService = createClockService(getStorage, setStorage, broadcastMessage
 // the message is not theirs (the router then falls through to
 // `handleLegacyMessage`). Anything else — including `null`, `{}`, or an
 // error object — is treated as a handled response.
-const services = [];
+const services = [notificationService, settingsService];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
@@ -1568,7 +1564,7 @@ async function handleLegacyMessage(message, sender) {
       if (tabs[message.tabId]) {
         Object.assign(tabs[message.tabId], message.updates);
         await setTabData(tabs);
-        broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
       }
       return { success: true };
     }
@@ -1582,7 +1578,7 @@ async function handleLegacyMessage(message, sender) {
         }
       }
       await setTabData(tabs);
-      broadcastMessage({ type: 'TABS_BATCH_UPDATED' });
+      broadcastToExtension({ type: 'TABS_BATCH_UPDATED' });
       return { success: true };
     }
     
@@ -1601,7 +1597,7 @@ async function handleLegacyMessage(message, sender) {
           } catch (e) { /* group may not exist */ }
         }
         
-        broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
       }
       return { success: true };
     }
@@ -1612,7 +1608,7 @@ async function handleLegacyMessage(message, sender) {
       if (tabs[message.tabId]) {
         tabs[message.tabId].locked = !tabs[message.tabId].locked;
         await setTabData(tabs);
-        broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
       }
       return { success: true };
     }
@@ -1622,7 +1618,7 @@ async function handleLegacyMessage(message, sender) {
         if (tabs[message.tabId]) {
             tabs[message.tabId].customTitle = message.title;
             await setTabData(tabs);
-            broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+            broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
         }
         return { success: true };
     }
@@ -1648,7 +1644,7 @@ async function handleLegacyMessage(message, sender) {
           } catch (e) { console.error('Could not inject url-lock script', e); }
         }
         
-        broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+        broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
       }
       return { success: true };
     }
@@ -1726,11 +1722,6 @@ async function handleLegacyMessage(message, sender) {
     case 'GET_TIME_TRACKING':
       return { timeTracking: await getTimeTracking() };
       
-    case 'START_POMODORO':
-        chrome.alarms.create('pomodoro-timer', { delayInMinutes: message.minutes });
-        broadcastMessage({ type: 'POMODORO_STARTED', minutes: message.minutes });
-        return { success: true };
-    
     // --- Sessions ---
     case 'GET_SESSIONS':
       return { sessions: await getSessions() };
@@ -1738,30 +1729,6 @@ async function handleLegacyMessage(message, sender) {
     case 'GET_LATEST_SESSION':
       const sessions = await getSessions();
       return { session: sessions[0] || null };
-    
-    // --- Settings ---
-    case 'GET_SETTINGS':
-      return { settings: await getSettings() };
-    
-    case 'UPDATE_SETTINGS': {
-      const settings = await getSettings();
-      Object.assign(settings, message.settings);
-      await setStorage({ settings });
-      
-      // Update idle detection interval
-      if (message.settings.idleThresholdMinutes) {
-        chrome.idle.setDetectionInterval(message.settings.idleThresholdMinutes * 60);
-      }
-      
-      // Setup or clear auto-export
-      if (settings.autoExportEnabled) {
-        chrome.alarms.create('auto-export', { periodInMinutes: settings.autoExportIntervalMinutes });
-      } else {
-        chrome.alarms.clear('auto-export');
-      }
-      
-      return { settings };
-    }
     
     // --- Export ---
     case 'EXPORT_MARKDOWN':
@@ -1817,7 +1784,7 @@ async function handleLegacyMessage(message, sender) {
               tabData.asanaTaskGid = asanaMatch[1];
               tabs[sender.tab.id] = tabData;
               await setTabData(tabs);
-              broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData });
+              broadcastAll({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData });
               // Auto-associate with active focus
               if (!gkSettings || gkSettings.autoAssociateTabs !== false) {
                 const engine = await getFocusEngine();
@@ -1846,7 +1813,7 @@ async function handleLegacyMessage(message, sender) {
               await setTabData(tabs);
               parkedTabs.splice(parkedIdx, 1);
               await setStorage({ parkedTabs });
-              broadcastMessage({ type: 'PARKED_TABS_UPDATED' });
+              broadcastToExtension({ type: 'PARKED_TABS_UPDATED' });
               return { needed: false };
             }
           }
@@ -1911,7 +1878,7 @@ async function handleLegacyMessage(message, sender) {
         tabs[sender.tab.id].intent = message.intent;
         tabs[sender.tab.id].contextSource = 'user';
         await setTabData(tabs);
-        broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
+        broadcastAll({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
 
         // Log intent change for URL Rules changelog
         if (message.intent !== oldIntent || message.context !== oldContext) {
@@ -1998,7 +1965,7 @@ async function handleLegacyMessage(message, sender) {
                       newItem.associatedTabIds = [...(newItem.associatedTabIds || []), tabId];
                       await setFocusEngine(result.engine);
                     }
-                    broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+                    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
                   } else if (existingMatch) {
                     // Link tab to the existing matching focus
                     if (!existingMatch.associatedTabIds?.includes(tabId)) {
@@ -2013,7 +1980,7 @@ async function handleLegacyMessage(message, sender) {
             }
         }
         await setTabData(tabs);
-        broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+        broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
         return { success: true };
     }
     
@@ -2023,7 +1990,7 @@ async function handleLegacyMessage(message, sender) {
             tabs[sender.tab.id].context = message.context;
             tabs[sender.tab.id].intent = 'Side Quest';
             await setTabData(tabs);
-            broadcastMessage({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
+            broadcastAll({ type: 'TAB_UPDATED', tabId: sender.tab.id, tabData: tabs[sender.tab.id] });
             
             // Auto-pause the active focus when going on a side quest
             const engine = await getFocusEngine();
@@ -2038,7 +2005,7 @@ async function handleLegacyMessage(message, sender) {
                 activeFocus.pausedAt = new Date().toISOString();
                 activeFocus.pausedReason = 'side_quest';
                 await setFocusEngine(engine);
-                broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+                broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
               }
             }
             
@@ -2058,7 +2025,7 @@ async function handleLegacyMessage(message, sender) {
         await chrome.tabs.remove(sender.tab.id);
         
         // Notify sidebar?
-        broadcastMessage({ type: 'SUGAR_BOX_UPDATED' });
+        broadcastToExtension({ type: 'SUGAR_BOX_UPDATED' });
         return { success: true };
     }
     
@@ -2069,7 +2036,7 @@ async function handleLegacyMessage(message, sender) {
         if (!exists) {
             list.push({ url: message.url, title: message.title, context: message.context || null, note: message.note || null, parkedAt: new Date().toISOString() });
             await setStorage({ parkedTabs: list });
-            broadcastMessage({ type: 'PARKED_TABS_UPDATED' });
+            broadcastToExtension({ type: 'PARKED_TABS_UPDATED' });
         }
         try { await chrome.tabs.remove(sender.tab.id); } catch(e) { /* ignore */ }
         return { success: true };
@@ -2098,7 +2065,7 @@ async function handleLegacyMessage(message, sender) {
         });
         // Keep last 500
         await setStorage({ intentHistory: history.slice(0, 500) });
-        broadcastMessage({ type: 'INTENT_HISTORY_UPDATED' });
+        broadcastToExtension({ type: 'INTENT_HISTORY_UPDATED' });
         triggerSync();
         return { success: true };
     }
@@ -2111,7 +2078,7 @@ async function handleLegacyMessage(message, sender) {
           if (!engine.items[focusId].associatedTabIds.includes(tabId)) {
             engine.items[focusId].associatedTabIds.push(tabId);
             await setFocusEngine(engine);
-            broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+            broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
           }
         }
         return { success: true };
@@ -2147,10 +2114,10 @@ async function handleLegacyMessage(message, sender) {
           if (tabs[tabId]) {
             tabs[tabId].intent = engine.items[targetIntentId].label;
             await setTabData(tabs);
-            broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+            broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
           }
           
-          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         }
         return { success: true };
     }
@@ -2166,14 +2133,14 @@ async function handleLegacyMessage(message, sender) {
            tasks.push({ id: finalTaskId, name: newTaskName, createdAt: new Date().toISOString() });
            await setStorage({ tasks });
            // Ideally we'd broadcast TASKS_UPDATED if UI expects it
-           broadcastMessage({ type: 'TASKS_UPDATED', tasks }); 
+           broadcastToExtension({ type: 'TASKS_UPDATED', tasks }); 
         }
         
         if (engine.items[intentId]) {
           engine.items[intentId].tags = engine.items[intentId].tags || {};
           engine.items[intentId].tags.task = finalTaskId;
           await setFocusEngine(engine);
-          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         }
         return { success: true };
     }
@@ -2202,7 +2169,7 @@ async function handleLegacyMessage(message, sender) {
           }
           
           await setFocusEngine(engine);
-          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         }
         return { success: true };
     }
@@ -2239,7 +2206,7 @@ async function handleLegacyMessage(message, sender) {
       await setStorage({ tabathaOrg: org });
       // Broadcast with full merged list for backward compatibility
       const allTasks = Object.values(org.tasks).filter(t => !t.archived);
-      broadcastMessage({ type: 'TASKS_UPDATED', tasks: allTasks });
+      broadcastToExtension({ type: 'TASKS_UPDATED', tasks: allTasks });
       return { success: true, task: newTask };
     }
     case 'UPDATE_TASK': {
@@ -2288,7 +2255,7 @@ async function handleLegacyMessage(message, sender) {
         org.tasks[message.taskId] = { ...task, ...updates };
         await setStorage({ tabathaOrg: org });
         const allTasks = Object.values(org.tasks).filter(t => !t.archived);
-        broadcastMessage({ type: 'TASKS_UPDATED', tasks: allTasks });
+        broadcastToExtension({ type: 'TASKS_UPDATED', tasks: allTasks });
         return { success: true };
       }
       // Fallback: check legacy storage
@@ -2298,7 +2265,7 @@ async function handleLegacyMessage(message, sender) {
       if (idx >= 0) {
         taskArr[idx] = { ...taskArr[idx], ...message.updates };
         await setStorage({ tasks: taskArr });
-        broadcastMessage({ type: 'TASKS_UPDATED', tasks: taskArr });
+        broadcastToExtension({ type: 'TASKS_UPDATED', tasks: taskArr });
         return { success: true };
       }
       return { error: 'Task not found' };
@@ -2311,14 +2278,14 @@ async function handleLegacyMessage(message, sender) {
         org.tasks[message.taskId].archived = true;
         await setStorage({ tabathaOrg: org });
         const allTasks = Object.values(org.tasks).filter(t => !t.archived);
-        broadcastMessage({ type: 'TASKS_UPDATED', tasks: allTasks });
+        broadcastToExtension({ type: 'TASKS_UPDATED', tasks: allTasks });
         return { success: true };
       }
       // Fallback: remove from legacy storage
       const { tasks: tAll } = await getStorage('tasks');
       const filtered = (tAll || []).filter(t => t.id !== message.taskId);
       await setStorage({ tasks: filtered });
-      broadcastMessage({ type: 'TASKS_UPDATED', tasks: filtered });
+      broadcastToExtension({ type: 'TASKS_UPDATED', tasks: filtered });
       return { success: true };
     }
 
@@ -2389,7 +2356,7 @@ async function handleLegacyMessage(message, sender) {
         item.focusState = 'active'; item.lastResumedAt = new Date().toISOString(); item.startedAt = item.startedAt || new Date().toISOString(); engine.activeFocusId = item.id;
       }
       await setFocusEngine(engine);
-      broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
       return { focusEngine: engine };
     }
     
@@ -2401,7 +2368,7 @@ async function handleLegacyMessage(message, sender) {
         if (engine.items[message.focusId]) {
           engine.items[message.focusId].label = message.newLabel;
           await setFocusEngine(engine);
-          broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+          broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         }
         return { focusEngine: engine };
     }
@@ -2501,7 +2468,7 @@ async function handleLegacyMessage(message, sender) {
           }
         }
         await setFocusEngine(engine);
-        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         return { focusEngine: engine };
     }
 
@@ -2520,7 +2487,7 @@ async function handleLegacyMessage(message, sender) {
         // Revert addressing → focus since it no longer has active attention
         if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
         await setFocusEngine(engine);
-        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         return { focusEngine: engine };
     }
 
@@ -2552,7 +2519,7 @@ async function handleLegacyMessage(message, sender) {
         }
         engine.activeFocusId = focusId;
         await setFocusEngine(engine);
-        broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
         // Auto-end break if currently on break
         try {
           const clockSession = (await getStorage('clockSession')).clockSession;
@@ -2568,7 +2535,7 @@ async function handleLegacyMessage(message, sender) {
         if (tabs[message.tabId]) {
           tabs[message.tabId].customTitle = message.newTitle;
           await setTabData(tabs);
-          broadcastMessage({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
+          broadcastAll({ type: 'TAB_UPDATED', tabId: message.tabId, tabData: tabs[message.tabId] });
         }
         return { success: true };
     }
@@ -2580,7 +2547,7 @@ async function handleLegacyMessage(message, sender) {
           tabs[tabId].context = context;
           tabs[tabId].intent = context;
           await setTabData(tabs);
-          broadcastMessage({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
+          broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
           logEvent('tab_reassigned', { tabId, newContext: context });
         }
         return { success: true };
@@ -2651,69 +2618,6 @@ async function handleLegacyMessage(message, sender) {
         return { sites };
     }
 
-    // --- InBar data ---
-    case 'GET_INBAR_DATA': {
-        const { settings: ibSettings } = await getStorage('settings');
-        const tabs = await getTabData();
-        const tabId = sender.tab ? sender.tab.id : null;
-        const tabContext = tabId ? tabs[tabId] : null;
-        const engine = await getFocusEngine();
-        const activeFocus = engine.activeFocusId ? engine.items[engine.activeFocusId] : null;
-        
-        // Calculate total task time from all associated tabs
-        let totalTimeMs = 0;
-        if (activeFocus) {
-          const { timeTracking } = await getStorage('timeTracking');
-          if (timeTracking?.byTab) {
-            for (const tid of activeFocus.associatedTabIds) {
-              totalTimeMs += timeTracking.byTab[tid] || 0;
-            }
-          }
-          activeFocus.totalTimeMs = totalTimeMs;
-        }
-        
-        const show = ibSettings?.inbarEnabled !== false;
-        const allFocusItems = Object.values(engine.items).map(i => ({ id: i.id, label: i.label, focusState: i.focusState, funnelStage: i.funnelStage }));
-        return { show, tabContext, activeFocus, activeFocusId: engine.activeFocusId, allFocusItems, settings: ibSettings || {} };
-    }
-
-    case 'SAVE_INBAR_NOTE': {
-        const { note, tabId: noteTabId } = message;
-        const { inbarNotes = {} } = await getStorage('inbarNotes');
-        const noteKey = noteTabId || (sender.tab ? sender.tab.id : 'global');
-        inbarNotes[noteKey] = { text: note, updatedAt: new Date().toISOString() };
-        await setStorage({ inbarNotes });
-        return { success: true };
-    }
-
-    case 'GET_INBAR_NOTES': {
-        const { inbarNotes = {} } = await getStorage('inbarNotes');
-        const tabId = sender.tab ? sender.tab.id : null;
-        return { note: inbarNotes[tabId]?.text || inbarNotes['global']?.text || '' };
-    }
-    
-    // --- Open InPop on current tab (from InBar "Set intent" button) ---
-    case 'OPEN_POPUP': {
-        const tabId = sender?.tab?.id || message.tabId;
-        if (!tabId) return { error: 'No tab ID' };
-        // Clear any existing context so gatekeeper will fire
-        const tabs = await getTabData();
-        if (tabs[tabId]) {
-          tabs[tabId].contextSource = null;
-          await setTabData(tabs);
-        }
-        // Inject gatekeeper content script
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId },
-            files: ['assets/gatekeeper.js']
-          });
-          return { success: true };
-        } catch (e) {
-          return { error: 'Could not inject gatekeeper: ' + e.message };
-        }
-    }
-
     // --- Clock In/Out (synced bidirectionally with companion) ---
     case 'CLOCK_IN': {
         const result = await clockService.clockIn();
@@ -2755,7 +2659,7 @@ async function handleLegacyMessage(message, sender) {
               active.focusState = 'paused';
               active.pausedAt = new Date().toISOString();
               await setFocusEngine(engine);
-              broadcastMessage({ type: 'FOCUS_ENGINE_UPDATED' });
+              broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
             }
           }
         }
