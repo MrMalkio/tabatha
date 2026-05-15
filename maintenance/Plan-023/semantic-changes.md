@@ -1,6 +1,6 @@
 # Semantic Changes Ledger — Plan 023
 
-> **Rule:** every PR that lands on `refactor/decomp-v2` adds one or more rows here before merge. Phase 6 totals the rows to pick the version number for `master` → `main`.
+> **Rule:** every PR that lands on `refactor/decomp-v2` adds one or more rows here before merge. Phase 6 totals the rows to pick the version number for `staging` (formerly `master`) → `main`.
 >
 > **Starting from:** `3.34.5` (master, 2026-05-13)
 

@@ -13,7 +13,7 @@
 ## Project State
 
 - **Current version:** 4.0.0
-- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to **4.0.0** (user-chosen MAJOR to mark first cumulative release since master v3.0.0), feature-flag cleanup done; awaiting manual regression before final PR to `master`
+- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to **4.0.0** (user-chosen MAJOR to mark first cumulative release since master v3.0.0), feature-flag cleanup done; awaiting manual regression before final PR to `staging`
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -66,7 +66,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 1. **Always commit before ending a session** — use `wip:` prefix if incomplete. Before closing, **ask the user if the session is over** so nothing is left uncommitted.
 2. **Follow Conventional Commits** — `{type}({scope}): {description}`
-3. **Never push directly to `master`** — always via PR or explicit human approval.
+3. **Never push directly to `staging` or `main`** — always via PR or explicit human approval. (`staging` is what was previously named `master`; `main` is production.)
 4. **When in doubt — always ask.** Surface ambiguity early, propose a direction, confirm before acting.
 5. **Stay on task.** If you notice something unrelated, **Valet it** (see Valeting below).
 6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.

@@ -4,7 +4,7 @@
 |---|---|
 | **Branch** | `refactor/decomp-v2-router` (or finish on `refactor/decomp-v2` directly) |
 | **Branched from** | `refactor/decomp-v2` |
-| **Merge target** | `master` → then PR to `main` |
+| **Merge target** | `staging` (formerly `master`) → then PR to `main` |
 | **Depends on** | All Phase 5 tasks |
 | **Parallel with** | — |
 | **Effort** | ~1 hour for cleanup + 1.5 hours full regression |
