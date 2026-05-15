@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 10 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 11 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 3.34.5
-- **Current focus:** Plan 023 Task 05D / router finalization complete; build green, manual extension checks pending
+- **Current version:** 4.0.0
+- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to **4.0.0** (user-chosen MAJOR to mark first cumulative release since master v3.0.0), feature-flag cleanup done; awaiting manual regression before final PR to `master`
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -160,6 +160,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-14 | Antigravity | Plan 023 Task 00: Pre-Decomp | Created docs/architecture/ (4 docs: decomp plan, service map, migration checklist, message contracts -- all master-aligned at 79 handlers). Wired version sync script (version:sync, version:check, prebuild). Synced all files to v3.34.5. Installed pre-commit hook. Removed stale worktree. Archived refactor/service-arch as tag. Created privacy-modes-future sticky note. | Confirm+delete feat/follow-through-engine + feat/v3-ux-overhaul branches, push tags, merge to master, begin Task 01. |
 | 2026-05-14 | Codex | Plan 023 Task 02: Notification + Settings Services | Created `refactor/decomp-v2-communication` from `origin/refactor/decomp-v2-foundation`. Extracted `notificationService.js` and `settingsService.js`, registered both in the router, removed their legacy switch cases, scoped background broadcasts to extension-only vs InBar-relevant all-target delivery, updated architecture docs/checklists/semantic ledger, and verified `npm run build`. | Load unpacked extension and manually verify popup render, InBar data/notes, settings persistence, and service worker console broadcast scoping. |
 | 2026-05-14 | Codex | PR 10 Review + Plan 023 Task 05D Router Finalization | Reviewed PR 10 (`refactor/decomp-v2-alarm`) with no blocking findings. Created `refactor/decomp-v2-router` from PR 10 head, reduced `background.js` to 171 lines, removed legacy fallback routing, moved activation/idle/notification/URL-lock/sync orchestration into services, added `syncService`, updated docs/ledger, and verified `npm run build`. | Manual unpacked-extension regression, merge PR 10, rebase/retarget router branch onto integration, then total semantic ledger and bump version after full regression. |
+| 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`4.0.0` (MAJOR, user override)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

@@ -90,14 +90,14 @@ ADD_TO_SUGAR_BOX, PARK_TAB
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 10 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 11 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 3.34.5
-- **Current focus:** Plan 023 Task 05D / router finalization complete; build green, manual extension checks pending
+- **Current version:** 4.0.0
+- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to **4.0.0** (user-chosen MAJOR to mark first cumulative release since master v3.0.0), feature-flag cleanup done; awaiting manual regression before final PR to `master`
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`

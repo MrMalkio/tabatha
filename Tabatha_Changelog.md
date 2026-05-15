@@ -5,6 +5,25 @@ file.
 
 ---
 
+## [v4.0.0] - Plan 023 Service Decomposition (first cumulative master release post-v3.0) - _2026-05-14_
+
+### Changed (Internal)
+- **Background service decomposition**: `background.js` collapsed from 2,920 lines (master) → 169 lines (orchestrator only). Runtime message routing, listener registration, and alarm dispatch now live in dedicated services: `tabService`, `focusService`, `taskService`, `clockService`, `clockTickService`, `tabTrackingService`, `categoryService`, `sessionService`, `notificationService`, `settingsService`, `groupService`, `blockgateService`, `companionService`, `alarmService`, `syncService`.
+- **Alarm consolidation**: three `chrome.alarms.onAlarm` listeners merged into a single dispatcher in `alarmService`; `supabase-sync` is now auth-guarded before dispatch.
+- **Storage caps**: `intentHistory`, `closedContexts`, `sessions`, `sugarBox`, and `focusEngine.history` archived through `archiveBeforeCap` instead of being silently truncated.
+- **Settings**: added `settings.storage.*` block (sugarBoxCap, snapshotIntervalMinutes, archivedTasksColdAfterDays, parkedTabsWarnAt, etc.) with additive migration.
+
+### Added
+- **`clockTickService`**: shared 1Hz tick broadcaster (`TICK_SUBSCRIBE`, `TICK_UNSUBSCRIBE`, `GET_TICK_STATUS`) so extension pages can stop running per-component intervals.
+- **`PARKED_TABS_WARNING` broadcast**: one-shot when parked tabs hit `settings.storage.parkedTabsWarnAt`.
+- **`STORAGE_CAP_WARNING` broadcast**: emitted when sugarBox entries fall off the cap.
+
+### Schema notes
+- `intentChangeLog` removed and merged into `intentHistory` with a union shape (one-time migration). External readers must read `intentHistory` instead.
+- Archived tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` to `_archivedTasks` (internal cold-store key).
+
+---
+
 ## [Unreleased] - Phase 2 (Intelligence & Integrations)
 
 ### Planned
