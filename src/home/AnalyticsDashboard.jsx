@@ -111,7 +111,7 @@ export function AnalyticsDashboard({ allItems, focusHistory, activeFocus, timeTr
       todayFocusMin: Math.round(todayFocusMs / 60000),
       completionRate,
       resolvedCount,
-      recentTotal: recentIntents.length,
+      recentTotal: recentCreated.length,
       topFocuses,
       realmCounts,
       streak,
