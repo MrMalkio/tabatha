@@ -1440,6 +1440,8 @@ function Home() {
         <CollapsibleSection id="analytics" title="Analytics" icon="📈" collapsedSections={collapsedSections} toggleSection={toggleSection}>
           <AnalyticsDashboard
             allItems={allItems}
+            focusHistory={history}
+            activeFocus={activeFocus}
             timeTracking={timeTracking}
             intentHistory={intentHistory}
             orgData={orgData}

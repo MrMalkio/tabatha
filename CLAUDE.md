@@ -13,8 +13,8 @@
 
 ## Project State
 
-- **Current version:** 3.35.0
-- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to 3.35.0, feature-flag cleanup done; awaiting manual regression before final PR to `master`
+- **Current version:** 4.0.0
+- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to **4.0.0** (user-chosen MAJOR to mark first cumulative release since master v3.0.0), feature-flag cleanup done; awaiting manual regression before final PR to `staging`
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -67,7 +67,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 1. **Always commit before ending a session** — use `wip:` prefix if incomplete. Before closing, **ask the user if the session is over** so nothing is left uncommitted.
 2. **Follow Conventional Commits** — `{type}({scope}): {description}`
-3. **Never push directly to `master`** — always via PR or explicit human approval.
+3. **Never push directly to `staging` or `main`** — always via PR or explicit human approval. (`staging` is what was previously named `master`; `main` is production.)
 4. **When in doubt — always ask.** Surface ambiguity early, propose a direction, confirm before acting.
 5. **Stay on task.** If you notice something unrelated, **Valet it** (see Valeting below).
 6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.
@@ -140,7 +140,7 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 | 2026-04-28 | Antigravity | Supabase Sync Engine | Pushed Supabase schema, configured client, and hooked up debounced sync wrapper to background focus & intent mutations. | Implement user authentication (Auth Refinement) |
 | 2026-04-29 | Antigravity | Asana Time Tracker Widget | Built Flux Asana widget server (Express/HTTPS), migration 004 (flux_time_entries), full e2e test passing. | Register app in Asana Developer Console, add user name resolution |
 | 2026-05-14 | Codex | PR 10 Review + Plan 023 Task 05D Router Finalization | Reviewed PR 10 (`refactor/decomp-v2-alarm`) with no blocking findings. Created `refactor/decomp-v2-router` from PR 10 head, reduced `background.js` to 171 lines, removed legacy fallback routing, moved activation/idle/notification/URL-lock/sync orchestration into services, added `syncService`, updated docs/ledger, and verified `npm run build`. | Manual unpacked-extension regression, merge PR 10, rebase/retarget router branch onto integration, then total semantic ledger and bump version after full regression. |
-| 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`3.35.0` (MINOR)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
+| 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`4.0.0` (MAJOR, user override)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

@@ -6,40 +6,49 @@ import { GlassCard } from '../components/ui/GlassCard';
  * Shows: daily breakdown, top focuses, context distribution, streak, and trends.
  * Uses data from focuses, intents, time tracking, and org registry.
  */
-export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgData, clockSession }) {
+export function AnalyticsDashboard({ allItems, focusHistory, activeFocus, timeTracking, intentHistory, orgData, clockSession }) {
   // ── Computed metrics ──
   const metrics = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-    
-    // Today's focuses — items started or created today
-    const todayFocuses = (allItems || []).filter(item => {
-      const ts = item.startedAt || item.createdAt;
-      return ts && ts.startsWith(todayStr);
+
+    // All focus items across queue + history + currently-active.
+    // engine.items (queue) → allItems (active excluded); engine.history → focusHistory;
+    // active focus → activeFocus. Union all three so analytics see the full picture.
+    const queueItems = allItems || [];
+    const historyItems = focusHistory || [];
+    const activeArr = activeFocus ? [activeFocus] : [];
+    const everyFocus = [...queueItems, ...historyItems, ...activeArr];
+
+    // Today's focuses — started, created, or completed today (any of the three timestamps).
+    const todayFocuses = everyFocus.filter(item => {
+      return (item.startedAt && item.startedAt.startsWith(todayStr))
+        || (item.createdAt && item.createdAt.startsWith(todayStr))
+        || (item.endedAt && item.endedAt.startsWith(todayStr));
     });
 
-    // Total focus time today — sum elapsed from today's active/paused/completed items
+    // Total focus time today — sum elapsed across all focus items touched today.
     let todayFocusMs = 0;
     todayFocuses.forEach(item => {
       todayFocusMs += (item.elapsedMs || 0);
     });
-    // Also add from timeTracking byTab if available
-    if (timeTracking?.byTab) {
-      Object.values(timeTracking.byTab).forEach(ms => {
-        if (typeof ms === 'number') todayFocusMs += ms;
-      });
-    }
 
-    // Intent completion rate (last 7 days)
-    const recentIntents = (intentHistory || []).filter(i => {
-      const ts = i.createdAt || i.startedAt;
+    // Completion (7d): resolved focuses live in focusHistory (completeFocus moves them
+    // out of engine.items into engine.history). Count by endedAt within the window.
+    // Total "in-flight or recent" denominator is everything created in the same window.
+    const recentResolved = historyItems.filter(i => {
+      const ts = i.endedAt || i.completedAt;
       return ts && new Date(ts) >= weekAgo;
     });
-    const resolvedCount = recentIntents.filter(i => 
-      i.stage === 'resolved' || i.status === 'completed' || i.focusState === 'completed'
-    ).length;
-    const completionRate = recentIntents.length > 0 ? Math.round((resolvedCount / recentIntents.length) * 100) : 0;
+    const recentCreated = everyFocus.filter(i => {
+      const ts = i.createdAt;
+      return ts && new Date(ts) >= weekAgo;
+    });
+    const resolvedCount = recentResolved.length;
+    const completionRate = recentCreated.length > 0
+      ? Math.round((resolvedCount / recentCreated.length) * 100)
+      : 0;
 
     // Top focus labels (most frequent)
     const labelCounts = {};
@@ -61,13 +70,15 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
       else realmCounts.unset++;
     });
 
-    // Streak — consecutive days with at least one focus or intent
+    // Streak — consecutive days with at least one focus or intent.
+    // Union queue + history + active so a day where you only completed focuses still counts.
     let streak = 0;
     const daySet = new Set();
-    // Collect days from all items
-    (allItems || []).forEach(item => {
-      const d = (item.startedAt || item.createdAt || '').split('T')[0];
-      if (d) daySet.add(d);
+    everyFocus.forEach(item => {
+      [item.startedAt, item.createdAt, item.endedAt].forEach(ts => {
+        const d = (ts || '').split('T')[0];
+        if (d) daySet.add(d);
+      });
     });
     (intentHistory || []).forEach(i => {
       const d = (i.createdAt || i.startedAt || '').split('T')[0];
@@ -108,7 +119,7 @@ export function AnalyticsDashboard({ allItems, timeTracking, intentHistory, orgD
       openTasks,
       categoryTimes: categoryTimes.slice(0, 5),
     };
-  }, [allItems, timeTracking, intentHistory, orgData]);
+  }, [allItems, focusHistory, activeFocus, timeTracking, intentHistory, orgData]);
 
   const formatMin = (m) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
 

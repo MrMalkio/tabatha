@@ -5,22 +5,133 @@ file.
 
 ---
 
-## [v3.35.0] - Plan 023 Service Decomposition - _2026-05-14_
+## [v4.0.0] - Cumulative release: v3.0 → v4.0 + Plan 023 service decomposition - _2026-05-14_
 
-### Changed (Internal)
-- **Background service decomposition**: `background.js` collapsed from 2,920 lines (master) → 169 lines (orchestrator only). Runtime message routing, listener registration, and alarm dispatch now live in dedicated services: `tabService`, `focusService`, `taskService`, `clockService`, `clockTickService`, `tabTrackingService`, `categoryService`, `sessionService`, `notificationService`, `settingsService`, `groupService`, `blockgateService`, `companionService`, `alarmService`, `syncService`.
-- **Alarm consolidation**: three `chrome.alarms.onAlarm` listeners merged into a single dispatcher in `alarmService`; `supabase-sync` is now auth-guarded before dispatch.
+This is the first cumulative release going to `staging` since `v3.0.0`. It carries
+**~35 intermediate development versions** (v3.12.4-α → v3.34.5) that lived on the
+integration branch but never landed on `staging`, plus the Plan-023 background
+service decomposition (v3.34.5 → v4.0.0). The version was bumped to MAJOR as a
+marker for the magnitude of the drop, not because of any individual breaking
+change in the ledger sense.
+
+> **Action required after install:** apply [`supabase/migrations/005_add_profile_defaults.sql`](supabase/migrations/005_add_profile_defaults.sql) in the Supabase SQL Editor. Without it, your profile select fails silently and Supabase sync never pushes any data. See **Required Supabase migration** below.
+
+---
+
+### 🚀 Added — Major features delivered in this window
+
+- **Intent-to-Focus Bridge** (v3.34.5): typing an intent on a tab can auto-queue/auto-create a matching focus item, configurable via `intentBridgeMode` (`manual` / `smart_dedup` / `always`).
+- **Create Focus from Tab** + **Browser Profile Identity** (v3.34.5): each browser profile gets a stable ID stored in `chrome.storage.local.browserProfileId` for cross-device routing.
+- **Sidebar edit parity + InBar create focus** (v3.31.5): edit dropdown, refresh button, focus queue mutations from sidebar match home parity.
+- **Project / Client tag editing** (v3.30.5): live edit of focus tags (`realm`, `client`, `project`, `task`) on the active focus.
+- **Activity Editor + Timeline breaks + Webhook intervals** (v3.29.5): per-entry trim/split/merge, manual break insertion on the timeline, configurable webhook firing cadence.
+- **Desktop Activity editor** (v3.25.2): trim/clear tools for desktop activity captured via companion bridge.
+- **Sidebar intent creation with timer parity** (v3.24.2): new-focus input now lives in sidebar too.
+- **Timeline today-filter** (v3.23.2): desktop activity timeline scoped to current day by default.
+- **InBar layout overhaul + URL pause matching** (v3.21.0): paused-intent state survives URL changes when the new URL still matches the pattern.
+- **Task storage migration + funnel stage state machine** (v3.20.0): legacy `tasks[]` array → structured `tabathaOrg.tasks` registry. Funnel stages canonicalized: `unsorted → todo → focus → addressing → resolved → roadblocked`. One-time, flag-gated migration runs once per profile.
+- **Multi-task picker + auto-fill cascade + business attribution + task CRUD** (Tier-3): hierarchy-aware task selection, parent → child tag inheritance.
+- **Org hierarchy + stage editing + resolution tracking** (Tier-3): full org-tree view with stage editor.
+- **Initiatives panel** (Tier-3): roll-up of focuses by initiative across the org tree.
+- **AnalyticsDashboard** (post-3.12.4): 5 stat cards (focuses today, focus time, completion rate, streak, open tasks), top-focuses bar chart, category-time breakdown, context distribution.
+- **ActivityHeatmap** ×3 (v3.12.4-α): GitHub-style 365-day contribution graph with three views — Browser, Overall, Follow-Through.
+- **ProjectsClientsPanel + InitiativesPanel** (v3.12.4-α): full client/project view.
+- **KeyboardShortcuts + VoiceInput** (v3.12.4-α): expanded keyboard chords and voice intent capture.
+- **InBar Edit Dropdown** (v3.12.4-α): ✏️ inline panel for intent edit, focus assignment, new focus creation.
+- **InBar Intent/Focus Split** (v3.12.4-α): tab intent and central focus shown separately with divider.
+- **Focus Pause/Resume + Focus Edit + Side-Quest Auto-Pause** (v3.12.4-α): paused focuses move to queue with amber styling; resume reactivates timer.
+- **Auto-Park paused tabs on close** (v3.12.4-α): paused tabs auto-park with their sticky-note preserved.
+- **Tab label editing + Link Tab to Intent** (v3.12.4-α): inline rename, tab-picker dropdown for intent linking.
+- **Collapsible homepage sections** (v3.12.4-α): persisted collapse state for every section.
+- **Data Retention Alarm** (v3.12.4-α): daily prune of companion/desktop activity older than configurable threshold (default 90d).
+- **LogsPanel overhaul** (v3.12.4-α): 8 log types with toggleable filter chips and pagination (50/load).
+
+### 🆕 Added — v4.0.0 quality-of-life
+
+- **Editable display name** in Settings → Account: click your name to edit. Writes through to `tabatha.profiles.display_name`.
+- **Manual `Export Markdown` button** in Settings → Export & Agents: downloads a snapshot of active tabs, contexts, closed sessions, and time tracking on demand. The auto-export alarm continues to work as before.
+- **Sync Status panel** in Settings → Account: shows last successful sync time and a recent-events log of any sync diagnostics (no profile row, missing columns, upsert errors, etc.). Surfaces failures without needing the Service Worker DevTools console.
+
+### 🔧 Internal — Plan 023 service decomposition
+
+- **Background service decomposition**: `background.js` collapsed from 2,920 lines (staging) → 169 lines (orchestrator only). Runtime message routing, listener registration, and alarm dispatch now live in dedicated services: `tabService`, `focusService`, `taskService`, `clockService`, `clockTickService`, `tabTrackingService`, `categoryService`, `sessionService`, `notificationService`, `settingsService`, `groupService`, `blockgateService`, `companionService`, `alarmService`, `syncService`.
+- **Alarm consolidation**: three `chrome.alarms.onAlarm` listeners merged into a single dispatcher in `alarmService`; `supabase-sync` is auth-guarded before dispatch (skipped when no Supabase session, no longer enters `syncToSupabase` and bails inside).
 - **Storage caps**: `intentHistory`, `closedContexts`, `sessions`, `sugarBox`, and `focusEngine.history` archived through `archiveBeforeCap` instead of being silently truncated.
-- **Settings**: added `settings.storage.*` block (sugarBoxCap, snapshotIntervalMinutes, archivedTasksColdAfterDays, parkedTabsWarnAt, etc.) with additive migration.
-
-### Added
+- **Settings → Storage** block: `settings.storage.*` with additive migration. New tunables: `sugarBoxCap`, `snapshotIntervalMinutes`, `archivedTasksColdAfterDays`, `parkedTabsWarnAt`, `pendingTimeLogsWarnAt`, `focusHistoryCap`, `closedContextsCap`, `intentHistoryCap`.
+- **Companion reconnect** is now exponential-backoff capped at 30s instead of constant fast retry.
+- **`COMPANION_IDLE_STATE`**: transitional broadcast — companion-detected idle is now mirrored to all extension pages.
 - **`clockTickService`**: shared 1Hz tick broadcaster (`TICK_SUBSCRIBE`, `TICK_UNSUBSCRIBE`, `GET_TICK_STATUS`) so extension pages can stop running per-component intervals.
 - **`PARKED_TABS_WARNING` broadcast**: one-shot when parked tabs hit `settings.storage.parkedTabsWarnAt`.
 - **`STORAGE_CAP_WARNING` broadcast**: emitted when sugarBox entries fall off the cap.
 
-### Schema notes
-- `intentChangeLog` removed and merged into `intentHistory` with a union shape (one-time migration). External readers must read `intentHistory` instead.
-- Archived tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` to `_archivedTasks` (internal cold-store key).
+### 🐛 Fixed — Critical pre-Plan-023 fixes
+
+- **Critical: data loss + break/focus sync + funnel reorder**: prior to v3.13 a race in clock+focus state machines could discard active-focus state on break end.
+- **Critical: TDZ + API consistency**: temporal dead-zone errors during boot caused unpredictable startup state.
+- **InBar `SET_INTENT` was silently dropped** (v3.22.1): handler was missing entirely from the background router until this fix.
+- **Drifted-focus timer extension preserved elapsed time** (v3.22.1): previously reset to zero on extend.
+- **Duplicate notification listeners** (v0.2.5-α): merged into single handler; eliminated service-worker unpredictability.
+- **`activeTabId` ReferenceError** in welcome-back notification — replaced with `WINDOW_ID_CURRENT`.
+- **`triggerSync` excessive firing** (v0.2.5-α): auth-session guard added.
+- **`useChromeStorage` stale closure** (v0.2.5-α): `update` callback now uses `useRef` to avoid capturing stale `value`.
+- **`patternToRegex` double-escape** (v0.2.5-α): rewrote to split on `*` first, escape segments individually.
+- **Status normalization** (v3.17.24): inconsistent display of `complete` vs `completed` across UI surfaces.
+- Stage pills, palette nav, task delete, InPop nesting, stage-state sync, paused→resolved transitions, T2.1/T2.3/T4.2 surface fixes (v3.17.13 → v3.17.24): cluster of post-merge user-testing fixes.
+- **`logEvent` was used before it was defined** in background.js — defined.
+- **Timeline tooltip clipping** (v3.0.0-α): portal'd to `document.body` to escape backdrop-filter containing block; max z-index applied.
+- **Corner radius / InBar label fallback / responsive FlipClock / task delete confirm**: UI polish.
+
+### 🐛 Fixed — v4.0.0 cleanup pass (this release)
+
+- **Completed-focus counter never incremented**: AnalyticsDashboard read `intentHistory` for resolved counts, but `completeFocus()` moves items into `engine.history`. Two storage keys, never crossed. The dashboard now sources resolved focuses from `focusHistory` directly. ([src/home/AnalyticsDashboard.jsx](src/home/AnalyticsDashboard.jsx))
+- **Streak counted only queue items**: extended to include `engine.history` and the currently-active focus, so a day where you only completed focuses still counts in the streak. ([src/home/AnalyticsDashboard.jsx](src/home/AnalyticsDashboard.jsx))
+- **Supabase sync silently bailed forever**: `tabatha.profiles` was missing the `default_org_id` and `default_team_id` columns that both `useAuth.fetchProfile` and `syncService.syncToSupabase` were selecting. The error was thrown away, sync logged "No profile found for user" misleadingly, and nothing ever made it to Supabase. Fixed by:
+  - New [`supabase/migrations/005_add_profile_defaults.sql`](supabase/migrations/005_add_profile_defaults.sql) adds both columns (nullable, FK to organizations/teams).
+  - `syncService` and `useAuth` now use `maybeSingle()`, capture the error, and fall back to a minimal `SELECT id` so the rest of the flow still works pre-migration.
+  - Every silent bail now writes a row to `chrome.storage.local._syncDiagnostics`, surfaced in Settings → Account.
+- **Display name stuck at "Tabatha User"**: until now there was no UI to change it. Profile rows auto-provisioned without an OAuth `full_name` (e.g. from magic-link or password sign-up) had no way to be fixed. Added inline editor in Settings → Account.
+- **No on-demand markdown export**: the `EXPORT_MARKDOWN` handler existed in `sessionService` but nothing in the UI called it. Auto-export still worked. Added a button in Settings → Export & Agents.
+- **Transitional `serviceFlags.focus.ready` stub removed** from `tabService`: PR #11 left a dormant feature flag and dead fallback bodies for `autoQueueFromIntent` / `linkTabToFocus`. Both call sites now delegate directly through the injected `focusService` deps.
+
+### ⚠️ Schema notes
+
+- **`intentChangeLog` removed** — merged into `intentHistory` with a union shape (one-time, flag-gated migration via `_intentLogMigrated`). External readers must read `intentHistory`.
+- **Legacy `tasks[]` migrated** to `tabathaOrg.tasks` registry (one-time, flag-gated via `_tasksMigrated`). The legacy `tasks` key is set to `[]` after migration; a snapshot is briefly stored in `_legacyTasksBackup` then removed by tabService's one-shot cleanup.
+- **Archived tasks** older than `settings.storage.archivedTasksColdAfterDays` (default 90d) move from `tabathaOrg.tasks` to `_archivedTasks` (internal cold-store key).
+- **`settings.storage` block** added with additive migration — user-tuned values preserved, missing fields back-filled from `DEFAULT_SETTINGS.storage`.
+
+### 🛠 Required Supabase migration
+
+Run [`supabase/migrations/005_add_profile_defaults.sql`](supabase/migrations/005_add_profile_defaults.sql) in the Supabase SQL Editor:
+
+```sql
+ALTER TABLE tabatha.profiles
+  ADD COLUMN IF NOT EXISTS default_org_id UUID REFERENCES tabatha.organizations(id) ON DELETE SET NULL;
+ALTER TABLE tabatha.profiles
+  ADD COLUMN IF NOT EXISTS default_team_id UUID REFERENCES tabatha.teams(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS profiles_default_org_idx ON tabatha.profiles(default_org_id);
+CREATE INDEX IF NOT EXISTS profiles_default_team_idx ON tabatha.profiles(default_team_id);
+```
+
+The extension boots and operates without this migration (sync falls back to a minimal profile select that omits org/team scoping), but no rows reach `focus_items` / `intent_history` until the columns exist.
+
+### 📦 Upgrade procedure (existing v3.34.5 unpacked install)
+
+Data is preserved by chrome.storage migrations — `intentChangeLog`, legacy tasks, and additive settings backfill all run flag-gated and idempotently. The key thing is to upgrade **in-place** so Chrome keeps the same extension ID:
+
+1. Back up your data first (open any Tabatha page DevTools console → `chrome.storage.local.get(null, d => copy(JSON.stringify(d)))` → paste to a `.json` file).
+2. Apply the Supabase migration above.
+3. Overwrite the contents of your existing `dist/` directory with the new v4.0.0 build (do NOT load v4.0.0 from a new path — that creates a second extension ID with empty storage).
+4. In `chrome://extensions`, hit "Reload" on the same Tabatha extension card.
+5. Open the Service Worker (or any Tabatha page) once so bootstrap migrations fire.
+6. Settings → Account → confirm `Sync Status` shows a recent successful sync.
+
+### 🔁 Known limitations (not blockers, planned follow-up)
+
+- Supabase sync is currently one-directional (local → cloud). Tabs/focuses created on Browser A don't auto-pull to Browser B.
+- `tabathaOrg` (clients/projects/tasks/operations/initiatives) is local-only; not synced to Supabase yet.
+- Tab groups created via Chrome's built-in UI are tracked by Tabatha's `groupService` but not surfaced in any Tabatha panel — no per-group view yet.
+- Companion bridge has no profile scoping; running Tabatha in two browser profiles simultaneously will cause both to share companion events. Stop the companion app before regression-testing in a second profile.
 
 ---
 

@@ -96,8 +96,8 @@ ADD_TO_SUGAR_BOX, PARK_TAB
 
 ## Project State
 
-- **Current version:** 3.35.0
-- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to 3.35.0, feature-flag cleanup done; awaiting manual regression before final PR to `master`
+- **Current version:** 4.0.0
+- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to **4.0.0** (user-chosen MAJOR to mark first cumulative release since master v3.0.0), feature-flag cleanup done; awaiting manual regression before final PR to `staging`
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -115,7 +115,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 1. **Always commit before ending a session** — use `wip:` prefix if incomplete.
 2. **Follow Conventional Commits** — `{type}({scope}): {description}`
-3. **Never push directly to `master`** — always via PR or explicit human approval.
+3. **Never push directly to `staging` or `main`** — always via PR or explicit human approval. (`staging` is what was previously named `master`; `main` is production.)
 4. **When in doubt — always ask.**
 5. **Stay on task.** If you notice something unrelated, add it to `.headbox/parking_lot.md`.
 6. **On `checkpoint`** — update any known task(s) with progress.
