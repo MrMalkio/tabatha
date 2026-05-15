@@ -144,19 +144,34 @@ export function useAuth() {
   }, []);
 
   // ─── Init: check existing session ─────────────────────────
+  // Defensive: getSession() and fetchProfile() are each raced against a
+  // timeout so the "Loading auth state…" UI can't hang forever if Supabase
+  // is unreachable or its client is wedged. On timeout we record a diagnostic,
+  // proceed signed-out, and let the user retry by reloading the page.
   useEffect(() => {
     let cancelled = false;
+    const AUTH_TIMEOUT_MS = 8000;
+    const withTimeout = (p, label) => Promise.race([
+      p,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label}: timed out after ${AUTH_TIMEOUT_MS}ms`)), AUTH_TIMEOUT_MS))
+    ]);
 
     (async () => {
-      const { data: { session: existing } } = await supabase.auth.getSession();
-      if (cancelled) return;
+      try {
+        const { data: { session: existing } } = await withTimeout(supabase.auth.getSession(), 'auth.getSession');
+        if (cancelled) return;
 
-      setSession(existing);
-      if (existing?.user?.id && !hasFetched.current) {
-        hasFetched.current = true;
-        await fetchProfile(existing.user.id);
+        setSession(existing);
+        if (existing?.user?.id && !hasFetched.current) {
+          hasFetched.current = true;
+          await withTimeout(fetchProfile(existing.user.id), 'fetchProfile');
+        }
+      } catch (err) {
+        await writeAuthDiagnostic('auth_init_failed', err);
+        console.error('Tabatha: auth init failed', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
 
     // Listen for auth changes (login, logout, token refresh)

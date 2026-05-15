@@ -383,6 +383,37 @@ function Settings() {
     }
   };
 
+  // Full chrome.storage.local snapshot, downloaded as JSON. This is the
+  // recommended pre-upgrade backup — restores via a single chrome.storage.local.set()
+  // call (paste into a Tabatha-page DevTools console) if something goes wrong.
+  const handleBackupData = async () => {
+    setAuthError(null);
+    try {
+      const data = await chrome.storage.local.get(null);
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const meta = {
+        _backupMeta: {
+          createdAt: new Date().toISOString(),
+          extensionVersion: chrome.runtime.getManifest?.()?.version || 'unknown',
+          keyCount: Object.keys(data).length,
+          note: 'Restore by pasting in any Tabatha page DevTools console: chrome.storage.local.set(JSON.parse(text)). Be aware this overwrites current state.'
+        },
+        ...data
+      };
+      const blob = new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tabatha-backup-${ts}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setAuthError('Backup failed: ' + (err.message || err));
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError(null);
@@ -1047,14 +1078,23 @@ function Settings() {
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Export & Agents</h2>
                 <div style={sectionLabel}>Manual Export</div>
-                <button
-                  onClick={handleManualExport}
-                  style={{ padding: '8px 14px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}
-                >
-                  📥 Export markdown now
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                  <button
+                    onClick={handleManualExport}
+                    style={{ padding: '8px 14px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                  >
+                    📥 Export markdown now
+                  </button>
+                  <button
+                    onClick={handleBackupData}
+                    style={{ padding: '8px 14px', background: 'transparent', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                  >
+                    💾 Backup all data (JSON)
+                  </button>
+                </div>
                 <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
-                  Downloads a markdown snapshot of active tabs, contexts, closed sessions, and time tracking. Same payload the auto-export alarm produces.
+                  <strong>Markdown</strong>: human-readable snapshot of tabs, contexts, sessions, time tracking. Same payload the auto-export alarm produces.<br />
+                  <strong>Backup JSON</strong>: full <code>chrome.storage.local</code> snapshot. Use this before extension upgrades. Restore in any Tabatha page DevTools console with <code>chrome.storage.local.set(JSON.parse(...))</code>.
                 </div>
                 <div style={sectionLabel}>Auto Export</div>
                 <div style={fieldRow}>
