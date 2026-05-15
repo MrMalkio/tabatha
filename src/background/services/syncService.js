@@ -122,4 +122,3 @@ export async function syncToSupabase() {
 export function registerSyncServiceAlarms() {
   chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 }
-
