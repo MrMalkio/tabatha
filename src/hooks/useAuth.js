@@ -1,6 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 
+// Auth diagnostics — same chrome.storage key the syncService uses, so the
+// Settings → Account "Sync Status" panel can surface auth-side failures too.
+async function writeAuthDiagnostic(kind, detail) {
+  try {
+    if (!chrome?.storage?.local) return;
+    const { _syncDiagnostics } = await chrome.storage.local.get('_syncDiagnostics');
+    const rows = Array.isArray(_syncDiagnostics) ? _syncDiagnostics : [];
+    rows.unshift({
+      kind,
+      detail: typeof detail === 'string' ? detail : (detail?.message || JSON.stringify(detail)),
+      at: new Date().toISOString()
+    });
+    await chrome.storage.local.set({ _syncDiagnostics: rows.slice(0, 20) });
+  } catch { /* best effort */ }
+}
+
 /**
  * useAuth — Reactive hook for Supabase auth state + Tabatha profile.
  *
@@ -32,16 +48,38 @@ export function useAuth() {
     }
 
     try {
-      // 1. Get or create profile
-      let { data: prof, error } = await supabase
+      // 1. Get or create profile.
+      // Defensive read: try the wide column list first; if any column is missing
+      // (e.g. migration 005 not applied yet — adds default_org_id/default_team_id),
+      // fall back to the minimal set so the user can still sign in and see their
+      // display_name. The diagnostics row tells them what's missing.
+      let prof = null;
+      const WIDE = 'id, auth_user_id, display_name, avatar_url, default_org_id, default_team_id, created_at';
+      const MIN = 'id, auth_user_id, display_name, avatar_url, created_at';
+
+      const tryRead = async (cols) => supabase
         .schema('tabatha')
         .from('profiles')
-        .select('id, auth_user_id, display_name, avatar_url, default_org_id, default_team_id, created_at')
+        .select(cols)
         .eq('auth_user_id', authUserId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code === 'PGRST116') {
-        // No profile row yet — auto-provision on first login
+      let readRes = await tryRead(WIDE);
+      if (readRes.error) {
+        await writeAuthDiagnostic('profile_wide_select_failed', readRes.error);
+        readRes = await tryRead(MIN);
+      }
+
+      if (readRes.error) {
+        await writeAuthDiagnostic('profile_select_failed', readRes.error);
+        console.error('Tabatha: Error fetching profile:', readRes.error);
+        return null;
+      }
+
+      prof = readRes.data;
+
+      if (!prof) {
+        // No row yet — auto-provision on first login.
         const { data: { user } } = await supabase.auth.getUser();
         const displayName = user?.user_metadata?.full_name
           || user?.user_metadata?.name
@@ -61,13 +99,11 @@ export function useAuth() {
           .single();
 
         if (insertErr) {
+          await writeAuthDiagnostic('profile_insert_failed', insertErr);
           console.error('Tabatha: Failed to create profile:', insertErr);
           return null;
         }
         prof = newProf;
-      } else if (error) {
-        console.error('Tabatha: Error fetching profile:', error);
-        return null;
       }
 
       setProfile(prof);

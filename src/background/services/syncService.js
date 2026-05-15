@@ -1,6 +1,10 @@
 // ============================================================
-// Tabatha - Sync Service (Plan 023 router finalization)
+// Tabatha - Sync Service (Plan 023 router finalization + v4.0.0 diagnostics)
 // Owns Supabase sync and the local debounce used by storage mutations.
+//
+// Diagnostics: every bail/error writes a row to
+// chrome.storage.local._syncDiagnostics so the Settings UI can show users why
+// sync isn't happening, without needing the service-worker DevTools console.
 // ============================================================
 
 import { getStorage, setStorage } from './storageService.js';
@@ -9,8 +13,31 @@ import { getFocusEngine } from './focusService.js';
 let deps = {};
 let syncTimeout = null;
 
+const MAX_DIAGNOSTIC_ROWS = 20;
+
 export function configureSyncService(injected = {}) {
   deps = { ...deps, ...injected };
+}
+
+async function recordDiagnostic(kind, detail) {
+  try {
+    const { _syncDiagnostics } = await getStorage('_syncDiagnostics');
+    const rows = Array.isArray(_syncDiagnostics) ? _syncDiagnostics : [];
+    rows.unshift({
+      kind,
+      detail: typeof detail === 'string' ? detail : (detail?.message || JSON.stringify(detail)),
+      at: new Date().toISOString()
+    });
+    await setStorage({ _syncDiagnostics: rows.slice(0, MAX_DIAGNOSTIC_ROWS) });
+  } catch {
+    // Diagnostics write is best-effort. Don't let it crash the sync path.
+  }
+}
+
+async function recordSuccess() {
+  try {
+    await setStorage({ _lastSyncSuccess: new Date().toISOString() });
+  } catch { /* ignore */ }
 }
 
 export async function getAuthSession() {
@@ -27,29 +54,62 @@ export function triggerSync() {
       const session = await getAuthSession();
       if (!session) return;
       await syncToSupabase();
-    } catch {
-      // Sync is best-effort and should never interrupt extension behavior.
+    } catch (err) {
+      await recordDiagnostic('debounce_failure', err);
     }
   }, 10000);
 }
 
+// Defensive profile read. Tries the wide select first; if the columns
+// `default_org_id` / `default_team_id` are missing (migration 005 not yet
+// applied), falls back to a minimal select so the rest of the sync can
+// proceed without org/team scoping.
+async function readProfile(supabase, authUserId) {
+  const wide = await supabase
+    .schema('tabatha')
+    .from('profiles')
+    .select('id, default_org_id, default_team_id')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle();
+
+  if (!wide.error) return { profile: wide.data, partial: false };
+
+  // Wide select failed — almost certainly an unknown-column error. Try minimal.
+  await recordDiagnostic('profile_wide_select_failed', wide.error);
+
+  const minimal = await supabase
+    .schema('tabatha')
+    .from('profiles')
+    .select('id')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle();
+
+  if (minimal.error) {
+    await recordDiagnostic('profile_minimal_select_failed', minimal.error);
+    return { profile: null, partial: false };
+  }
+
+  return { profile: minimal.data ? { ...minimal.data, default_org_id: null, default_team_id: null } : null, partial: true };
+}
+
 export async function syncToSupabase() {
   const supabase = deps.supabase;
-  if (!supabase) return;
+  if (!supabase) {
+    await recordDiagnostic('no_supabase_client', 'configureSyncService was not called with a supabase client');
+    return;
+  }
 
   try {
     const session = await getAuthSession();
-    if (!session) return;
+    if (!session) {
+      await recordDiagnostic('no_auth_session', 'Sync attempted while signed out');
+      return;
+    }
 
-    const { data: profile } = await supabase
-      .schema('tabatha')
-      .from('profiles')
-      .select('id, default_org_id, default_team_id')
-      .eq('auth_user_id', session.user.id)
-      .single();
+    const { profile, partial } = await readProfile(supabase, session.user.id);
 
     if (!profile) {
-      console.warn('Tabatha: No profile found for user. Skipping sync.');
+      await recordDiagnostic('no_profile_row', `No tabatha.profiles row for auth_user_id=${session.user.id}. The profile auto-provision may have failed — try signing out and back in.`);
       return;
     }
 
@@ -78,7 +138,7 @@ export async function syncToSupabase() {
           .schema('tabatha')
           .from('focus_items')
           .upsert(focusUpserts, { onConflict: 'profile_id, client_id' });
-        if (error) console.error('Tabatha: Error syncing focus items:', error);
+        if (error) await recordDiagnostic('focus_items_upsert_failed', error);
       }
     }
 
@@ -107,19 +167,23 @@ export async function syncToSupabase() {
           .insert(intentInserts);
 
         if (error) {
-          console.error('Tabatha: Error syncing intent history:', error);
+          await recordDiagnostic('intent_history_insert_failed', error);
         } else {
           const newest = Math.max(...newIntents.map(i => new Date(i.timestamp).getTime()));
           await setStorage({ lastIntentSync: new Date(newest).toISOString() });
         }
       }
     }
+
+    if (partial) {
+      await recordDiagnostic('partial_sync', 'Sync ran with org/team scoping disabled because migration 005 has not been applied. Run supabase/migrations/005_add_profile_defaults.sql in the Supabase SQL Editor.');
+    }
+    await recordSuccess();
   } catch (err) {
-    console.error('Tabatha: Supabase sync failed:', err);
+    await recordDiagnostic('sync_threw', err);
   }
 }
 
 export function registerSyncServiceAlarms() {
   chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 }
-

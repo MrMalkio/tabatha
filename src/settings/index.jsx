@@ -331,6 +331,58 @@ function Settings() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
+  // Display-name editor state
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameDraft, setDisplayNameDraft] = useState('');
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
+
+  // Sync diagnostics — written by syncService and useAuth to chrome.storage.local
+  const [syncDiagnostics] = useChromeStorage('_syncDiagnostics', []);
+  const [lastSyncSuccess] = useChromeStorage('_lastSyncSuccess', null);
+
+  const handleSaveDisplayName = async () => {
+    const next = displayNameDraft.trim();
+    if (!next || !profile?.id) { setEditingDisplayName(false); return; }
+    setSavingDisplayName(true);
+    setAuthError(null);
+    try {
+      const { error } = await supabase
+        .schema('tabatha')
+        .from('profiles')
+        .update({ display_name: next, updated_at: new Date().toISOString() })
+        .eq('id', profile.id);
+      if (error) throw error;
+      await refreshProfile();
+      setEditingDisplayName(false);
+    } catch (err) {
+      setAuthError('Failed to update name: ' + (err.message || err));
+    } finally {
+      setSavingDisplayName(false);
+    }
+  };
+
+  const handleManualExport = async () => {
+    setAuthError(null);
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'EXPORT_MARKDOWN' });
+      if (res?.error) throw new Error(res.error);
+      const content = res?.content;
+      if (!content) throw new Error('No content returned from EXPORT_MARKDOWN');
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `tabatha-export-${dateStr}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setAuthError('Export failed: ' + (err.message || err));
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError(null);
@@ -513,13 +565,64 @@ function Settings() {
                             {(profile?.display_name || session.user.email)?.[0]?.toUpperCase() || '?'}
                           </div>
                         )}
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{profile?.display_name || 'Tabatha User'}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {editingDisplayName ? (
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                value={displayNameDraft}
+                                onChange={(e) => setDisplayNameDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveDisplayName();
+                                  if (e.key === 'Escape') setEditingDisplayName(false);
+                                }}
+                                autoFocus
+                                disabled={savingDisplayName}
+                                style={{ fontSize: '14px', fontWeight: 600, padding: '4px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', minWidth: 0, flex: 1 }}
+                              />
+                              <button onClick={handleSaveDisplayName} disabled={savingDisplayName} style={{ padding: '4px 8px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>{savingDisplayName ? '…' : 'Save'}</button>
+                              <button onClick={() => setEditingDisplayName(false)} disabled={savingDisplayName} style={{ padding: '4px 8px', background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => { setDisplayNameDraft(profile?.display_name || ''); setEditingDisplayName(true); }}
+                              title="Click to edit"
+                              style={{ fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              {profile?.display_name || 'Tabatha User'} <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 400 }}>✏️</span>
+                            </div>
+                          )}
                           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{session.user.email}</div>
                         </div>
                         <div style={{ marginLeft: 'auto', padding: '3px 8px', background: 'rgba(52,168,83,0.15)', color: '#34A853', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>Connected</div>
                       </div>
                       
+                      {/* Sync status */}
+                      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sync Status</div>
+                        {lastSyncSuccess ? (
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: syncDiagnostics?.length > 0 ? '6px' : 0 }}>
+                            ✓ Last successful sync: <span style={{ color: 'var(--color-text-primary)' }}>{new Date(lastSyncSuccess).toLocaleString()}</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '11px', color: '#ff9800', marginBottom: '6px' }}>⚠ No successful sync yet.</div>
+                        )}
+                        {syncDiagnostics?.length > 0 && (
+                          <details style={{ fontSize: '11px' }}>
+                            <summary style={{ cursor: 'pointer', color: 'var(--color-text-muted)' }}>{syncDiagnostics.length} diagnostic event{syncDiagnostics.length === 1 ? '' : 's'} (most recent first)</summary>
+                            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '160px', overflow: 'auto' }}>
+                              {syncDiagnostics.slice(0, 10).map((d, i) => (
+                                <div key={i} style={{ padding: '6px 8px', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                                  <div style={{ fontWeight: 600, color: d.kind?.includes('failed') || d.kind?.includes('no_') ? '#ff9800' : 'var(--color-text-primary)' }}>{d.kind}</div>
+                                  <div style={{ color: 'var(--color-text-muted)', wordBreak: 'break-word' }}>{d.detail}</div>
+                                  <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', marginTop: '2px' }}>{new Date(d.at).toLocaleString()}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+
                       {/* Linked identities */}
                       <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
                         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Linked Accounts</div>
@@ -943,6 +1046,17 @@ function Settings() {
             {activeSection === 'export' && (
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Export & Agents</h2>
+                <div style={sectionLabel}>Manual Export</div>
+                <button
+                  onClick={handleManualExport}
+                  style={{ padding: '8px 14px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}
+                >
+                  📥 Export markdown now
+                </button>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
+                  Downloads a markdown snapshot of active tabs, contexts, closed sessions, and time tracking. Same payload the auto-export alarm produces.
+                </div>
+                <div style={sectionLabel}>Auto Export</div>
                 <div style={fieldRow}>
                   <span style={fieldLabel}>Auto-export</span>
                   <Toggle value={!!settings.autoExportEnabled} onChange={v => updateSetting('autoExportEnabled', v)} />
