@@ -23,17 +23,10 @@ let injectedDeps = {};
 let listenersRegistered = false;
 let urlLockListenerRegistered = false;
 
-const serviceFlags = {
-  focus: { ready: false }
-};
-
 const pendingCloseConfirmations = new Map();
 
 export function configureTabService(deps = {}) {
   injectedDeps = { ...injectedDeps, ...deps };
-  if (deps.services?.focus) {
-    serviceFlags.focus = { ...serviceFlags.focus, ...deps.services.focus };
-  }
 }
 
 export function registerTabServiceListeners() {
@@ -607,7 +600,7 @@ async function setIntent(message, sender) {
     tabs[tabId].startedAt = new Date().toISOString();
 
     if (payload.intent) {
-      await autoQueueFromIntent(payload.intent, tabId);
+      await injectedDeps.autoQueueFromIntent?.(payload.intent, tabId);
     }
   }
 
@@ -630,7 +623,7 @@ async function associateTabWithFocus(message, sender) {
   const focusId = message.focusId;
   const tabId = message.tabId || (sender.tab ? sender.tab.id : null);
   if (focusId && tabId) {
-    await linkTabToFocus(focusId, tabId, { updateTabIntent: false });
+    await injectedDeps.linkTabToFocus?.(focusId, tabId);
   }
   return { success: true };
 }
@@ -642,7 +635,7 @@ async function closeTab(tabId) {
 
 async function linkTabToIntent(message) {
   const { tabId, targetIntentId } = message;
-  await linkTabToFocus(targetIntentId, tabId, { updateTabIntent: true });
+  await injectedDeps.linkTabToFocus?.(targetIntentId, tabId);
   return { success: true };
 }
 
@@ -795,83 +788,6 @@ async function associateTabWithActiveFocus(tabId) {
   }
 }
 
-async function autoQueueFromIntent(intentLabel, tabId) {
-  try {
-    if (serviceFlags.focus.ready && injectedDeps.autoQueueFromIntent) {
-      await injectedDeps.autoQueueFromIntent(intentLabel, tabId);
-      return;
-    }
-
-    const { tabathaSettings } = await getStorage('tabathaSettings');
-    const bridgeMode = tabathaSettings?.intentBridgeMode || 'smart_dedup';
-
-    if (bridgeMode === 'manual') return;
-
-    const engine = await getFocusEngine();
-    const activeFocus = engine.activeFocusId ? engine.items[engine.activeFocusId] : null;
-    const activeLabel = activeFocus?.label?.toLowerCase()?.trim() || '';
-    const newLabel = intentLabel.toLowerCase().trim();
-
-    const existingMatch = Object.values(engine.items).find(
-      item => item.label?.toLowerCase()?.trim() === newLabel && item.focusState !== 'completed'
-    );
-
-    const shouldAutoQueue = bridgeMode === 'always'
-      ? !existingMatch
-      : newLabel !== activeLabel && !existingMatch;
-
-    if (shouldAutoQueue) {
-      const defaultRealm = tabathaSettings?.defaultRealm || '';
-      const result = await addFocus(intentLabel, 15, { realm: defaultRealm });
-      const newItem = result.engine.items[result.newFocusId];
-      if (newItem) {
-        newItem.associatedTabIds = [...(newItem.associatedTabIds || []), tabId];
-        await setFocusEngine(result.engine);
-      }
-      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-    } else if (existingMatch) {
-      if (!existingMatch.associatedTabIds?.includes(tabId)) {
-        existingMatch.associatedTabIds = [...(existingMatch.associatedTabIds || []), tabId];
-        await setFocusEngine(engine);
-      }
-    }
-  } catch (bridgeErr) {
-    console.warn('[Intent Bridge] Error:', bridgeErr);
-  }
-}
-
-async function linkTabToFocus(focusId, tabId, { updateTabIntent }) {
-  if (serviceFlags.focus.ready && injectedDeps.linkTabToFocus) {
-    await injectedDeps.linkTabToFocus(focusId, tabId);
-    return;
-  }
-
-  const engine = await getFocusEngine();
-  const tabs = await getTabData();
-
-  if (engine.items[focusId]) {
-    Object.values(engine.items).forEach(intent => {
-      intent.associatedTabIds = (intent.associatedTabIds || []).filter(id => id !== tabId);
-    });
-
-    if (!engine.items[focusId].associatedTabIds?.includes(tabId)) {
-      engine.items[focusId].associatedTabIds = [
-        ...(engine.items[focusId].associatedTabIds || []),
-        tabId
-      ];
-    }
-    await setFocusEngine(engine);
-
-    if (updateTabIntent && tabs[tabId]) {
-      tabs[tabId].intent = engine.items[focusId].label;
-      await setTabData(tabs);
-      broadcastAll({ type: 'TAB_UPDATED', tabId, tabData: tabs[tabId] });
-    }
-
-    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-  }
-}
-
 function buildTabEntryFromSender(sender) {
   return {
     url: sender.tab.url || '',
@@ -904,24 +820,6 @@ async function getFocusEngine() {
 async function setFocusEngine(engine) {
   if (injectedDeps.setFocusEngine) return injectedDeps.setFocusEngine(engine);
   return setStorage({ focusEngine: engine });
-}
-
-async function addFocus(label, timerMinutes, tags) {
-  if (injectedDeps.addFocus) return injectedDeps.addFocus(label, timerMinutes, tags);
-  const engine = await getFocusEngine();
-  const id = `f_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-  engine.items[id] = {
-    id,
-    label,
-    focusState: 'paused',
-    funnelStage: 'todo',
-    createdAt: new Date().toISOString(),
-    timerMinutes,
-    associatedTabIds: [],
-    tags
-  };
-  await setFocusEngine(engine);
-  return { engine, newFocusId: id };
 }
 
 async function setTabData(tabs) {

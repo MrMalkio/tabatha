@@ -88,12 +88,10 @@ configureTabTrackingService({
 configureTabService({
   getFocusEngine: focusService.getFocusEngine,
   setFocusEngine: focusService.setFocusEngine,
-  addFocus: focusService.addFocus,
   autoQueueFromIntent: focusService.autoQueueFromIntent,
   linkTabToFocus: focusService.linkTabToFocus,
   setTabData,
-  logEvent: tabTrackingService.logEvent,
-  services: { focus: { ready: true } }
+  logEvent: tabTrackingService.logEvent
 });
 
 configureClockService({
