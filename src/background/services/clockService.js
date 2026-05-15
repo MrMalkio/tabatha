@@ -11,9 +11,12 @@
 import { getStorage, setStorage } from './storageService.js';
 import { broadcastToExtension, broadcastAll } from './notificationService.js';
 import { createClockService } from '../clock.js';
+import * as timeTracker from '../../services/timeTracking.js';
 
 // ── Injected dependencies (set via configureClockService) ──
 let deps = {};
+let idleListenerRegistered = false;
+let userIdleSince = null;
 
 /**
  * Wire up cross-service deps that can't be imported directly
@@ -24,6 +27,13 @@ let deps = {};
  */
 export function configureClockService(injected = {}) {
   deps = { ...deps, ...injected };
+}
+
+export function registerClockServiceListeners() {
+  if (idleListenerRegistered) return;
+  idleListenerRegistered = true;
+  chrome.idle.setDetectionInterval(60);
+  chrome.idle.onStateChanged.addListener(handleIdleStateChanged);
 }
 
 // ── Core clock instance ──
@@ -99,6 +109,121 @@ export function sendClockEventToCompanion(event) {
 // (idle handler, alarm handler) during the transition period.
 export const toggleBreak = () => clock.toggleBreak();
 export const getClockStatus = () => clock.getClockStatus();
+
+async function handleIdleStateChanged(newState) {
+  if (newState === 'idle' || newState === 'locked') {
+    const activeApp = deps.companionBridge?.activeApp;
+    if (deps.companionBridge?.isConnected && activeApp) {
+      const offChromeSince = new Date(activeApp.timestamp);
+      const offChromeMs = Date.now() - offChromeSince.getTime();
+      if (offChromeMs < 120000) {
+        console.log('[idle] Suppressed - user active in:', activeApp.displayName);
+        broadcastToExtension({
+          type: 'OFF_CHROME_ACTIVE',
+          app: activeApp.displayName,
+          category: activeApp.category,
+          since: activeApp.timestamp
+        });
+        return;
+      }
+    }
+
+    await timeTracker.stopAllTracking();
+    userIdleSince = new Date().toISOString();
+    resetIdleAutoBreakApplied();
+
+    const engine = await deps.getFocusEngine?.();
+    if (engine?.activeFocusId) {
+      const active = engine.items[engine.activeFocusId];
+      if (active?.focusState === 'active') {
+        if (active.lastResumedAt) {
+          active.elapsedMs = (active.elapsedMs || 0) + (Date.now() - new Date(active.lastResumedAt).getTime());
+          active.lastResumedAt = null;
+        }
+        active.focusState = 'paused';
+        active.pausedAt = new Date().toISOString();
+        if (active.funnelStage === 'addressing') active.funnelStage = 'focus';
+        await deps.setFocusEngine?.(engine);
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      }
+    }
+
+    broadcastToExtension({ type: 'USER_IDLE', since: userIdleSince });
+    chrome.alarms.create('idle-auto-break', { delayInMinutes: 5 });
+    return;
+  }
+
+  if (newState !== 'active') return;
+
+  chrome.alarms.clear('idle-auto-break');
+
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (activeTabs) => {
+    if (!activeTabs?.length) return;
+    const tabId = activeTabs[0].id;
+    const tabs = await getTabData();
+    if (tabs[tabId]) {
+      await timeTracker.startTracking(tabId, tabs[tabId].url, tabs[tabId]);
+    }
+  });
+
+  if (!userIdleSince) return;
+
+  const idleDuration = Date.now() - new Date(userIdleSince).getTime();
+  const settings = await getSettings();
+  const wasAutoBreakApplied = consumeIdleAutoBreakApplied();
+
+  if (wasAutoBreakApplied) {
+    const { clockSession } = await getStorage('clockSession');
+    if (clockSession?.active && clockSession?.onBreak && settings.autoResumeFromBreak) {
+      await endBreakIfActive();
+    }
+  }
+
+  let pausedFocusId = null;
+  let pausedFocusLabel = null;
+  const engine = await deps.getFocusEngine?.();
+  if (engine?.activeFocusId && engine.items[engine.activeFocusId]?.focusState === 'paused') {
+    pausedFocusId = engine.activeFocusId;
+    pausedFocusLabel = engine.items[engine.activeFocusId].label;
+  }
+
+  broadcastAll({
+    type: 'WELCOME_BACK',
+    idleSince: userIdleSince,
+    idleDurationMs: idleDuration,
+    pausedFocusId,
+    pausedFocusLabel,
+    wasOnBreak: wasAutoBreakApplied
+  });
+
+  if (idleDuration > (settings.idleThresholdMinutes || 5) * 60 * 1000) {
+    broadcastToExtension({
+      type: 'OFF_CHROME_RETURN',
+      idleSince: userIdleSince,
+      idleDurationMs: idleDuration
+    });
+
+    chrome.notifications.create('welcome-back', {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'Welcome Back!',
+      message: `You were away for ${Math.round(idleDuration / 60000)}m. Click to log your offline context.`,
+      requireInteraction: true
+    });
+  }
+  userIdleSince = null;
+}
+
+async function getTabData() {
+  if (deps.getTabData) return deps.getTabData();
+  const { tabs } = await getStorage('tabs');
+  return tabs || {};
+}
+
+async function getSettings() {
+  const { settings } = await getStorage('settings');
+  return settings || {};
+}
 
 // ── Router entry point ──
 

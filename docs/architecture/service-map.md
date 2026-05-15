@@ -2,7 +2,7 @@
 
 > Every message handler in master's `background.js` (v3.34.5-α, 2920 lines) mapped to its target service module.  
 > Use this as the extraction guide for `refactor/decomp-v2`.  
-> **79 handlers across 14 services** (`alarmService` consolidates `chrome.alarms.onAlarm` dispatch and owns no runtime handlers).
+> **79 handlers across 15 services** (`alarmService` and `syncService` own event/timer orchestration and no runtime handlers).
 
 ---
 
@@ -269,6 +269,14 @@ Single `chrome.alarms.onAlarm` listener. Owns no runtime messages — exists to 
 
 ---
 
+## syncService.js — 0 message handlers ✅ (Task 05d / router finalization)
+
+Owns Supabase sync, the 10-second local debounce, auth-session lookup, and the recurring `supabase-sync` alarm registration. Runtime message response shapes are unchanged.
+
+**Dependencies:** Supabase client injection, storageService, focusService read access.
+
+---
+
 ## companionService.js — 6 WebSocket message handlers
 
 These are handled internally by companionService, NOT through the chrome.runtime.onMessage router:
@@ -297,8 +305,8 @@ These are handled internally by companionService, NOT through the chrome.runtime
 | `chrome.tabs.onCreated` | `tabService.js` | New tab handler |
 | `chrome.tabs.onUpdated` | `tabService.js` | Tab URL/title change handler |
 | `chrome.tabs.onRemoved` | `tabService.js` + `tabTrackingService.js` | Tab close handler |
-| `chrome.tabs.onActivated` | `tabTrackingService.js` | Tab switch — time tracking |
-| `chrome.idle.onStateChanged` | `clockService.js` | Idle/active detection |
+| `chrome.tabs.onActivated` | `tabTrackingService.js` ✅ (Task 05d) | Tab switch — time tracking + context-drift detection |
+| `chrome.idle.onStateChanged` | `clockService.js` ✅ (Task 05d) | Idle/active detection + auto-break coordination |
 | `chrome.alarms.onAlarm` | `alarmService.js` ✅ (Task 05c) | Single listener; routes by alarm name to the owning service's handler |
 | `chrome.tabGroups.*` | `groupService.js` | Tab group sync listeners |
 | `initializeState()` | Router | Startup initialization |

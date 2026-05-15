@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 9 | Status: active          -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 10 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
 - **Current version:** 3.34.5
-- **Current focus:** Plan 023 Task 02 — notification/settings service extraction started; build green, manual extension checks pending
+- **Current focus:** Plan 023 Task 05D / router finalization complete; build green, manual extension checks pending
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -159,6 +159,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-13 | Antigravity | Efficiency Audit + Plan 023 | Full ecosystem audit (extension, desktop companion, screensaver). Cross-referenced with Codex audit. Created Plan 023: Efficiency-Driven Decomposition. Assessed refactor/service-arch branch (57 behind, archive recommended). Registered Plan 023 in plan-registry. Collected user feedback on caps, privacy, branching, parallelization. Identified 4 branches + 1 stale worktree for cleanup. | Address user feedback (task files, branch cleanup, parallel strategy, storage key explainer). Execute Plan 023 after approval. |
 | 2026-05-14 | Antigravity | Plan 023 Task 00: Pre-Decomp | Created docs/architecture/ (4 docs: decomp plan, service map, migration checklist, message contracts -- all master-aligned at 79 handlers). Wired version sync script (version:sync, version:check, prebuild). Synced all files to v3.34.5. Installed pre-commit hook. Removed stale worktree. Archived refactor/service-arch as tag. Created privacy-modes-future sticky note. | Confirm+delete feat/follow-through-engine + feat/v3-ux-overhaul branches, push tags, merge to master, begin Task 01. |
 | 2026-05-14 | Codex | Plan 023 Task 02: Notification + Settings Services | Created `refactor/decomp-v2-communication` from `origin/refactor/decomp-v2-foundation`. Extracted `notificationService.js` and `settingsService.js`, registered both in the router, removed their legacy switch cases, scoped background broadcasts to extension-only vs InBar-relevant all-target delivery, updated architecture docs/checklists/semantic ledger, and verified `npm run build`. | Load unpacked extension and manually verify popup render, InBar data/notes, settings persistence, and service worker console broadcast scoping. |
+| 2026-05-14 | Codex | PR 10 Review + Plan 023 Task 05D Router Finalization | Reviewed PR 10 (`refactor/decomp-v2-alarm`) with no blocking findings. Created `refactor/decomp-v2-router` from PR 10 head, reduced `background.js` to 171 lines, removed legacy fallback routing, moved activation/idle/notification/URL-lock/sync orchestration into services, added `syncService`, updated docs/ledger, and verified `npm run build`. | Manual unpacked-extension regression, merge PR 10, rebase/retarget router branch onto integration, then total semantic ledger and bump version after full regression. |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

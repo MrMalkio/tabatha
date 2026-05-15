@@ -1,9 +1,17 @@
 import { getStorage, setStorage } from './storageService.js';
 
 let injectedDeps = {};
+let notificationListenersRegistered = false;
 
 export function configureNotificationService(deps = {}) {
   injectedDeps = { ...injectedDeps, ...deps };
+}
+
+export function registerNotificationListeners() {
+  if (notificationListenersRegistered) return;
+  notificationListenersRegistered = true;
+  chrome.notifications.onClicked.addListener(handleNotificationClicked);
+  chrome.notifications.onButtonClicked.addListener(handleNotificationButtonClicked);
 }
 
 export function broadcastToExtension(message) {
@@ -60,6 +68,44 @@ export async function handleMessage(type, message, sender) {
     default:
       return undefined;
   }
+}
+
+async function handleNotificationClicked(notificationId) {
+  if (notificationId.startsWith('context-drift-') || notificationId.startsWith('focus-expired-') || notificationId.startsWith('nudge-')) {
+    chrome.tabs.create({ url: chrome.runtime.getURL('home.html') });
+    chrome.notifications.clear(notificationId);
+    return;
+  }
+
+  if (notificationId === 'welcome-back') {
+    chrome.sidePanel.setOptions({ enabled: true });
+    chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT }).catch(() => {});
+    return;
+  }
+
+  if (notificationId.startsWith('context-')) {
+    const tabId = parseInt(notificationId.replace('context-', ''), 10);
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      await chrome.windows.update(tab.windowId, { focused: true });
+      await chrome.tabs.update(tabId, { active: true });
+    } catch { /* tab may not exist */ }
+    broadcastToExtension({ type: 'PROMPT_PURPOSE', tabId });
+  }
+}
+
+async function handleNotificationButtonClicked(notificationId, buttonIndex) {
+  if (!notificationId.startsWith('focus-drift-')) return;
+
+  const focusId = notificationId.replace('focus-drift-', '');
+  if (buttonIndex === 0) {
+    await injectedDeps.extendFocusTimer?.(focusId, 5);
+    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  } else if (buttonIndex === 1) {
+    await injectedDeps.completeFocus?.(focusId);
+    broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  }
+  chrome.notifications.clear(notificationId);
 }
 
 async function getInbarData(sender) {
