@@ -324,7 +324,7 @@ function Settings() {
   );
 
   // Supabase Auth State (via useAuth hook)
-  const { session, profile, orgs, teams, loading: authLoading, signIn, signOut, refreshProfile, isSignedIn } = useAuth();
+  const { session, profile, orgs, teams, loading: authLoading, signIn, signOut, forceResetAuth, refreshProfile, isSignedIn } = useAuth();
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [inviteToken, setInviteToken] = useState('');
@@ -346,14 +346,26 @@ function Settings() {
     setSavingDisplayName(true);
     setAuthError(null);
     try {
-      const { error } = await supabase
-        .schema('tabatha')
-        .from('profiles')
-        .update({ display_name: next, updated_at: new Date().toISOString() })
-        .eq('id', profile.id);
+      // .select() forces Supabase to return the updated rows. If RLS or a
+      // stale JWT silently rejects the update, the response is an empty
+      // array (no error, just 0 rows). Without .select() we couldn't tell
+      // the difference between "saved" and "silently dropped".
+      const { data, error } = await Promise.race([
+        supabase
+          .schema('tabatha')
+          .from('profiles')
+          .update({ display_name: next, updated_at: new Date().toISOString() })
+          .eq('id', profile.id)
+          .select(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out after 10s — Supabase may be unreachable')), 10000))
+      ]);
       if (error) throw error;
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('Update succeeded with 0 rows changed. Your session may be stale — try "Force reset auth" below and sign in again.');
+      }
       await refreshProfile();
       setEditingDisplayName(false);
+      setAuthError('✓ Name updated');
     } catch (err) {
       setAuthError('Failed to update name: ' + (err.message || err));
     } finally {
@@ -727,7 +739,17 @@ function Settings() {
                       Focus items, intents, and time data sync automatically every 5 minutes.
                     </p>
 
-                    <button onClick={signOut} style={{ ...inputStyle, width: '100%', background: 'var(--color-bg-base)', cursor: 'pointer', textAlign: 'center', padding: '8px', fontWeight: 500 }}>Sign Out</button>
+                    <button onClick={signOut} style={{ ...inputStyle, width: '100%', background: 'var(--color-bg-base)', cursor: 'pointer', textAlign: 'center', padding: '8px', fontWeight: 500, marginBottom: '8px' }}>Sign Out</button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Force-clear all auth state from this profile? Use this only if Sign Out isn\'t working or sync keeps timing out. You will be signed out and need to sign back in.')) return;
+                        await forceResetAuth();
+                        setAuthError('✓ Auth state cleared. Sign in again to restore sync.');
+                      }}
+                      style={{ width: '100%', background: 'transparent', border: '1px dashed var(--color-border)', color: 'var(--color-text-muted)', cursor: 'pointer', textAlign: 'center', padding: '8px', fontSize: '11px', borderRadius: 'var(--radius-sm)' }}
+                    >
+                      ⚠ Force reset auth (use if Sign Out hangs or sync keeps timing out)
+                    </button>
                   </div>
                 ) : (
                   /* ── Login Form (not signed in) ── */

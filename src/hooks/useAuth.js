@@ -150,7 +150,7 @@ export function useAuth() {
   // proceed signed-out, and let the user retry by reloading the page.
   useEffect(() => {
     let cancelled = false;
-    const AUTH_TIMEOUT_MS = 8000;
+    const AUTH_TIMEOUT_MS = 15000;
     const withTimeout = (p, label) => Promise.race([
       p,
       new Promise((_, reject) => setTimeout(() => reject(new Error(`${label}: timed out after ${AUTH_TIMEOUT_MS}ms`)), AUTH_TIMEOUT_MS))
@@ -222,12 +222,50 @@ export function useAuth() {
   }, []);
 
   // ─── Sign out ─────────────────────────────────────────────
+  // The remote-scope signOut hits /auth/v1/logout to revoke the JWT, which
+  // hangs on slow/wedged sessions. We race it against a 4s timeout; whether
+  // the remote call wins or the timeout fires, we always clear the local
+  // state so the UI is never stuck "Signed in" after the user clicks out.
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('remote signOut timed out — clearing local state only')), 4000))
+      ]);
+    } catch (err) {
+      await writeAuthDiagnostic('signout_fell_back_to_local', err);
+      // Local-scope signOut bypasses the network entirely and just clears the
+      // client-side session. Safe to call even if the remote already cleared.
+      try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
+    }
     setSession(null);
     setProfile(null);
     setOrgs([]);
     setTeams([]);
+    hasFetched.current = false;
+  }, []);
+
+  // ─── Force reset (escape hatch for stale/wedged sessions) ──
+  // Wipes every supabase-js auth-storage key from chrome.storage.local so
+  // the next page load starts from a truly clean slate. Use when signOut
+  // appears to succeed but the user keeps showing as "Connected" or when
+  // auth.getSession() keeps timing out.
+  const forceResetAuth = useCallback(async () => {
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
+    try {
+      const all = await chrome.storage.local.get(null);
+      const sbKeys = Object.keys(all).filter(k => k.startsWith('sb-') || k === '_syncDiagnostics' || k === '_lastSyncSuccess');
+      if (sbKeys.length > 0) {
+        await chrome.storage.local.remove(sbKeys);
+      }
+    } catch (err) {
+      await writeAuthDiagnostic('force_reset_partial', err);
+    }
+    setSession(null);
+    setProfile(null);
+    setOrgs([]);
+    setTeams([]);
+    hasFetched.current = false;
   }, []);
 
   // ─── Refresh (call after invite redeem, etc.) ─────────────
@@ -245,6 +283,7 @@ export function useAuth() {
     loading,
     signIn,
     signOut,
+    forceResetAuth,
     refreshProfile,
     isSignedIn: !!session,
   };
