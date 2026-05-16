@@ -3,7 +3,25 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = 'https://mtdgoahskcibjbhfvofx.supabase.co';
 const supabaseKey = 'sb_publishable_lPmWAzfBqbHkyGslkhohQA_8QgdBCu_';
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Disable supabase-js's Web Locks coordination. The default lock uses
+// navigator.locks to serialize auth-token access across browser tabs — fine
+// for a normal web app, broken in a Chrome MV3 extension where home.html,
+// sidebar.html, settings.html, popup.html, *and* the service worker each
+// construct their own Supabase client and all fight for the same lock name
+// "lock:sb-<project>-auth-token". They constantly steal it from each other,
+// surfacing as `profile_*_select_failed: Lock ... was released because
+// another request stole it` and aborting every auth/profile network call.
+//
+// The no-op lock passes the inner function through immediately, so every
+// caller proceeds without serialization. Concurrent token refresh is a
+// theoretical downside but in practice unproblematic — at most one refresh
+// round-trip wins and the others read the same updated token on their next
+// read of the shared storage.
+const noopLock = async (_name, _acquireTimeout, fn) => fn();
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { lock: noopLock },
+});
 
 /**
  * Authenticate or get the current user session.
