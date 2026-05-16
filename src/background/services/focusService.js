@@ -458,6 +458,7 @@ async function updateFocus(message) {
   if (message.label !== undefined) item.label = message.label;
   if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
   if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
+  if (message.offDevice !== undefined) item.offDevice = !!message.offDevice;
   if (message.funnelStage !== undefined) {
     const result = applyStageTransition(engine, item, message.funnelStage, !!message.confirmed);
     if (result.error) {

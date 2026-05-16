@@ -147,6 +147,8 @@
     .intent-label:hover { color: #66bb6a; text-decoration: underline; }
     .focus-label-left { font-size: 10px; font-weight: 600; color: #00e5ff; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .task-label { font-size: 10px; color: #777; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stale-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ffa726; margin-left: 4px; animation: stale-pulse 1.5s ease-in-out infinite; vertical-align: middle; }
+    @keyframes stale-pulse { 0%,100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
     .timer { font-variant-numeric: tabular-nums; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }
     .timer-up { color: #00e5ff; }
     .timer-down { color: #ff6b6b; }
@@ -371,7 +373,7 @@
           <span style="font-size:10px;color:#555;">—</span>
         `}
         ${focusLabel
-          ? `<span class="divider"></span><span class="badge badge-focus">🎯</span><span class="focus-label-left" title="Active focus: ${focusLabel}">${focusLabel}</span>`
+          ? `<span class="divider"></span><span class="badge badge-focus">🎯</span><span class="focus-label-left" title="Active focus: ${focusLabel}">${focusLabel}</span>${activeFocus?.lastCheckpointAt && (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000 ? '<span class="stale-dot" title="Checkpoint overdue!"></span>' : (!activeFocus?.lastCheckpointAt && activeFocus?.startedAt && (Date.now() - new Date(activeFocus.startedAt).getTime()) > 30 * 60000 ? '<span class="stale-dot" title="No checkpoints yet"></span>' : '')}`
           : ''
         }
       </div>
