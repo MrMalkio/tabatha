@@ -1,7 +1,7 @@
 // Tabatha - Focus Service (Plan 023 Task 04b)
 // Owns focus lifecycle, focus funnel transitions, and intent/focus linking.
 
-import { DEFAULT_FOCUS_ENGINE, DEFAULT_SETTINGS, STAGE_ORDER } from '../constants.js';
+import { DEFAULT_FOCUS_ENGINE, DEFAULT_SETTINGS, STAGE_ORDER, PROGRESS_VALUES } from '../constants.js';
 import { fireWebhook as defaultFireWebhook } from '../webhooks.js';
 import { getStorage, setStorage, getSettings } from './storageService.js';
 import { archiveBeforeCap } from './archiveService.js';
@@ -66,6 +66,19 @@ export async function handleMessage(type, message) {
 
     case 'RESUME_FOCUS':
       return resumeFocus(message.focusId);
+
+    // ── Plan 025: Checkpoint Progress Notes ──
+    case 'SAVE_CHECKPOINT_NOTE':
+      return saveCheckpointNote(message);
+
+    case 'SNOOZE_CHECKPOINT':
+      return snoozeCheckpoint(message.focusId, message.snoozeMinutes);
+
+    case 'GET_CHECKPOINT_STATUS':
+      return getCheckpointStatus(message.focusId);
+
+    case 'DISMISS_POPUP':
+      return dismissActivePopup(message.popupId);
 
     case 'LINK_INTENT_TO_TASK':
       return linkIntentToTask(message);
@@ -171,7 +184,12 @@ export async function startFocus(label, timerMinutes = 15, tags = {}) {
     tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
     parentFocusId: engine.activeFocusId || null,
     contextSwitchCount: 0,
-    priority: 5
+    priority: 5,
+    offDevice: false,
+    // Plan 025: Checkpoint Progress Notes
+    checkpoint: [],
+    lastCheckpointAt: null,
+    checkpointSnoozedUntil: null
   };
 
   engine.activeFocusId = id;
@@ -179,6 +197,14 @@ export async function startFocus(label, timerMinutes = 15, tags = {}) {
 
   if (timerMinutes > 0) {
     chrome.alarms.create(`focus-timer-${id}`, { delayInMinutes: timerMinutes });
+  }
+
+  // Plan 025: Create checkpoint prompt alarm
+  const settings = await getSettings();
+  const fraction = settings?.checkpointIntervalFraction ?? DEFAULT_SETTINGS.checkpointIntervalFraction;
+  const intervalMin = timerMinutes * fraction;
+  if (intervalMin >= 1 && settings?.checkpointNotesEnabled !== false) {
+    chrome.alarms.create(`checkpoint-prompt-${id}`, { delayInMinutes: intervalMin, periodInMinutes: intervalMin });
   }
 
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
@@ -207,7 +233,11 @@ export async function addFocus(label, timerMinutes = 15, tags = {}) {
     associatedTabIds: [],
     tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
     parentFocusId: engine.activeFocusId || null,
-    contextSwitchCount: 0
+    contextSwitchCount: 0,
+    offDevice: false,
+    checkpoint: [],
+    lastCheckpointAt: null,
+    checkpointSnoozedUntil: null
   };
 
   await setFocusEngine(engine);
@@ -224,6 +254,7 @@ export async function switchFocus(focusId) {
     if (current.focusState === 'active' || current.focusState === 'drifted') {
       pauseItem(current);
       chrome.alarms.clear(`focus-timer-${engine.activeFocusId}`);
+      chrome.alarms.clear(`checkpoint-prompt-${engine.activeFocusId}`);
     }
   }
 
@@ -270,6 +301,8 @@ export async function completeFocus(focusId) {
   item.endedAt = new Date().toISOString();
 
   chrome.alarms.clear(`focus-timer-${id}`);
+  chrome.alarms.clear(`checkpoint-prompt-${id}`);
+  await clearActivePopupForFocus(id);
 
   engine.history.unshift({ ...item });
   delete engine.items[id];
@@ -329,6 +362,7 @@ export async function extendFocusTimer(focusId, extraMinutes = 5) {
     chrome.alarms.create(`focus-timer-${id}`, { delayInMinutes: remaining / 60000 });
   }
 
+  await clearActivePopupForFocus(id);
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return engine;
@@ -446,6 +480,8 @@ async function pauseFocus(focusId) {
   if (!item) return { error: 'Focus not found', focusEngine: engine };
 
   pauseItem(item);
+  chrome.alarms.clear(`checkpoint-prompt-${id}`);
+  await clearActivePopupForFocus(id);
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return { focusEngine: engine };
@@ -634,6 +670,9 @@ export async function handleFocusTimerExpired(focusId) {
   const item = engine.items[focusId];
   if (!item || item.focusState !== 'active') return;
 
+  // Plan 025: Off-device suppression
+  if (item.offDevice) return;
+
   item.focusState = 'drifted';
   if (item.lastResumedAt) {
     item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
@@ -641,6 +680,11 @@ export async function handleFocusTimerExpired(focusId) {
   }
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+
+  // Plan 025: Singleton popup coordination
+  await setStorage({
+    _activePopup: { type: 'FTE', id: `fte_${focusId}`, focusId, ts: Date.now() }
+  });
 
   chrome.notifications.create(`focus-drift-${focusId}`, {
     type: 'basic',
@@ -654,6 +698,9 @@ export async function handleFocusTimerExpired(focusId) {
       { title: '➡️ Complete & Move On' }
     ]
   });
+
+  // Clear checkpoint alarm — no more prompts after timer expires
+  chrome.alarms.clear(`checkpoint-prompt-${focusId}`);
 
   broadcastAll({
     type: 'FOCUS_TIMER_EXPIRED',
@@ -757,3 +804,190 @@ async function getTabData() {
 async function setTabData(tabs) {
   return injectedDeps.setTabData ? injectedDeps.setTabData(tabs) : setStorage({ tabs });
 }
+
+// ════════════════════════════════════════════
+// Plan 025 — Checkpoint Progress Notes
+// ════════════════════════════════════════════
+
+async function saveCheckpointNote(message) {
+  const engine = await getFocusEngine();
+  const focusId = message.focusId || engine.activeFocusId;
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found' };
+
+  if (!item.checkpoint) item.checkpoint = [];
+
+  const progressLevel = message.progressLevel || 'none';
+  const progressValue = PROGRESS_VALUES[progressLevel] ?? 0;
+
+  // Calculate current elapsed for this snapshot
+  let elapsedAtMs = item.elapsedMs || 0;
+  if (item.lastResumedAt) {
+    elapsedAtMs += Date.now() - new Date(item.lastResumedAt).getTime();
+  }
+
+  const cpn = {
+    id: `cpn_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    text: message.text || '',
+    progressLevel,
+    progressValue,
+    createdAt: new Date().toISOString(),
+    focusId,
+    elapsedAtMs,
+    triggeredBy: message.triggeredBy || 'manual'
+  };
+
+  item.checkpoint.push(cpn);
+  item.lastCheckpointAt = cpn.createdAt;
+  item.checkpointSnoozedUntil = null; // Clear any snooze on submission
+  await setFocusEngine(engine);
+
+  // Log to master context history
+  try {
+    const { tabathaLogs } = await getStorage('tabathaLogs');
+    const logs = tabathaLogs || [];
+    logs.push({
+      type: 'checkpoint_note',
+      focusId,
+      focusLabel: item.label,
+      progressLevel,
+      progressValue,
+      text: cpn.text.slice(0, 200), // Truncate for log brevity
+      ts: cpn.createdAt
+    });
+    await setStorage({ tabathaLogs: logs.slice(-500) });
+  } catch { /* log write failure is non-critical */ }
+
+  // Asana bridge: fire webhook if configured
+  try {
+    const settings = await getSettings();
+    if (settings?.checkpointAutoPostAsana && item.tags?.task) {
+      // Check if the linked task has an asanaGid
+      const { tabathaOrg } = await getStorage('tabathaOrg');
+      const linkedTask = tabathaOrg?.tasks?.[item.tags.task];
+      if (linkedTask?.asanaGid) {
+        fireWebhook('checkpoint_note', {
+          focusId,
+          focusLabel: item.label,
+          taskGid: linkedTask.asanaGid,
+          text: cpn.text,
+          progressLevel,
+          progressValue
+        });
+      }
+    }
+  } catch { /* Asana bridge failure is non-critical */ }
+
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { success: true, cpn };
+}
+
+async function snoozeCheckpoint(focusId, snoozeMinutes = 5) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  const item = id ? engine.items[id] : null;
+  if (!item) return { error: 'Focus not found' };
+
+  item.checkpointSnoozedUntil = new Date(Date.now() + snoozeMinutes * 60000).toISOString();
+  await setFocusEngine(engine);
+  return { success: true, snoozedUntil: item.checkpointSnoozedUntil };
+}
+
+async function getCheckpointStatus(focusId) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  const item = id ? engine.items[id] : null;
+  if (!item) return { error: 'Focus not found' };
+
+  const settings = await getSettings();
+  const staleMinutes = settings?.checkpointStaleMinutes ?? DEFAULT_SETTINGS.checkpointStaleMinutes;
+  const lastAt = item.lastCheckpointAt ? new Date(item.lastCheckpointAt).getTime() : null;
+  const isStale = lastAt
+    ? (Date.now() - lastAt) > staleMinutes * 60000
+    : item.startedAt && (Date.now() - new Date(item.startedAt).getTime()) > staleMinutes * 60000;
+
+  return {
+    focusId: id,
+    lastCheckpointAt: item.lastCheckpointAt,
+    isStale: !!isStale,
+    staleMinutes,
+    checkpoint: item.checkpoint || [],
+    checkpointSnoozedUntil: item.checkpointSnoozedUntil
+  };
+}
+
+// Called by alarmService when `checkpoint-prompt-{focusId}` fires
+export async function handleCheckpointPrompt(focusId) {
+  const engine = await getFocusEngine();
+  const item = engine.items[focusId];
+  if (!item || item.focusState !== 'active') {
+    chrome.alarms.clear(`checkpoint-prompt-${focusId}`);
+    return;
+  }
+
+  // Gate: settings
+  const settings = await getSettings();
+  if (settings?.checkpointNotesEnabled === false) return;
+
+  // Gate: snoozed
+  if (item.checkpointSnoozedUntil && new Date(item.checkpointSnoozedUntil).getTime() > Date.now()) {
+    return;
+  }
+
+  // Gate: off-device
+  if (item.offDevice) return;
+
+  // Gate: subtask completion suppression — only check if subtasks/linked tasks exist
+  if (item.tags?.task) {
+    try {
+      const { tabathaOrg } = await getStorage('tabathaOrg');
+      const linkedTask = tabathaOrg?.tasks?.[item.tags.task];
+      if (linkedTask?.completedAt) {
+        const completedMs = Date.now() - new Date(linkedTask.completedAt).getTime();
+        if (completedMs < 120000) return; // Completed within 2 min → suppress
+      }
+    } catch { /* task lookup failure is non-critical */ }
+  }
+
+  // Calculate elapsed
+  let elapsedMs = item.elapsedMs || 0;
+  if (item.lastResumedAt) {
+    elapsedMs += Date.now() - new Date(item.lastResumedAt).getTime();
+  }
+
+  broadcastAll({
+    type: 'CHECKPOINT_PROMPT',
+    focusId,
+    label: item.label,
+    timerMinutes: item.timerMinutes,
+    elapsedMs,
+    lastCheckpointAt: item.lastCheckpointAt,
+    checkpointCount: (item.checkpoint || []).length
+  });
+}
+
+// ════════════════════════════════════════════
+// Plan 025 — Popup Singleton Coordination
+// ════════════════════════════════════════════
+
+async function clearActivePopupForFocus(focusId) {
+  try {
+    const { _activePopup } = await getStorage('_activePopup');
+    if (_activePopup?.focusId === focusId) {
+      await setStorage({ _activePopup: null });
+      broadcastAll({ type: 'POPUP_DISMISSED', popupId: _activePopup.id });
+    }
+  } catch { /* non-critical */ }
+}
+
+async function dismissActivePopup(popupId) {
+  try {
+    const { _activePopup } = await getStorage('_activePopup');
+    if (!popupId || _activePopup?.id === popupId || !_activePopup) {
+      await setStorage({ _activePopup: null });
+      broadcastAll({ type: 'POPUP_DISMISSED', popupId: popupId || _activePopup?.id });
+    }
+  } catch { /* non-critical */ }
+  return { success: true };
+}
+

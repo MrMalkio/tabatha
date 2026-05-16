@@ -193,6 +193,60 @@
 | 146 | HeadBoxes — Cross-App Project Catalog (unified project view across all tools) | Context | 📋 | v0.3.0 | #145, #92 |
 | 147 | Universal URL Mapping Engine (extensible URL→context rules, user-contributed) | Context | 📋 | v0.2.0 | #20, #142, #144, #145 |
 | 148 | Overlock Manager Integration (all intents/activity committable to overlock) | Data | 📋 | v0.2.0 | #132 |
+| **— FOCUS/BREAK/CLOCK STATE INTERLOCK (Backlog 2026-05-12)** |
+| 149 | Pause/Break Conflict Resolution (prompt when break conflicts with active intents) | Focus | 📋 | v0.2.0 | #122, #121 | [concept](../../docs/features/149-pause-break-conflict.md) |
+| 150 | Break/Clock-Out Auto-Pause (all intents pause on break or clock-out) | Focus | 📋 | v0.2.0 | #122, #149 | [concept](../../docs/features/150-break-clockout-auto-pause.md) |
+| 151 | Unpause Auto-Resume Interlock (unpause deactivates break, auto clocks in) | Focus | 📋 | v0.2.0 | #150 | [concept](../../docs/features/151-unpause-auto-resume-interlock.md) |
+| 152 | Intelligent Auto-Pause/Resume + Time Redistribution | Focus | 📋 | v0.3.0 | #122, #123, #147, #149 | [concept](../../docs/features/152-intelligent-auto-pause-resume.md) |
+| **— TAB MANAGEMENT & NOTES (Backlog 2026-05-14)** |
+| 153 | Purge Mode (tab-by-tab triage with enhanced InBar) | Tabs | 📋 | v0.3.0 | #122, #123, InBar | [concept](../../docs/features/153-purge-mode.md) |
+| 154 | Notes Panel (rich text notes with object linking) | UI | 📋 | v0.2.0 | #56, #57 | [concept](../../docs/features/154-notes-panel.md) |
+| 155 | InBar Parent Context Display & Inline Editing (Focus › Parent › Tab Intent) | UI | 📋 | v0.2.0 | #122, #123, InBar | [concept](../../docs/features/155-inbar-parent-context.md) |
+| 156 | Time Entry Editing (adjust start/end, insert/remove pauses, split, merge) | Time | 📋 | v0.2.0 | #1, #6, #132, #148 | [concept](../../docs/features/156-time-entry-editing.md) |
+| 157 | Deep Edit Panel (full page time correction, UI flags, role-gated) | Time | 📋 | v0.3.0 | #156, #138 | [concept](../../docs/features/157-deep-edit-panel.md) |
+| **— ORG & BILLING (Backlog 2026-05-14)** |
+| 158 | Org Profiles in Settings (company/team/client profiles) | Settings | 📋 | v0.3.0 | #118, #92 | [concept](../../docs/features/158-org-profiles.md) |
+| 159 | Task Cost & Revenue Tracking (billing methods, billable vectors) | Billing | 📋 | v0.3.0 | #158, #14, #1 | [concept](../../docs/features/159-task-cost-revenue.md) |
+| **— DISCIPLINE & FOCUS (Backlog 2026-05-14)** |
+| 160 | Tab Caps (self-imposed tab limit with enforcement tiers) | Focus | 📋 | v0.2.0 | #25, #118 | [concept](../../docs/features/160-tab-caps.md) |
+| 161 | Freeform Mode (silent tracking, no alerts/popups, timed or indefinite) | Focus | 📋 | v0.2.0 | #118, #123 | [concept](../../docs/features/161-freeform-mode.md) |
+| **— COLLABORATION (Backlog 2026-05-14)** |
+| 162 | User-to-User Requests (gated queue, booking-calendar × task-manager) | Pro | 📋 | v0.3.0 | #138, #158, #122 | [concept](../../docs/features/162-user-requests.md) |
+| 169 | Cowork Activity Page (shared team activity bars + availability) | Pro | 📋 | v0.3.0 | #138, #158 | [concept](../../docs/features/169-cowork-activity.md) |
+| 170 | Team Page (owner god-eye view of all team activity) | Pro | 📋 | v0.3.0 | #138, #158, #169 | [concept](../../docs/features/170-team-page.md) |
+| **— MULTI-SURFACE / CROSS-DEVICE (Backlog 2026-05-14)** |
+| 163 | Background Tasks / Parallels (passive media tracking) | Context | 📋 | v0.3.0 | #1, #147, #117 | [concept](../../docs/features/163-background-parallels.md) |
+| 164 | Mobile Triggers (phone actions → system webhooks) | Integration | 📋 | v0.4.0 | #117, Mobile | [concept](../../docs/features/164-mobile-triggers.md) |
+| 165 | Voice Notes (universal capture from any surface) | UI | 📋 | v0.3.0 | #114, #154 | [concept](../../docs/features/165-voice-notes.md) |
+| 166 | Off-Device Intent Tracking (manual/auto, time-only) | Time | 📋 | v0.3.0 | #117, #122 | [concept](../../docs/features/166-off-device-tracking.md) |
+| 167 | Desktop Sidebar (native OS side panel via Desktop Companion) | UI | 📋 | v0.4.0 | #117, #56 | [concept](../../docs/features/167-desktop-sidebar.md) |
+| 175 | Contribution Intake Engine (webhook receiver for external apps) | Integration | 📋 | v0.4.0 | #164, #148 | [concept](../../docs/features/175-contribution-intake-engine.md) |
+| **— HISTORY & FEEDBACK (Backlog 2026-05-14)** |
+| 171 | Log Interaction Tracking (log every prompt and user response) | Data | 📋 | v0.2.0 | #132, #148 | [concept](../../docs/features/171-log-interaction-tracking.md) |
+| 172 | History Queue Recovery (re-queue completed items, edit/correct time) | UI | 📋 | v0.2.0 | #122, #156 | [concept](../../docs/features/172-history-queue-recovery.md) |
+| 173 | Edit Contribution Notes (system improvement feedback loop) | Data | 📋 | v0.3.0 | #156, #157, #148 | [concept](../../docs/features/173-edit-contribution-notes.md) |
+| 174 | Recurring Focuses & Tasks (scheduled auto-population) | Focus | 📋 | v0.2.0 | #122 | [concept](../../docs/features/174-recurring-focuses-tasks.md) |
+| **— QUICK ACCESS (Backlog 2026-05-14)** |
+| 176 | Quick Tab List Hotkey (fuzzy search, recently closed, groups) | UI | 📋 | v0.2.0 | #112, #43, #58 | [concept](../../docs/features/176-quick-tab-list-hotkey.md) |
+| **— USABILITY & CLEANUP (Backlog 2026-05-15)** |
+| 177 | Sugar Box & Stashed Tab Deletion | UI | 📋 | v0.2.0 | #134, #135 | [concept](../../docs/features/177-sugarbox-stash-delete.md) |
+| 178 | Agent Context Tracking (AI chat/agent attribution per intent) | Context | 📋 | v0.2.0 | #145, #123 | [concept](../../docs/features/178-agent-context-tracking.md) |
+| 180 | InPop Variants (profile-aware, site-specific, InPop-Social) | Focus | 📋 | v0.3.0 | #123, #147, #118 | [concept](../../docs/features/180-inpop-variants.md) |
+| **— WEBSITE (Backlog 2026-05-14)** |
+| 168 | Help & Docs Page (feature docs, adjacent feature links, searchable KB) | Website | 📋 | v0.3.0 | — | [concept](../../docs/features/168-help-docs-page.md) |
+| **— DESIGN TASKS (Logged 2026-05-15)** |
+| 179 | Logo Redesign (replace current logo, new brand identity) | Design | 📋 | v0.2.0 | — | [concept](../../docs/features/179-logo-redesign.md) |
+| **— TEAM ACCOUNTABILITY (Backlog 2026-05-15)** |
+| 181 | Blocker Banner (marquee ticker of team dependencies, escalating, manager-controlled) | Pro | 📋 | v0.3.0 | #138, #158, #162 | [concept](../../docs/features/181-blocker-banner.md) |
+| **— AGENTIC / AI (Backlog 2026-05-15)** |
+| 182 | Chaperone Mode (voice AI companion, contextual speech, cross-device) | AI | 📋 | v0.4.0 | #125, #117, #113 | [concept](../../docs/features/182-chaperone-mode.md) |
+| **— CROSS-DEVICE (Backlog 2026-05-15)** |
+| 183 | Device Proximity Detection (phone/computer nearness via BLE/WiFi) | Platform | 📋 | v0.4.0 | #117, Mobile, #182 | [concept](../../docs/features/183-device-proximity.md) |
+| **— DESIGN CHANGES (Logged 2026-05-15)** |
+| D01 | Homepage Collapsible Header (sections recess into sidebar on collapse) | UI | 📋 | v0.2.0 | — | [concept](../../docs/features/D01-homepage-collapsible-header.md) |
+| **— BUG FIXES (Logged 2026-05-14)** |
+| B05 | Idle detection ignores non-browser activity | Time | 🔧 | v0.2.0 | #5, #117 | — |
+| B06 | Logs not listing intent activity timestamps | Data | 🔧 | v0.2.0 | #132 | — |
 
 ---
 

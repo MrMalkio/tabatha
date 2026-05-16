@@ -9,7 +9,8 @@
 import { RETENTION_ALARM } from '../constants.js';
 import {
   handleFocusTimerExpired,
-  handleUnfocusedNudge
+  handleUnfocusedNudge,
+  handleCheckpointPrompt
 } from './focusService.js';
 import { handleContextTimerExpired } from './tabService.js';
 import { handlePomodoroComplete } from './notificationService.js';
@@ -44,6 +45,10 @@ async function handleAlarm(alarm) {
       const tabId = parseInt(name.slice('context-timer-'.length), 10);
       if (Number.isFinite(tabId)) return handleContextTimerExpired(tabId);
       return;
+    }
+    // Plan 025: Checkpoint prompt alarm
+    if (name.startsWith('checkpoint-prompt-')) {
+      return handleCheckpointPrompt(name.slice('checkpoint-prompt-'.length));
     }
     if (name.startsWith('blockgate-')) {
       // No-op: temp-unblock expiry is enforced inline in CHECK_BLOCKED_SITE

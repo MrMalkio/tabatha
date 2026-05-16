@@ -904,74 +904,195 @@
       }).catch(() => {});
     }
 
-    // ── Timer Expired — interrupting overlay ──
+    // ════════════════════════════════════════════
+    // Plan 025 — Popup Helper Utilities
+    // ════════════════════════════════════════════
+    const _popupBtnStyle = (color) => `background:${color}22;color:${color};border:1px solid ${color}44;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;`;
+    const _dismissAndSend = async (overlay, type, payload) => {
+      try { await chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {}
+      try { await chrome.runtime.sendMessage({ type, ...payload }); } catch {}
+      overlay?.remove();
+    };
+    const _removeExistingOverlay = () => {
+      document.getElementById('tabatha-popup-overlay')?.remove();
+    };
+    const _createOverlay = () => {
+      _removeExistingOverlay();
+      const o = document.createElement('div');
+      o.id = 'tabatha-popup-overlay';
+      Object.assign(o.style, { position:'fixed',top:'0',left:'0',width:'100vw',height:'100vh',background:'rgba(0,0,0,0.7)',zIndex:'2147483647',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Segoe UI',system-ui,sans-serif" });
+      o.onclick = (e) => { if (e.target === o) e.stopPropagation(); };
+      return o;
+    };
+    const _createCard = () => {
+      const c = document.createElement('div');
+      Object.assign(c.style, { background:'#1a1a1a',border:'1px solid #333',borderRadius:'8px',padding:'24px 32px',maxWidth:'440px',width:'90vw',textAlign:'center',color:'#eee' });
+      return c;
+    };
+    const _fmtIdleDuration = (ms) => {
+      const totalSec = Math.floor((ms || 0) / 1000);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    };
+    const _buildFTEActions = (card, overlay, focusId) => {
+      card.querySelector('#fte-extend')?.addEventListener('click', () => _dismissAndSend(overlay, 'EXTEND_FOCUS_TIMER', { focusId, extraMinutes: 5 }));
+      card.querySelector('#fte-switch')?.addEventListener('click', async () => {
+        try {
+          const res = await chrome.runtime.sendMessage({ type: 'GET_FOCUS_ENGINE' });
+          const items = Object.values(res?.focusEngine?.items || {}).filter(i => i.id !== focusId && i.focusState === 'paused');
+          const list = card.querySelector('#fte-switch-list');
+          if (list) { list.innerHTML = items.length ? items.map(i => `<button data-fid="${i.id}" style="${_popupBtnStyle('#29b6f6')}margin:2px;">${i.label}</button>`).join('') : '<span style="color:#666;font-size:11px;">No other focuses queued.</span>'; list.style.display = 'flex'; list.style.flexWrap = 'wrap'; list.style.gap = '4px'; list.style.justifyContent = 'center'; list.style.marginTop = '6px'; items.forEach(i => list.querySelector(`[data-fid="${i.id}"]`)?.addEventListener('click', () => _dismissAndSend(overlay, 'SWITCH_FOCUS', { focusId: i.id }))); }
+        } catch {}
+      });
+      card.querySelector('#fte-pause')?.addEventListener('click', () => _dismissAndSend(overlay, 'PAUSE_FOCUS', { focusId }));
+      card.querySelector('#fte-break')?.addEventListener('click', () => _dismissAndSend(overlay, 'TOGGLE_BREAK', {}));
+      card.querySelector('#fte-done')?.addEventListener('click', () => _dismissAndSend(overlay, 'COMPLETE_FOCUS', { focusId }));
+      card.querySelector('#fte-note')?.addEventListener('click', () => {
+        const noteArea = card.querySelector('#fte-note-area');
+        if (noteArea) noteArea.style.display = noteArea.style.display === 'none' ? 'block' : 'none';
+      });
+      card.querySelector('#fte-note-save')?.addEventListener('click', async () => {
+        const text = card.querySelector('#fte-note-input')?.value || '';
+        if (text.trim()) await chrome.runtime.sendMessage({ type: 'SAVE_CHECKPOINT_NOTE', focusId, text, triggeredBy: 'inbar', progressLevel: 'lot' });
+        const noteArea = card.querySelector('#fte-note-area');
+        if (noteArea) noteArea.style.display = 'none';
+      });
+    };
+    const _fteButtonsHTML = () => `
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;">
+        <button id="fte-extend" style="${_popupBtnStyle('#00e5ff')}">⏱️ +5 min</button>
+        <button id="fte-switch" style="${_popupBtnStyle('#29b6f6')}">🔄 Switch</button>
+        <button id="fte-pause" style="${_popupBtnStyle('#ffa726')}">⏸ Pause</button>
+        <button id="fte-break" style="${_popupBtnStyle('#ce93d8')}">☕ Break</button>
+        <button id="fte-done" style="${_popupBtnStyle('#66bb6a')}">✅ Complete</button>
+        <button id="fte-note" style="${_popupBtnStyle('#78909c')}">📝 Note</button>
+      </div>
+      <div id="fte-switch-list"></div>
+      <div id="fte-note-area" style="display:none;margin-top:10px;">
+        <textarea id="fte-note-input" placeholder="Quick note..." style="width:100%;height:48px;background:#111;border:1px solid #444;border-radius:4px;color:#eee;font-size:12px;padding:6px;resize:none;box-sizing:border-box;"></textarea>
+        <button id="fte-note-save" style="${_popupBtnStyle('#78909c')}margin-top:4px;">💾 Save Note</button>
+      </div>`;
+
+    // ── Timer Expired — 6-CTA overlay (singleton) ──
     if (msg.type === 'FOCUS_TIMER_EXPIRED') {
-      const overlay = document.createElement('div');
-      Object.assign(overlay.style, {
-        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-        background: 'rgba(0,0,0,0.7)', zIndex: '2147483647', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', fontFamily: "'Segoe UI', system-ui, sans-serif"
-      });
-      const card = document.createElement('div');
-      Object.assign(card.style, {
-        background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px',
-        padding: '24px 32px', maxWidth: '400px', textAlign: 'center', color: '#eee'
-      });
+      if (document.getElementById('tabatha-popup-overlay')) return; // singleton
+      const overlay = _createOverlay();
+      const card = _createCard();
       card.innerHTML = `
         <div style="font-size:32px;margin-bottom:8px;">⏰</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Focus Timer Expired</div>
-        <div style="font-size:13px;color:#aaa;margin-bottom:16px;">"${msg.label}" — Your allotted ${msg.timerMinutes}m is up.</div>
-        <div style="display:flex;gap:12px;justify-content:center;">
-          <button id="t-extend" style="background:#00e5ff22;color:#00e5ff;border:1px solid #00e5ff44;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">⏱️ Extend 5 min</button>
-          <button id="t-done" style="background:#66bb6a22;color:#66bb6a;border:1px solid #66bb6a44;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">✅ Complete & Move On</button>
-        </div>
-      `;
+        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"${msg.label}" — Your allotted ${msg.timerMinutes}m is up.</div>
+        ${_fteButtonsHTML()}`;
       overlay.appendChild(card);
       document.documentElement.appendChild(overlay);
-      card.querySelector('#t-extend').onclick = async () => {
-        await chrome.runtime.sendMessage({ type: 'EXTEND_FOCUS_TIMER', focusId: msg.focusId, extraMinutes: 5 });
-        overlay.remove();
-      };
-      card.querySelector('#t-done').onclick = async () => {
-        await chrome.runtime.sendMessage({ type: 'COMPLETE_FOCUS', focusId: msg.focusId });
-        overlay.remove();
-      };
-      // Prevent clicking through
-      overlay.onclick = (e) => { if (e.target === overlay) e.stopPropagation(); };
+      _buildFTEActions(card, overlay, msg.focusId);
     }
 
-    // ── Welcome Back — resume prompt ──
+    // ── Welcome Back — resume prompt (singleton) ──
     if (msg.type === 'WELCOME_BACK' && msg.pausedFocusId) {
-      const overlay = document.createElement('div');
-      Object.assign(overlay.style, {
-        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-        background: 'rgba(0,0,0,0.6)', zIndex: '2147483647', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', fontFamily: "'Segoe UI', system-ui, sans-serif"
-      });
-      const mins = Math.round((msg.idleDurationMs || 0) / 60000);
-      const card = document.createElement('div');
-      Object.assign(card.style, {
-        background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px',
-        padding: '24px 32px', maxWidth: '420px', textAlign: 'center', color: '#eee'
-      });
+      if (document.getElementById('tabatha-popup-overlay')) return;
+      const overlay = _createOverlay();
+      const card = _createCard();
       card.innerHTML = `
         <div style="font-size:28px;margin-bottom:8px;">👋</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Welcome Back!</div>
-        <div style="font-size:13px;color:#aaa;margin-bottom:6px;">You were away for ${mins}m.</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:6px;">You were away for ${_fmtIdleDuration(msg.idleDurationMs)}.</div>
         <div style="font-size:13px;color:#ccc;margin-bottom:16px;">Pick up where you left off?<br><strong style="color:#ff9800;">"${msg.pausedFocusLabel}"</strong></div>
         <div style="display:flex;gap:12px;justify-content:center;">
-          <button id="wb-resume" style="background:#ab47bc22;color:#ab47bc;border:1px solid #ab47bc44;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">⚡ Resume Focus</button>
-          <button id="wb-dismiss" style="background:#33333366;color:#888;border:1px solid #444;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer;">Not now</button>
-        </div>
-      `;
+          <button id="wb-resume" style="${_popupBtnStyle('#ab47bc')}">⚡ Resume Focus</button>
+          <button id="wb-dismiss" style="${_popupBtnStyle('#888')}">Not now</button>
+        </div>`;
       overlay.appendChild(card);
       document.documentElement.appendChild(overlay);
-      card.querySelector('#wb-resume').onclick = async () => {
-        await chrome.runtime.sendMessage({ type: 'RESUME_FOCUS', focusId: msg.pausedFocusId });
+      card.querySelector('#wb-resume').addEventListener('click', () => _dismissAndSend(overlay, 'RESUME_FOCUS', { focusId: msg.pausedFocusId }));
+      card.querySelector('#wb-dismiss').addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {} overlay.remove(); });
+    }
+
+    // ── Combo Popup — FTE + WBP merged (singleton) ──
+    if (msg.type === 'FOCUS_RETURN_COMBO') {
+      _removeExistingOverlay();
+      const overlay = _createOverlay();
+      const card = _createCard();
+      card.innerHTML = `
+        <div style="font-size:28px;margin-bottom:8px;">👋⏰</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Welcome Back!</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:6px;">You were away for ${_fmtIdleDuration(msg.idleDurationMs)}.</div>
+        <div style="font-size:13px;color:#ccc;margin-bottom:12px;">The time you gave yourself for <strong style="color:#ff9800;">"${msg.focusLabel}"</strong> expired while you were away, how would you like to proceed?</div>
+        ${_fteButtonsHTML()}
+        <div style="margin-top:10px;">
+          <button id="combo-resume" style="${_popupBtnStyle('#ab47bc')}">⚡ Resume Focus</button>
+        </div>`;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      _buildFTEActions(card, overlay, msg.focusId);
+      card.querySelector('#combo-resume')?.addEventListener('click', () => _dismissAndSend(overlay, 'RESUME_FOCUS', { focusId: msg.focusId }));
+    }
+
+    // ── Checkpoint Progress Note Prompt (singleton) ──
+    if (msg.type === 'CHECKPOINT_PROMPT') {
+      if (document.getElementById('tabatha-popup-overlay')) return;
+      const overlay = _createOverlay();
+      const card = _createCard();
+      const elapsed = msg.elapsedMs ? `${Math.floor(msg.elapsedMs/60000)}:${String(Math.floor((msg.elapsedMs%60000)/1000)).padStart(2,'0')}` : '--:--';
+      const timer = msg.timerMinutes ? `${msg.timerMinutes}:00` : '--:--';
+      card.innerHTML = `
+        <div style="font-size:24px;margin-bottom:6px;">📋</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Progress Check</div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:4px;">"${msg.label}" · Elapsed: ${elapsed} · Timer: ${timer}</div>
+        <div style="font-size:11px;color:#666;margin-bottom:10px;">Checkpoint #${(msg.checkpointCount || 0) + 1}</div>
+        <textarea id="cpn-text" placeholder="What have you accomplished since your last checkpoint?" style="width:100%;height:56px;background:#111;border:1px solid #444;border-radius:4px;color:#eee;font-size:12px;padding:8px;resize:none;box-sizing:border-box;margin-bottom:10px;"></textarea>
+        <div style="font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;">Submit with progress level:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px;">
+          <button data-level="none" style="${_popupBtnStyle('#9e9e9e')}">😐 None</button>
+          <button data-level="little" style="${_popupBtnStyle('#29b6f6')}">📈 Little</button>
+          <button data-level="lot" style="${_popupBtnStyle('#66bb6a')}">🚀 A Lot</button>
+          <button data-level="almost_done" style="${_popupBtnStyle('#ffd54f')}">🏁 Almost Done</button>
+          <button data-level="stuck" style="${_popupBtnStyle('#ef5350')}">🚧 Stuck</button>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button id="cpn-snooze" style="${_popupBtnStyle('#78909c')}font-size:11px;">⏰ Snooze 5 min</button>
+          <button id="cpn-skip" style="${_popupBtnStyle('#555')}font-size:11px;">Skip this time</button>
+        </div>`;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      // Progress level buttons are the submit actions
+      card.querySelectorAll('[data-level]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const text = card.querySelector('#cpn-text')?.value || '';
+          const level = btn.getAttribute('data-level');
+          const noteRequired = level === 'stuck';
+          if (noteRequired && !text.trim()) { card.querySelector('#cpn-text').style.borderColor = '#ef5350'; card.querySelector('#cpn-text').placeholder = 'Please describe what is blocking you...'; return; }
+          await chrome.runtime.sendMessage({ type: 'SAVE_CHECKPOINT_NOTE', focusId: msg.focusId, text, progressLevel: level, triggeredBy: 'auto_prompt' });
+          try { await chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {}
+          overlay.remove();
+        });
+      });
+      card.querySelector('#cpn-snooze')?.addEventListener('click', async () => {
+        await chrome.runtime.sendMessage({ type: 'SNOOZE_CHECKPOINT', focusId: msg.focusId, snoozeMinutes: 5 });
         overlay.remove();
-      };
-      card.querySelector('#wb-dismiss').onclick = () => overlay.remove();
-      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+      });
+      card.querySelector('#cpn-skip')?.addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {} overlay.remove(); });
+    }
+
+    // ── Popup Dismissed — cross-tab cleanup ──
+    if (msg.type === 'POPUP_DISMISSED') {
+      _removeExistingOverlay();
+    }
+
+    // ── Focus Engine Updated — auto-dismiss stale popups ──
+    if (msg.type === 'FOCUS_ENGINE_UPDATED') {
+      const existing = document.getElementById('tabatha-popup-overlay');
+      if (existing) {
+        chrome.runtime.sendMessage({ type: 'GET_FOCUS_ENGINE' }).then(res => {
+          const engine = res?.focusEngine;
+          if (engine) {
+            const hasDrifted = Object.values(engine.items || {}).some(i => i.focusState === 'drifted');
+            const hasPaused = engine.activeFocusId && engine.items[engine.activeFocusId]?.focusState === 'paused';
+            if (!hasDrifted && !hasPaused) existing.remove();
+          }
+        }).catch(() => {});
+      }
     }
   });
 

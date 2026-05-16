@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push *)",
+      "Read(//c/Users/mrmal/.claude/projects/c--Users-mrmal-Le-Dev-Tabatha/**)",
+      "Bash(git commit --amend -m ' *)"
+    ]
+  }
+}

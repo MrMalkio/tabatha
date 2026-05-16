@@ -179,12 +179,72 @@ async function handleIdleStateChanged(newState) {
     }
   }
 
+  // Plan 025: WBP threshold — minimum idle time
+  const minIdleMs = (settings.welcomeBackMinIdleMinutes ?? 5) * 60000;
+  if (idleDuration < minIdleMs) {
+    userIdleSince = null;
+    return;
+  }
+
+  // Plan 025: WBP threshold — show after break return
+  if (wasAutoBreakApplied && settings.welcomeBackShowAfterBreak === false) {
+    userIdleSince = null;
+    return;
+  }
+
   let pausedFocusId = null;
   let pausedFocusLabel = null;
+  let activeFocusDrifted = false;
+  let driftedFocusLabel = null;
   const engine = await deps.getFocusEngine?.();
-  if (engine?.activeFocusId && engine.items[engine.activeFocusId]?.focusState === 'paused') {
-    pausedFocusId = engine.activeFocusId;
-    pausedFocusLabel = engine.items[engine.activeFocusId].label;
+
+  if (engine?.activeFocusId && engine.items[engine.activeFocusId]) {
+    const activeFocus = engine.items[engine.activeFocusId];
+
+    // Plan 025: Off-device suppression
+    if (activeFocus.offDevice) {
+      userIdleSince = null;
+      return;
+    }
+
+    if (activeFocus.focusState === 'paused') {
+      pausedFocusId = engine.activeFocusId;
+      pausedFocusLabel = activeFocus.label;
+    }
+
+    // Plan 025: Combo detection — focus timer expired while user was away
+    if (activeFocus.focusState === 'drifted') {
+      activeFocusDrifted = true;
+      driftedFocusLabel = activeFocus.label;
+    }
+  }
+
+  // Plan 025: Combo popup — both WBP and FTE conditions met
+  if (activeFocusDrifted) {
+    const comboPopupId = `combo_${engine.activeFocusId}_${Date.now()}`;
+    await setStorage({
+      _activePopup: { type: 'COMBO', id: comboPopupId, focusId: engine.activeFocusId, ts: Date.now() }
+    });
+
+    broadcastAll({
+      type: 'FOCUS_RETURN_COMBO',
+      idleSince: userIdleSince,
+      idleDurationMs: idleDuration,
+      focusId: engine.activeFocusId,
+      focusLabel: driftedFocusLabel,
+      timerMinutes: engine.items[engine.activeFocusId]?.timerMinutes,
+      wasOnBreak: wasAutoBreakApplied
+    });
+
+    userIdleSince = null;
+    return;
+  }
+
+  // Standard WBP flow
+  if (pausedFocusId) {
+    await setStorage({
+      _activePopup: { type: 'WBP', id: `wb_${Date.now()}`, focusId: pausedFocusId, ts: Date.now() }
+    });
   }
 
   broadcastAll({
