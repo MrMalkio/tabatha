@@ -1,4 +1,4 @@
-﻿# Tabatha â€” Progress & Worklog
+# Tabatha â€” Progress & Worklog
 
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
@@ -508,3 +508,46 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 
 - `refactor/decomp-v2` remains the primary integration branch for all V4 / Phase 3 architectural work, fully up to date locally.
 - `fix/popup-harmony` is protected from cleanup as it contains active work for Plan 025.
+
+---
+
+## Session — 2026-05-16 (Plan 025: Popup Harmony & CPN Execution)
+
+**Agent:** Antigravity
+**Branch:** `fix/popup-harmony`
+**Goal:** Execute Plan 025 — singleton popups, CPN system, Follow-through Support settings, all UI surfaces
+
+### What Was Done
+
+- [x] **Feature Docs** — Created `#184` (CPN) and `#185` (Popup Harmony) with `Scoped at v4.0.0` header convention
+- [x] **Constants** — Added `POPUP_TYPES`, `CPN_PROGRESS_VALUES`, and Follow-through Support defaults to `constants.js`
+- [x] **Singleton Popup Coordination** — `_activePopup` storage key, `POPUP_DISMISSED` broadcast, `registerPopup()`/`dismissPopup()` in `focusService.js`
+- [x] **Enhanced FTE** — 6-CTA modal (Extend, Switch, Pause, Break, Complete, Note) in `inbar.js`
+- [x] **Combo Popup** — FTE+WBP merge when user returns from idle with expired timer, in `clockService.js`
+- [x] **WBP Thresholds** — Configurable min idle time and show-after-break gate in `clockService.js`
+- [x] **Off-Device Tag** — `offDevice` boolean on focus items; suppresses all popups/notifications. Toggle in home FocusBar. Wired through `updateFocus()` handler.
+- [x] **CPN Data Model** — `checkpoint[]`, `progressLevel`, `progressValue`, `lastCheckpointAt` fields on focus items
+- [x] **CPN Engine** — `saveCheckpointNote`, `snoozeCheckpoint`, `getCheckpointStatus` in `focusService.js`
+- [x] **CPN Auto-Prompt** — `checkpoint-prompt-{focusId}` alarm routing via `alarmService.js` at configurable fraction intervals
+- [x] **CPN Smart Suppression** — Auto-prompt suppressed if linked task completed within 2 minutes
+- [x] **InBar CPN Overlay** — Checkpoint prompt form with 5 progress level buttons (`none`/`little`/`lot`/`almost_done`/`stuck`)
+- [x] **InBar Staleness Signal** — Amber pulsing dot (`.stale-dot` CSS animation) next to focus label when checkpoint is overdue
+- [x] **Sidebar Checkpoint Button** — 📋 button with staleness indicator, inline CPN form with AnimatePresence
+- [x] **Home FocusBar** — Off-device toggle (📱/📴), Checkpoint button with count badge, inline CPN form, Checkpoint Timeline viewer
+- [x] **Settings UI** — "📋 Follow-through" section with WBP thresholds, CPN enable/interval/staleness config, Asana auto-post toggle
+- [x] **Auto-Dismiss Stale Popups** — `FOCUS_ENGINE_UPDATED` handler in `inbar.js` auto-removes overlays if focus is no longer drifted/paused
+- [x] **Asana Stub** — `POST_ASANA_COMMENT` webhook event type added (server-side handler deferred)
+
+### Branch Fix
+- Commit `f97ecc4` was accidentally created on `refactor/decomp-v2`. Cherry-picked to `fix/popup-harmony` and reset `refactor/decomp-v2` to clean state.
+
+### Commits (3 on `fix/popup-harmony`)
+1. `5d0e4a8` — Core: singleton popups, 6-CTA FTE, combo, CPN system, sidebar checkpoint
+2. `d70ddb9` — Settings: Follow-through Support section
+3. `f97ecc4` — Home FocusBar off-device toggle, CPN form + timeline, InBar staleness pulse
+
+### Next Steps
+- Manual regression test with extension loaded unpacked
+- Asana widget server: implement `POST_ASANA_COMMENT` webhook handler
+- Merge `fix/popup-harmony` into `refactor/decomp-v2` or `master` after regression
+- Version bump (Plan 025 adds ~3 minor features → 4.3.0 candidate)
