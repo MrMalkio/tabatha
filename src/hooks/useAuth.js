@@ -17,6 +17,37 @@ async function writeAuthDiagnostic(kind, detail) {
   } catch { /* best effort */ }
 }
 
+// Wipe every Supabase session key across both storage layers. supabase-js's
+// default storage in extension pages is window.localStorage, NOT chrome.storage.
+// Calling supabase.auth.signOut alone leaves sb-* localStorage entries behind,
+// so the next page load reads them and the user appears signed in again.
+// We clear both, synchronously where possible, before doing anything else.
+function clearAllAuthStorage({ alsoClearDiagnostics = false } = {}) {
+  // localStorage — synchronous, immediate. Used by extension pages.
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const drop = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith('sb-')) drop.push(k);
+      }
+      drop.forEach(k => window.localStorage.removeItem(k));
+    }
+  } catch { /* ignore */ }
+  // chrome.storage.local — async. Used by the service worker.
+  try {
+    if (chrome?.storage?.local) {
+      chrome.storage.local.get(null).then(all => {
+        const keys = Object.keys(all).filter(k =>
+          k.startsWith('sb-') ||
+          (alsoClearDiagnostics && (k === '_syncDiagnostics' || k === '_lastSyncSuccess'))
+        );
+        if (keys.length > 0) chrome.storage.local.remove(keys);
+      }).catch(() => { /* ignore */ });
+    }
+  } catch { /* ignore */ }
+}
+
 /**
  * useAuth — Reactive hook for Supabase auth state + Tabatha profile.
  *
@@ -222,45 +253,34 @@ export function useAuth() {
   }, []);
 
   // ─── Sign out ─────────────────────────────────────────────
-  // The remote-scope signOut hits /auth/v1/logout to revoke the JWT, which
-  // hangs on slow/wedged sessions. We race it against a 4s timeout; whether
-  // the remote call wins or the timeout fires, we always clear the local
-  // state so the UI is never stuck "Signed in" after the user clicks out.
+  // supabase-js's default storage in extension PAGES is window.localStorage
+  // (not chrome.storage), so calling supabase.auth.signOut() alone leaves
+  // stale sb-* keys behind in localStorage; the next page load reads them
+  // and the user appears signed in again. We clear BOTH localStorage and
+  // chrome.storage.local sb-* keys synchronously, then call signOut({
+  // scope: 'local' }) to drop the in-memory state. The remote /auth/v1/logout
+  // is fire-and-forget — we don't await it, so the UI updates instantly.
   const signOut = useCallback(async () => {
-    try {
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('remote signOut timed out — clearing local state only')), 4000))
-      ]);
-    } catch (err) {
-      await writeAuthDiagnostic('signout_fell_back_to_local', err);
-      // Local-scope signOut bypasses the network entirely and just clears the
-      // client-side session. Safe to call even if the remote already cleared.
-      try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
-    }
+    clearAllAuthStorage();
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
     setSession(null);
     setProfile(null);
     setOrgs([]);
     setTeams([]);
     hasFetched.current = false;
+    // Fire-and-forget remote logout. We don't wait on it because the user
+    // has already been signed out locally and the UI has updated. If the
+    // network is slow or wedged it doesn't matter; the JWT will expire on
+    // its own server-side.
+    supabase.auth.signOut().catch(err => writeAuthDiagnostic('remote_signout_failed', err));
   }, []);
 
   // ─── Force reset (escape hatch for stale/wedged sessions) ──
-  // Wipes every supabase-js auth-storage key from chrome.storage.local so
-  // the next page load starts from a truly clean slate. Use when signOut
-  // appears to succeed but the user keeps showing as "Connected" or when
-  // auth.getSession() keeps timing out.
+  // Same as signOut but also wipes the sync diagnostics history so the
+  // Sync Status panel is clean. Used when even signOut hasn't unstuck things.
   const forceResetAuth = useCallback(async () => {
+    clearAllAuthStorage({ alsoClearDiagnostics: true });
     try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
-    try {
-      const all = await chrome.storage.local.get(null);
-      const sbKeys = Object.keys(all).filter(k => k.startsWith('sb-') || k === '_syncDiagnostics' || k === '_lastSyncSuccess');
-      if (sbKeys.length > 0) {
-        await chrome.storage.local.remove(sbKeys);
-      }
-    } catch (err) {
-      await writeAuthDiagnostic('force_reset_partial', err);
-    }
     setSession(null);
     setProfile(null);
     setOrgs([]);
