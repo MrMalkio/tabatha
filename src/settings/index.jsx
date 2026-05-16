@@ -46,6 +46,7 @@ const SECTIONS = [
   { id: 'time', label: '⏱ Time Tracking' },
   { id: 'export', label: '📤 Export & Agents' },
   { id: 'workclock', label: '⏱️ Work Clock' },
+  { id: 'followthrough', label: '📋 Follow-through' },
   { id: 'tags', label: '🏷 Tags & Associations' },
   { id: 'parked', label: '🅿️ Parked Tabs' },
   { id: 'sugarbox', label: '🍬 Sugar Box' },
@@ -1091,6 +1092,57 @@ function Settings() {
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Save clock history</span>
                     <Toggle value={settings.saveClockHistory !== false} onChange={v => updateSetting('saveClockHistory', v)} />
+                  </div>
+                </Tooltip>
+              </div>
+            )}
+
+            {activeSection === 'followthrough' && (
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Follow-through Support</h2>
+                <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
+                  Configure popup behavior, checkpoint progress notes, and follow-through tracking preferences.
+                </p>
+
+                <div style={sectionLabel}>Welcome Back Popup</div>
+                <Tooltip text="Minimum time you must be idle before the Welcome Back popup appears. Lower = more frequent." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Min idle time (minutes)</span>
+                    <input type="number" min="1" max="60" value={settings.welcomeBackMinIdleMinutes ?? 5} onChange={e => updateSetting('welcomeBackMinIdleMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="Show the Welcome Back popup when returning from an auto-break. Disable to reduce interruptions." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Show after auto-break</span>
+                    <Toggle value={settings.welcomeBackShowAfterBreak !== false} onChange={v => updateSetting('welcomeBackShowAfterBreak', v)} />
+                  </div>
+                </Tooltip>
+
+                <div style={sectionLabel}>Checkpoint Progress Notes</div>
+                <Tooltip text="Periodically prompt you to record what you've accomplished during a focus session." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Enable checkpoint prompts</span>
+                    <Toggle value={settings.checkpointNotesEnabled !== false} onChange={v => updateSetting('checkpointNotesEnabled', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="How often to prompt relative to your focus timer. 0.33 = every third of the timer." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Prompt interval (fraction)</span>
+                    <input type="number" min="0.1" max="0.5" step="0.05" value={settings.checkpointIntervalFraction ?? 0.33} onChange={e => updateSetting('checkpointIntervalFraction', parseFloat(e.target.value) || 0.33)} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="After this many minutes without a checkpoint, the InBar shows a staleness indicator." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Staleness threshold (min)</span>
+                    <input type="number" min="5" max="120" value={settings.checkpointStaleMinutes ?? 30} onChange={e => updateSetting('checkpointStaleMinutes', parseInt(e.target.value) || 30)} style={inputStyle} />
+                  </div>
+                </Tooltip>
+
+                <div style={sectionLabel}>Integrations</div>
+                <Tooltip text="Automatically post checkpoint notes as comments on linked Asana tasks. Requires Asana widget server." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Auto-post CPNs to Asana</span>
+                    <Toggle value={!!settings.checkpointAutoPostAsana} onChange={v => updateSetting('checkpointAutoPostAsana', v)} />
                   </div>
                 </Tooltip>
               </div>
