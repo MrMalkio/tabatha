@@ -336,6 +336,8 @@ function Settings() {
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameDraft, setDisplayNameDraft] = useState('');
   const [savingDisplayName, setSavingDisplayName] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [resettingAuth, setResettingAuth] = useState(false);
 
   // Sync diagnostics — written by syncService and useAuth to chrome.storage.local
   const [syncDiagnostics] = useChromeStorage('_syncDiagnostics', []);
@@ -740,16 +742,44 @@ function Settings() {
                       Focus items, intents, and time data sync automatically every 5 minutes.
                     </p>
 
-                    <button onClick={signOut} style={{ ...inputStyle, width: '100%', background: 'var(--color-bg-base)', cursor: 'pointer', textAlign: 'center', padding: '8px', fontWeight: 500, marginBottom: '8px' }}>Sign Out</button>
                     <button
                       onClick={async () => {
-                        if (!confirm('Force-clear all auth state from this profile? Use this only if Sign Out isn\'t working or sync keeps timing out. You will be signed out and need to sign back in.')) return;
-                        await forceResetAuth();
-                        setAuthError('✓ Auth state cleared. Sign in again to restore sync.');
+                        if (signingOut) return;
+                        setSigningOut(true);
+                        setAuthError(null);
+                        try {
+                          await signOut();
+                          setAuthError('✓ Signed out');
+                        } catch (err) {
+                          setAuthError('Sign out error: ' + (err.message || err));
+                        } finally {
+                          setSigningOut(false);
+                        }
                       }}
-                      style={{ width: '100%', background: 'transparent', border: '1px dashed var(--color-border)', color: 'var(--color-text-muted)', cursor: 'pointer', textAlign: 'center', padding: '8px', fontSize: '11px', borderRadius: 'var(--radius-sm)' }}
+                      disabled={signingOut}
+                      style={{ ...inputStyle, width: '100%', background: signingOut ? 'var(--color-surface)' : 'var(--color-bg-base)', cursor: signingOut ? 'wait' : 'pointer', textAlign: 'center', padding: '8px', fontWeight: 500, marginBottom: '8px', opacity: signingOut ? 0.7 : 1 }}
                     >
-                      ⚠ Force reset auth (use if Sign Out hangs or sync keeps timing out)
+                      {signingOut ? '⏳ Signing out…' : 'Sign Out'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (resettingAuth) return;
+                        if (!confirm('Force-clear all auth state from this profile? Use this only if Sign Out isn\'t working or sync keeps timing out. You will be signed out and need to sign back in.')) return;
+                        setResettingAuth(true);
+                        setAuthError(null);
+                        try {
+                          await forceResetAuth();
+                          setAuthError('✓ Auth state cleared. Sign in again to restore sync.');
+                        } catch (err) {
+                          setAuthError('Force reset error: ' + (err.message || err));
+                        } finally {
+                          setResettingAuth(false);
+                        }
+                      }}
+                      disabled={resettingAuth}
+                      style={{ width: '100%', background: 'transparent', border: '1px dashed var(--color-border)', color: 'var(--color-text-muted)', cursor: resettingAuth ? 'wait' : 'pointer', textAlign: 'center', padding: '8px', fontSize: '11px', borderRadius: 'var(--radius-sm)', opacity: resettingAuth ? 0.7 : 1 }}
+                    >
+                      {resettingAuth ? '⏳ Resetting…' : '⚠ Force reset auth (use if Sign Out hangs or sync keeps timing out)'}
                     </button>
                   </div>
                 ) : (
