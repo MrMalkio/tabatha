@@ -136,6 +136,20 @@ function Sidebar() {
   const [showCheckpoint, setShowCheckpoint] = useState(false);
   const [cpnText, setCpnText] = useState('');
   const [isCheckpointStale, setIsCheckpointStale] = useState(false);
+  // Feature #186: Window count
+  const [windowCount, setWindowCount] = useState(0);
+
+  useEffect(() => {
+    const tabIds = activeFocus?.associatedTabIds || [];
+    if (!tabIds.length) { setWindowCount(0); return; }
+    (async () => {
+      const wins = new Set();
+      for (const tid of tabIds) {
+        try { const t = await chrome.tabs.get(tid); wins.add(t.windowId); } catch { /* closed */ }
+      }
+      setWindowCount(wins.size);
+    })();
+  }, [activeFocus?.associatedTabIds?.length]);
 
   const { knownClients, knownProjects } = useMemo(() => {
     const cls = new Set(['Self']);
@@ -350,6 +364,7 @@ function Sidebar() {
                       <div style={{ fontSize:'13px', fontWeight:600, marginBottom:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{activeFocus.label}</div>
                       <div style={{ fontSize:'9px', color:'var(--color-text-muted)', display:'flex', gap:'8px' }}>
                         <span>{activeFocus.associatedTabIds?.length||0} tabs</span>
+                        {windowCount > 0 && <span>{windowCount} {windowCount === 1 ? 'win' : 'wins'}</span>}
                         <span>{formatElapsed(activeFocus.liveElapsedMs)}</span>
                       </div>
                     </div>

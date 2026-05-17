@@ -6,7 +6,7 @@
 
 (async () => {
   // 1. Get current tab's context and active focus
-  let tabContext, activeFocus, settings, currentNote = '', allFocusItems = [], activeFocusId = null;
+  let tabContext, activeFocus, settings, currentNote = '', allFocusItems = [], activeFocusId = null, isTabLinked = false, windowCount = 0;
   try {
     const res = await chrome.runtime.sendMessage({ type: 'GET_INBAR_DATA' });
     if (!res || !res.show) return;
@@ -15,6 +15,8 @@
     settings = res.settings || {};
     allFocusItems = res.allFocusItems || [];
     activeFocusId = res.activeFocusId || null;
+    isTabLinked = !!res.isTabLinked;
+    windowCount = res.windowCount || 0;
     // Fetch saved note
     const noteRes = await chrome.runtime.sendMessage({ type: 'GET_INBAR_NOTES' });
     currentNote = noteRes?.note || '';
@@ -379,7 +381,7 @@
       </div>
       <div class="center">
         ${tabIntent
-          ? `<span class="intent-label" id="intent-label-click" title="Click to mark complete: ${tabIntent}">${tabIntent}</span>`
+          ? `${hasFocus ? `<span class="link-icon" title="${isTabLinked ? 'Tab linked to active focus' : 'Tab NOT linked to active focus'}" style="font-size:10px;margin-right:3px;opacity:${isTabLinked ? '1' : '0.5'};">${isTabLinked ? '🔗' : '⚡'}</span>` : ''}<span class="intent-label" id="intent-label-click" title="Click to mark complete: ${tabIntent}">${tabIntent}</span>`
           : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent">No intent set</span>`
         }
       </div>
@@ -712,6 +714,8 @@
           activeFocus = res.activeFocus;
           allFocusItems = res.allFocusItems || [];
           activeFocusId = res.activeFocusId || null;
+          isTabLinked = !!res.isTabLinked;
+          windowCount = res.windowCount || 0;
           tabIntent = tabContext?.context || tabContext?.intent || null;
           focusLabel = activeFocus?.label || null;
           intentLabel = tabIntent || focusLabel || null;
@@ -953,6 +957,8 @@
         activeFocus = res.activeFocus;
         allFocusItems = res.allFocusItems || [];
         activeFocusId = res.activeFocusId || null;
+        isTabLinked = !!res.isTabLinked;
+        windowCount = res.windowCount || 0;
         tabIntent = tabContext?.context || tabContext?.intent || null;
         focusLabel = activeFocus?.label || null;
         intentLabel = tabIntent || focusLabel || null;

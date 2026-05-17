@@ -62,6 +62,20 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [showCPN, setShowCPN] = useState(false);
   const [cpnText, setCpnText] = useState('');
   const [showTimeline, setShowTimeline] = useState(false);
+  // Feature #186: Window count
+  const [windowCount, setWindowCount] = useState(0);
+
+  React.useEffect(() => {
+    const tabIds = activeFocus?.associatedTabIds || [];
+    if (!tabIds.length) { setWindowCount(0); return; }
+    (async () => {
+      const wins = new Set();
+      for (const tid of tabIds) {
+        try { const t = await chrome.tabs.get(tid); wins.add(t.windowId); } catch { /* closed tab */ }
+      }
+      setWindowCount(wins.size);
+    })();
+  }, [activeFocus?.associatedTabIds?.length]);
 
   if (!activeFocus) return null;
 
@@ -143,6 +157,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
           <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>{activeFocus.label}</div>
           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <span>{activeFocus.associatedTabIds?.length || 0} tabs</span>
+            {windowCount > 0 && <span>{windowCount} {windowCount === 1 ? 'window' : 'windows'}</span>}
             <span>{formatElapsed(activeFocus.liveElapsedMs)} elapsed</span>
             {activeFocus.contextSwitchCount > 0 && <span>{activeFocus.contextSwitchCount} switches</span>}
           </div>
