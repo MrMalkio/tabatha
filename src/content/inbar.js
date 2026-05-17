@@ -386,6 +386,7 @@
       <div class="right">
         ${focusEndTime ? `<span class="timer timer-down" id="focus-countdown" title="Focus countdown">--:--</span>` : ''}
         <button class="bar-btn" id="edit-btn" title="Edit intent / Assign to focus">✏️</button>
+        <button class="bar-btn" id="checkpoint-btn" title="Checkpoint — log progress note" style="${activeFocus?.lastCheckpointAt && (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000 ? 'color:#ffa726;' : ''}">📋</button>
         <button class="bar-btn" id="refresh-btn" title="Refresh InBar state">🔄</button>
         <button class="bar-btn pause-btn" id="pause-btn" title="Pause — leave a note about where you left off">⏸</button>
         <button class="bar-btn note-btn" id="note-btn" title="Add note">📝</button>
@@ -686,6 +687,20 @@
       };
     }
 
+    // ── Checkpoint button — manually open CPN prompt ──
+    const cpnBtn = shadow.getElementById('checkpoint-btn');
+    if (cpnBtn && activeFocus) {
+      cpnBtn.onclick = () => {
+        _showCPNOverlay({
+          focusId: activeFocus.id || activeFocusId,
+          label: activeFocus.label || focusLabel,
+          checkpointCount: (activeFocus.checkpoint || []).length,
+          elapsedMs: activeFocus.liveElapsedMs || 0,
+          triggeredBy: 'inbar_manual'
+        });
+      };
+    }
+
     // ── Refresh button — manually re-fetch state ──
     const refreshBtn = shadow.getElementById('refresh-btn');
     if (refreshBtn) {
@@ -871,6 +886,63 @@
   // Initial event binding
   bindBarEvents();
 
+  // ════════════════════════════════════════════
+  // Plan 025 — CPN Overlay Builder (IIFE scope)
+  // ════════════════════════════════════════════
+  const _cpnBtnStyle = (color) => `background:${color}22;color:${color};border:1px solid ${color}44;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;`;
+
+  function _showCPNOverlay({ focusId, label, checkpointCount, elapsedMs, timerMinutes, triggeredBy }) {
+    // Singleton guard
+    const existing = document.getElementById('tabatha-popup-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'tabatha-popup-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font-family:Inter,system-ui,sans-serif;';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:24px;max-width:400px;width:90%;color:#eee;text-align:center;box-shadow:0 16px 40px rgba(0,0,0,0.4);';
+
+    const elapsedStr = elapsedMs ? `${Math.floor(elapsedMs/60000)}:${String(Math.floor((elapsedMs%60000)/1000)).padStart(2,'0')}` : '--:--';
+    const timerStr = timerMinutes ? `${timerMinutes}:00` : '--:--';
+    card.innerHTML = `
+      <div style="font-size:24px;margin-bottom:6px;">📋</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Progress Check</div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:4px;">"${label || 'Focus'}" · Elapsed: ${elapsedStr} · Timer: ${timerStr}</div>
+      <div style="font-size:11px;color:#666;margin-bottom:10px;">Checkpoint #${(checkpointCount || 0) + 1}</div>
+      <textarea id="cpn-text" placeholder="What have you accomplished since your last checkpoint?" style="width:100%;height:56px;background:#111;border:1px solid #444;border-radius:4px;color:#eee;font-size:12px;padding:8px;resize:none;box-sizing:border-box;margin-bottom:10px;"></textarea>
+      <div style="font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;">Submit with progress level:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px;">
+        <button data-level="none" style="${_cpnBtnStyle('#9e9e9e')}">😐 None</button>
+        <button data-level="little" style="${_cpnBtnStyle('#29b6f6')}">📈 Little</button>
+        <button data-level="lot" style="${_cpnBtnStyle('#66bb6a')}">🚀 A Lot</button>
+        <button data-level="almost_done" style="${_cpnBtnStyle('#ffd54f')}">🏁 Almost Done</button>
+        <button data-level="stuck" style="${_cpnBtnStyle('#ef5350')}">🚧 Stuck</button>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button id="cpn-snooze" style="${_cpnBtnStyle('#78909c')}font-size:11px;">⏰ Snooze 5 min</button>
+        <button id="cpn-skip" style="${_cpnBtnStyle('#555')}font-size:11px;">Skip this time</button>
+      </div>`;
+    overlay.appendChild(card);
+    document.documentElement.appendChild(overlay);
+
+    // Progress level submit buttons
+    card.querySelectorAll('[data-level]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const text = card.querySelector('#cpn-text')?.value || '';
+        const level = btn.getAttribute('data-level');
+        if (level === 'stuck' && !text.trim()) { card.querySelector('#cpn-text').style.borderColor = '#ef5350'; card.querySelector('#cpn-text').placeholder = 'Please describe what is blocking you...'; return; }
+        await chrome.runtime.sendMessage({ type: 'SAVE_CHECKPOINT_NOTE', focusId, text, progressLevel: level, triggeredBy: triggeredBy || 'auto_prompt' });
+        try { await chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {}
+        overlay.remove();
+      });
+    });
+    card.querySelector('#cpn-snooze')?.addEventListener('click', async () => {
+      await chrome.runtime.sendMessage({ type: 'SNOOZE_CHECKPOINT', focusId, snoozeMinutes: 5 });
+      overlay.remove();
+    });
+    card.querySelector('#cpn-skip')?.addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {} overlay.remove(); });
+  }
+
   // 13. Listen for updates — full hot-reload
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === 'FOCUS_ENGINE_UPDATED' || msg.type === 'TAB_UPDATED' || msg.type === 'INTENT_UPDATED') {
@@ -1033,48 +1105,14 @@
 
     // ── Checkpoint Progress Note Prompt (singleton) ──
     if (msg.type === 'CHECKPOINT_PROMPT') {
-      if (document.getElementById('tabatha-popup-overlay')) return;
-      const overlay = _createOverlay();
-      const card = _createCard();
-      const elapsed = msg.elapsedMs ? `${Math.floor(msg.elapsedMs/60000)}:${String(Math.floor((msg.elapsedMs%60000)/1000)).padStart(2,'0')}` : '--:--';
-      const timer = msg.timerMinutes ? `${msg.timerMinutes}:00` : '--:--';
-      card.innerHTML = `
-        <div style="font-size:24px;margin-bottom:6px;">📋</div>
-        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Progress Check</div>
-        <div style="font-size:12px;color:#aaa;margin-bottom:4px;">"${msg.label}" · Elapsed: ${elapsed} · Timer: ${timer}</div>
-        <div style="font-size:11px;color:#666;margin-bottom:10px;">Checkpoint #${(msg.checkpointCount || 0) + 1}</div>
-        <textarea id="cpn-text" placeholder="What have you accomplished since your last checkpoint?" style="width:100%;height:56px;background:#111;border:1px solid #444;border-radius:4px;color:#eee;font-size:12px;padding:8px;resize:none;box-sizing:border-box;margin-bottom:10px;"></textarea>
-        <div style="font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;">Submit with progress level:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px;">
-          <button data-level="none" style="${_popupBtnStyle('#9e9e9e')}">😐 None</button>
-          <button data-level="little" style="${_popupBtnStyle('#29b6f6')}">📈 Little</button>
-          <button data-level="lot" style="${_popupBtnStyle('#66bb6a')}">🚀 A Lot</button>
-          <button data-level="almost_done" style="${_popupBtnStyle('#ffd54f')}">🏁 Almost Done</button>
-          <button data-level="stuck" style="${_popupBtnStyle('#ef5350')}">🚧 Stuck</button>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:center;">
-          <button id="cpn-snooze" style="${_popupBtnStyle('#78909c')}font-size:11px;">⏰ Snooze 5 min</button>
-          <button id="cpn-skip" style="${_popupBtnStyle('#555')}font-size:11px;">Skip this time</button>
-        </div>`;
-      overlay.appendChild(card);
-      document.documentElement.appendChild(overlay);
-      // Progress level buttons are the submit actions
-      card.querySelectorAll('[data-level]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const text = card.querySelector('#cpn-text')?.value || '';
-          const level = btn.getAttribute('data-level');
-          const noteRequired = level === 'stuck';
-          if (noteRequired && !text.trim()) { card.querySelector('#cpn-text').style.borderColor = '#ef5350'; card.querySelector('#cpn-text').placeholder = 'Please describe what is blocking you...'; return; }
-          await chrome.runtime.sendMessage({ type: 'SAVE_CHECKPOINT_NOTE', focusId: msg.focusId, text, progressLevel: level, triggeredBy: 'auto_prompt' });
-          try { await chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {}
-          overlay.remove();
-        });
+      _showCPNOverlay({
+        focusId: msg.focusId,
+        label: msg.label || msg.focusLabel,
+        checkpointCount: msg.checkpointCount,
+        elapsedMs: msg.elapsedMs,
+        timerMinutes: msg.timerMinutes,
+        triggeredBy: 'auto_prompt'
       });
-      card.querySelector('#cpn-snooze')?.addEventListener('click', async () => {
-        await chrome.runtime.sendMessage({ type: 'SNOOZE_CHECKPOINT', focusId: msg.focusId, snoozeMinutes: 5 });
-        overlay.remove();
-      });
-      card.querySelector('#cpn-skip')?.addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {} overlay.remove(); });
     }
 
     // ── Popup Dismissed — cross-tab cleanup ──
