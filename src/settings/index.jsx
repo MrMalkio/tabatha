@@ -338,6 +338,7 @@ function Settings() {
   const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [resettingAuth, setResettingAuth] = useState(false);
+  const [syncingNow, setSyncingNow] = useState(false);
 
   // Sync diagnostics — written by syncService and useAuth to chrome.storage.local
   const [syncDiagnostics] = useChromeStorage('_syncDiagnostics', []);
@@ -645,13 +646,61 @@ function Settings() {
                       
                       {/* Sync status */}
                       <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sync Status</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sync Status</div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={async () => {
+                                if (syncingNow) return;
+                                setSyncingNow(true);
+                                setAuthError(null);
+                                const backstop = setTimeout(() => setSyncingNow(false), 15000);
+                                try {
+                                  const res = await chrome.runtime.sendMessage({ type: 'SYNC_NOW' });
+                                  if (res?.success) {
+                                    const newDiag = (res.recentDiagnostics || []).filter(d => new Date(d.at).getTime() > (Date.now() - 5000));
+                                    if (newDiag.length > 0) {
+                                      setAuthError('Sync ran but reported: ' + newDiag[0].kind + ' — ' + newDiag[0].detail);
+                                    } else if (res.lastSyncSuccess) {
+                                      setAuthError('✓ Synced ' + new Date(res.lastSyncSuccess).toLocaleTimeString());
+                                    } else {
+                                      setAuthError('Sync ran but no success timestamp recorded. Check diagnostics.');
+                                    }
+                                  } else {
+                                    setAuthError('Sync did not respond');
+                                  }
+                                } catch (err) {
+                                  setAuthError('Sync now error: ' + (err.message || err));
+                                } finally {
+                                  clearTimeout(backstop);
+                                  setSyncingNow(false);
+                                }
+                              }}
+                              disabled={syncingNow}
+                              style={{ padding: '4px 10px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: syncingNow ? 'wait' : 'pointer', fontSize: '10px', fontWeight: 600, opacity: syncingNow ? 0.7 : 1 }}
+                            >
+                              {syncingNow ? '⏳ Syncing…' : '↻ Sync now'}
+                            </button>
+                            {syncDiagnostics?.length > 0 && (
+                              <button
+                                onClick={async () => {
+                                  try { await chrome.runtime.sendMessage({ type: 'CLEAR_SYNC_DIAGNOSTICS' }); }
+                                  catch { /* ignore */ }
+                                }}
+                                style={{ padding: '4px 10px', background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '10px' }}
+                                title="Clear diagnostic history (does not affect sync)"
+                              >
+                                Clear log
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         {lastSyncSuccess ? (
                           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: syncDiagnostics?.length > 0 ? '6px' : 0 }}>
                             ✓ Last successful sync: <span style={{ color: 'var(--color-text-primary)' }}>{new Date(lastSyncSuccess).toLocaleString()}</span>
                           </div>
                         ) : (
-                          <div style={{ fontSize: '11px', color: '#ff9800', marginBottom: '6px' }}>⚠ No successful sync yet.</div>
+                          <div style={{ fontSize: '11px', color: '#ff9800', marginBottom: '6px' }}>⚠ No successful sync yet. Hit <strong>↻ Sync now</strong> to test.</div>
                         )}
                         {syncDiagnostics?.length > 0 && (
                           <details style={{ fontSize: '11px' }}>

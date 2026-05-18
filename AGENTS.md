@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 4.3.2
+- **Current version:** 4.3.3
 - **Current focus:** Plan 025 — Popup Harmony & Checkpoint Notes (integration pending), manual regression of V4 router branch.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`

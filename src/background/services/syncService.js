@@ -192,3 +192,28 @@ export async function syncToSupabase() {
 export function registerSyncServiceAlarms() {
   chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
 }
+
+// Message handlers wired into the service router (background.js). Settings UI
+// calls these so the user doesn't have to wait for the 5-minute alarm to see
+// whether sync actually works.
+export async function handleMessage(type) {
+  switch (type) {
+    case 'SYNC_NOW': {
+      // Run sync immediately and return the post-sync state so the UI knows
+      // whether anything new went wrong (no need to poll diagnostics).
+      await syncToSupabase();
+      const { _syncDiagnostics, _lastSyncSuccess } = await getStorage(['_syncDiagnostics', '_lastSyncSuccess']);
+      return {
+        success: true,
+        lastSyncSuccess: _lastSyncSuccess || null,
+        recentDiagnostics: Array.isArray(_syncDiagnostics) ? _syncDiagnostics.slice(0, 5) : []
+      };
+    }
+    case 'CLEAR_SYNC_DIAGNOSTICS': {
+      await setStorage({ _syncDiagnostics: [] });
+      return { success: true };
+    }
+    default:
+      return undefined;
+  }
+}
