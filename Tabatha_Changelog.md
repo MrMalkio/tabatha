@@ -5,6 +5,25 @@ file.
 
 ---
 
+## [v4.7.6] - Supabase sync Batch 1 durable data coverage - _2026-05-18_
+
+### Added
+
+- Added Supabase migration 008 for durable local data: operations, initiatives, clients, projects, task registry, clock sessions, and desktop activity.
+- Extended `syncService` to push `tabathaOrg`, completed focus history, `clockHistory`, `companionRecentSessions`, and `desktopActivity`.
+- Added watermarks for clock and desktop activity sync (`lastClockSync`, `lastDesktopActivitySync`) and storage-change sync triggers for direct page writes.
+
+### Changed
+
+- Focus sync now includes `focusEngine.history` as completed rows in `tabatha.focus_items`, not only active/queued items.
+- Clock-out now explicitly queues a Supabase sync in addition to the regular storage-change/alarm paths.
+
+### Required Supabase migration
+
+Run `supabase/migrations/008_add_batch1_sync_tables.sql` before relying on Batch 1 sync tables. Until migration 008 is applied, the Sync Status panel will report table-specific upsert failures.
+
+---
+
 ## [v4.0.0] - Cumulative release: v3.0 → v4.0 + Plan 023 service decomposition - _2026-05-14_
 
 This is the first cumulative release going to `staging` since `v3.0.0`. It carries

@@ -5,6 +5,42 @@
 
 ---
 
+## Session - 2026-05-18 (Supabase Sync Batch 1)
+
+**Agent:** Codex
+**Branch:** `codex/sync-batch-1`
+**Goal:** Implement the next high-value Supabase sync batch from `.headbox/sticky-notes/supabase-sync-handoff.md`.
+
+### What Was Done
+
+- [x] Created an isolated worktree/branch from merged `github/refactor/decomp-v2`.
+- [x] Added `supabase/migrations/008_add_batch1_sync_tables.sql` for local org registry tables, clock sessions, and desktop activity.
+- [x] Extended `src/background/services/syncService.js` to push `tabathaOrg`, `focusEngine.history`, `clockHistory`, `companionRecentSessions`, and `desktopActivity`.
+- [x] Added storage-change sync triggers for durable direct page writes (`tabathaOrg`, `clockHistory`, `companionRecentSessions`, `desktopActivity`).
+- [x] Wired `clockService` clock-out to request sync immediately.
+- [x] Bumped development version to `4.7.6` and updated changelog/headbox mirrors.
+
+### Verification
+
+- [x] `node --check src/background/services/syncService.js`
+- [x] `node --check src/background/background.js`
+- [x] `npm run version:check`
+- [x] `npm run build`
+- [x] `npx eslint src/background/services/syncService.js --global chrome`
+
+### Notes
+
+- Repo-wide lint still fails on existing project configuration noise (`chrome` globals in extension files, generated/dist snapshots, legacy files). The new `syncService` target passes when `chrome` is declared.
+- Migration 008 must be applied to the Flux Supabase project before `Sync now` can populate the new Batch 1 tables.
+
+### Next Steps
+
+- Apply `supabase/migrations/008_add_batch1_sync_tables.sql` remotely.
+- Load the unpacked extension, click Settings -> Sync now, and verify the new Batch 1 tables populate.
+- If diagnostics report table-specific upsert failures, use the new diagnostic kind names as the starting point.
+
+---
+
 ## Session 006/007 â€” 2026-04-24 (React Migration & Full Build)
 
 **Agent:** Antigravity (Claude Opus 4.6 Thinking)

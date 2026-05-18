@@ -305,6 +305,7 @@ export async function handleMessage(type, message, _sender) {
         deps.companionBridge.sendClockOut();
       }
       if (deps.fireWebhook) deps.fireWebhook('clock_out', {});
+      if (!result.error) deps.triggerSync?.();
       return result;
     }
 

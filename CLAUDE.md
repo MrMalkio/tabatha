@@ -7,14 +7,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 12 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 13 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 4.3.6
-- **Current focus:** Plan 025 — Popup Harmony & Checkpoint Notes (integration pending), manual regression of V4 router branch.
+- **Current version:** 4.7.6
+- **Current focus:** Supabase Sync Batch 1 — durable org/clock/focus-history/desktop activity push coverage added on `codex/sync-batch-1`; migration 008 pending remote apply/manual sync verification
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -163,6 +163,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-14 | Codex | PR 10 Review + Plan 023 Task 05D Router Finalization | Reviewed PR 10 (`refactor/decomp-v2-alarm`) with no blocking findings. Created `refactor/decomp-v2-router` from PR 10 head, reduced `background.js` to 171 lines, removed legacy fallback routing, moved activation/idle/notification/URL-lock/sync orchestration into services, added `syncService`, updated docs/ledger, and verified `npm run build`. | Manual unpacked-extension regression, merge PR 10, rebase/retarget router branch onto integration, then total semantic ledger and bump version after full regression. |
 | 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`4.0.0` (MAJOR, user override)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
 | 2026-05-16 | Antigravity | Workspace Deep Review & Cleanup | Deep review of repo state. Removed `Tabatha-alarm` stale worktree. Synced local `refactor/decomp-v2` with origin. Cleaned up 7 fully-merged local branches and 11 fully-merged remote tracking branches. Protected `fix/popup-harmony` as active Plan 025 feature track. Updated `docs/progress.md` with cleanup log. | Test and integrate Plan 025 (`fix/popup-harmony`), conduct full V4 regression |
+| 2026-05-18 | Codex | Supabase Sync Batch 1 | Created `codex/sync-batch-1` from merged `refactor/decomp-v2`. Added migration 008 for org registry, clock sessions, and desktop activity tables. Extended syncService to push `tabathaOrg`, focus history, clock history, companion sessions, and desktop activity with diagnostics/watermarks. Bumped to v4.7.6 and verified build. | Apply migration 008 to Flux Supabase, load unpacked extension, hit Sync now, and verify Batch 1 tables populate. |
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->

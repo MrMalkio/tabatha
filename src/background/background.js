@@ -56,6 +56,7 @@ import * as syncService from './services/syncService.js';
 import {
   configureSyncService,
   getAuthSession,
+  registerSyncStorageListener,
   registerSyncServiceAlarms,
   syncToSupabase,
   triggerSync
@@ -99,7 +100,8 @@ configureClockService({
   fireWebhook,
   getFocusEngine: focusService.getFocusEngine,
   setFocusEngine: focusService.setFocusEngine,
-  getTabData
+  getTabData,
+  triggerSync
 });
 
 configureFocusService({
@@ -165,5 +167,6 @@ registerClockServiceListeners();
 registerGroupServiceListeners();
 registerFocusServiceAlarms();
 registerSyncServiceAlarms();
+registerSyncStorageListener();
 registerAlarmServiceListener();
 registerBootstrap();
