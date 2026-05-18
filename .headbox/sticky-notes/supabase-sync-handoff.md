@@ -2,7 +2,8 @@
 
 **From:** Claude (Opus 4.7)
 **For:** Next agent if more sync work is needed
-**Branch this work lives on:** `fix/popup-harmony` (head moves with each fix; latest at v4.3.4)
+**Branch this work lives on:** `fix/popup-harmony` (head moves with each fix; latest at **v4.3.6**)
+**User confirmed sync works end-to-end on 2026-05-18 ~4:21 PM** — `tabatha.focus_items` / `tabatha.intent_history` populating, "✓ Synced HH:MM:SS" pill is green.
 
 ---
 
@@ -23,7 +24,9 @@ If a future agent is asked to "fix Supabase sync" again, **first ask whether the
 | `f025959` | v4.3.2 | Migration 007 adds `profile.avatar_url` column (was missing from migration 001); button timeout safety nets so signOut/forceReset can't get stuck on loading state |
 | `86dfcb7` | v4.3.2 | Defensive `new Date(intent.timestamp).toISOString()` normalization on intent_history inserts — protects against legacy epoch-ms entries |
 | `1d6335f` | v4.3.3 | `SYNC_NOW` / `CLEAR_SYNC_DIAGNOSTICS` message handlers + UI buttons in Settings |
-| (v4.3.4 commit) | v4.3.4 | **Custom `chrome.storage.local` storage adapter** on supabase-js — fixes the page-SW session split |
+| `0c74145` | v4.3.4 | **Custom `chrome.storage.local` storage adapter** on supabase-js — fixes the page-SW session split. This is the real fix; everything before was downstream of this. |
+| `1f231b1` | v4.3.5 | Status pill + Sync now (↻) + Reload extension (⟳) icons in the Settings left-nav header so sync health is visible from any settings section |
+| (v4.3.6 commit) | v4.3.6 | Pulse animation on the sync/reload icons when state ≠ 'fresh' — sync pulses first; if user clicks and state still isn't fresh within 6s, pulse shifts to reload icon |
 
 Migration history is in sync: local 001–007 = remote 001–007 (verified via `supabase migration list --linked`).
 
@@ -54,11 +57,41 @@ Migration history is in sync: local 001–007 = remote 001–007 (verified via `
 ### P0 — must verify
 - **Has the user confirmed `tabatha.focus_items` / `tabatha.intent_history` actually populate after hitting Sync now?** If not, the diagnostic panel will name the failure. Read [src/settings/index.jsx](../../src/settings/index.jsx) Sync Status panel to see what the user is looking at.
 
-### P1 — likely follow-ups
-- **Profile auto-provision behavior on first sign-in.** The INSERT path in [src/hooks/useAuth.js:121](../../src/hooks/useAuth.js#L121) writes `{auth_user_id, display_name, avatar_url}` (NOT `email`). The `email` column on `tabatha.profiles` stays NULL. If product wants email captured, add it to the insert (use `user.email` from `supabase.auth.getUser()`).
-- **`tabatha.profiles.email` is never populated.** Same fix as above.
-- **`tabathaOrg` (clients/projects/tasks) is local-only.** Major gap for multi-device users. Probably the next sync feature worth building. See [.headbox/sticky-notes/v4.0.0-followups.md](v4.0.0-followups.md) item 1.
-- **Two-way sync.** Currently push-only. See v4.0.0-followups item 2.
+### P1 — likely follow-ups (user agreed with batch 1 + 2 below)
+
+**Batch 1 — high-value sync gaps (do first):**
+1. **`tabathaOrg` sync** — clients, projects, tasks, operations, initiatives. Add migration 008 with `tabatha.clients` / `projects` / `tasks_registry` / `operations` / `initiatives` tables, each with `(profile_id, client_id)` unique key for upsert. Extend `syncService.syncToSupabase` with a 4th block walking `tabathaOrg`. This is THE highest-value next item — clients/projects/tasks are what users build over time and expect to see on a second machine.
+2. **`clockHistory` sync** — 365-day clock-in/out + breaks. New `tabatha.clock_sessions` table; `clockService` calls `triggerSync()` on clock-out; watermark via `lastClockSync` parallel to `lastIntentSync`.
+3. **`focusEngine.history` included in focus_items upsert** — one-line change: merge `engine.history` into the existing upsert batch. The `focus_state='completed'` column already accommodates these.
+4. **Companion activity sync** — `tabatha.desktop_activity` table, push from `desktopActivity` + `companionRecentSessions` with retention-aware delta.
+
+**Batch 2 — config that should travel:**
+5. **`categories`** custom rules
+6. **`urlRules` + `skippedDomains`**
+7. **`blockedSites`** (block list; intentionally leave temp bypasses local)
+8. **`subGroups`**
+
+**Skip — keep local:**
+- `parkedTabs`, `inbarNotes`, `tabs`, `clockSession` (active), `timeTracking` aggregates, `tabathaLogs`, all `_archive_*` / `_*Migrated` flags.
+
+### P1 — UX gaps to address alongside
+
+- **Full user profile section in Settings → Sync & Account.** Currently shows display_name (editable), email, avatar (read-only if present), Connected pill, linked accounts, orgs/teams, sync status. Missing fields on `tabatha.profiles` that should also be surfaced/editable:
+  - `avatar_url` editor (URL paste or image upload — image upload needs Supabase Storage bucket)
+  - `timezone` (currently defaults to `America/New_York` in schema)
+  - `default_realm` (business/professional/work/personal) — already on schema
+  - `role` (read-only display: user/manager/admin/owner)
+  - `created_at` ("Member since …")
+  - `settings` JSONB — probably leave internal, but surface a subset (preferred theme, notification prefs) if relevant
+- **Default org / default team selector** — `default_org_id` and `default_team_id` are on the profiles row but there's no UI to set them. Users with multiple org memberships have no way to pick which is active.
+- **Display name save was working before sync was working.** The user reported saving a name change in a prior session and seeing it persist, despite sync being broken at the time. That's correct behavior: display name save uses `supabase.from('profiles').update(...)` — a direct REST call, NOT the syncService path. It only required the schema fix (migration 005 + 007 + schema exposure) to start working, not the chrome.storage adapter fix. Don't confuse the two paths in future debugging.
+
+### P1 — known noise to clean up
+
+- **`auth_init_failed: auth.getSession: timed out after 15000ms`** still appears occasionally on page mount even when sync is healthy. Root cause: when supabase-js's `getSession()` triggers a network-side token refresh and the network is slow, it can exceed the 15s timeout race in [useAuth.js](../../src/hooks/useAuth.js). The session does load eventually; this is benign noise but pollutes the diagnostic panel. Two viable fixes:
+  - Bump `AUTH_TIMEOUT_MS` to 30s (lazy fix).
+  - **Better fix:** on timeout, read `sb-mtdgoahskcibjbhfvofx-auth-token` directly from chrome.storage.local. If a session exists there, use it without logging — log only if storage is also empty. This is the most robust path.
+- **Two-way sync.** Still push-only. See v4.0.0-followups item 2.
 
 ### P2 — UX
 - The Sync Status panel surfaces failures but doesn't show "next auto-sync in N minutes." Consider a small countdown.
