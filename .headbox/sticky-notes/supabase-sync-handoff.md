@@ -1,8 +1,8 @@
-# 🔌 Supabase Sync — Status & Handoff — May 18, 2026
+# 🔌 Supabase Sync — Status & Handoff — May 18, 2026 (updated)
 
 **From:** Claude (Opus 4.7)
 **For:** Next agent if more sync work is needed
-**Branch this work lives on:** `fix/popup-harmony` (head: `1d6335f` at v4.3.3)
+**Branch this work lives on:** `fix/popup-harmony` (head moves with each fix; latest at v4.3.4)
 
 ---
 
@@ -23,6 +23,7 @@ If a future agent is asked to "fix Supabase sync" again, **first ask whether the
 | `f025959` | v4.3.2 | Migration 007 adds `profile.avatar_url` column (was missing from migration 001); button timeout safety nets so signOut/forceReset can't get stuck on loading state |
 | `86dfcb7` | v4.3.2 | Defensive `new Date(intent.timestamp).toISOString()` normalization on intent_history inserts — protects against legacy epoch-ms entries |
 | `1d6335f` | v4.3.3 | `SYNC_NOW` / `CLEAR_SYNC_DIAGNOSTICS` message handlers + UI buttons in Settings |
+| (v4.3.4 commit) | v4.3.4 | **Custom `chrome.storage.local` storage adapter** on supabase-js — fixes the page-SW session split |
 
 Migration history is in sync: local 001–007 = remote 001–007 (verified via `supabase migration list --linked`).
 
@@ -75,18 +76,20 @@ Migration history is in sync: local 001–007 = remote 001–007 (verified via `
 
 1. `Invalid schema: tabatha` → PostgREST didn't expose the schema (fixed by adding to `supabase/config.toml` `[api].schemas`, then `supabase config push`).
 2. `permission denied for schema tabatha` → roles didn't have GRANT USAGE (fixed by migration 006).
-3. `Lock "lock:sb-...-auth-token" was released because another request stole it` → Web Locks contention across extension pages (fixed by `noopLock` in [supabaseClient.js:21](../../src/services/supabaseClient.js#L21)).
-4. Sign Out / Force reset auth didn't actually clear session → supabase-js stores sessions in `window.localStorage` in extension PAGES, NOT `chrome.storage.local` (fixed by `clearAllAuthStorage` in [useAuth.js:25](../../src/hooks/useAuth.js#L25) which clears both).
+3. `Lock "lock:sb-...-auth-token" was released because another request stole it` → Web Locks contention across extension pages (fixed by `noopLock` in [supabaseClient.js](../../src/services/supabaseClient.js)).
+4. Sign Out / Force reset auth didn't actually clear session → supabase-js stores sessions in `window.localStorage` in extension PAGES, NOT `chrome.storage.local` (fixed by `clearAllAuthStorage` in [useAuth.js](../../src/hooks/useAuth.js) which clears both — partly superseded by #7 below).
 5. `column profiles.avatar_url does not exist` → migration 001 didn't include it but code did (fixed by migration 007).
 6. Buttons stuck on loading state → supabase-js's local-scope signOut sometimes hangs (fixed by Promise.race + setTimeout backstop).
+7. **`no_auth_session: Sync attempted while signed out`** even with the UI showing "Connected" → page sign-in lands in `window.localStorage`, but the service worker has no `window` so it falls back to in-memory storage, which is empty on every SW wake. Two parallel storage layers, never crossed. **Fixed in v4.3.4 by passing a custom `chrome.storage.local`-backed storage adapter to `createClient`** — page and SW now share the same session.
 
 ### The MV3 extension auth model — important to know
 
-- **supabase-js session storage in extension PAGES**: `window.localStorage`.
-- **supabase-js session storage in service worker**: `chrome.storage.local` (because no window).
-- **Different storage layers.** Clearing one doesn't clear the other.
-- **Web Locks**: navigator.locks is shared across same-extension contexts. supabase-js's default `lock` causes contention storms. We disabled it with `noopLock`.
-- **JWT propagation**: supabase-js attaches it via fetch headers in the page/SW that has the session loaded. Both contexts each load from their own storage. As long as they're both populated from the same sign-in, they'll send the same JWT.
+- **Storage default in pages**: supabase-js picks `window.localStorage`. ❌ NOT shared with the SW.
+- **Storage default in service worker**: no `window`, no `localStorage`, falls back to **in-memory only**. Every SW wake-up starts empty. ❌
+- **Our fix (v4.3.4)**: we pass a custom `chrome.storage.local`-backed `storage` adapter to `createClient`. That layer IS shared across every extension context (pages + SW). After sign-in, both the page and the SW see the same JWT immediately.
+- **Web Locks**: `navigator.locks` is shared across same-extension contexts. supabase-js's default `lock` causes contention storms. We disabled it with `noopLock`.
+- **JWT propagation**: supabase-js attaches it via fetch headers from whichever client instance issues the call. With the chrome.storage adapter, both contexts load from the same place so they send the same JWT.
+- **`clearAllAuthStorage` in useAuth** still walks both `window.localStorage` AND `chrome.storage.local` for `sb-*` keys. The localStorage path is defensive against old sessions that pre-date v4.3.4; only chrome.storage matters going forward.
 
 ### The Flux project specifics
 
