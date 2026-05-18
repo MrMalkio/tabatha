@@ -495,9 +495,60 @@ function Settings() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', fontFamily: "'Inter', system-ui, sans-serif", display: 'flex' }}>
       {/* Left Nav */}
       <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '8px 16px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
+        <div style={{ padding: '8px 16px 12px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>⚙️ Settings</div>
           <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v{chrome.runtime.getManifest?.()?.version || '?'}-α</div>
+          {/* Sync status pill + sync now + reload */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
+            {(() => {
+              const recentEvent = syncDiagnostics?.[0];
+              const recentFailure = recentEvent && (recentEvent.kind?.includes('failed') || recentEvent.kind?.startsWith('no_'));
+              const lastSyncMs = lastSyncSuccess ? new Date(lastSyncSuccess).getTime() : 0;
+              const recentFailureNewer = recentEvent && new Date(recentEvent.at).getTime() > lastSyncMs;
+              const state = !isSignedIn ? 'signed_out'
+                : recentFailureNewer && recentFailure ? 'error'
+                : lastSyncSuccess && (Date.now() - lastSyncMs) < 10 * 60 * 1000 ? 'fresh'
+                : lastSyncSuccess ? 'stale'
+                : 'never';
+              const pill = {
+                signed_out: { color: '#888', bg: 'rgba(136,136,136,0.15)', label: '○ Offline', tip: 'Not signed in. Open the Sync & Account section to sign in.' },
+                error: { color: '#ff9800', bg: 'rgba(255,152,0,0.15)', label: '⚠ Sync error', tip: recentEvent?.detail || 'Most recent sync attempt reported an error. See Sync & Account.' },
+                fresh: { color: '#34A853', bg: 'rgba(52,168,83,0.15)', label: '● Synced', tip: 'Last synced ' + new Date(lastSyncSuccess).toLocaleTimeString() },
+                stale: { color: '#aaa', bg: 'rgba(170,170,170,0.15)', label: '◐ Stale', tip: 'Last synced ' + new Date(lastSyncSuccess).toLocaleString() + ' — may be over 10 min ago.' },
+                never: { color: '#ff9800', bg: 'rgba(255,152,0,0.15)', label: '⚠ Never', tip: 'No successful sync recorded yet. Click ↻ to try now.' }
+              }[state];
+              return (
+                <span title={pill.tip} style={{ flex: 1, padding: '3px 8px', fontSize: '10px', fontWeight: 600, color: pill.color, background: pill.bg, borderRadius: '10px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pill.label}</span>
+              );
+            })()}
+            <button
+              onClick={async () => {
+                if (syncingNow) return;
+                if (!isSignedIn) { setAuthError('Sign in first (Sync & Account section)'); return; }
+                setSyncingNow(true);
+                const backstop = setTimeout(() => setSyncingNow(false), 15000);
+                try {
+                  const res = await chrome.runtime.sendMessage({ type: 'SYNC_NOW' });
+                  if (res?.success && res.lastSyncSuccess) {
+                    const newDiag = (res.recentDiagnostics || []).filter(d => new Date(d.at).getTime() > (Date.now() - 5000));
+                    if (newDiag.length === 0) setAuthError('✓ Synced ' + new Date(res.lastSyncSuccess).toLocaleTimeString());
+                  }
+                } catch { /* shown via diagnostic */ } finally { clearTimeout(backstop); setSyncingNow(false); }
+              }}
+              disabled={syncingNow}
+              title="Sync now"
+              style={{ padding: '3px 6px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: syncingNow ? 'wait' : 'pointer', fontSize: '11px', color: 'var(--color-text-muted)' }}
+            >
+              {syncingNow ? '⏳' : '↻'}
+            </button>
+            <button
+              onClick={() => chrome.runtime.reload()}
+              title="Reload extension (picks up new builds)"
+              style={{ padding: '3px 6px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px', color: 'var(--color-text-muted)' }}
+            >
+              ⟳
+            </button>
+          </div>
         </div>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
