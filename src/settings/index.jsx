@@ -747,12 +747,17 @@ function Settings() {
                         if (signingOut) return;
                         setSigningOut(true);
                         setAuthError(null);
+                        // Hard backstop: if anything inside signOut hangs longer
+                        // than 3s the button still recovers. Prevents the
+                        // ⏳ Signing out… spinner from getting stuck.
+                        const backstop = setTimeout(() => setSigningOut(false), 3000);
                         try {
                           await signOut();
                           setAuthError('✓ Signed out');
                         } catch (err) {
                           setAuthError('Sign out error: ' + (err.message || err));
                         } finally {
+                          clearTimeout(backstop);
                           setSigningOut(false);
                         }
                       }}
@@ -767,12 +772,17 @@ function Settings() {
                         if (!confirm('Force-clear all auth state from this profile? Use this only if Sign Out isn\'t working or sync keeps timing out. You will be signed out and need to sign back in.')) return;
                         setResettingAuth(true);
                         setAuthError(null);
+                        // Same backstop as Sign Out — forceResetAuth shouldn't
+                        // hang now that its internal supabase call is timeout-raced,
+                        // but defense in depth: never let the spinner stick.
+                        const backstop = setTimeout(() => setResettingAuth(false), 3000);
                         try {
                           await forceResetAuth();
                           setAuthError('✓ Auth state cleared. Sign in again to restore sync.');
                         } catch (err) {
                           setAuthError('Force reset error: ' + (err.message || err));
                         } finally {
+                          clearTimeout(backstop);
                           setResettingAuth(false);
                         }
                       }}
