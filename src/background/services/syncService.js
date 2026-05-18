@@ -146,7 +146,9 @@ export async function syncToSupabase() {
     if (intentHistory?.length > 0) {
       const { lastIntentSync } = await getStorage('lastIntentSync');
       const lastSyncTime = lastIntentSync ? new Date(lastIntentSync).getTime() : 0;
-      const newIntents = intentHistory.filter(i => new Date(i.timestamp).getTime() > lastSyncTime);
+      const newIntents = intentHistory
+        .filter(i => i.timestamp && !Number.isNaN(new Date(i.timestamp).getTime()))
+        .filter(i => new Date(i.timestamp).getTime() > lastSyncTime);
 
       if (newIntents.length > 0) {
         const intentInserts = newIntents.map(intent => ({
@@ -158,7 +160,10 @@ export async function syncToSupabase() {
           focus_id: intent.focusId || null,
           url: intent.url || null,
           domain: intent.domain || null,
-          timestamp: intent.timestamp
+          // Normalize to ISO 8601 — PostgreSQL TIMESTAMPTZ rejects raw epoch-ms
+          // numbers. Pre-v3.13 entries (migrated via bootstrap.migrateIntentChangeLog)
+          // may still be numbers; new Date(...).toISOString() converts both.
+          timestamp: new Date(intent.timestamp).toISOString()
         }));
 
         const { error } = await supabase
