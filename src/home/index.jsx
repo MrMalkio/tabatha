@@ -58,6 +58,24 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [editTimer, setEditTimer] = useState(15);
   const [editFunnel, setEditFunnel] = useState('unsorted');
   const [editTags, setEditTags] = useState({});
+  // Plan 025: Checkpoint Progress Notes
+  const [showCPN, setShowCPN] = useState(false);
+  const [cpnText, setCpnText] = useState('');
+  const [showTimeline, setShowTimeline] = useState(false);
+  // Feature #186: Window count
+  const [windowCount, setWindowCount] = useState(0);
+
+  React.useEffect(() => {
+    const tabIds = activeFocus?.associatedTabIds || [];
+    if (!tabIds.length) { setWindowCount(0); return; }
+    (async () => {
+      const wins = new Set();
+      for (const tid of tabIds) {
+        try { const t = await chrome.tabs.get(tid); wins.add(t.windowId); } catch { /* closed tab */ }
+      }
+      setWindowCount(wins.size);
+    })();
+  }, [activeFocus?.associatedTabIds?.length]);
 
   if (!activeFocus) return null;
 
@@ -107,6 +125,21 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     setEditing(false);
   };
 
+  // Plan 025: CPN helpers
+  const cpnCount = (activeFocus.checkpoint || []).length;
+  const isStale = activeFocus.lastCheckpointAt
+    ? (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000
+    : activeFocus.startedAt && (Date.now() - new Date(activeFocus.startedAt).getTime()) > 30 * 60000;
+  const submitCPN = async (level) => {
+    if (level === 'stuck' && !cpnText.trim()) return;
+    await sendMessage('SAVE_CHECKPOINT_NOTE', { focusId: activeFocus.id, text: cpnText, progressLevel: level, triggeredBy: 'home' });
+    setCpnText(''); setShowCPN(false);
+  };
+  const toggleOffDevice = async () => {
+    await actions.updateFocus(activeFocus.id, { offDevice: !activeFocus.offDevice });
+  };
+  const LEVEL_EMOJI = { none: '😐', little: '📈', lot: '🚀', almost_done: '🏁', stuck: '🚧' };
+
   return (
     <GlassCard style={{ padding: '16px', marginBottom: '12px', position: 'relative', overflow: 'visible', borderLeft: isPaused ? '3px solid #ffa726' : undefined }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
@@ -124,6 +157,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
           <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>{activeFocus.label}</div>
           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <span>{activeFocus.associatedTabIds?.length || 0} tabs</span>
+            {windowCount > 0 && <span>{windowCount} {windowCount === 1 ? 'window' : 'windows'}</span>}
             <span>{formatElapsed(activeFocus.liveElapsedMs)} elapsed</span>
             {activeFocus.contextSwitchCount > 0 && <span>{activeFocus.contextSwitchCount} switches</span>}
           </div>
@@ -170,6 +204,17 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         <Tooltip text="Add a new intent">
           <button onClick={() => setAddMode(addMode === 'intent' ? null : 'intent')} style={btnStyle(addMode === 'intent' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>+ Intent</button>
         </Tooltip>
+        <Tooltip text={activeFocus.offDevice ? 'Off-device ON — popups suppressed' : 'Mark as off-device — suppress popups'}>
+          <button onClick={toggleOffDevice} style={btnStyle(activeFocus.offDevice ? '#ef5350' : 'var(--color-text-muted)')}>{activeFocus.offDevice ? '📴 Off-Device' : '📱'}</button>
+        </Tooltip>
+        <Tooltip text={`Checkpoint note${isStale ? ' (overdue!)' : ''}`}>
+          <button onClick={() => setShowCPN(!showCPN)} style={btnStyle(isStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isStale ? '🟠' : ''}{cpnCount > 0 ? ` (${cpnCount})` : ''}</button>
+        </Tooltip>
+        {cpnCount > 0 && (
+          <Tooltip text="View checkpoint timeline">
+            <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
+          </Tooltip>
+        )}
       </div>
       {/* Inline edit panel */}
       <AnimatePresence>
@@ -228,6 +273,45 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
           <button onClick={() => { setAddMode(null); setAddInput(''); }} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '12px', padding: '4px' }}>✕</button>
         </div>
       )}
+      {/* Plan 025: Inline CPN form */}
+      <AnimatePresence>
+        {showCPN && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
+            <div style={{ marginTop: '10px', padding: '10px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>📋 Checkpoint Note #{cpnCount + 1}</label>
+              <textarea value={cpnText} onChange={e => setCpnText(e.target.value)} placeholder="What have you accomplished since your last checkpoint?" rows={3} style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Submit with progress:</div>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                <button onClick={() => submitCPN('none')} style={btnStyle('#9e9e9e')}>😐 None</button>
+                <button onClick={() => submitCPN('little')} style={btnStyle('#29b6f6')}>📈 Little</button>
+                <button onClick={() => submitCPN('lot')} style={btnStyle('#66bb6a')}>🚀 A Lot</button>
+                <button onClick={() => submitCPN('almost_done')} style={btnStyle('#ffd54f')}>🏁 Almost Done</button>
+                <button onClick={() => submitCPN('stuck')} style={btnStyle('#ef5350')}>🚧 Stuck</button>
+              </div>
+              <button onClick={() => setShowCPN(false)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '11px', padding: '2px', alignSelf: 'flex-end' }}>✕ Cancel</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Plan 025: Checkpoint Timeline */}
+      <AnimatePresence>
+        {showTimeline && cpnCount > 0 && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
+            <div style={{ marginTop: '10px', padding: '8px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+              <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>📊 Checkpoint Timeline</div>
+              {(activeFocus.checkpoint || []).slice().reverse().map((cpn, i) => (
+                <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                    <span style={{ fontWeight: 600 }}>{LEVEL_EMOJI[cpn.progressLevel] || '📋'} {cpn.progressLevel?.replace('_', ' ')}</span>
+                    <span style={{ fontSize: '9px', color: 'var(--color-text-muted)' }}>{cpn.createdAt ? new Date(cpn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} · {Math.floor((cpn.elapsedAtMs || 0) / 60000)}m in</span>
+                  </div>
+                  {cpn.text && <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', lineHeight: 1.3 }}>{cpn.text}</div>}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </GlassCard>
   );
 }

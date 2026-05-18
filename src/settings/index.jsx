@@ -46,6 +46,7 @@ const SECTIONS = [
   { id: 'time', label: '⏱ Time Tracking' },
   { id: 'export', label: '📤 Export & Agents' },
   { id: 'workclock', label: '⏱️ Work Clock' },
+  { id: 'followthrough', label: '📋 Follow-through' },
   { id: 'tags', label: '🏷 Tags & Associations' },
   { id: 'parked', label: '🅿️ Parked Tabs' },
   { id: 'sugarbox', label: '🍬 Sugar Box' },
@@ -337,6 +338,12 @@ function Settings() {
   const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [resettingAuth, setResettingAuth] = useState(false);
+  const [syncingNow, setSyncingNow] = useState(false);
+  // When the user clicks "Sync now", we remember the timestamp. If state is
+  // still not 'fresh' 6 seconds later, we shift the "pulse to attract user"
+  // hint from the sync icon onto the reload icon — the implication being:
+  // sync didn't help, try reloading the extension.
+  const [lastSyncNowAt, setLastSyncNowAt] = useState(0);
 
   // Sync diagnostics — written by syncService and useAuth to chrome.storage.local
   const [syncDiagnostics] = useChromeStorage('_syncDiagnostics', []);
@@ -493,9 +500,86 @@ function Settings() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', fontFamily: "'Inter', system-ui, sans-serif", display: 'flex' }}>
       {/* Left Nav */}
       <nav style={{ width: NAV_WIDTH, minWidth: NAV_WIDTH, borderRight: '1px solid var(--color-border)', padding: '16px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: 'var(--color-surface)', backdropFilter: 'var(--surface-blur)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '8px 16px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
+        <div style={{ padding: '8px 16px 12px', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>⚙️ Settings</div>
           <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v{chrome.runtime.getManifest?.()?.version || '?'}-α</div>
+          {/* Sync status pill + sync now + reload */}
+          {(() => {
+            const recentEvent = syncDiagnostics?.[0];
+            const recentFailure = recentEvent && (recentEvent.kind?.includes('failed') || recentEvent.kind?.startsWith('no_'));
+            const lastSyncMs = lastSyncSuccess ? new Date(lastSyncSuccess).getTime() : 0;
+            const recentFailureNewer = recentEvent && new Date(recentEvent.at).getTime() > lastSyncMs;
+            const state = !isSignedIn ? 'signed_out'
+              : recentFailureNewer && recentFailure ? 'error'
+              : lastSyncSuccess && (Date.now() - lastSyncMs) < 10 * 60 * 1000 ? 'fresh'
+              : lastSyncSuccess ? 'stale'
+              : 'never';
+            const pill = {
+              signed_out: { color: '#888', bg: 'rgba(136,136,136,0.15)', label: '○ Offline', tip: 'Not signed in. Open the Sync & Account section to sign in.' },
+              error: { color: '#ff9800', bg: 'rgba(255,152,0,0.15)', label: '⚠ Sync error', tip: recentEvent?.detail || 'Most recent sync attempt reported an error. See Sync & Account.' },
+              fresh: { color: '#34A853', bg: 'rgba(52,168,83,0.15)', label: '● Synced', tip: 'Last synced ' + new Date(lastSyncSuccess).toLocaleTimeString() },
+              stale: { color: '#aaa', bg: 'rgba(170,170,170,0.15)', label: '◐ Stale', tip: 'Last synced ' + new Date(lastSyncSuccess).toLocaleString() + ' — may be over 10 min ago.' },
+              never: { color: '#ff9800', bg: 'rgba(255,152,0,0.15)', label: '⚠ Never', tip: 'No successful sync recorded yet. Click ↻ to try now.' }
+            }[state];
+            // Decide which icon should pulse to draw the user's eye:
+            //   - Nothing pulses when sync is healthy.
+            //   - If the user JUST clicked sync now and it didn't fix things in 6s, the
+            //     reload button pulses (implying: sync alone won't help, reload to pick
+            //     up fixes).
+            //   - Otherwise the sync-now button pulses, prompting first action.
+            const syncJustTried = lastSyncNowAt > 0 && (Date.now() - lastSyncNowAt) < 6000;
+            const pulseTarget = state === 'fresh' ? null
+              : syncingNow ? null
+              : syncJustTried ? 'reload'
+              : 'sync';
+            const pulseColor = pill.color;
+            const pulseStyle = (isMe) => isMe && pulseTarget ? {
+              animation: 'tabathaSyncPulse 1.4s ease-in-out infinite',
+              borderColor: pulseColor,
+              color: pulseColor,
+              boxShadow: '0 0 0 0 ' + pulseColor
+            } : {};
+            return (
+              <>
+                <style>{`@keyframes tabathaSyncPulse {
+                  0%   { box-shadow: 0 0 0 0 ${pulseColor}66; transform: scale(1); }
+                  50%  { box-shadow: 0 0 0 6px ${pulseColor}00; transform: scale(1.06); }
+                  100% { box-shadow: 0 0 0 0 ${pulseColor}00; transform: scale(1); }
+                }`}</style>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
+                  <span title={pill.tip} style={{ flex: 1, padding: '3px 8px', fontSize: '10px', fontWeight: 600, color: pill.color, background: pill.bg, borderRadius: '10px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pill.label}</span>
+                  <button
+                    onClick={async () => {
+                      if (syncingNow) return;
+                      if (!isSignedIn) { setAuthError('Sign in first (Sync & Account section)'); return; }
+                      setSyncingNow(true);
+                      setLastSyncNowAt(Date.now());
+                      const backstop = setTimeout(() => setSyncingNow(false), 15000);
+                      try {
+                        const res = await chrome.runtime.sendMessage({ type: 'SYNC_NOW' });
+                        if (res?.success && res.lastSyncSuccess) {
+                          const newDiag = (res.recentDiagnostics || []).filter(d => new Date(d.at).getTime() > (Date.now() - 5000));
+                          if (newDiag.length === 0) setAuthError('✓ Synced ' + new Date(res.lastSyncSuccess).toLocaleTimeString());
+                        }
+                      } catch { /* shown via diagnostic */ } finally { clearTimeout(backstop); setSyncingNow(false); }
+                    }}
+                    disabled={syncingNow}
+                    title={pulseTarget === 'sync' ? 'Sync now (recommended)' : 'Sync now'}
+                    style={{ padding: '3px 6px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: syncingNow ? 'wait' : 'pointer', fontSize: '11px', color: 'var(--color-text-muted)', transition: 'all 0.15s', ...pulseStyle('sync') }}
+                  >
+                    {syncingNow ? '⏳' : '↻'}
+                  </button>
+                  <button
+                    onClick={() => chrome.runtime.reload()}
+                    title={pulseTarget === 'reload' ? 'Sync didn’t fix it — reload the extension to pick up new code' : 'Reload extension'}
+                    style={{ padding: '3px 6px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px', color: 'var(--color-text-muted)', transition: 'all 0.15s', ...pulseStyle('reload') }}
+                  >
+                    ⟳
+                  </button>
+                </div>
+              </>
+            );
+          })()}
         </div>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
@@ -644,13 +728,61 @@ function Settings() {
                       
                       {/* Sync status */}
                       <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sync Status</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sync Status</div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={async () => {
+                                if (syncingNow) return;
+                                setSyncingNow(true);
+                                setAuthError(null);
+                                const backstop = setTimeout(() => setSyncingNow(false), 15000);
+                                try {
+                                  const res = await chrome.runtime.sendMessage({ type: 'SYNC_NOW' });
+                                  if (res?.success) {
+                                    const newDiag = (res.recentDiagnostics || []).filter(d => new Date(d.at).getTime() > (Date.now() - 5000));
+                                    if (newDiag.length > 0) {
+                                      setAuthError('Sync ran but reported: ' + newDiag[0].kind + ' — ' + newDiag[0].detail);
+                                    } else if (res.lastSyncSuccess) {
+                                      setAuthError('✓ Synced ' + new Date(res.lastSyncSuccess).toLocaleTimeString());
+                                    } else {
+                                      setAuthError('Sync ran but no success timestamp recorded. Check diagnostics.');
+                                    }
+                                  } else {
+                                    setAuthError('Sync did not respond');
+                                  }
+                                } catch (err) {
+                                  setAuthError('Sync now error: ' + (err.message || err));
+                                } finally {
+                                  clearTimeout(backstop);
+                                  setSyncingNow(false);
+                                }
+                              }}
+                              disabled={syncingNow}
+                              style={{ padding: '4px 10px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: syncingNow ? 'wait' : 'pointer', fontSize: '10px', fontWeight: 600, opacity: syncingNow ? 0.7 : 1 }}
+                            >
+                              {syncingNow ? '⏳ Syncing…' : '↻ Sync now'}
+                            </button>
+                            {syncDiagnostics?.length > 0 && (
+                              <button
+                                onClick={async () => {
+                                  try { await chrome.runtime.sendMessage({ type: 'CLEAR_SYNC_DIAGNOSTICS' }); }
+                                  catch { /* ignore */ }
+                                }}
+                                style={{ padding: '4px 10px', background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '10px' }}
+                                title="Clear diagnostic history (does not affect sync)"
+                              >
+                                Clear log
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         {lastSyncSuccess ? (
                           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: syncDiagnostics?.length > 0 ? '6px' : 0 }}>
                             ✓ Last successful sync: <span style={{ color: 'var(--color-text-primary)' }}>{new Date(lastSyncSuccess).toLocaleString()}</span>
                           </div>
                         ) : (
-                          <div style={{ fontSize: '11px', color: '#ff9800', marginBottom: '6px' }}>⚠ No successful sync yet.</div>
+                          <div style={{ fontSize: '11px', color: '#ff9800', marginBottom: '6px' }}>⚠ No successful sync yet. Hit <strong>↻ Sync now</strong> to test.</div>
                         )}
                         {syncDiagnostics?.length > 0 && (
                           <details style={{ fontSize: '11px' }}>
@@ -746,12 +878,17 @@ function Settings() {
                         if (signingOut) return;
                         setSigningOut(true);
                         setAuthError(null);
+                        // Hard backstop: if anything inside signOut hangs longer
+                        // than 3s the button still recovers. Prevents the
+                        // ⏳ Signing out… spinner from getting stuck.
+                        const backstop = setTimeout(() => setSigningOut(false), 3000);
                         try {
                           await signOut();
                           setAuthError('✓ Signed out');
                         } catch (err) {
                           setAuthError('Sign out error: ' + (err.message || err));
                         } finally {
+                          clearTimeout(backstop);
                           setSigningOut(false);
                         }
                       }}
@@ -766,12 +903,17 @@ function Settings() {
                         if (!confirm('Force-clear all auth state from this profile? Use this only if Sign Out isn\'t working or sync keeps timing out. You will be signed out and need to sign back in.')) return;
                         setResettingAuth(true);
                         setAuthError(null);
+                        // Same backstop as Sign Out — forceResetAuth shouldn't
+                        // hang now that its internal supabase call is timeout-raced,
+                        // but defense in depth: never let the spinner stick.
+                        const backstop = setTimeout(() => setResettingAuth(false), 3000);
                         try {
                           await forceResetAuth();
                           setAuthError('✓ Auth state cleared. Sign in again to restore sync.');
                         } catch (err) {
                           setAuthError('Force reset error: ' + (err.message || err));
                         } finally {
+                          clearTimeout(backstop);
                           setResettingAuth(false);
                         }
                       }}
@@ -1121,6 +1263,57 @@ function Settings() {
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Save clock history</span>
                     <Toggle value={settings.saveClockHistory !== false} onChange={v => updateSetting('saveClockHistory', v)} />
+                  </div>
+                </Tooltip>
+              </div>
+            )}
+
+            {activeSection === 'followthrough' && (
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Follow-through Support</h2>
+                <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
+                  Configure popup behavior, checkpoint progress notes, and follow-through tracking preferences.
+                </p>
+
+                <div style={sectionLabel}>Welcome Back Popup</div>
+                <Tooltip text="Minimum time you must be idle before the Welcome Back popup appears. Lower = more frequent." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Min idle time (minutes)</span>
+                    <input type="number" min="1" max="60" value={settings.welcomeBackMinIdleMinutes ?? 5} onChange={e => updateSetting('welcomeBackMinIdleMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="Show the Welcome Back popup when returning from an auto-break. Disable to reduce interruptions." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Show after auto-break</span>
+                    <Toggle value={settings.welcomeBackShowAfterBreak !== false} onChange={v => updateSetting('welcomeBackShowAfterBreak', v)} />
+                  </div>
+                </Tooltip>
+
+                <div style={sectionLabel}>Checkpoint Progress Notes</div>
+                <Tooltip text="Periodically prompt you to record what you've accomplished during a focus session." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Enable checkpoint prompts</span>
+                    <Toggle value={settings.checkpointNotesEnabled !== false} onChange={v => updateSetting('checkpointNotesEnabled', v)} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="How often to prompt relative to your focus timer. 0.33 = every third of the timer." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Prompt interval (fraction)</span>
+                    <input type="number" min="0.1" max="0.5" step="0.05" value={settings.checkpointIntervalFraction ?? 0.33} onChange={e => updateSetting('checkpointIntervalFraction', parseFloat(e.target.value) || 0.33)} style={inputStyle} />
+                  </div>
+                </Tooltip>
+                <Tooltip text="After this many minutes without a checkpoint, the InBar shows a staleness indicator." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Staleness threshold (min)</span>
+                    <input type="number" min="5" max="120" value={settings.checkpointStaleMinutes ?? 30} onChange={e => updateSetting('checkpointStaleMinutes', parseInt(e.target.value) || 30)} style={inputStyle} />
+                  </div>
+                </Tooltip>
+
+                <div style={sectionLabel}>Integrations</div>
+                <Tooltip text="Automatically post checkpoint notes as comments on linked Asana tasks. Requires Asana widget server." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Auto-post CPNs to Asana</span>
+                    <Toggle value={!!settings.checkpointAutoPostAsana} onChange={v => updateSetting('checkpointAutoPostAsana', v)} />
                   </div>
                 </Tooltip>
               </div>

@@ -260,9 +260,19 @@ export function useAuth() {
   // chrome.storage.local sb-* keys synchronously, then call signOut({
   // scope: 'local' }) to drop the in-memory state. The remote /auth/v1/logout
   // is fire-and-forget — we don't await it, so the UI updates instantly.
+  // Race a promise against a short timeout — if supabase-js's signOut hangs
+  // for any reason (Web Locks edge case, onAuthStateChange listener firing
+  // a fetchProfile that errors, etc.) we proceed with the local cleanup
+  // anyway so the UI never sticks on "Signing out…".
+  const RACE_TIMEOUT_MS = 1500;
+  const raceWithTimeout = (p) => Promise.race([
+    p,
+    new Promise(resolve => setTimeout(resolve, RACE_TIMEOUT_MS))
+  ]);
+
   const signOut = useCallback(async () => {
     clearAllAuthStorage();
-    try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
+    try { await raceWithTimeout(supabase.auth.signOut({ scope: 'local' })); } catch { /* ignore */ }
     setSession(null);
     setProfile(null);
     setOrgs([]);
@@ -280,7 +290,7 @@ export function useAuth() {
   // Sync Status panel is clean. Used when even signOut hasn't unstuck things.
   const forceResetAuth = useCallback(async () => {
     clearAllAuthStorage({ alsoClearDiagnostics: true });
-    try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
+    try { await raceWithTimeout(supabase.auth.signOut({ scope: 'local' })); } catch { /* ignore */ }
     setSession(null);
     setProfile(null);
     setOrgs([]);

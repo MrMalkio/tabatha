@@ -41,7 +41,7 @@ function getLevel(value, max) {
 }
 
 function formatHeatmapValue(value, view) {
-  if (view === 'followthrough') return `${value} completed`;
+  if (view === 'followthrough') return `${value} follow-through ${value === 1 ? 'action' : 'actions'}`;
   const h = Math.floor(value / 3600000);
   const m = Math.floor((value % 3600000) / 60000);
   if (h > 0) return `${h}h ${m}m`;
@@ -83,12 +83,22 @@ export function ActivityHeatmap({ timeTracking, clockHistory, focusHistory, comp
       });
     }
 
-    // Focus completions — follow-through
+    // Focus completions + checkpoint notes — follow-through
     if (focusHistory && Array.isArray(focusHistory)) {
       focusHistory.forEach(entry => {
-        if (!entry.completedAt) return;
-        const day = new Date(entry.completedAt).toISOString().split('T')[0];
-        if (map[day]) map[day].completions += 1;
+        // Count completions
+        if (entry.completedAt) {
+          const day = new Date(entry.completedAt).toISOString().split('T')[0];
+          if (map[day]) map[day].completions += 1;
+        }
+        // Count CPN submissions
+        if (entry.checkpoint && Array.isArray(entry.checkpoint)) {
+          entry.checkpoint.forEach(cpn => {
+            if (!cpn.at) return;
+            const day = new Date(cpn.at).toISOString().split('T')[0];
+            if (map[day]) map[day].completions += 1;
+          });
+        }
       });
     }
 

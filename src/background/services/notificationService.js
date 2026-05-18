@@ -135,7 +135,22 @@ async function getInbarData(sender) {
     funnelStage: i.funnelStage
   }));
 
-  return { show, tabContext, activeFocus, activeFocusId: engine.activeFocusId, allFocusItems, settings: ibSettings || {} };
+  // Check if the current tab is linked to the active focus
+  const isTabLinked = !!(activeFocus && tabId && activeFocus.associatedTabIds?.includes(tabId));
+
+  // Count unique windows for the active focus
+  let windowCount = 0;
+  if (activeFocus?.associatedTabIds?.length) {
+    try {
+      const windowIds = new Set();
+      for (const tid of activeFocus.associatedTabIds) {
+        try { const t = await chrome.tabs.get(tid); windowIds.add(t.windowId); } catch { /* tab closed */ }
+      }
+      windowCount = windowIds.size;
+    } catch { windowCount = 0; }
+  }
+
+  return { show, tabContext, activeFocus, activeFocusId: engine.activeFocusId, allFocusItems, isTabLinked, windowCount, settings: ibSettings || {} };
 }
 
 async function saveInbarNote(message, sender) {

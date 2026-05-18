@@ -7,20 +7,56 @@ const supabaseKey = 'sb_publishable_lPmWAzfBqbHkyGslkhohQA_8QgdBCu_';
 // navigator.locks to serialize auth-token access across browser tabs — fine
 // for a normal web app, broken in a Chrome MV3 extension where home.html,
 // sidebar.html, settings.html, popup.html, *and* the service worker each
-// construct their own Supabase client and all fight for the same lock name
-// "lock:sb-<project>-auth-token". They constantly steal it from each other,
-// surfacing as `profile_*_select_failed: Lock ... was released because
-// another request stole it` and aborting every auth/profile network call.
-//
-// The no-op lock passes the inner function through immediately, so every
-// caller proceeds without serialization. Concurrent token refresh is a
-// theoretical downside but in practice unproblematic — at most one refresh
-// round-trip wins and the others read the same updated token on their next
-// read of the shared storage.
+// construct their own Supabase client and all fight for the same lock name.
 const noopLock = async (_name, _acquireTimeout, fn) => fn();
 
+// Custom session storage adapter backed by chrome.storage.local. By default
+// supabase-js uses window.localStorage in browser context and memory in
+// node-like contexts. In an MV3 extension this means:
+//   - extension PAGES (home.html, sidebar.html, settings.html, popup.html)
+//     each have their own window.localStorage — partly shared across pages
+//     of the same extension, but NOT visible to the service worker
+//   - the service worker has no window at all, so the default falls back to
+//     in-memory; every SW wake-up starts with an empty session
+// Result: user signs in on Settings → JWT lands in localStorage → SW
+// (where syncService runs) sees no session → every sync attempt logs
+// "no_auth_session: Sync attempted while signed out" even though the UI
+// shows the user as Connected.
+//
+// chrome.storage.local is the one storage layer shared by ALL extension
+// contexts. Pointing supabase-js at it via a custom adapter unifies the
+// session: page sign-in is immediately visible to the SW, signOut from
+// either context invalidates both.
+const chromeStorageAdapter = {
+  async getItem(key) {
+    try {
+      if (!chrome?.storage?.local) return null;
+      const res = await chrome.storage.local.get(key);
+      return res?.[key] ?? null;
+    } catch { return null; }
+  },
+  async setItem(key, value) {
+    try {
+      if (!chrome?.storage?.local) return;
+      await chrome.storage.local.set({ [key]: value });
+    } catch { /* ignore */ }
+  },
+  async removeItem(key) {
+    try {
+      if (!chrome?.storage?.local) return;
+      await chrome.storage.local.remove(key);
+    } catch { /* ignore */ }
+  },
+};
+
 export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { lock: noopLock },
+  auth: {
+    storage: chromeStorageAdapter,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    lock: noopLock,
+  },
 });
 
 /**

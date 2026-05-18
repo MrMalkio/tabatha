@@ -132,6 +132,24 @@ function Sidebar() {
   const [editTimer, setEditTimer] = useState(15);
   const [editFunnel, setEditFunnel] = useState('unsorted');
   const [editTags, setEditTags] = useState({});
+  // Plan 025: Checkpoint Progress Notes
+  const [showCheckpoint, setShowCheckpoint] = useState(false);
+  const [cpnText, setCpnText] = useState('');
+  const [isCheckpointStale, setIsCheckpointStale] = useState(false);
+  // Feature #186: Window count
+  const [windowCount, setWindowCount] = useState(0);
+
+  useEffect(() => {
+    const tabIds = activeFocus?.associatedTabIds || [];
+    if (!tabIds.length) { setWindowCount(0); return; }
+    (async () => {
+      const wins = new Set();
+      for (const tid of tabIds) {
+        try { const t = await chrome.tabs.get(tid); wins.add(t.windowId); } catch { /* closed */ }
+      }
+      setWindowCount(wins.size);
+    })();
+  }, [activeFocus?.associatedTabIds?.length]);
 
   const { knownClients, knownProjects } = useMemo(() => {
     const cls = new Set(['Self']);
@@ -168,6 +186,27 @@ function Sidebar() {
   };
 
   const persistOrg = (key, data) => chrome.storage.local.set({ [key]: data });
+
+  // Plan 025: Staleness check for CPN
+  useEffect(() => {
+    if (!activeFocus?.id) { setIsCheckpointStale(false); return; }
+    sendMessage('GET_CHECKPOINT_STATUS', { focusId: activeFocus.id }).then(res => {
+      setIsCheckpointStale(res?.isStale || false);
+    }).catch(() => {});
+  }, [activeFocus?.id, activeFocus?.lastCheckpointAt]);
+
+  const submitCheckpoint = async (level) => {
+    const noteRequired = level === 'stuck';
+    if (noteRequired && !cpnText.trim()) return;
+    await sendMessage('SAVE_CHECKPOINT_NOTE', {
+      focusId: activeFocus.id,
+      text: cpnText,
+      progressLevel: level,
+      triggeredBy: 'sidebar'
+    });
+    setCpnText('');
+    setShowCheckpoint(false);
+  };
 
   // Time tracking data arrives reactively via useChromeStorage — no polling needed
 
@@ -325,6 +364,7 @@ function Sidebar() {
                       <div style={{ fontSize:'13px', fontWeight:600, marginBottom:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{activeFocus.label}</div>
                       <div style={{ fontSize:'9px', color:'var(--color-text-muted)', display:'flex', gap:'8px' }}>
                         <span>{activeFocus.associatedTabIds?.length||0} tabs</span>
+                        {windowCount > 0 && <span>{windowCount} {windowCount === 1 ? 'win' : 'wins'}</span>}
                         <span>{formatElapsed(activeFocus.liveElapsedMs)}</span>
                       </div>
                     </div>
@@ -344,6 +384,7 @@ function Sidebar() {
                     ) : null}
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                     <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
+                    <Tooltip text="Checkpoint note"><button onClick={() => setShowCheckpoint(p => !p)} style={btn(isCheckpointStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isCheckpointStale ? '🟠' : ''}</button></Tooltip>
                   </div>
                   {/* Stage picker */}
                   <div style={{ marginTop:'6px' }}>
@@ -380,6 +421,26 @@ function Sidebar() {
                             <button onClick={saveEdit} style={btn('#66bb6a')}>💾 Save</button>
                             <button onClick={() => setEditing(false)} style={{ background:'transparent', border:'none', color:'var(--color-text-muted)', cursor:'pointer', fontSize:'10px', padding:'2px' }}>✕ Cancel</button>
                           </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  {/* Plan 025: Inline Checkpoint Note form */}
+                  <AnimatePresence>
+                    {showCheckpoint && (
+                      <motion.div initial={{ height:0, opacity:0 }} animate={{ height:'auto', opacity:1 }} exit={{ height:0, opacity:0 }} transition={{ duration:0.15 }} style={{ overflow:'hidden' }}>
+                        <div style={{ marginTop:'8px', padding:'8px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', display:'flex', flexDirection:'column', gap:'6px' }}>
+                          <label style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.1em' }}>📋 Checkpoint Note</label>
+                          <textarea value={cpnText} onChange={e => setCpnText(e.target.value)} placeholder="What have you accomplished since your last checkpoint?" rows={3} style={{ width:'100%', padding:'4px 6px', fontSize:'11px', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', background:'var(--color-bg-base)', color:'var(--color-text-primary)', outline:'none', resize:'none', boxSizing:'border-box' }} />
+                          <div style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Submit with progress:</div>
+                          <div style={{ display:'flex', gap:'3px', flexWrap:'wrap' }}>
+                            <button onClick={() => submitCheckpoint('none')} style={btn('#9e9e9e')}>😐 None</button>
+                            <button onClick={() => submitCheckpoint('little')} style={btn('#29b6f6')}>📈 Little</button>
+                            <button onClick={() => submitCheckpoint('lot')} style={btn('#66bb6a')}>🚀 A Lot</button>
+                            <button onClick={() => submitCheckpoint('almost_done')} style={btn('#ffd54f')}>🏁 Done</button>
+                            <button onClick={() => submitCheckpoint('stuck')} style={btn('#ef5350')}>🚧 Stuck</button>
+                          </div>
+                          <button onClick={() => setShowCheckpoint(false)} style={{ background:'transparent', border:'none', color:'var(--color-text-muted)', cursor:'pointer', fontSize:'10px', padding:'2px' }}>✕ Cancel</button>
                         </div>
                       </motion.div>
                     )}

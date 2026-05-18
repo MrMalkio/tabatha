@@ -146,7 +146,9 @@ export async function syncToSupabase() {
     if (intentHistory?.length > 0) {
       const { lastIntentSync } = await getStorage('lastIntentSync');
       const lastSyncTime = lastIntentSync ? new Date(lastIntentSync).getTime() : 0;
-      const newIntents = intentHistory.filter(i => new Date(i.timestamp).getTime() > lastSyncTime);
+      const newIntents = intentHistory
+        .filter(i => i.timestamp && !Number.isNaN(new Date(i.timestamp).getTime()))
+        .filter(i => new Date(i.timestamp).getTime() > lastSyncTime);
 
       if (newIntents.length > 0) {
         const intentInserts = newIntents.map(intent => ({
@@ -158,7 +160,10 @@ export async function syncToSupabase() {
           focus_id: intent.focusId || null,
           url: intent.url || null,
           domain: intent.domain || null,
-          timestamp: intent.timestamp
+          // Normalize to ISO 8601 — PostgreSQL TIMESTAMPTZ rejects raw epoch-ms
+          // numbers. Pre-v3.13 entries (migrated via bootstrap.migrateIntentChangeLog)
+          // may still be numbers; new Date(...).toISOString() converts both.
+          timestamp: new Date(intent.timestamp).toISOString()
         }));
 
         const { error } = await supabase
@@ -186,4 +191,29 @@ export async function syncToSupabase() {
 
 export function registerSyncServiceAlarms() {
   chrome.alarms.create('supabase-sync', { periodInMinutes: 5 });
+}
+
+// Message handlers wired into the service router (background.js). Settings UI
+// calls these so the user doesn't have to wait for the 5-minute alarm to see
+// whether sync actually works.
+export async function handleMessage(type) {
+  switch (type) {
+    case 'SYNC_NOW': {
+      // Run sync immediately and return the post-sync state so the UI knows
+      // whether anything new went wrong (no need to poll diagnostics).
+      await syncToSupabase();
+      const { _syncDiagnostics, _lastSyncSuccess } = await getStorage(['_syncDiagnostics', '_lastSyncSuccess']);
+      return {
+        success: true,
+        lastSyncSuccess: _lastSyncSuccess || null,
+        recentDiagnostics: Array.isArray(_syncDiagnostics) ? _syncDiagnostics.slice(0, 5) : []
+      };
+    }
+    case 'CLEAR_SYNC_DIAGNOSTICS': {
+      await setStorage({ _syncDiagnostics: [] });
+      return { success: true };
+    }
+    default:
+      return undefined;
+  }
 }

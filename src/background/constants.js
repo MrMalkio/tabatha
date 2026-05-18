@@ -10,6 +10,13 @@ export const DEFAULT_SETTINGS = {
   exportPath: 'Tabatha',
   autoExportEnabled: false,
   autoExportIntervalMinutes: 60,
+  // ── Follow-through Support (Plan 025) ──
+  welcomeBackMinIdleMinutes: 5,
+  welcomeBackShowAfterBreak: true,
+  checkpointNotesEnabled: true,
+  checkpointIntervalFraction: 0.33,
+  checkpointStaleMinutes: 30,
+  checkpointAutoPostAsana: false,
   storage: {
     snapshotIntervalMinutes: 30,
     snapshotCap: 20,
@@ -72,3 +79,19 @@ export const COMPANION_WS_URL = 'ws://localhost:9147';
 export const COMPANION_HEARTBEAT_MS = 30000;
 export const COMPANION_RECONNECT_BASE_MS = 5000;
 export const COMPANION_RECONNECT_MAX_MS = 30000;
+
+// ── Checkpoint Progress Notes (Plan 025) ──
+export const PROGRESS_VALUES = {
+  none: 0,
+  stuck: 0,
+  little: 1,
+  lot: 3,
+  almost_done: 4
+};
+
+export const POPUP_TYPES = {
+  FTE: 'FTE',
+  WBP: 'WBP',
+  COMBO: 'COMBO',
+  CHECKPOINT: 'CHECKPOINT'
+};

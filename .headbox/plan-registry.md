@@ -28,4 +28,8 @@
 
 ---
 
-> **Next available number:** 024
+| 025 | popup_harmony | 2026-05-16 | FTE/WBP Popup Fixes — singleton coordination, enhanced CTAs, configurable thresholds, off-device tag | draft |
+
+---
+
+> **Next available number:** 026

@@ -7,14 +7,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 11 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 12 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 4.0.0
-- **Current focus:** Plan 023 Task 06 — router finalization merged (PR #11), version bumped to **4.0.0** (user-chosen MAJOR to mark first cumulative release since master v3.0.0), feature-flag cleanup done; awaiting manual regression before final PR to `staging`
+- **Current version:** 4.3.6
+- **Current focus:** Plan 025 — Popup Harmony & Checkpoint Notes (integration pending), manual regression of V4 router branch.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -38,7 +38,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 
 | File | Purpose | When to read |
 |------|---------|-------------|
-| `AGENTS.md` | Project state, rules, session log (canonical) | Always — first thing |
+| This file (`AGENTS.md`) | Project state, rules, session log | Always — first thing |
 | `.gemini/agent.md` | Gemini-specific instructions (known bugs, architecture, message types) | When working with Gemini |
 | `docs/progress.md` | Session progress log | Before starting work — check last session's next steps |
 | `ROADMAP.md` | 6-phase feature roadmap | When planning features |
@@ -73,7 +73,9 @@ See `.headbox/workspace-map.md` for the full project file tree.
 6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.
 7. **Practice progressive disclosure.** Do NOT read every file. Read what you need.
 8. **Check `.headbox/sticky-notes/`** at session start for notes left by other agents or humans.
-9. **Number Implementation Plans** — Always uniquely name your implementation plans with a version number (e.g. `implementation_plan_011.md`). Not uniquely naming them will overwrite other files in the same project.
+9. **Number Implementation Plans** — Every implementation plan must carry a unique number AND a descriptive suffix in its **document title/heading** (e.g. `# Implementation Plan 019: Distribution Strategy`). Register the number in `.headbox/plan-registry.md` before writing. Never reuse or overwrite an existing plan number — if a collision occurs, append a letter (e.g. `019b`). \n   - **File naming:** If your tool constrains the artifact filename (e.g. always saves as `implementation_plan.md`), that is acceptable — the number in the heading + registry entry is the source of truth. After creation, the file may be renamed to include the number (e.g. `implementation_plan_019_distribution.md`) to make it a distinct artifact rather than an overwritable singleton. The **core invariant is: never overwrite an existing plan**.
+10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion. Format: `> **Current version:** X.Y.Z → **Target version:** X.Y.Z`. **Versioning calculation:** Count all fixes (patch), minor features, and major/breaking changes in the plan. The target version is calculated additively: `MAJOR.+MINOR_COUNT.+FIX_COUNT`. Example: if current is `1.0.0` and the plan has 3 minor features and 4 fixes, the target is `1.3.4`. Major version increments only for breaking/architectural changes. **Dev-machine version bump:** The version MUST be bumped in the manifest (and synced via `npm run version:sync`) when features are committed to a branch — not deferred to merge. The dev machine is ground zero; the user must always be able to confirm which build they are testing from the extension manager. Never leave new feature commits at the old version number.
+11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status (draft/approved/completed/superseded). Check this registry before choosing a plan number.
 
 ---
 
@@ -118,9 +120,15 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 
 ---
 
+## Implementation Plan Registry
+
+See `.headbox/plan-registry.md` for the full list of implementation plans created across all conversations. **Always check this file before numbering a new plan.**
+
+---
+
 ## Session Handoff Protocol
 
-**After every session, update the Session Log in `AGENTS.md`.**
+**After every session, update the Session Log below.**
 
 - **Append** a new entry. **Never delete** previous entries.
 - **Increment the usage counter** in the headbox header by 1.
@@ -139,9 +147,23 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 | 2026-04-28 | Antigravity | Logs Panel & Theme Refactor | Finalized Link/Merge modal, Tabs actions, Logs Panel, Settings Walkthrough, and Theme expansion. | General backlog (Sync logic, Supabase) |
 | 2026-04-28 | Antigravity | Supabase Sync Engine | Pushed Supabase schema, configured client, and hooked up debounced sync wrapper to background focus & intent mutations. | Implement user authentication (Auth Refinement) |
 | 2026-04-29 | Antigravity | Asana Time Tracker Widget | Built Flux Asana widget server (Express/HTTPS), migration 004 (flux_time_entries), full e2e test passing. | Register app in Asana Developer Console, add user name resolution |
+| 2026-05-09 | Antigravity | Diagnostic Fix Sweep | Fixed 14/16 diagnostic issues + root cause (missing type:module in manifest). Added logger service, debug mode setting, Developer panel in settings. All sendMessage errors now logged. | Architecture refactor (background.js monolith), version automation |
+| 2026-05-09 | Antigravity | Clock Extraction + InPop + Work Shifts | Fixed InPop (contextSource tracking, inherited vs user contexts). Extracted clock.js + storage.js from monolith. Built Work Shifts page (3 views, stubbed analytics). Added last session + work logs to home. Fixed InBar "set intent" button (OPEN_POPUP handler). Added UPDATE_FOCUS editing. Implemented Chrome tab groups bidirectional sync. Built URL Rules settings section (3 tabs: rules, domain groups, intent changelog). URL rules auto-apply on tab creation. Sidebar parity (groups panel, work shifts link). | BlockGate enhancements, InBar customization, debug bar expansion |
+| 2026-05-10 | Antigravity | Intent Bugs + Tasks + Idle | Fixed tab-to-intent association (label matching). Rewrote LinkMergeModal. Added funnel stage editor. Built TasksPanel with full CRUD. Compact LogsPanel filter bar. Idle auto-break (5min→break, auto-resume). Welcome Back flash overlay. Work schedule view. Break notes. Bumped to v0.2.8. | Sidebar tasks parity, InBar customization settings, BlockGate reason/guard |
+| 2026-05-10 | Antigravity | Follow-Through Engine + Worktree | Phase 1: homepage declutter (stint terminology, clock bar merge, footer). Phase 2: ComboInput autocomplete, enhanced TagPicker with Self client, FocusInput realm/tags, FocusBar + Intent button. Sidebar tasks panel parity. Established worktree isolation (`Tabatha\` = Antigravity, `Tabatha-service-arch\` = Codex). Created next-agent handoff prompt. | Wait for decomp merge → Phase 3 (Follow-Through data model), or UI-only safe work (InBar Pause scoping, BlockGate settings) |
+| 2026-05-10 | Antigravity | InBar Pause + Sticky Note | Built pause button + mini-prompt + sticky note overlay in InBar content script. Pause state persisted to chrome.storage.local per tab. Sticky note: paper texture, tilt, tape, resume/edit buttons. Bar transitions to amber PAUSED state. No background.js changes (safe during decomp). Decomp `refactor/service-arch` is code-complete (13 services, all handlers extracted) but not yet merged. | Merge decomp to master → rebase → Phase 3 (Follow-Through data model + handlers). Or: BlockGate settings UI, InBar settings polish |
+| 2026-05-10 | Antigravity | Desktop Companion Build | Scaffolded tabatha-desktop repo (Tauri 2.x). Built 5 Rust modules: window_monitor (Win32 APIs), activity_log (SQLite), categorizer (50+ apps), ws_server (:9147), main (tray orchestrator). React debug UI. Installed Rust 1.95 + VS Build Tools. Binary compiles and WS server verified end-to-end. Built extension-side CompanionBridge + CompanionStatus.jsx. Idle handler augmented to suppress false-idle when user active in other apps. | Test live window monitoring, build UnifiedTimeline UI, Supabase app_activity migration |
+| 2026-05-10 | Antigravity | Bug Fix Sweep + Task CRUD | Halved corner radius globally (sm:2, md:4, lg:8). Fixed InBar label fallback to activeFocus.label. Made FlipClock responsive (overflow:hidden, flexWrap, 5px margin). Task delete confirmation. Task inline editing (name+desc). Start-intent-from-task button. Link-task-to-intent button + LinkMergeModal type='task' support. CompanionStatus wired into homepage header. | Cross-view focus sync debug, shadcn/ui migration, merge decomp branch |
+| 2026-05-11 | Antigravity | InBar Edit + Retention + v3.12.4 | InBar edit dropdown (✏️ intent editing, focus assignment list, new focus creation). Separated tab intent vs central focus display. Data retention alarm (90d default, configurable). Auto-park paused tabs with note. Tab rename + Link Tab. Logs overhaul (8 types, filter chips, pagination). Version 3.12.4-alpha released to master. | InBar intent live-reload after edit, blocked/task log emission, browser retention setting |
+| 2026-05-13 | Antigravity | Plan 022 + Sticky Notes | Diagnosed focus timer popup stacking (dual root cause: singleton overlay + context-timer re-arm loop). Reviewed all 8 feature requests from user. Created 8 sticky notes in .headbox/sticky-notes/ for post-refactor: popup stacking, popup harmony, timer new options (let me cook/snooze), video call idle suppression, sub-intents, parallel focuses, priority P1-P5, categories expansion, cross-window timer sync, deep activity logging. Fixed Headbox rule 9 (plan naming). Corrected plan version to 3.34.5-a → 3.42.9-a. | Execute Plan 022 after refactor lands |
+| 2026-05-12 | Antigravity | Headbox Updates Extraction | Reviewed full thread history (534 log entries). Extracted 11 operational rules/preferences into `headbox_updates-003.md`. Topics: branch-first workflow, worktree isolation, parallel refactor safety, handoff prompts, full file paths in plans, debug gating, version parity, terminology glossary, scope doc versioning, isolated refactor tracks. | Review & apply pending-updates-003 rules to AGENTS.md + vendor sync |
+| 2026-05-13 | Antigravity | Efficiency Audit + Plan 023 | Full ecosystem audit (extension, desktop companion, screensaver). Cross-referenced with Codex audit. Created Plan 023: Efficiency-Driven Decomposition. Assessed refactor/service-arch branch (57 behind, archive recommended). Registered Plan 023 in plan-registry. Collected user feedback on caps, privacy, branching, parallelization. Identified 4 branches + 1 stale worktree for cleanup. | Address user feedback (task files, branch cleanup, parallel strategy, storage key explainer). Execute Plan 023 after approval. |
+| 2026-05-14 | Antigravity | Plan 023 Task 00: Pre-Decomp | Created docs/architecture/ (4 docs: decomp plan, service map, migration checklist, message contracts -- all master-aligned at 79 handlers). Wired version sync script (version:sync, version:check, prebuild). Synced all files to v3.34.5. Installed pre-commit hook. Removed stale worktree. Archived refactor/service-arch as tag. Created privacy-modes-future sticky note. | Confirm+delete feat/follow-through-engine + feat/v3-ux-overhaul branches, push tags, merge to master, begin Task 01. |
+| 2026-05-14 | Codex | Plan 023 Task 02: Notification + Settings Services | Created `refactor/decomp-v2-communication` from `origin/refactor/decomp-v2-foundation`. Extracted `notificationService.js` and `settingsService.js`, registered both in the router, removed their legacy switch cases, scoped background broadcasts to extension-only vs InBar-relevant all-target delivery, updated architecture docs/checklists/semantic ledger, and verified `npm run build`. | Load unpacked extension and manually verify popup render, InBar data/notes, settings persistence, and service worker console broadcast scoping. |
 | 2026-05-14 | Codex | PR 10 Review + Plan 023 Task 05D Router Finalization | Reviewed PR 10 (`refactor/decomp-v2-alarm`) with no blocking findings. Created `refactor/decomp-v2-router` from PR 10 head, reduced `background.js` to 171 lines, removed legacy fallback routing, moved activation/idle/notification/URL-lock/sync orchestration into services, added `syncService`, updated docs/ledger, and verified `npm run build`. | Manual unpacked-extension regression, merge PR 10, rebase/retarget router branch onto integration, then total semantic ledger and bump version after full regression. |
 | 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`4.0.0` (MAJOR, user override)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
-
+| 2026-05-16 | Antigravity | Workspace Deep Review & Cleanup | Deep review of repo state. Removed `Tabatha-alarm` stale worktree. Synced local `refactor/decomp-v2` with origin. Cleaned up 7 fully-merged local branches and 11 fully-merged remote tracking branches. Protected `fix/popup-harmony` as active Plan 025 feature track. Updated `docs/progress.md` with cleanup log. | Test and integrate Plan 025 (`fix/popup-harmony`), conduct full V4 regression |
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
+
