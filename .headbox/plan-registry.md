@@ -32,4 +32,12 @@
 
 ---
 
-> **Next available number:** 026
+| 026 | auto_focus | 2026-05-19 | Auto Focus — URL/title/desktop heuristic inference to reduce manual focus logging | draft |
+
+---
+
+| 027 | multi_profile_sync | 2026-05-19 | Multi-Profile Awareness Sync Phase A+B+C — browser_profiles identity, classification axis, bootstrap pull org-registry dedup, Personal-classification hides clock UI, cross-profile awareness via browser_profile_status + Supabase Realtime | in-progress |
+
+---
+
+> **Next available number:** 028

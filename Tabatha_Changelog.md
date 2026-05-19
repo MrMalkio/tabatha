@@ -5,6 +5,70 @@ file.
 
 ---
 
+## [v5.1.0] - Multi-Profile Awareness Sync Phase C + Phase A polish - _2026-05-19_
+
+### Added
+
+- **Cross-profile awareness substrate** (`tabatha.browser_profile_status`). Each install upserts its own row with clock state + active focus state on every transition; refreshes a `last_heartbeat_at` on a 60-second tick. Other installs subscribe via Supabase Realtime and render compact chips on the home dashboard ("Personal 🏠 · 🎯 Slack · 6m").
+- **`awarenessService.js`** — manages heartbeat, debounced state pushes, realtime subscription, and the `_otherProfiles` local cache.
+- **`OtherProfilesStrip` component** + **`useOtherProfiles` hook** — render the awareness chips with stale/offline dimming when no heartbeat in 5 minutes.
+- **Eager Install ID initialisation** in the `useInstallIdentity` React hook so the UI is responsive immediately, not blocked on the first sync.
+- **Save feedback** in Settings → Browser Profile: "saving… / ✓ saved / save failed" pill next to the section header.
+- **Immediate cloud push on Classification change** (no longer waiting for the next sync alarm).
+
+### Changed
+
+- **Verbiage:** "Supabase" replaced with "cloud" / "Account" / "database" in user-facing copy. The settings sidebar entry "☁️ Sync & Supabase" is now "☁️ Sync & Account"; the re-pull dialog says "re-pull from the cloud"; the workshifts export stub says "Sync to Cloud".
+
+### Migration
+
+Run `supabase/migrations/010_add_browser_profile_status.sql` before the cross-profile awareness chips will populate. Adds the status table, RLS policies, and adds the table to the `supabase_realtime` publication.
+
+### Known limitations / out of scope
+
+- The desktop companion does not yet register a `browser_profiles` row (`browser = 'desktop_companion'`); awareness chips for the companion will arrive in Phase D.
+- Clock-stacking warnings (when multiple non-personal profiles clock in simultaneously) are visualised by the chips but not yet inline-blocked. Deliberate — we want to observe stacking patterns before deciding the UX.
+- Manager-scoped views over org_members' profiles still rely on a future RLS expansion.
+
+---
+
+## [v5.0.0] - Multi-Profile Awareness Sync Phase A+B - _2026-05-19_
+
+### Added
+
+- **Per-install browser-profile identity** stored locally in `_browserProfile` (chrome.storage.local). Each Chrome profile on each machine gets a stable `localId` on first run and a `supabaseId` on first sync.
+- **`tabatha.browser_profiles` is now active.** Every install upserts a row carrying its classification, profile name, and `last_seen_at`. The table has been present since migration 001; this release wires it up.
+- **Classification axis** (per-install): Business / Professional / Work / Personal. Distinct from the user-level `profiles.default_realm`. Picker lives in Settings → Appearance → "This Browser Profile".
+- **Bootstrap pull of org registry.** On first sync after sign-in, every `tabatha.{operations,initiatives,clients,projects,tasks_registry}` row for the user is fetched and merged into local `tabathaOrg` by name (case-insensitive). Prevents duplicate clients/projects/tasks when signing in on a second browser profile or machine.
+- **`↻ Re-pull registry`** button in Settings → Sync — clears the bootstrap watermark and re-runs the merge on demand.
+- **Stamp `browser_profile_id`** on every push: `focus_items`, `intent_history`, `clock_sessions`, `desktop_activity`, `operations`, `initiatives`, `clients`, `projects`, `tasks_registry`. The server can now attribute every row to the install that produced it.
+- **`useInstallIdentity()` React hook** exposes `{ identity, isPersonal, isReady, setClassification, setProfileName }` to UI surfaces.
+
+### Changed
+
+- **Personal-classified profiles hide clock-in / clock-out / break controls** in the home dashboard's Shift Controls section, the sidebar header, and the Command Palette. Time-and-attention breakdowns (UnifiedTimeline, AnalyticsDashboard, workshifts) remain visible everywhere.
+- **`applyDefaultRealm` (focusService)** now reads `_browserProfile.classification` first, falling back to the legacy `tabathaSettings.defaultRealm`. New focuses created on a Personal profile default to `realm=personal` independent of the user-level default.
+- Settings → Appearance → Browser Profile rebuilt into a "This Browser Profile" card: Install ID (last-12 of supabaseId), editable Profile Name, Classification picker.
+
+### Migration
+
+Run `supabase/migrations/009_add_browser_profile_stamp.sql` before relying on the new stamping behaviour. Until 009 is applied, push diagnostics will report column-missing errors for `browser_profile_id`.
+
+### Required next steps after install
+
+1. Set the **Classification** for this browser profile in Settings → Appearance.
+2. Hit **↻ Sync now** in Settings → Sync to register the install in `tabatha.browser_profiles`.
+3. When signing in on a second browser profile or machine, the bootstrap pull runs automatically on the first sync. Use **↻ Re-pull registry** to re-run it manually.
+
+### Out of scope (deferred to next plan)
+
+- Realtime awareness pings (cross-profile focus/clock chips).
+- Clock-stacking warnings when multiple non-personal profiles are clocked in.
+- Personal-profile "see-all-my-activity" aggregated dashboard.
+- Manager-scoped views over employees' browser profiles.
+
+---
+
 ## [v4.7.6] - Supabase sync Batch 1 durable data coverage - _2026-05-18_
 
 ### Added

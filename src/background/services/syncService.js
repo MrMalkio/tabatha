@@ -9,6 +9,8 @@
 
 import { getStorage, setStorage } from './storageService.js';
 import { getFocusEngine } from './focusService.js';
+import { getInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
+import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
 
 let deps = {};
 let syncTimeout = null;
@@ -110,12 +112,64 @@ async function readProfile(supabase, authUserId) {
   return { profile: minimal.data ? { ...minimal.data, default_org_id: null, default_team_id: null } : null, partial: true };
 }
 
-function syncScope(profileId, orgId, teamId) {
+function syncScope(profileId, orgId, teamId, browserProfileId) {
   return {
     profile_id: profileId,
     org_id: orgId || null,
-    team_id: teamId || null
+    team_id: teamId || null,
+    browser_profile_id: browserProfileId || null
   };
+}
+
+// Ensures a tabatha.browser_profiles row exists for this install. On first
+// run inserts a row and stores its id back to chrome.storage.local under
+// _browserProfile.supabaseId. On subsequent runs updates last_seen_at +
+// any user-edited classification / profile_name. Returns the id or null
+// on failure (already diagnosed).
+async function ensureBrowserProfileRow(supabase, profileId) {
+  const identity = await getInstallIdentity();
+  const payload = {
+    profile_id: profileId,
+    browser: 'chrome',
+    profile_name: identity.profileName || null,
+    classification: identity.classification || 'professional',
+    extension_installed: true,
+    last_seen_at: new Date().toISOString()
+  };
+
+  try {
+    if (identity.supabaseId) {
+      const { error } = await supabase
+        .schema('tabatha')
+        .from('browser_profiles')
+        .update(payload)
+        .eq('id', identity.supabaseId)
+        .eq('profile_id', profileId);
+      if (error) {
+        await recordDiagnostic('browser_profile_update_failed', error);
+        return null;
+      }
+      await touchLastSeen();
+      return identity.supabaseId;
+    }
+
+    const { data, error } = await supabase
+      .schema('tabatha')
+      .from('browser_profiles')
+      .insert(payload)
+      .select('id')
+      .single();
+    if (error) {
+      await recordDiagnostic('browser_profile_insert_failed', error);
+      return null;
+    }
+    const id = data?.id || null;
+    if (id) await recordSupabaseId(id);
+    return id;
+  } catch (err) {
+    await recordDiagnostic('browser_profile_threw', err);
+    return null;
+  }
 }
 
 function isoOrNull(value) {
@@ -433,7 +487,26 @@ export async function syncToSupabase() {
     const profileId = profile.id;
     const orgId = profile.default_org_id;
     const teamId = profile.default_team_id;
-    const scope = syncScope(profileId, orgId, teamId);
+
+    // Phase A: register / refresh this install's browser_profiles row.
+    // This must happen before any other table push so subsequent rows
+    // carry a valid browser_profile_id FK.
+    const browserProfileId = await ensureBrowserProfileRow(supabase, profileId);
+
+    // Phase B: pull the org registry once per install, before pushing it
+    // back up. Prevents this install from creating duplicate rows for
+    // entities the other install(s) already pushed.
+    if (await isBootstrapNeeded()) {
+      try {
+        const result = await bootstrapOrgRegistry({ supabase, profileId });
+        await recordDiagnostic('bootstrap_pull_completed',
+          `Adopted ${result.adoptedFromServer} from server, re-keyed ${result.renamedLocal} local entries, ${result.merged} already aligned.`);
+      } catch (err) {
+        await recordDiagnostic('bootstrap_pull_failed', err);
+      }
+    }
+
+    const scope = syncScope(profileId, orgId, teamId, browserProfileId);
     let hadError = false;
 
     const engine = await getFocusEngine();
@@ -459,6 +532,7 @@ export async function syncToSupabase() {
           profile_id: profileId,
           org_id: orgId || null,
           team_id: teamId || null,
+          browser_profile_id: browserProfileId || null,
           action: intent.action || 'unknown',
           context: intent.context ?? intent.newContext ?? null,
           focus_id: intent.focusId || null,
@@ -525,6 +599,18 @@ export async function handleMessage(type) {
     case 'CLEAR_SYNC_DIAGNOSTICS': {
       await setStorage({ _syncDiagnostics: [] });
       return { success: true };
+    }
+    case 'REPULL_ORG_REGISTRY': {
+      // Forcing a re-bootstrap: clear the watermark and run a sync. The
+      // sync entrypoint sees the missing watermark and re-runs the merge.
+      await chrome.storage.local.remove('_orgRegistryBootstrappedAt');
+      await syncToSupabase();
+      const { _syncDiagnostics, _lastSyncSuccess } = await getStorage(['_syncDiagnostics', '_lastSyncSuccess']);
+      return {
+        success: true,
+        lastSyncSuccess: _lastSyncSuccess || null,
+        recentDiagnostics: Array.isArray(_syncDiagnostics) ? _syncDiagnostics.slice(0, 5) : []
+      };
     }
     default:
       return undefined;

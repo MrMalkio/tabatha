@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
 import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStorage';
+import { useInstallIdentity } from '../hooks/useInstallIdentity';
+import { OtherProfilesStrip } from '../components/OtherProfilesStrip';
 import { useFocusEngine, formatTimer, formatElapsed, FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { FlipClock, CLOCK_DEFAULTS } from '../components/clock/FlipClock';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -1275,6 +1277,7 @@ function Home() {
     [intentHistory]
   );
   const [clockSession] = useChromeStorage('clockSession', { active: false });
+  const { isPersonal } = useInstallIdentity();
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'org', label: '🏛️ Org' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
   // ── Command Palette state ──
@@ -1411,8 +1414,12 @@ function Home() {
           </div>
         </div>
 
-        {/* ═══ Collapsible: Shift Controls ═══ */}
-        <CollapsibleSection id="shift" title="Shift Controls" icon="⏱️" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+        {/* Other browser-profile installs of this user — awareness chips */}
+        <OtherProfilesStrip style={{ marginBottom: '8px' }} />
+
+        {/* Shift Controls — hidden on Personal-classified profiles */}
+        {!isPersonal ? (
+          <CollapsibleSection id="shift" title="Shift Controls" icon="⏱️" collapsedSections={collapsedSections} toggleSection={toggleSection}>
           <GlassCard style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1451,7 +1458,8 @@ function Home() {
               </Tooltip>
             </div>
           </GlassCard>
-        </CollapsibleSection>
+          </CollapsibleSection>
+        ) : null}
 
         {/* Debug Bar — only visible when debug mode is ON in settings */}
         {settings.debugMode && (

@@ -96,7 +96,7 @@ ADD_TO_SUGAR_BOX, PARK_TAB
 
 ## Project State
 
-- **Current version:** 4.7.6
+- **Current version:** 5.1.0
 - **Current focus:** Supabase Sync Batch 1 — durable org/clock/focus-history/desktop activity push coverage added on `codex/sync-batch-1`; migration 008 pending remote apply/manual sync verification
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`

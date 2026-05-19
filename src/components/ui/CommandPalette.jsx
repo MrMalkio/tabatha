@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useInstallIdentity } from '../../hooks/useInstallIdentity';
 
 /**
  * CommandPalette — Global fuzzy search + quick action menu.
@@ -9,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgData, onNavigate }) {
   const [query, setQuery] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const { isPersonal } = useInstallIdentity();
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
@@ -65,11 +67,13 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     const close = () => onCloseRef.current?.();
     const navigate = (t) => { onNavigateRef.current?.(t); close(); };
 
-    // Static actions
+    // Static actions — clock + break entries are hidden on Personal profiles
     const staticActions = [
       { type: 'action', icon: '🎯', label: 'Set new focus', actionFn: () => navigate('focus') },
-      { type: 'action', icon: '☕', label: 'Take a break', actionFn: () => { chrome.runtime.sendMessage({ type: 'TOGGLE_BREAK' }); close(); } },
-      { type: 'action', icon: '⏱', label: 'Clock in/out', actionFn: () => navigate('clock') },
+      ...(isPersonal ? [] : [
+        { type: 'action', icon: '☕', label: 'Take a break', actionFn: () => { chrome.runtime.sendMessage({ type: 'TOGGLE_BREAK' }); close(); } },
+        { type: 'action', icon: '⏱', label: 'Clock in/out', actionFn: () => navigate('clock') },
+      ]),
       { type: 'action', icon: '📋', label: 'Create new task', actionFn: () => navigate('tasks') },
       { type: 'action', icon: '🏢', label: 'View projects', actionFn: () => navigate('projects') },
       { type: 'action', icon: '🏛️', label: 'View org hierarchy', actionFn: () => navigate('org') },

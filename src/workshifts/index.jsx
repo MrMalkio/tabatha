@@ -338,7 +338,7 @@ function AnalyticsView({ stats, history }) {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button disabled style={stubBtnStyle}>Export CSV</button>
           <button disabled style={stubBtnStyle}>Export PDF Timesheet</button>
-          <button disabled style={stubBtnStyle}>Sync to Supabase</button>
+          <button disabled style={stubBtnStyle}>Sync to Cloud</button>
         </div>
       </GlassCard>
     </div>

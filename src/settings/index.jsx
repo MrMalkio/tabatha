@@ -13,6 +13,7 @@ import { supabase, redeemInviteToken } from '../services/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
+import { useInstallIdentity } from '../hooks/useInstallIdentity';
 
 function getIntentContext(entry) {
   return entry?.context ?? entry?.newContext ?? '';
@@ -51,7 +52,7 @@ const SECTIONS = [
   { id: 'parked', label: '🅿️ Parked Tabs' },
   { id: 'sugarbox', label: '🍬 Sugar Box' },
   { id: 'stats', label: '📊 Stats & History' },
-  { id: 'sync', label: '☁️ Sync & Supabase' },
+  { id: 'sync', label: '☁️ Sync & Account' },
   { id: 'privacy', label: '🔒 Privacy & Capture' },
   { id: 'webhooks', label: '🔗 Webhooks' },
   { id: 'desktop', label: '🖥️ Desktop Activity' },
@@ -319,6 +320,8 @@ function Settings() {
   const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
   const [blockedSites, setBlockedSites] = useChromeStorage('blockedSites', []);
   const [urlRules, setUrlRules] = useChromeStorage('urlRules', []);
+  const installIdentity = useInstallIdentity();
+  const [repulling, setRepulling] = useState(false);
   const intentChangeLog = useMemo(
     () => (intentHistory || []).filter(isIntentChangeEntry),
     [intentHistory]
@@ -366,7 +369,7 @@ function Settings() {
           .update({ display_name: next, updated_at: new Date().toISOString() })
           .eq('id', profile.id)
           .select(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out after 10s — Supabase may be unreachable')), 10000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out after 10s — the cloud may be unreachable')), 10000))
       ]);
       if (error) throw error;
       if (!Array.isArray(data) || data.length === 0) {
@@ -622,28 +625,65 @@ function Settings() {
                     </select>
                   </div>
                 </Tooltip>
-                <div style={sectionLabel}>Browser Profile</div>
-                <Tooltip text="When: Using multiple browser profiles. How: Name this profile. Affects: Profile badge shown in sidebar/homepage header." position="bottom">
+                <div style={sectionLabel}>
+                  This Browser Profile
+                  {installIdentity?.saveState === 'saving' && <span style={{ marginLeft: 8, color: 'var(--color-text-muted)', fontWeight: 400 }}>· saving…</span>}
+                  {installIdentity?.saveState === 'saved' && <span style={{ marginLeft: 8, color: '#34A853', fontWeight: 400 }}>· ✓ saved</span>}
+                  {installIdentity?.saveState === 'error' && <span style={{ marginLeft: 8, color: '#ef5350', fontWeight: 400 }}>· save failed (check sync log)</span>}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', padding: '2px 8px 8px', lineHeight: '1.5' }}>
+                  Identifies this Chrome profile on this machine. Each browser profile gets its own classification — Personal hides the clock controls; Business / Professional / Work expose them.
+                </div>
+                <Tooltip text="A unique ID generated on first run. Stays the same across sign-ins on this browser profile. Surfaced for support / debugging." position="bottom">
                   <div style={fieldRow}>
-                    <span style={fieldLabel}>Profile Label</span>
-                    <input type="text" placeholder="e.g. Work Chrome" value={settings.profileLabel || ''} onChange={e => updateSetting('profileLabel', e.target.value)} style={inputStyle} />
+                    <span style={fieldLabel}>Install ID</span>
+                    <span style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '11px', color: 'var(--color-text-muted)', cursor: 'text', userSelect: 'all' }}>
+                      {installIdentity?.identity?.supabaseId
+                        ? `${installIdentity.identity.supabaseId.slice(0, 8)}…${installIdentity.identity.supabaseId.slice(-4)}`
+                        : (installIdentity?.identity?.localId
+                            ? `local:${installIdentity.identity.localId.slice(0, 8)}… (will register on next sync)`
+                            : 'initialising…')}
+                    </span>
                   </div>
                 </Tooltip>
-                <Tooltip text="When: First setting up. How: Type your name. Affects: The dashboard greeting message." position="bottom">
+                <Tooltip text="How you recognise this install in cross-profile views. Examples: 'Work MacBook', 'Personal PC'. Press Enter or click away to save." position="bottom">
                   <div style={fieldRow}>
-                    <span style={fieldLabel}>Your Name</span>
-                    <input type="text" placeholder="e.g. Marcus" value={settings.userName || ''} onChange={e => updateSetting('userName', e.target.value)} style={inputStyle} />
+                    <span style={fieldLabel}>Profile Name</span>
+                    <input
+                      type="text"
+                      placeholder="e.g. Work MacBook"
+                      value={installIdentity?.identity?.profileName || ''}
+                      onChange={e => installIdentity?.setProfileName(e.target.value)}
+                      onBlur={() => installIdentity?.commitProfileName?.()}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
+                      style={inputStyle}
+                    />
                   </div>
                 </Tooltip>
-                <Tooltip text="When: Setting up your default work context. How: Select your primary realm. Affects: Default realm applied to new Focuses created from this profile." position="bottom">
+                <Tooltip text="Per-install category. Personal hides clock-in/out and shift controls. Business / Professional / Work expose them. Changes save to the cloud immediately." position="bottom">
                   <div style={fieldRow}>
-                    <span style={fieldLabel}>Default Realm</span>
-                    <select value={settings.defaultRealm || 'professional'} onChange={e => updateSetting('defaultRealm', e.target.value)} style={selectStyle}>
+                    <span style={fieldLabel}>Classification</span>
+                    <select
+                      value={installIdentity?.identity?.classification || 'professional'}
+                      onChange={e => {
+                        installIdentity?.setClassification(e.target.value);
+                        updateSetting('defaultRealm', e.target.value);
+                      }}
+                      style={selectStyle}
+                    >
                       <option value="business">💼 Business</option>
                       <option value="professional">👔 Professional</option>
                       <option value="work">🏗 Work</option>
                       <option value="personal">🏠 Personal</option>
                     </select>
+                  </div>
+                </Tooltip>
+
+                <div style={sectionLabel}>User</div>
+                <Tooltip text="When: First setting up. How: Type your name. Affects: The dashboard greeting message." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Your Name</span>
+                    <input type="text" placeholder="e.g. Marcus" value={settings.userName || ''} onChange={e => updateSetting('userName', e.target.value)} style={inputStyle} />
                   </div>
                 </Tooltip>
 
@@ -722,6 +762,16 @@ function Settings() {
                             </div>
                           )}
                           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{session.user.email}</div>
+                          {installIdentity?.identity?.localId && (
+                            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                              {installIdentity.identity.profileName ? `“${installIdentity.identity.profileName}” · ` : 'This install · '}
+                              {installIdentity.identity.classification === 'business' && '💼 Business'}
+                              {installIdentity.identity.classification === 'professional' && '👔 Professional'}
+                              {installIdentity.identity.classification === 'work' && '🏗 Work'}
+                              {installIdentity.identity.classification === 'personal' && '🏠 Personal'}
+                              {!installIdentity.identity.supabaseId && <span style={{ color: '#ff9800' }}> · pending sync</span>}
+                            </div>
+                          )}
                         </div>
                         <div style={{ marginLeft: 'auto', padding: '3px 8px', background: 'rgba(52,168,83,0.15)', color: '#34A853', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>Connected</div>
                       </div>
@@ -775,6 +825,34 @@ function Settings() {
                                 Clear log
                               </button>
                             )}
+                            <button
+                              onClick={async () => {
+                                if (repulling) return;
+                                if (!confirm('Re-pull the org registry from the cloud?\n\nThis will fetch every client / project / task / operation / initiative for your account and merge them into this browser profile by name (case-insensitive). Pure-local entries are unaffected.')) return;
+                                setRepulling(true);
+                                setAuthError(null);
+                                const backstop = setTimeout(() => setRepulling(false), 30000);
+                                try {
+                                  const res = await chrome.runtime.sendMessage({ type: 'REPULL_ORG_REGISTRY' });
+                                  if (res?.success) {
+                                    const completed = (res.recentDiagnostics || []).find(d => d.kind === 'bootstrap_pull_completed');
+                                    setAuthError(completed ? '✓ ' + completed.detail : '✓ Re-pull complete');
+                                  } else {
+                                    setAuthError('Re-pull did not respond');
+                                  }
+                                } catch (err) {
+                                  setAuthError('Re-pull error: ' + (err.message || err));
+                                } finally {
+                                  clearTimeout(backstop);
+                                  setRepulling(false);
+                                }
+                              }}
+                              disabled={repulling}
+                              style={{ padding: '4px 10px', background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: repulling ? 'wait' : 'pointer', fontSize: '10px', opacity: repulling ? 0.7 : 1 }}
+                              title="Re-pull org registry from the cloud and merge by name. Useful after signing in on a new browser profile or machine."
+                            >
+                              {repulling ? '⏳ Pulling…' : '⤓ Re-pull registry'}
+                            </button>
                           </div>
                         </div>
                         {lastSyncSuccess ? (

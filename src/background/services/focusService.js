@@ -112,7 +112,12 @@ function generateFocusId() {
 async function applyDefaultRealm(tags = {}) {
   if (tags.realm) return tags;
   try {
-    const { tabathaSettings } = await getStorage('tabathaSettings');
+    // Phase A: prefer the per-install classification on _browserProfile so
+    // focuses created on the Personal browser default to realm=personal,
+    // independent of the user-level default_realm.
+    const { _browserProfile, tabathaSettings } = await getStorage(['_browserProfile', 'tabathaSettings']);
+    const fromInstall = _browserProfile?.classification;
+    if (fromInstall) return { ...tags, realm: fromInstall };
     if (tabathaSettings?.defaultRealm) return { ...tags, realm: tabathaSettings.defaultRealm };
   } catch { /* ignore */ }
   return tags;
@@ -626,7 +631,10 @@ export async function autoQueueFromIntent(intent, tabId) {
       : newLabel !== activeLabel && !existingMatch;
 
     if (shouldAutoQueue) {
-      const defaultRealm = tabathaSettings?.defaultRealm || '';
+      // Phase A: prefer per-install classification; fall back to legacy
+      // user-level default_realm setting.
+      const { _browserProfile } = await getStorage('_browserProfile');
+      const defaultRealm = _browserProfile?.classification || tabathaSettings?.defaultRealm || '';
       const result = await addFocus(intent, 15, { realm: defaultRealm });
       const newItem = result.engine.items[result.newFocusId];
       if (newItem && tabId) {

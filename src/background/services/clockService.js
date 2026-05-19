@@ -296,6 +296,7 @@ export async function handleMessage(type, message, _sender) {
         deps.companionBridge.sendClockIn(message.label);
       }
       if (deps.fireWebhook) deps.fireWebhook('clock_in', { label: message.label });
+      deps.notifyAwarenessStateChange?.();
       return result;
     }
 
@@ -306,6 +307,7 @@ export async function handleMessage(type, message, _sender) {
       }
       if (deps.fireWebhook) deps.fireWebhook('clock_out', {});
       if (!result.error) deps.triggerSync?.();
+      deps.notifyAwarenessStateChange?.();
       return result;
     }
 
@@ -335,6 +337,7 @@ export async function handleMessage(type, message, _sender) {
           }
         }
       }
+      deps.notifyAwarenessStateChange?.();
       return result;
     }
 

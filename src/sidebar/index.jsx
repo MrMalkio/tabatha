@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
 import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStorage';
+import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { useFocusEngine, formatTimer, formatElapsed, FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Tooltip } from '../components/ui/Tooltip';
@@ -117,6 +118,7 @@ function Sidebar() {
   const [tabs] = useChromeStorage('tabs', {});
   const [timeTracking] = useChromeStorage('timeTracking', { byTab:{} });
   const [clockSession] = useChromeStorage('clockSession', { active:false });
+  const { isPersonal } = useInstallIdentity();
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [settings] = useChromeStorage('settings', {});
@@ -298,16 +300,18 @@ function Sidebar() {
             )}
             {clockSession?.onBreak && <span style={{ fontSize:'8px', background:'#ffa72622', color:'#ffa726', padding:'0 4px', borderRadius:'2px', fontWeight:600 }}>BRK</span>}
           </div>
-          <div style={{ display:'flex', gap:'3px' }}>
-            {clockSession?.active && (
-              <Tooltip text={clockSession.onBreak ? 'Resume work' : 'Take break'}>
-                <button onClick={() => sendMessage('TOGGLE_BREAK')} style={btn(clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)')}>{clockSession.onBreak ? '▶' : '☕'}</button>
+          {!isPersonal && (
+            <div style={{ display:'flex', gap:'3px' }}>
+              {clockSession?.active && (
+                <Tooltip text={clockSession.onBreak ? 'Resume work' : 'Take break'}>
+                  <button onClick={() => sendMessage('TOGGLE_BREAK')} style={btn(clockSession.onBreak ? '#ffa726' : 'var(--color-text-muted)')}>{clockSession.onBreak ? '▶' : '☕'}</button>
+                </Tooltip>
+              )}
+              <Tooltip text={clockSession?.active ? 'Clock out' : 'Clock in'}>
+                <button onClick={() => sendMessage(clockSession?.active ? 'CLOCK_OUT' : 'CLOCK_IN')} style={btn(clockSession?.active ? '#ef5350' : '#66bb6a')}>{clockSession?.active ? '⏹' : '▶'}</button>
               </Tooltip>
-            )}
-            <Tooltip text={clockSession?.active ? 'Clock out' : 'Clock in'}>
-              <button onClick={() => sendMessage(clockSession?.active ? 'CLOCK_OUT' : 'CLOCK_IN')} style={btn(clockSession?.active ? '#ef5350' : '#66bb6a')}>{clockSession?.active ? '⏹' : '▶'}</button>
-            </Tooltip>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Nav */}

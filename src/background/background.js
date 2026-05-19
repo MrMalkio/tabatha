@@ -61,6 +61,12 @@ import {
   syncToSupabase,
   triggerSync
 } from './services/syncService.js';
+import * as awarenessService from './services/awarenessService.js';
+import {
+  configureAwarenessService,
+  startAwareness,
+  notifyStateChange as notifyAwarenessStateChange
+} from './services/awarenessService.js';
 import { fireWebhook } from './webhooks.js';
 import { registerBootstrap, runRetentionCleanup } from './bootstrap.js';
 
@@ -71,6 +77,7 @@ async function setTabData(tabs) {
 }
 
 configureSyncService({ supabase });
+configureAwarenessService({ supabase });
 
 configureNotificationService({
   getTabData,
@@ -101,7 +108,8 @@ configureClockService({
   getFocusEngine: focusService.getFocusEngine,
   setFocusEngine: focusService.setFocusEngine,
   getTabData,
-  triggerSync
+  triggerSync,
+  notifyAwarenessStateChange
 });
 
 configureFocusService({
@@ -111,7 +119,8 @@ configureFocusService({
   setTabData,
   clockService,
   fireWebhook,
-  endBreakIfActive: clockService.endBreakIfActive
+  endBreakIfActive: clockService.endBreakIfActive,
+  notifyAwarenessStateChange
 });
 
 configureGroupService({ setTabData });
@@ -137,7 +146,8 @@ const services = [
   groupService,
   blockgateService,
   alarmService,
-  syncService
+  syncService,
+  awarenessService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -170,3 +180,9 @@ registerSyncServiceAlarms();
 registerSyncStorageListener();
 registerAlarmServiceListener();
 registerBootstrap();
+
+// Phase C: start cross-profile awareness once the SW is ready. The service
+// itself bails gracefully if auth or browser_profiles isn't ready yet, and
+// can be re-armed by sending `AWARENESS_START` (the Settings UI does this
+// after sign-in and after the first sync registers this install).
+startAwareness();
