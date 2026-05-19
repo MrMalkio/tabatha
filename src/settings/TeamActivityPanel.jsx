@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase, createInviteToken } from '../services/supabaseClient';
 
 const CLASSIFICATION_ICON = { business: '💼', professional: '👔', work: '🏗', personal: '🏠' };
+const BROWSER_ICON = { desktop_companion: '💻', mobile_ios: '📱', mobile_android: '📱', tabatha_web: '🌐' };
 const ROLE_OPTIONS = ['user', 'sub_manager', 'manager', 'read_only'];
 
 function formatRemaining(timerEndsAt) {
@@ -173,6 +174,45 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
     return () => { try { channel.unsubscribe(); } catch { /* ignore */ } };
   }, [canSeeTeamActivity, loadTeamActivity, profileId]);
 
+  // ─── Pending (unredeemed) invites ─────────────────────────
+  const [pendingInvites, setPendingInvites] = useState([]);
+  const [revokingId, setRevokingId] = useState(null);
+
+  const loadPendingInvites = useCallback(async () => {
+    if (!canSeeTeamActivity) { setPendingInvites([]); return; }
+    try {
+      const orgIds = manageableOrgs.map(o => o.org_id);
+      const { data, error } = await supabase
+        .schema('tabatha')
+        .from('invite_tokens')
+        .select('id, token, org_id, team_id, role, expires_at, used_at, created_at')
+        .in('org_id', orgIds)
+        .is('used_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setPendingInvites(Array.isArray(data) ? data : []);
+    } catch {
+      setPendingInvites([]);
+    }
+  }, [canSeeTeamActivity, manageableOrgs]);
+
+  useEffect(() => { loadPendingInvites(); }, [loadPendingInvites]);
+
+  const revokeInvite = async (id) => {
+    if (!window.confirm('Revoke this invite? Anyone who has it but has not redeemed will no longer be able to join.')) return;
+    setRevokingId(id);
+    try {
+      const { error } = await supabase.schema('tabatha').from('invite_tokens').delete().eq('id', id);
+      if (error) throw error;
+      await loadPendingInvites();
+    } catch (err) {
+      window.alert('Revoke failed: ' + (err.message || err));
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
   // ─── Invite mint state ────────────────────────────────────
   const [mintOrgId, setMintOrgId] = useState('');
   const [mintTeamId, setMintTeamId] = useState('');
@@ -203,6 +243,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
       });
       if (res?.success) {
         setMintResult({ ok: true, token: res.token, expires_at: res.expires_at });
+        loadPendingInvites();
       } else {
         setMintResult({ ok: false, error: res?.error || 'Mint failed' });
       }
@@ -270,7 +311,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
                             opacity: dim ? 0.6 : 1
                           }}
                         >
-                          <span>{CLASSIFICATION_ICON[inst.classification] || '🖥'}</span>
+                          <span>{BROWSER_ICON[inst.browser] || CLASSIFICATION_ICON[inst.classification] || '🖥'}</span>
                           <span style={{ fontWeight: 500 }}>{inst.profile_name || inst.browser || 'install'}</span>
                           <span style={{ color: 'var(--color-text-muted)' }}>·</span>
                           {s ? <StatusChip status={s} /> : <span style={{ color: 'var(--color-text-muted)' }}>no status</span>}
@@ -283,6 +324,36 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
             );
           })}
         </div>
+      )}
+
+      {/* ── Pending invites ──────────────────────────────── */}
+      {pendingInvites.length > 0 && (
+        <>
+          <div style={sectionLabelStyle}>Pending Invites</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+            {pendingInvites.map(inv => {
+              const expiry = new Date(inv.expires_at);
+              const expiresSoon = expiry.getTime() - Date.now() < 24 * 3600 * 1000;
+              return (
+                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', fontSize: 11 }}>
+                  <span style={{ fontFamily: 'monospace', userSelect: 'all', flex: 1, color: 'var(--color-text-muted)' }}>{inv.token}</span>
+                  <span style={{ padding: '1px 6px', background: 'var(--color-bg-base)', borderRadius: 8, textTransform: 'capitalize', fontSize: 10, color: 'var(--color-text-muted)' }}>{inv.role}</span>
+                  <span style={{ fontSize: 10, color: expiresSoon ? '#ffa726' : 'var(--color-text-muted)' }}>
+                    expires {expiry.toLocaleDateString()} {expiry.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <button
+                    onClick={() => revokeInvite(inv.id)}
+                    disabled={revokingId === inv.id}
+                    style={{ padding: '2px 8px', background: 'transparent', color: '#ef5350', border: '1px solid #ef535044', borderRadius: 4, cursor: revokingId === inv.id ? 'wait' : 'pointer', fontSize: 10 }}
+                    title="Revoke this invite — anyone who has the token can no longer redeem it"
+                  >
+                    {revokingId === inv.id ? '…' : 'Revoke'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {/* ── Mint Invite Token ─────────────────────────────── */}

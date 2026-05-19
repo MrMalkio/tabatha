@@ -11,6 +11,7 @@ import { getStorage, setStorage } from './storageService.js';
 import { getFocusEngine } from './focusService.js';
 import { getInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
 import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
+import { getCompanionBrowserProfileId } from './companionInstallService.js';
 
 let deps = {};
 let syncTimeout = null;
@@ -365,10 +366,18 @@ function companionEventTime(item) {
   return isoOrNull(item?.ended_at || item?.endedAt || item?.end || item?.timestamp || item?.started_at || item?.startedAt || item?.start);
 }
 
-function buildDesktopRows(companionRecentSessions, desktopActivity, scope, lastDesktopSync) {
+function buildDesktopRows(companionRecentSessions, desktopActivity, scope, lastDesktopSync, companionBrowserProfileId) {
   const lastSyncMs = lastDesktopSync ? new Date(lastDesktopSync).getTime() : 0;
   const rows = [];
   let newest = lastSyncMs;
+
+  // Desktop activity belongs to the COMPANION install, not the extension's
+  // browser_profile. If a companion has been proxy-registered we attribute
+  // these rows to it; otherwise we fall back to the extension's stamp so
+  // the data still gets RLS-correct attribution under this user.
+  const desktopScope = companionBrowserProfileId
+    ? { ...scope, browser_profile_id: companionBrowserProfileId }
+    : scope;
 
   for (const session of toArray(companionRecentSessions)) {
     const eventAt = companionEventTime(session);
@@ -382,7 +391,7 @@ function buildDesktopRows(companionRecentSessions, desktopActivity, scope, lastD
       ? Math.max(0, new Date(endedAt).getTime() - new Date(startedAt).getTime())
       : null;
     rows.push({
-      ...scope,
+      ...desktopScope,
       activity_id: session.id || makeClientId('companion', startedAt || eventAt, endedAt, session.app_name || session.appName, session.window_title || session.windowTitle),
       source: 'companion',
       kind: 'session',
@@ -407,7 +416,7 @@ function buildDesktopRows(companionRecentSessions, desktopActivity, scope, lastD
     if (eventMs <= lastSyncMs) continue;
 
     rows.push({
-      ...scope,
+      ...desktopScope,
       activity_id: event.id || makeClientId('desktop', eventAt, event.appName || event.app_name, event.windowTitle || event.window_title),
       source: 'desktop',
       kind: event.type || event.kind || 'activity',
@@ -457,7 +466,8 @@ async function syncDesktopActivity(supabase, scope) {
     'desktopActivity',
     'lastDesktopActivitySync'
   ]);
-  const { rows, newest } = buildDesktopRows(companionRecentSessions, desktopActivity, scope, lastDesktopActivitySync);
+  const companionBrowserProfileId = await getCompanionBrowserProfileId();
+  const { rows, newest } = buildDesktopRows(companionRecentSessions, desktopActivity, scope, lastDesktopActivitySync, companionBrowserProfileId);
   const ok = await upsertRows(supabase, 'desktop_activity', rows, 'profile_id, activity_id', 'desktop_activity_upsert_failed');
   if (ok && newest) await setStorage({ lastDesktopActivitySync: newest });
   return ok;

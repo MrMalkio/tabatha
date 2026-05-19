@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
 import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStorage';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
+import { useOtherProfiles } from '../hooks/useOtherProfiles';
 import { useFocusEngine, formatTimer, formatElapsed, FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Tooltip } from '../components/ui/Tooltip';
@@ -119,6 +120,24 @@ function Sidebar() {
   const [timeTracking] = useChromeStorage('timeTracking', { byTab:{} });
   const [clockSession] = useChromeStorage('clockSession', { active:false });
   const { isPersonal } = useInstallIdentity();
+  const otherProfiles = useOtherProfiles();
+
+  const guardedClockToggle = () => {
+    if (clockSession?.active) {
+      sendMessage('CLOCK_OUT');
+      return;
+    }
+    const stacking = otherProfiles.filter(p =>
+      p.classification !== 'personal' &&
+      (p.clock_state === 'clocked_in' || p.clock_state === 'on_break')
+    );
+    if (stacking.length > 0) {
+      const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
+      const ok = window.confirm(`You're already clocked in on:\n${lines}\n\nClocking in here adds a second concurrent shift. Hours can stack and double-count. Continue?`);
+      if (!ok) return;
+    }
+    sendMessage('CLOCK_IN');
+  };
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [settings] = useChromeStorage('settings', {});
@@ -308,7 +327,7 @@ function Sidebar() {
                 </Tooltip>
               )}
               <Tooltip text={clockSession?.active ? 'Clock out' : 'Clock in'}>
-                <button onClick={() => sendMessage(clockSession?.active ? 'CLOCK_OUT' : 'CLOCK_IN')} style={btn(clockSession?.active ? '#ef5350' : '#66bb6a')}>{clockSession?.active ? '⏹' : '▶'}</button>
+                <button onClick={guardedClockToggle} style={btn(clockSession?.active ? '#ef5350' : '#66bb6a')}>{clockSession?.active ? '⏹' : '▶'}</button>
               </Tooltip>
             </div>
           )}

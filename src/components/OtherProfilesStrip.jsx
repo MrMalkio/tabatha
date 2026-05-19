@@ -13,6 +13,13 @@ const CLASSIFICATION_ICON = {
   personal: '🏠'
 };
 
+const BROWSER_ICON = {
+  desktop_companion: '💻',
+  mobile_ios: '📱',
+  mobile_android: '📱',
+  tabatha_web: '🌐'
+};
+
 function StatusLine({ row }) {
   if (row.focus_state === 'active' && row.active_focus_label) {
     const rem = formatRemaining(row.focus_timer_ends_at);
@@ -46,7 +53,7 @@ export function OtherProfilesStrip({ style = {} }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '4px 0', ...style }}>
       {rows.map(row => {
-        const icon = CLASSIFICATION_ICON[row.classification] || '🖥';
+        const icon = BROWSER_ICON[row.browser] || CLASSIFICATION_ICON[row.classification] || '🖥';
         const name = row.profile_name || `Install ${row.browser_profile_id?.slice(0, 6) || '—'}`;
         const dim = !row.online || row.stale;
         return (

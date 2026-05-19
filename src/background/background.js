@@ -67,6 +67,10 @@ import {
   startAwareness,
   notifyStateChange as notifyAwarenessStateChange
 } from './services/awarenessService.js';
+import {
+  configureCompanionInstallService,
+  startCompanionInstallService
+} from './services/companionInstallService.js';
 import { fireWebhook } from './webhooks.js';
 import { registerBootstrap, runRetentionCleanup } from './bootstrap.js';
 
@@ -78,6 +82,7 @@ async function setTabData(tabs) {
 
 configureSyncService({ supabase });
 configureAwarenessService({ supabase });
+configureCompanionInstallService({ supabase, companionBridge });
 
 configureNotificationService({
   getTabData,
@@ -186,3 +191,8 @@ registerBootstrap();
 // can be re-armed by sending `AWARENESS_START` (the Settings UI does this
 // after sign-in and after the first sync registers this install).
 startAwareness();
+
+// Phase D₂: proxy-register the desktop companion as a browser_profiles row
+// + heartbeat its status. Bails gracefully if the companion isn't running
+// or the user isn't signed in.
+startCompanionInstallService();

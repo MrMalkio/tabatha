@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
 import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStorage';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
+import { useOtherProfiles } from '../hooks/useOtherProfiles';
 import { OtherProfilesStrip } from '../components/OtherProfilesStrip';
 import { useFocusEngine, formatTimer, formatElapsed, FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { FlipClock, CLOCK_DEFAULTS } from '../components/clock/FlipClock';
@@ -1278,6 +1279,7 @@ function Home() {
   );
   const [clockSession] = useChromeStorage('clockSession', { active: false });
   const { isPersonal } = useInstallIdentity();
+  const otherProfiles = useOtherProfiles();
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'org', label: '🏛️ Org' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
   // ── Command Palette state ──
@@ -1297,6 +1299,19 @@ function Home() {
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
   const handleClockIn = async () => {
+    // Stacking warning: if another non-personal install is currently
+    // clocked in (or on break), confirm before adding a second active
+    // clock for the same user. Personal-classified installs don't have
+    // a clock at all, so they're excluded from the stack check.
+    const stacking = otherProfiles.filter(p =>
+      p.classification !== 'personal' &&
+      (p.clock_state === 'clocked_in' || p.clock_state === 'on_break')
+    );
+    if (stacking.length > 0) {
+      const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
+      const ok = window.confirm(`You're already clocked in on:\n${lines}\n\nClocking in here adds a second concurrent shift. Hours can stack and double-count. Continue?`);
+      if (!ok) return;
+    }
     setClockDebug('Sending CLOCK_IN...');
     const res = await sendMessage('CLOCK_IN');
     setClockDebug('CLOCK_IN → ' + JSON.stringify(res));

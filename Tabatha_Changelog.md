@@ -5,6 +5,32 @@ file.
 
 ---
 
+## [v5.3.0] - Plan 028 Phase D₂ — companion as a first-class install + clock-stacking warning + invite revocation - _2026-05-19_
+
+### Added
+
+- **Desktop companion proxy-registers as a `browser_profiles` row** (`browser='desktop_companion'`). On every WebSocket connect the extension SELECTs-or-INSERTs the companion's row and caches its id locally as `_companionBrowserProfileId`. Migration 013 adds a partial unique index `(profile_id, browser)` WHERE `browser IN ('desktop_companion', 'mobile_ios', 'mobile_android', 'tabatha_web')` so concurrent races resolve cleanly.
+- **`companionInstallService`** heartbeats the companion's `browser_profile_status` row every 60 seconds while WS is connected; pushes immediately on `CLOCK_STATE` messages from the companion; flips `online=false` on disconnect. The awareness chip strip and Team Activity panel now render the companion alongside browser profiles (💻 icon).
+- **Clock-stacking warning.** Home dashboard and sidebar `CLOCK_IN` paths consult the cached `_otherProfiles` awareness data; if any other non-personal install is currently `clocked_in` or `on_break`, a confirm dialog lists them before allowing a second concurrent shift to start. Personal installs are excluded from the check because they have no clock.
+- **Pending Invites list** in Settings → Sync & Account → Team Activity. Org owners and managers see all unredeemed, unexpired tokens for their orgs with a per-row Revoke button (direct `DELETE` against `invite_tokens` — RLS gates server-side). The Generate Invite flow auto-refreshes the pending list on mint.
+
+### Changed
+
+- **Desktop activity attribution.** `syncService.buildDesktopRows` now stamps `desktop_activity` rows with the companion's `browser_profile_id` instead of the extension's whenever a companion install exists. Existing rows pre-D₂ remain attributed to the extension — that's acceptable; future companion activity is correctly scoped.
+- **Awareness chip icons** prefer `BROWSER_ICON[row.browser]` over `CLASSIFICATION_ICON[row.classification]` so the companion (💻), future mobile (📱), and web (🌐) installs are visually distinct from Chrome profiles.
+
+### Migration
+
+Run `supabase/migrations/013_companion_install_uniqueness.sql`. The unique index is partial — Chrome browser_profiles stay free-form so users with multiple Chrome profiles on one machine continue to work.
+
+### Out of scope (still parked for Phase D₃+)
+
+- Multi-machine companion support (today: one companion per user). A stable per-machine identifier on `profile_path` is the next step.
+- Mobile app(s) (iOS / Android) registering their own `browser_profiles` rows. The schema and unique index are already in place; the mobile clients need to do the upsert themselves.
+- Auto-update distribution via Chrome Web Store / signed CRX (Plan 019).
+
+---
+
 ## [v5.2.0] - Plan 028 first slice — Team Activity + Invite Mint + profile realtime - _2026-05-19_
 
 ### Added
