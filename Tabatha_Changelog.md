@@ -5,6 +5,31 @@ file.
 
 ---
 
+## [v5.2.0] - Plan 028 first slice — Team Activity + Invite Mint + profile realtime - _2026-05-19_
+
+### Added
+
+- **Team Activity panel** (Settings → Sync & Account) for org owners and team managers. Lists each member you can see, with their browser-profile installs and live awareness chips. Refreshes via Supabase Realtime on every status change.
+- **Generate Invite Token** mint UI. Org owners and team managers/sub-managers can mint tokens directly from Settings — pick org, optionally a team, role, and expiry hours; copy the resulting token. Pairs with the existing redemption flow.
+- **Manager RLS scoping** (migration 012) for `tabatha.browser_profiles`, `tabatha.browser_profile_status`, and `tabatha.profiles`. Org owners can read all members in their orgs; team owners/managers/sub-managers can read their team members. Insert/update/delete remain own-row.
+- **`tabatha.profiles` realtime subscription** in `useAuth` — `display_name`, `avatar_url`, `default_realm` etc. update live across browsers without a page reload.
+
+### Fixed
+
+- **`useChromeStorage.update` race condition.** The `valueRef`-based update path could be one render stale, letting rapid concurrent writes overwrite each other (the lingering "Profile Name doesn't save on one of my browsers" report). Replaced with functional `setValue(prev => …)` so `prev` is guaranteed to be the latest committed state. Universal fix — covers every callsite, not just the install identity.
+
+### Migration
+
+Run `supabase/migrations/011_add_profiles_to_realtime.sql` then `012_manager_scoping_and_invite_mint.sql` before relying on Team Activity or live profile updates.
+
+### Out of scope (still parked for Phase D₂+)
+
+- Desktop companion registers as a `browser_profiles` row (`browser='desktop_companion'`).
+- Mobile app(s) follow the same identity pattern.
+- Auto-update distribution via Chrome Web Store / signed CRX (Plan 019).
+
+---
+
 ## [v5.1.1] - Phase A race fix + classification explainer + invite-token note - _2026-05-19_
 
 ### Fixed

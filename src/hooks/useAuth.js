@@ -305,6 +305,23 @@ export function useAuth() {
     }
   }, [session, fetchProfile]);
 
+  // ─── Realtime: keep `profile` row in lockstep with the cloud ────
+  // When this user's profile row changes on another install (or in
+  // Studio), refetch so display_name / avatar_url / default_realm
+  // propagate live without requiring a page reload.
+  useEffect(() => {
+    if (!profile?.id) return;
+    const channel = supabase
+      .channel(`profile_${profile.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'tabatha', table: 'profiles', filter: `id=eq.${profile.id}` },
+        () => { if (session?.user?.id) fetchProfile(session.user.id); }
+      )
+      .subscribe();
+    return () => { try { channel.unsubscribe(); } catch { /* ignore */ } };
+  }, [profile?.id, session?.user?.id, fetchProfile]);
+
   return {
     session,
     profile,

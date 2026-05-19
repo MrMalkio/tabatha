@@ -40,19 +40,22 @@ export function useChromeStorage(key, defaultValue) {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, [key]);
 
-  // Track latest value in a ref so the update callback never captures stale state
-  const valueRef = useRef(value);
-  useEffect(() => { valueRef.current = value; }, [value]);
-
   const update = useCallback((newValue) => {
-    const resolved = typeof newValue === 'function' ? newValue(valueRef.current) : newValue;
-    setValue(resolved);
-
-    if (isChromeExtension) {
-      chrome.storage.local.set({ [key]: resolved });
-    } else {
-      localStorage.setItem(`tabatha_${key}`, JSON.stringify(resolved));
-    }
+    // Functional setState guarantees `prev` is the latest committed state.
+    // The previous valueRef-based approach could be one render stale, which
+    // racing writes (e.g. an eager-init useEffect colliding with a user
+    // edit on the same key) could clobber. We perform the chrome.storage
+    // write inside the updater so it always pairs with the freshly-derived
+    // value — idempotent if React StrictMode double-invokes.
+    setValue((prev) => {
+      const resolved = typeof newValue === 'function' ? newValue(prev) : newValue;
+      if (isChromeExtension) {
+        chrome.storage.local.set({ [key]: resolved });
+      } else {
+        try { localStorage.setItem(`tabatha_${key}`, JSON.stringify(resolved)); } catch { /* ignore */ }
+      }
+      return resolved;
+    });
   }, [key]);
 
   return [value, update];

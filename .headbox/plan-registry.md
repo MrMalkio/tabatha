@@ -40,4 +40,8 @@
 
 ---
 
-> **Next available number:** 028
+| 028 | team_awareness_invite_mint | 2026-05-19 | Phase D first slice — manager RLS scoping over browser_profile_status + browser_profiles, create_invite_token RPC, Team Activity panel in Settings with member awareness chips and an in-app invite mint flow | draft |
+
+---
+
+> **Next available number:** 029

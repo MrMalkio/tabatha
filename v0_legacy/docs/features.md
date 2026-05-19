@@ -244,9 +244,31 @@
 | 183 | Device Proximity Detection (phone/computer nearness via BLE/WiFi) | Platform | 📋 | v0.4.0 | #117, Mobile, #182 | [concept](../../docs/features/183-device-proximity.md) |
 | **— DESIGN CHANGES (Logged 2026-05-15)** |
 | D01 | Homepage Collapsible Header (sections recess into sidebar on collapse) | UI | 📋 | v0.2.0 | — | [concept](../../docs/features/D01-homepage-collapsible-header.md) |
+| **— FOCUS LIFECYCLE (Backlog 2026-05-17)** |
+| 184 | Persistent Focuses (ongoing/frequent, "done for today" lifecycle, dynamic presets) | Focus | 📋 | v0.2.0 | #122, #174 | [concept](../../docs/features/184-persistent-focuses.md) |
 | **— BUG FIXES (Logged 2026-05-14)** |
 | B05 | Idle detection ignores non-browser activity | Time | 🔧 | v0.2.0 | #5, #117 | — |
 | B06 | Logs not listing intent activity timestamps | Data | 🔧 | v0.2.0 | #132 | — |
+
+| **— AUTO-DETECTION & CLOCKING (Mike Transcript, 2026-05-18)** |
+| 187 | Auto Clock-In/Out on Startup/Shutdown | Time | 📋 | v0.4.0 | #117, #5 | [concept](../../docs/features/187-auto-clock-startup.md) |
+| 188 | Client/Project-Level Time Attribution | Time | 📋 | v0.3.0 | #92, #147, #117 | [concept](../../docs/features/188-client-time-attribution.md) |
+| 189 | Service-Level Profitability Reporting | Billing | 📋 | v0.4.0 | #188, #159, #67 | [concept](../../docs/features/189-service-profitability.md) |
+| 190 | AI-Generated Activity Summaries | AI | 💡 | v1.0 | #188, #16, #125 | [concept](../../docs/features/190-ai-activity-summaries.md) |
+| **— CALENDAR & SCHEDULING (Mike Transcript, 2026-05-18)** |
+| 192 | Calendar Integration with Auto-Backfill | Integration | 📋 | v0.4.0 | #53, #156 | [concept](../../docs/features/192-calendar-auto-backfill.md) |
+| 193 | Meeting Block Detection | Focus | 📋 | v0.4.0 | #192, #53, #143 | [concept](../../docs/features/193-meeting-block-detection.md) |
+| 194 | Scheduled Auto-Engagement (Mobile Nudges) | Integration | 📋 | v0.4.0 | #164, #183 | [concept](../../docs/features/194-mobile-schedule-nudges.md) |
+| **— TEAM & PRIVACY (Mike Transcript, 2026-05-18)** |
+| 191 | Team Activity Dashboard (Mutual Visibility) | Pro | 📋 | v0.3.0 | #169, #170, #138 | [concept](../../docs/features/191-team-mutual-dashboard.md) |
+| 195 | Deep Edit / Retroactive Log Editing | Time | 📋 | v0.3.0 | #156, #157 | [concept](../../docs/features/195-retroactive-log-editing.md) |
+| 196 | Intent Countdown Timer (Visible Pressure) | Focus | ✅ (partial) | v0.2.0+ | #121 | [concept](../../docs/features/196-intent-countdown-pro.md) |
+| 198 | Privacy Modes / Scaled Visibility | Pro | 📋 | v0.3.0 | #138, #158, #170 | [concept](../../docs/features/198-privacy-modes.md) |
+| **— AI & ACCOUNTABILITY (Mike Transcript, 2026-05-18)** |
+| 197 | Context-Aware AI Assistant Bridge | AI | 📋 | v0.4.0 | #178, #55, #78 | [concept](../../docs/features/197-ai-assistant-bridge.md) |
+| 199 | Morning Kickstart / Daily Planning View | UI | 📋 | v0.3.0 | #174, #122 | [concept](../../docs/features/199-morning-kickstart.md) |
+| 200 | Decision Fatigue Reducer (Routine vs. Choice) | Focus | 📋 | v0.3.0 | #174, #199 | [concept](../../docs/features/200-decision-fatigue-reducer.md) |
+| 201 | Follow-Through Score / Accountability Metric | Data | 📋 | v0.3.0 | #122, #184, #11 | [concept](../../docs/features/201-follow-through-score.md) |
 
 ---
 

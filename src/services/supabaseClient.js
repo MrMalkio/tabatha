@@ -224,11 +224,31 @@ export async function signOut() {
 export async function redeemInviteToken(token) {
   const session = await getSession();
   if (!session) throw new Error("Must be logged in to redeem a token.");
-  
+
   // Call the Supabase Postgres function to securely redeem the token
   const { data, error } = await supabase.rpc('redeem_invite_token', {
     p_token: token
   });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Mint a new Invite Token (org owners + team managers only — server-side
+ * gated by SECURITY DEFINER RPC tabatha.create_invite_token; see
+ * supabase/migrations/012_manager_scoping_and_invite_mint.sql).
+ */
+export async function createInviteToken({ orgId, teamId = null, role = 'user', expiresInHours = 168 }) {
+  const session = await getSession();
+  if (!session) throw new Error("Must be logged in to mint a token.");
+  const { data, error } = await supabase
+    .schema('tabatha')
+    .rpc('create_invite_token', {
+      p_org_id: orgId,
+      p_team_id: teamId,
+      p_role: role,
+      p_expires_in_hours: expiresInHours
+    });
   if (error) throw error;
   return data;
 }

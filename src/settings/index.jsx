@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
+import { TeamActivityPanel } from './TeamActivityPanel';
 
 function getIntentContext(entry) {
   return entry?.context ?? entry?.newContext ?? '';
@@ -951,10 +952,21 @@ function Settings() {
                       <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No teams yet.</p>
                     )}
 
+                    {/* ── Team Activity (managers only — gated server-side) ── */}
+                    <TeamActivityPanel
+                      orgs={orgs}
+                      teams={teams}
+                      sectionLabelStyle={sectionLabel}
+                      fieldRowStyle={fieldRow}
+                      inputStyle={inputStyle}
+                      selectStyle={selectStyle}
+                      profileId={profile?.id}
+                    />
+
                     {/* ── Invite Token ── */}
-                    <div style={sectionLabel}>Team Invite Token</div>
+                    <div style={sectionLabel}>Join via Invite Token</div>
                     <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.5, marginTop: '2px', marginBottom: '8px' }}>
-                      Paste a token your team admin shared to join their organization. Redemption is wired end-to-end. Token <em>creation</em> isn't in this UI yet — for now an admin generates tokens directly in the cloud console. A mint UI ships with the manager dashboard.
+                      Paste a token a manager shared with you to join their organisation or team. Both ends of this flow are now wired — managers can mint tokens from the "Generate Invite Token" panel above.
                     </p>
                     <form onSubmit={handleRedeemToken} style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '16px' }}>
                       <input type="text" placeholder="Paste invite token..." value={inviteToken} onChange={e => setInviteToken(e.target.value)} style={{ ...inputStyle, flex: 1 }} required />

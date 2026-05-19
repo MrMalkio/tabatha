@@ -5,6 +5,85 @@
 
 ---
 
+## Session - 2026-05-19 (Feature #202: Session Resurrection Spec)
+
+**Agent:** Antigravity (Claude Opus 4.6 Thinking)
+**Branch:** N/A (documentation only)
+**Goal:** Research Chrome session restore APIs and draft a creative feature spec for context-aware session recovery.
+
+### What Was Done
+
+- [x] **API Research** — Investigated `chrome.sessions` API, `chrome.runtime.onStartup`, `chrome.runtime.onSuspend`, and proactive snapshot strategies for session recovery
+- [x] **Feature Spec** — Created `docs/features/202-session-resurrection.md` — full spec for context-aware session recovery with:
+  - **Ghost Snapshot**: rolling 60s heartbeat backup of full session state (tabs, focuses, intents, tasks, clock, groups, windows)
+  - **Death Detection**: graceful vs. ungraceful close classification via `onSuspend`/`onStartup` signals
+  - **Resurrection Screen**: full-page homepage overlay grouping lost tabs into Focus Capsules with selective restore checkboxes
+  - **The Ice Box 🧊**: "restore later" persistent frozen session archive with thaw/peek/melt controls, 30-day retention
+  - **`chrome.sessions` fallback**: deduped recently-closed tabs as secondary data source
+  - **Graceful close integration**: clock-out clears ghost, optional manual freeze
+- [x] **Convention compliance** — Spec follows established feature doc format (#202, next in sequence after #201)
+
+### Key Findings
+
+- `chrome.sessions.getRecentlyClosed()` returns max 25 items — insufficient alone, but useful as fallback
+- Proactive Ghost Snapshot (Tabatha's own rolling backup) is the superior strategy — preserves all Tabatha metadata
+- Only new permission needed: `"sessions"` (for the fallback API)
+- Concept doc already envisioned "Return to Flow" on the Welcome Page (line 71) — this feature is the full realization
+
+### Next Steps
+
+- Answer 5 open questions in the spec (overlay vs. banner, per-tab granularity, cloud sync, death-during-resurrection edge case)
+- Assign version target and dependencies once implementation is scheduled
+- No code changes made this session
+
+---
+
+## Session - 2026-05-19 (Mike Transcript Feature Extraction)
+
+**Agent:** Antigravity
+**Branch:** n/a (docs-only, working tree)
+**Goal:** Extract feature concepts from the Mike CPA transcript and assimilate into the feature backlog.
+
+### What Was Done
+
+- [x] Read and analyzed full 2865-line transcript (`MIke-chat-get-feature-needs.md`)
+- [x] Identified 15 new feature concepts (N01–N15) with user quotes and transcript references
+- [x] Cross-referenced all concepts against existing roadmap (ROADMAP.md) and feature docs (docs/features/)
+- [x] Mapped 18+ existing features that already address Mike's stated needs
+- [x] Created extraction artifact: `docs/features/mike-transcript-extraction.md`
+- [x] Created 15 individual feature concept files (#187–#201) in `docs/features/`:
+  - 187: Auto Clock-In/Out on Startup/Shutdown
+  - 188: Client/Project-Level Time Attribution
+  - 189: Service-Level Profitability Reporting
+  - 190: AI-Generated Activity Summaries
+  - 191: Team Activity Dashboard (Mutual Visibility)
+  - 192: Calendar Integration with Auto-Backfill
+  - 193: Meeting Block Detection
+  - 194: Scheduled Auto-Engagement (Mobile Nudges)
+  - 195: Deep Edit / Retroactive Log Editing
+  - 196: Intent Countdown Timer (Visible Pressure)
+  - 197: Context-Aware AI Assistant Bridge
+  - 198: Privacy Modes / Scaled Visibility
+  - 199: Morning Kickstart / Daily Planning View
+  - 200: Decision Fatigue Reducer (Routine vs. Choice)
+  - 201: Follow-Through Score / Accountability Metric
+- [x] Appended all 15 features to master feature matrix (`v0_legacy/docs/features.md`) in 4 category groups
+
+### Key Findings
+
+- Mike's #1 pain: forgetting to switch manual timers between clients — auto-detection is the killer differentiator
+- Privacy framing is critical for team adoption: "profitability tool, not spy tool"
+- Calendar integration is unique angle: retroactive backfill, not just forward planning
+- Follow-through accountability validates the entire product thesis
+
+### Next Steps
+
+- Review new feature concepts for priority/phase assignment
+- Consider creating a "Mike Persona" user profile document for product decisions
+- No code changes needed — all docs-only
+
+---
+
 ## Session - 2026-05-18 (Supabase Sync Batch 1)
 
 **Agent:** Codex
