@@ -5,6 +5,20 @@ file.
 
 ---
 
+## [v5.1.1] - Phase A race fix + classification explainer + invite-token note - _2026-05-19_
+
+### Fixed
+
+- **Classification picker stuck on Professional / wouldn't save.** The eager-init useEffect's storage write was racing the user's first edit — `valueRef.current` could still be the stale DEFAULT, and the second write clobbered `localId` back to null. New self-healing `writeIdentity` ensures `localId` + `createdAt` exist on every write, so the race is impossible. Same fix covers profile-name edits.
+
+### Added
+
+- **Per-classification explainer** beneath the Classification picker, updates live with the selection. Covers what each of Business / Professional / Work / Personal *means* in terms of clock visibility, default realm, and cross-profile presentation.
+- **Per-option tooltips** on each Classification dropdown option.
+- **Invite Token clarification.** Added a small explainer above the Team Invite Token input noting that redemption works end-to-end but token *creation* doesn't have UI yet — admins generate tokens directly in the cloud console. The mint UI ships with the manager dashboard.
+
+---
+
 ## [v5.1.0] - Multi-Profile Awareness Sync Phase C + Phase A polish - _2026-05-19_
 
 ### Added

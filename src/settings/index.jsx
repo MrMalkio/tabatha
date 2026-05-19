@@ -671,13 +671,28 @@ function Settings() {
                       }}
                       style={selectStyle}
                     >
-                      <option value="business">💼 Business</option>
-                      <option value="professional">👔 Professional</option>
-                      <option value="work">🏗 Work</option>
-                      <option value="personal">🏠 Personal</option>
+                      <option value="business" title="Your own venture — solo founder, owner-operator, freelancer running their book of clients">💼 Business</option>
+                      <option value="professional" title="Day job as an employee — clock and outputs report to an employer or team">👔 Professional</option>
+                      <option value="work" title="Project / contract / side-work that has shifts but isn't your main employer">🏗 Work</option>
+                      <option value="personal" title="Off-shift browsing — clock controls hidden, time/attention breakdown still visible">🏠 Personal</option>
                     </select>
                   </div>
                 </Tooltip>
+                {/* Inline explainer beneath the picker — updates with selection */}
+                <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', padding: '2px 8px 12px', lineHeight: 1.5 }}>
+                  {installIdentity?.identity?.classification === 'business' && (
+                    <><strong style={{ color: 'var(--color-text-primary)' }}>💼 Business —</strong> your own venture. Solo founder, owner-operator, or freelancer. Shift controls + clock visible. New focuses default to <code>realm: business</code>. Sync stamps every row from this install as <code>business</code> so it's clear in cross-profile views.</>
+                  )}
+                  {(!installIdentity?.identity?.classification || installIdentity?.identity?.classification === 'professional') && (
+                    <><strong style={{ color: 'var(--color-text-primary)' }}>👔 Professional —</strong> day job as an employee. Shift controls + clock visible. Time reports up to a manager or team. New focuses default to <code>realm: professional</code>.</>
+                  )}
+                  {installIdentity?.identity?.classification === 'work' && (
+                    <><strong style={{ color: 'var(--color-text-primary)' }}>🏗 Work —</strong> project / contract / side-work. Shifts apply but it's not your primary employer. Useful when you split a single Chrome profile across multiple gigs. Shift controls + clock visible.</>
+                  )}
+                  {installIdentity?.identity?.classification === 'personal' && (
+                    <><strong style={{ color: 'var(--color-text-primary)' }}>🏠 Personal —</strong> off-shift browsing. Clock-in / clock-out / break / shift buttons are hidden everywhere; time-and-attention breakdowns still visible. New focuses default to <code>realm: personal</code>. Other profiles see this install as 🏠 in awareness chips.</>
+                  )}
+                </div>
 
                 <div style={sectionLabel}>User</div>
                 <Tooltip text="When: First setting up. How: Type your name. Affects: The dashboard greeting message." position="bottom">
@@ -938,6 +953,9 @@ function Settings() {
 
                     {/* ── Invite Token ── */}
                     <div style={sectionLabel}>Team Invite Token</div>
+                    <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.5, marginTop: '2px', marginBottom: '8px' }}>
+                      Paste a token your team admin shared to join their organization. Redemption is wired end-to-end. Token <em>creation</em> isn't in this UI yet — for now an admin generates tokens directly in the cloud console. A mint UI ships with the manager dashboard.
+                    </p>
                     <form onSubmit={handleRedeemToken} style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '16px' }}>
                       <input type="text" placeholder="Paste invite token..." value={inviteToken} onChange={e => setInviteToken(e.target.value)} style={{ ...inputStyle, flex: 1 }} required />
                       <button type="submit" disabled={inviteLoading} style={{ padding: '4px 12px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>

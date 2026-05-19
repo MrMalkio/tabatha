@@ -64,15 +64,29 @@ export function useInstallIdentity() {
     setTimeout(() => setSaveState('idle'), 1800);
   }, []);
 
+  // Self-healing writer: ensures localId + createdAt are present on every
+  // write. The race we're guarding against: useChromeStorage's valueRef
+  // can be one render stale when two writes happen in quick succession
+  // (eager-init useEffect + a user click on the picker). Without
+  // self-heal, the second write would clobber localId back to null.
+  const writeIdentity = useCallback((patch) => {
+    update((cur) => {
+      const next = { ...DEFAULT, ...(cur || {}), ...patch };
+      if (!next.localId) next.localId = generateLocalId();
+      if (!next.createdAt) next.createdAt = new Date().toISOString();
+      return next;
+    });
+  }, [update]);
+
   const setClassification = useCallback((classification) => {
     if (!VALID_CLASSIFICATIONS.includes(classification)) return;
-    update((cur) => ({ ...DEFAULT, ...(cur || {}), classification }));
+    writeIdentity({ classification });
     flushToCloud();
-  }, [update, flushToCloud]);
+  }, [writeIdentity, flushToCloud]);
 
   const setProfileName = useCallback((profileName) => {
-    update((cur) => ({ ...DEFAULT, ...(cur || {}), profileName: String(profileName || '').slice(0, 200) }));
-  }, [update]);
+    writeIdentity({ profileName: String(profileName || '').slice(0, 200) });
+  }, [writeIdentity]);
 
   // Called explicitly on blur of the name input so we don't ping the cloud
   // on every keystroke. Callers who want auto-flush wire it themselves.

@@ -297,3 +297,29 @@
   2. Chrome extension offscreen document for audio capture
   3. Offscreen doc + Whisper API for high-quality transcription ← **suggested**
 
+
+## 2026-05-18 — Working-tree noise to clean up
+- **Noticed while:** Picking up Supabase batch 1 handoff (Codex's worktree → main, v4.3.6 → v4.7.6)
+- **What:** Pre-existing uncommitted noise in main worktree, unrelated to batch 1 work:
+  - **Modified (uncommitted):** `docs/features/163-background-parallels.md`, `supabase/.temp/cli-latest`, `v0_legacy/docs/features.md`
+  - **Untracked feature stubs** (likely from a prior brainstorm session): `docs/features/184-persistent-focuses.md`, `187-auto-clock-startup.md`, `188-client-time-attribution.md`, `189-service-profitability.md`, `190-ai-activity-summaries.md`, `191-team-mutual-dashboard.md`, `192-calendar-auto-backfill.md`, `193-meeting-block-detection.md`, `194-mobile-schedule-nudges.md`, `195-retroactive-log-editing.md`, `196-intent-countdown-pro.md`, `197-ai-assistant-bridge.md`, `198-privacy-modes.md`, `199-morning-kickstart.md`, `200-decision-fatigue-reducer.md`, `201-follow-through-score.md`, `mike-transcript-extraction.md`
+  - **Untracked stale build artifacts:** `dist-v4.3.1/`, `dist-v4.3.6/` (current build is `dist/` at v4.7.6)
+- **Why it matters:** Pollutes `git status` and obscures real changes. Feature stubs may be legitimate roadmap captures that need indexing; dist-vX dirs are pure leftovers.
+- **Options:**
+  1. Review feature stubs → commit the keepers, discard or .gitignore the rest; delete stale dist-vX dirs
+  2. Move feature stubs into a dated brainstorm subfolder and commit as a batch; delete dist-vX dirs
+  3. Leave entirely — clean up alongside next docs-touching session ← **suggested**
+
+## 2026-05-19 — Mobile app + companion parity, invite-token mint UI, auto-update distribution
+- **Noticed while:** Wrapping Plan 027 Phase C (cross-profile awareness)
+- **What:** Several adjacent features are needed for the multi-profile model to feel complete, but are out of scope for Phase C:
+  1. **Desktop companion `browser_profiles` registration** — companion needs to insert a row with `browser='desktop_companion'`, classification picker in its tray UI, and heartbeat into `browser_profile_status`. Once done, chip strip on the extension surfaces the companion's activity alongside browser profiles. This is the Phase D top item.
+  2. **Mobile app(s) follow same pattern** — iOS / Android Tabatha each register a `browser_profiles` row (`browser='mobile_ios'` / `'mobile_android'`), pick a classification, heartbeat status. Same identity substrate, same awareness chips. Table name (`browser_profiles`) is misleading once we include non-browser surfaces, but renaming churns RLS — keep the name, document as "client install".
+  3. **Invite-token mint UI** — redemption is end-to-end (RPC + Settings form). Token *creation* still requires manual SQL in the cloud console. Pair with the manager dashboard so an org owner can mint + share + revoke tokens from within Tabatha.
+  4. **Manager view over org_members' awareness** — current RLS on `browser_profile_status` restricts to own profile. Need a manager-scoped read policy that allows org owners/managers to read their members' status rows (mirroring `user_status`'s existing org-scoped policy from migration 002). Pairs with a "Team Activity" dashboard.
+  5. **Auto-update distribution** — Tabatha is currently unpacked-only; users manually reload after each build. Auto-update arrives when we publish to Chrome Web Store (~5h polling, silent install) or self-host an `update.xml` for an unlisted CRX. Plan 019 (distribution) in the registry tracks this. Independent of multi-profile work, but every user touching multi-profile sync will want auto-update working before we scale users.
+- **Why it matters:** Each unlocks a real workflow. Companion+mobile gives true cross-surface awareness. Mint UI removes the SQL-Studio crutch. Manager view unlocks team usage. Auto-update removes reload-after-every-build friction.
+- **Options:**
+  1. One Phase D plan covering all five ← **suggested** (they share substrate)
+  2. Two plans: Phase D₁ (companion + mobile registration + manager scoping) and Phase D₂ (invite mint + manager dashboard); auto-update lives in Plan 019
+  3. Three smaller plans — splits churn, slower velocity
