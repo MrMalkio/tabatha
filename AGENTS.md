@@ -47,7 +47,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 | `public/manifest.json` | Chrome MV3 manifest | When changing permissions/pages |
 | `vite.config.js` | Multi-page build config | When adding pages or changing build |
 
-> 📎 More files added as they become frequently used. Reviewed at 20th-use.
+> 📎 More files added as they frequently used. Reviewed at 20th-use.
 
 ---
 
@@ -72,9 +72,8 @@ See `.headbox/workspace-map.md` for the full project file tree.
 6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.
 7. **Practice progressive disclosure.** Do NOT read every file. Read what you need.
 8. **Check `.headbox/sticky-notes/`** at session start for notes left by other agents or humans.
-9. **Number Implementation Plans** — Every implementation plan must carry a unique number AND a descriptive suffix in its **document title/heading** (e.g. `# Implementation Plan 019: Distribution Strategy`). Register the number in `.headbox/plan-registry.md` before writing. Never reuse or overwrite an existing plan number — if a collision occurs, append a letter (e.g. `019b`). \n   - **File naming:** If your tool constrains the artifact filename (e.g. always saves as `implementation_plan.md`), that is acceptable — the number in the heading + registry entry is the source of truth. After creation, the file may be renamed to include the number (e.g. `implementation_plan_019_distribution.md`) to make it a distinct artifact rather than an overwritable singleton. The **core invariant is: never overwrite an existing plan**.
-10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion. Format: `> **Current version:** X.Y.Z → **Target version:** X.Y.Z`. **Versioning calculation:** Count all fixes (patch), minor features, and major/breaking changes in the plan. The target version is calculated additively: `MAJOR.+MINOR_COUNT.+FIX_COUNT`. Example: if current is `1.0.0` and the plan has 3 minor features and 4 fixes, the target is `1.3.4`. Major version increments only for breaking/architectural changes. **Dev-machine version bump:** The version MUST be bumped in the manifest (and synced via `npm run version:sync`) when features are committed to a branch — not deferred to merge. The dev machine is ground zero; the user must always be able to confirm which build they are testing from the extension manager. Never leave new feature commits at the old version number.
-11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status (draft/approved/completed/superseded). Check this registry before choosing a plan number.
+9. **Number Implementation Plans** — Every implementation plan must carry a unique number AND a descriptive suffix in its **document title/heading** (e.g. `# Implementation Plan 019: Distribution Strategy`). Register the number in `.headbox/plan-registry.md` before writing. Never reuse or overwrite an existing plan number.
+10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion.
 
 ---
 
@@ -83,14 +82,14 @@ See `.headbox/workspace-map.md` for the full project file tree.
 - **Update `docs/progress.md`** at the end of every session with: date, goal, what was done, key findings, decisions, next steps.
 - **Update `Tabatha_Changelog.md`** when shipping version changes.
 - **Legacy code in `v0_legacy/`** — reference only. Do not modify. All new work happens in `src/`.
-- **Multi-page build** — Tabatha has separate HTML entry points: `index.html`, `home.html`, `popup.html`, `sidebar.html`, `settings.html`. Changes to build config affect all of them.
-- **Chrome extension context** — always test changes by loading unpacked at `chrome://extensions` and checking the Service Worker console.
+- **Multi-page build** — Tabatha has separate HTML entry points: `index.html`, `home.html`, `popup.html`, `sidebar.html`, `settings.html`.
+- **Chrome extension context** — always test changes by loading unpacked at `chrome://extensions`.
 
 ---
 
 ## Valeting (Parking Lot Protocol)
 
-When you notice something that is **not part of your current task**, do not act on it unless it's obligatory. Instead, **append** an entry to `.headbox/parking_lot.md`:
+When you notice something that is **not part of your current task**, append an entry to `.headbox/parking_lot.md`:
 
 ```
 ## {date} — {brief_title}
@@ -116,12 +115,13 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 1. Update all known task(s) with a progress comment.
 2. Include: what was done, what's next, references to artifacts with file paths.
 3. If no task is known, ask the user if there's one to associate.
+4. **Project Update Integration:** Checkpoints when made should also be applied to the Asana project [Flux Development](https://app.asana.com/1/9526911872029/project/1214031898449333/) (GID `1214031898449333`) as a Project update, which serves as the central Asana project for all things Flux family.
 
 ---
 
 ## Implementation Plan Registry
 
-See `.headbox/plan-registry.md` for the full list of implementation plans created across all conversations. **Always check this file before numbering a new plan.**
+See `.headbox/plan-registry.md` for the full list of plans. Always check this file before numbering a new plan.
 
 ---
 
@@ -129,7 +129,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 
 **After every session, update the Session Log below.**
 
-- **Append** a new entry. **Never delete** previous entries.
+- **Append** a new entry to the Session Log.
 - **Increment the usage counter** in the headbox header by 1.
 - **On every 20th use**: ask the user if anything should be updated.
 - You MAY update `Current version` and `Current focus` in Project State.
@@ -163,6 +163,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`4.0.0` (MAJOR, user override)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
 | 2026-05-16 | Antigravity | Workspace Deep Review & Cleanup | Deep review of repo state. Removed `Tabatha-alarm` stale worktree. Synced local `refactor/decomp-v2` with origin. Cleaned up 7 fully-merged local branches and 11 fully-merged remote tracking branches. Protected `fix/popup-harmony` as active Plan 025 feature track. Updated `docs/progress.md` with cleanup log. | Test and integrate Plan 025 (`fix/popup-harmony`), conduct full V4 regression |
 | 2026-05-18 | Codex | Supabase Sync Batch 1 | Created `codex/sync-batch-1` from merged `refactor/decomp-v2`. Added migration 008 for org registry, clock sessions, and desktop activity tables. Extended syncService to push `tabathaOrg`, focus history, clock history, companion sessions, and desktop activity with diagnostics/watermarks. Bumped to v4.7.6 and verified build. | Apply migration 008 to Flux Supabase, load unpacked extension, hit Sync now, and verify Batch 1 tables populate. |
+
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->

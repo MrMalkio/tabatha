@@ -269,6 +269,13 @@
 | 199 | Morning Kickstart / Daily Planning View | UI | 📋 | v0.3.0 | #174, #122 | [concept](../../docs/features/199-morning-kickstart.md) |
 | 200 | Decision Fatigue Reducer (Routine vs. Choice) | Focus | 📋 | v0.3.0 | #174, #199 | [concept](../../docs/features/200-decision-fatigue-reducer.md) |
 | 201 | Follow-Through Score / Accountability Metric | Data | 📋 | v0.3.0 | #122, #184, #11 | [concept](../../docs/features/201-follow-through-score.md) |
+| **— FOCUS QUEUE ENHANCEMENTS (Backlog 2026-05-26)** |
+| 185 | Focus Auto-Resume Control & Queue-for-Later | Focus | 📋 | v0.2.0 | #122 | [concept](../../docs/features/185-focus-auto-resume-queue.md) |
+| **— ASANA INTEGRATION (Backlog 2026-05-26)** |
+| 186 | Asana Task ↔ Focus Linking (attach at creation/edit + auto-focus from URL) | Integration | 📋 | v0.2.0 | #54, #142, #122 | [concept](../../docs/features/186-asana-focus-linking.md) |
+| **— BUG FIXES (Logged 2026-05-26)** |
+| B07 | Cannot resolve paused active focus from sidebar top spot | Focus | 🔧 | v0.2.0 | — | [concept](../../docs/features/B07-resolve-paused-focus.md) |
+| B08 | Autopause triggers while user is active on PC (non-browser) | Time | 🔧 | v0.2.0 | B05, #117 | [concept](../../docs/features/B08-autopause-false-trigger.md) |
 
 ---
 
