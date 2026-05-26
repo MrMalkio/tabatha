@@ -23,3 +23,18 @@ dist-v*/
 *.njsproj
 *.sln
 *.sw?
+
+# === Privacy / Open-Source Safety ===
+
+# Supabase local state (credentials, project refs, connection strings)
+supabase/.env
+supabase/.temp/
+
+# Build snapshots (dist-v*/ above covers this, but belt-and-suspenders)
+dist-v*/
+
+# Competitor research
+v0_legacy/recon/
+
+# Private transcripts / named-individual docs
+docs/features/mike-transcript-extraction.md
