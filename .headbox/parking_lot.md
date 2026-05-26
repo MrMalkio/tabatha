@@ -323,3 +323,18 @@
   1. One Phase D plan covering all five ← **suggested** (they share substrate)
   2. Two plans: Phase D₁ (companion + mobile registration + manager scoping) and Phase D₂ (invite mint + manager dashboard); auto-update lives in Plan 019
   3. Three smaller plans — splits churn, slower velocity
+
+## 2026-05-26 — Pre-Production Release Blockers
+- **Noticed while:** Staging promotion + privacy audit
+- **What:** Several items must be resolved before staging → main (production) release:
+  1. **Rotate Supabase DB password** — old `Flux_DB_Pass` was committed to git history (now untracked, but history retains it)
+  2. **Apply Supabase migrations 008–013** — schema changes for sync batch 1, browser profiles, manager scoping, companion installs not yet applied to remote DB
+  3. **Full extension regression test** — no formal regression since Plans 027/028 landed; clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge all need manual pass
+  4. **Chrome Web Store listing** — extension is dev-loaded only; no CWS listing exists yet (see Plan 019)
+  5. **Automated test suite** — zero tests exist; risk acceptance or minimum smoke tests needed
+  6. **Supabase keys in source** — publishable key hardcoded in `src/services/supabaseClient.js`; safe under RLS but should use build-time env vars for open-source
+- **Why it matters:** These gate a production release to external users. None block internal dev/testing.
+- **Options:**
+  1. Address in priority order (DB password → migrations → regression) before any production push ← **suggested**
+  2. Bundle into a "v6.0.0 release readiness" plan
+  3. Address incrementally as features stabilize

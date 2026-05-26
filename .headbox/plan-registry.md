@@ -24,11 +24,12 @@
 
 ---
 
-| 023 | efficiency_decomp | 2026-05-13 | Efficiency-Driven Decomposition — audit-informed monolith breakup + storage caps | draft |
+| 023 | efficiency_decomp | 2026-05-13 | Efficiency-Driven Decomposition — audit-informed monolith breakup + storage caps | completed |
+| 024 | changelog_backfill | 2026-05-14 | Backfill v3.12.4→v3.34.5 documentation gap — per-version changelog entries with commit SHAs | completed |
 
 ---
 
-| 025 | popup_harmony | 2026-05-16 | FTE/WBP Popup Fixes — singleton coordination, enhanced CTAs, configurable thresholds, off-device tag | draft |
+| 025 | popup_harmony | 2026-05-16 | FTE/WBP Popup Fixes — singleton coordination, enhanced CTAs, configurable thresholds, off-device tag | completed |
 
 ---
 
@@ -36,11 +37,11 @@
 
 ---
 
-| 027 | multi_profile_sync | 2026-05-19 | Multi-Profile Awareness Sync Phase A+B+C — browser_profiles identity, classification axis, bootstrap pull org-registry dedup, Personal-classification hides clock UI, cross-profile awareness via browser_profile_status + Supabase Realtime | in-progress |
+| 027 | multi_profile_sync | 2026-05-19 | Multi-Profile Awareness Sync Phase A+B+C — browser_profiles identity, classification axis, bootstrap pull org-registry dedup, Personal-classification hides clock UI, cross-profile awareness via browser_profile_status + Supabase Realtime | completed |
 
 ---
 
-| 028 | team_awareness_invite_mint | 2026-05-19 | Phase D first slice — manager RLS scoping over browser_profile_status + browser_profiles, create_invite_token RPC, Team Activity panel in Settings with member awareness chips and an in-app invite mint flow | draft |
+| 028 | team_awareness_invite_mint | 2026-05-19 | Phase D first slice — manager RLS scoping over browser_profile_status + browser_profiles, create_invite_token RPC, Team Activity panel in Settings with member awareness chips and an in-app invite mint flow | completed |
 
 ---
 

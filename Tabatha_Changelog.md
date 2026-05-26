@@ -283,14 +283,166 @@ Data is preserved by chrome.storage migrations — `intentChangeLog`, legacy tas
 
 ---
 
-## [Unreleased] - Phase 2 (Intelligence & Integrations)
+## [v3.34.5] - Intent-to-Focus Bridge + Browser Profile Identity - _2026-05-12_
 
-### Planned
+### Added
+- **Intent-to-Focus Bridge**: typing an intent on a tab can auto-queue/auto-create a matching focus item, configurable via `intentBridgeMode` (`manual` / `smart_dedup` / `always`).
+- **Create Focus from Tab**: new-focus flow accessible directly from tab cards, pre-filled with the tab's URL and title.
+- **Browser Profile Identity**: each Chrome profile gets a stable `browserProfileId` stored in `chrome.storage.local` for future cross-device routing.
 
-- **Asana Integration**: URL parsing to track project/task context without API.
-- **Google Calendar**: Logging focus time to calendar.
-- **High-Priority Refocus**: Bringing critical windows to the front.
-- **Context-Switch Detection**: Alerting on rapid task switching.
+`fc9882c`
+
+---
+
+## [v3.31.5] - Sidebar Edit Parity + InBar Create Focus - _2026-05-12_
+
+### Added
+- **Sidebar edit dropdown**: full intent/focus editing from sidebar matches home parity.
+- **InBar create focus**: create a new focus item directly from the content bar.
+- **Refresh button**: manual data refresh in sidebar header.
+
+`8cd185e`
+
+---
+
+## [v3.30.5] - Focus Tag Editing - _2026-05-12_
+
+### Added
+- **Project/Client tag editing** on active focus: live edit of `realm`, `client`, `project`, and `task` tags from the FocusBar edit panel.
+
+`6a70047`
+
+---
+
+## [v3.29.5] - Activity Editor + Webhooks - _2026-05-12_
+
+### Added
+- **Activity Editor**: per-entry trim/split/merge on timeline entries.
+- **Timeline break insertion**: manual break markers on the activity timeline.
+- **InBar sync indicator**: visual feedback when InBar data is stale.
+- **Webhook intervals**: configurable firing cadence for webhook integrations.
+
+`481f0fb`
+
+---
+
+## [v3.25.2] - Desktop Activity Editor - _2026-05-12_
+
+### Added
+- **Desktop Activity editor** in Settings: trim and clear tools for desktop activity captured via companion bridge.
+
+`f4dd6b3`
+
+---
+
+## [v3.24.2] - Sidebar Intent Creation - _2026-05-12_
+
+### Added
+- **Sidebar intent creation** with full timer parity — new-focus input now lives in the sidebar alongside home.
+
+`942524e`
+
+---
+
+## [v3.23.2] - Timeline Today Filter - _2026-05-12_
+
+### Added
+- **Desktop activity timeline scoped to current day** by default.
+
+### Fixed
+- **InBar `SET_INTENT` was silently dropped** — handler was missing entirely from the background router. (`a91f361`)
+
+`a0370d1`
+
+---
+
+## [v3.22.1] - Timer Fix + Version Sync - _2026-05-12_
+
+### Fixed
+- **Drifted-focus timer extension** now preserves elapsed time instead of resetting to zero on extend. (`9f7fbf8`)
+
+`9b09fcc`
+
+---
+
+## [v3.21.0] - InBar Layout Overhaul - _2026-05-12_
+
+### Added
+- **InBar layout overhaul**: restructured content bar with intent lifecycle display.
+- **URL pause matching**: paused-intent state survives URL changes when the new URL still matches the pattern.
+
+`34f0371`
+
+---
+
+## [v3.20.0] - Task Migration + Funnel State Machine - _2026-05-12_
+
+### Added
+- **Task storage migration**: legacy `tasks[]` array → structured `tabathaOrg.tasks` registry. One-time, flag-gated migration runs once per profile.
+- **Funnel stage state machine**: stages canonicalized as `unsorted → todo → focus → addressing → resolved → roadblocked` with transition rules.
+- **Task stage management** in sidebar with stage picker.
+- **Sidebar pause** for active focuses.
+
+### Schema
+- New storage key: `tabathaOrg.tasks` (migrated from `tasks[]`)
+- Migration flag: `_tasksMigrated`
+- Backup key: `_legacyTasksBackup` (removed after one-shot cleanup)
+
+`0c40b1c`, `185ef9e`
+
+---
+
+## [v3.17.24] - Status Normalization - _2026-05-12_
+
+### Fixed
+- **Status normalization**: inconsistent display of `complete` vs `completed` across UI surfaces resolved with canonical status mapping.
+- Display precedence fixes for funnel stage vs focus state.
+
+`2f7147e`
+
+---
+
+## [v3.17.22] - Palette + InPop Fixes - _2026-05-12_
+
+### Fixed
+- **Palette navigation** edge cases.
+- **Task delete** confirmation missing for some paths.
+- **InPop nesting** — nested overlays no longer stack incorrectly.
+- **Stage-state sync** between sidebar and home views.
+
+`b00de1d`
+
+---
+
+## [v3.17.18] - Stage Pills + Paused State - _2026-05-12_
+
+### Fixed
+- **Stage pills** rendering consistency.
+- **Task-per-char** input regression (character-by-character task creation).
+- **Palette break** handling edge case.
+- **Paused → Resolved** transition now requires confirmation.
+
+`d2cecac`
+
+---
+
+## [v3.17.14] - Tier 2/4 Surface Fixes - _2026-05-11_
+
+### Fixed
+- **T2.1** stage pills alignment and color mapping.
+- **T2.3** task status not reflecting actual completion state.
+- **T4.2** Command Palette selection not applying.
+
+`8cc6649`
+
+---
+
+## [v3.17.13] - Post-Merge Bug Fix Sweep - _2026-05-11_
+
+### Fixed
+- 8 bug fixes from live user testing feedback covering focus resolution, timer display, intent association, and sidebar rendering.
+
+`eae1e86`
 
 ---
 
