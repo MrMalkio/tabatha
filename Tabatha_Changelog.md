@@ -153,6 +153,40 @@ Run `supabase/migrations/008_add_batch1_sync_tables.sql` before relying on Batch
 
 ---
 
+## [v4.3.0] - Plan 025: Popup Harmony + Checkpoint Progress Notes + Context-Link - _2026-05-17_
+
+### Added
+
+- **Singleton Popup Coordination** (#185): FTE/WBP overlays no longer stack across tabs. A `_activePopup` storage key tracks the active overlay; all other tabs skip rendering. Actions taken on any surface (home, sidebar, InBar) broadcast `POPUP_DISMISSED` to auto-clear stale overlays everywhere.
+- **Enhanced FTE CTAs**: Focus Timer Expired card expanded from 2 buttons to 6: ⏱️ Extend 5m, 🔄 Switch Focus (inline picker), ⏸ Pause, ☕ Step Away (break), ✅ Complete, 📝 Add Note.
+- **Combo Popup** (FTE + WBP): When the focus timer expires while the user is away, a single merged `FOCUS_RETURN_COMBO` card shows idle duration (with seconds) + all FTE CTAs + Resume. Replaces the previous two-popup stack.
+- **Configurable WBP Thresholds**: `welcomeBackMinIdleMinutes` (default 5) and `welcomeBackShowAfterBreak` (default true) in Settings → Follow-through Support.
+- **Off-Device Tag**: Boolean on focus items — when true, suppresses FTE/WBP/nudge popups and Chrome notifications. Toggle in home FocusBar and sidebar.
+- **Checkpoint Progress Notes** (#184): Timed auto-prompts at configurable intervals (`checkpointIntervalFraction`, default ⅓ of focus timer). Progress levels: `stuck` (0), `none` (0), `little` (1), `lot` (3), `almost_done` (4). Each CPN stored with `progressValue` for future scoring.
+- **CPN Snooze**: "Remind me in 5 min" on checkpoint prompt defers re-prompt.
+- **CPN Smart Suppression**: Auto-prompt skipped when a subtask/linked task was recently completed (only checked when subtasks exist).
+- **InBar Manual Checkpoint** (📋): Amber-highlighted button when no checkpoint logged in 30+ minutes. Opens inline CPN overlay with progress-level buttons.
+- **InBar Staleness Signal**: Pulsing amber dot on the checkpoint button when `lastCheckpointAt` exceeds `checkpointStaleMinutes` (default 30).
+- **Sidebar Checkpoint**: 📋 button in sidebar focus panel with inline textarea + progress-level buttons.
+- **Home CPN Timeline**: Collapsible checkpoint history in the FocusBar with timestamped entries.
+- **Follow-through Support Settings**: New settings section with toggles for checkpoint prompts, interval fraction slider, staleness threshold, WBP min idle, and Asana auto-post.
+- **Context-Link Indicator** (#186): InBar center label shows 🔗 (linked) or ⚡ (unlinked) icon based on whether the current tab is in `activeFocus.associatedTabIds`.
+- **Window Counts** (#186): Home FocusBar and sidebar focus card now display unique window count alongside tab count (e.g. "3 tabs · 2 windows").
+- **CPN → Follow-Through Heatmap**: ActivityHeatmap's "Follow-Through" view now counts both focus completions and checkpoint note submissions per day.
+
+### Changed
+
+- **`GET_INBAR_DATA` response** expanded with `isTabLinked` (boolean) and `windowCount` (computed via `chrome.tabs.get` across associated tabs).
+- **`focusService` alarm routing**: `checkpoint-prompt-{focusId}` alarm created on `startFocus()`, cleared on complete/pause/switch.
+
+### Feature Docs
+
+- `docs/features/184-checkpoint-progress-notes.md` — CPN data model, behavior spec, settings
+- `docs/features/185-popup-harmony.md` — Singleton coordination, combo popup, WBP thresholds
+- `docs/features/186-context-link-indicator.md` — Link indicator, window counts
+
+---
+
 ## [v4.0.0] - Cumulative release: v3.0 → v4.0 + Plan 023 service decomposition - _2026-05-14_
 
 This is the first cumulative release going to `staging` since `v3.0.0`. It carries
