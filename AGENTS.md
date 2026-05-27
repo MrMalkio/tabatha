@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 13 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 14 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
 - **Current version:** 5.3.0
-- **Current focus:** Supabase Sync Batch 1 — durable org/clock/focus-history/desktop activity push coverage added on `codex/sync-batch-1`; migration 008 pending remote apply/manual sync verification
+- **Current focus:** All prior work promoted to staging. Staging is clean at v5.3.0. Ready for new feature development.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -46,6 +46,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 | `src/App.jsx` | Main React entry | When touching app structure |
 | `public/manifest.json` | Chrome MV3 manifest | When changing permissions/pages |
 | `vite.config.js` | Multi-page build config | When adding pages or changing build |
+| `docs/parallel-development-workflow.md` | Worktree, branching, zone ownership, merge strategy | When creating implementation plans — mandatory parallelability review |
 
 > 📎 More files added as they frequently used. Reviewed at 20th-use.
 
@@ -74,6 +75,8 @@ See `.headbox/workspace-map.md` for the full project file tree.
 8. **Check `.headbox/sticky-notes/`** at session start for notes left by other agents or humans.
 9. **Number Implementation Plans** — Every implementation plan must carry a unique number AND a descriptive suffix in its **document title/heading** (e.g. `# Implementation Plan 019: Distribution Strategy`). Register the number in `.headbox/plan-registry.md` before writing. Never reuse or overwrite an existing plan number.
 10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion.
+11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status.
+12. **Parallelability Review** — After completing an implementation plan, **read `docs/parallel-development-workflow.md`** and append a `## Parallelability Review` section to the plan covering: zones touched, shared files modified, conflicts with active worktrees, whether it can run parallel, max branch lifetime, and scope-split points if >1 week. This is the final step before requesting user approval.
 
 ---
 
@@ -163,6 +166,7 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`4.0.0` (MAJOR, user override)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
 | 2026-05-16 | Antigravity | Workspace Deep Review & Cleanup | Deep review of repo state. Removed `Tabatha-alarm` stale worktree. Synced local `refactor/decomp-v2` with origin. Cleaned up 7 fully-merged local branches and 11 fully-merged remote tracking branches. Protected `fix/popup-harmony` as active Plan 025 feature track. Updated `docs/progress.md` with cleanup log. | Test and integrate Plan 025 (`fix/popup-harmony`), conduct full V4 regression |
 | 2026-05-18 | Codex | Supabase Sync Batch 1 | Created `codex/sync-batch-1` from merged `refactor/decomp-v2`. Added migration 008 for org registry, clock sessions, and desktop activity tables. Extended syncService to push `tabathaOrg`, focus history, clock history, companion sessions, and desktop activity with diagnostics/watermarks. Bumped to v4.7.6 and verified build. | Apply migration 008 to Flux Supabase, load unpacked extension, hit Sync now, and verify Batch 1 tables populate. |
+| 2026-05-26 | Antigravity | Mike Transcript Features | Done comprehensive reconciliation, created specs #203-#206, enriched existing features (#184, #188, #192) with transcript details. | Proceed with prioritized Phase 3/4 development |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

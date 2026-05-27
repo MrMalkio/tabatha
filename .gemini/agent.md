@@ -1,103 +1,19 @@
-# Tabatha — Agent Instructions
+# Agent Instructions — Tabatha
 
-> This file instructs AI agents how to work on the Tabatha Chrome Extension project.
-
-## Project Identity
-
-**Tabatha** is a Chrome MV3 extension — a Context-Driven Tab Manager / "Attention Operating System" for the browser. It enforces intentional browsing by assigning Context and Intent to every tab, tracking time, and providing focus tools.
-
-## Mandatory Protocols
-
-### 1. Progress Logging
-- **Update [docs/progress.md](file:///c:/Users/mrmal/Le%20Dev/Tabatha/docs/progress.md) at the end of every session.**
-- Add a new session entry with: date, goal, what was done (checklist), key findings, decisions made, and next steps.
-- Mark items `[x]` when complete, `[/]` when in-progress.
-
-### 2. Before You Code — Read These First
-Only read these files when working on the corresponding area:
-
-| Working On | Read First |
-|-----------|------------|
-| Any feature work | [docs/progress.md](file:///c:/Users/mrmal/Le%20Dev/Tabatha/docs/progress.md) — check last session's next steps |
-| Architecture / reorganization | [Tabatha_Concept.md](file:///c:/Users/mrmal/Le%20Dev/Tabatha/Tabatha_Concept.md) — core philosophy |
-| Feature planning | [ROADMAP.md](file:///c:/Users/mrmal/Le%20Dev/Tabatha/ROADMAP.md) — phase plan |
-| What's changed | [Tabatha_Changelog.md](file:///c:/Users/mrmal/Le%20Dev/Tabatha/Tabatha_Changelog.md) — version history |
-| Background / service worker | [background.js](file:///c:/Users/mrmal/Le%20Dev/Tabatha/background.js) — 1206-line monolith, all message routing |
-| Sidebar UI | [sidebar.js](file:///c:/Users/mrmal/Le%20Dev/Tabatha/sidebar.js) — ⚠️ has missing functions (see Known Bugs) |
-| Home / New Tab page | [home.js](file:///c:/Users/mrmal/Le%20Dev/Tabatha/home.js) — ⚠️ has missing functions, heavy duplication with sidebar.js |
-| Extension popup | [popup.js](file:///c:/Users/mrmal/Le%20Dev/Tabatha/popup.js) — search + Step Away mode |
-| Content scripts | [gatekeeper.js](file:///c:/Users/mrmal/Le%20Dev/Tabatha/gatekeeper.js), [url-lock.js](file:///c:/Users/mrmal/Le%20Dev/Tabatha/url-lock.js) |
-| Permissions / manifest | [manifest.json](file:///c:/Users/mrmal/Le%20Dev/Tabatha/manifest.json) |
-
-### 3. Known Bugs (As of 2026-04-23)
-These are the highest-priority issues. Fix before adding features:
-
-1. **FATAL** — `sidebar.js:95` — `sendMessage()` and `populateFilterCategories()` are referenced but never defined. The sidebar is completely non-functional.
-2. **FATAL** — `home.js` — `updateStats()` is called but never defined. Home dashboard crashes on load.
-3. **FATAL** — `home.js:141` — `setupGreeting()` is defined but never called in `DOMContentLoaded`.
-4. `sidebar.js:620` — Listener for `#off-chrome-dismiss` but HTML ID is `#off-chrome-skip`.
-5. `background.js:1175` — `setPanelBehavior({ openPanelOnActionClick: true })` conflicts with `manifest.json` `default_popup`.
-6. `gatekeeper.js:28` — `document.body.style.overflow` at `document_start` — body may not exist.
-7. `background.js:346,1193` — Duplicate `notifications.onClicked` listeners.
-8. `home.html:125` — Purpose modal is an empty `<!-- ... copy modal structure ... -->` comment.
-
-### 4. Code Duplication Warning
-`sidebar.js` and `home.js` share ~80% identical code. **Any change to shared functionality must be applied to both files** until the planned shared module extraction is completed.
-
-Duplicated functions:
-- `createTabElement()`, `renderTabs()`, `renderContexts()`, `renderGroups()`, `renderSavedGroups()`
-- `sortTabIds()` (extracted in home.js, inline in sidebar.js)
-- `getPriorityColor()`, `formatTime()`, `toggleSelection()`, `setupNavigation()`
-- State object structure, `refreshAllData()`
-
-### 5. Architecture Notes
-- **MV3 Service Worker** — `background.js` is the central hub. All data flows through `chrome.runtime.sendMessage` → `handleMessage()`.
-- **30+ message types** — see `handleMessage()` switch statement in background.js (line 823+).
-- **Storage** — all state in `chrome.storage.local`: `tabs`, `subGroups`, `categories`, `closedContexts`, `sessions`, `timeTracking`, `settings`, `sugarBox`, `parkedTabs`, `stepAwayState`.
-- **No build system** — raw JS files, no bundling, no transpilation.
-- **Icons** — all 501 bytes, likely placeholders needing real artwork.
-
-### 6. Testing
-No automated tests exist. Manual verification:
-1. Load unpacked at `chrome://extensions`
-2. Check Service Worker console for errors
-3. Open sidebar (side panel)
-4. Open new tab (home.html)
-5. Click extension icon (popup)
-6. Navigate to a non-Chrome URL to test Gatekeeper
-
-## Quick Reference
-
-### Message Types (background.js)
-```
-GET_ALL_TABS, GET_TAB, UPDATE_TAB, BATCH_UPDATE_CONTEXT,
-SET_PRIORITY, TOGGLE_LOCK, UPDATE_TAB_TITLE, TOGGLE_URL_LOCK,
-REQUEST_CLOSE, CANCEL_CLOSE, BULK_CLOSE,
-GET_SAVED_GROUPS, CREATE_GROUP, CREATE_SUB_GROUP, GET_SUB_GROUPS,
-GET_CATEGORIES, CREATE_CATEGORY, CLONE_CATEGORY,
-GET_FLOW_RECALL, REOPEN_FLOW, GET_CLOSED_CONTEXTS,
-GET_TIME_TRACKING, START_POMODORO,
-GET_SESSIONS, GET_LATEST_SESSION,
-GET_SETTINGS, UPDATE_SETTINGS,
-EXPORT_MARKDOWN, FOCUS_TAB,
-CHECK_CONTEXT_NEEDED, SET_TAB_CONTEXT, START_SIDE_QUEST,
-ADD_TO_SUGAR_BOX, PARK_TAB
-```
-
-### Category IDs
-`work`, `media`, `meeting`, `reference`, `messaging`, `email`, `learning`, `entertainment`, `unknown`
+> This project uses **Headbox** for standardized agent instructions.
+> All agents (Claude, Gemini, Codex, Cursor, Copilot, etc.) follow the same rules below.
 
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 13 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 14 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
 - **Current version:** 5.3.0
-- **Current focus:** Supabase Sync Batch 1 — durable org/clock/focus-history/desktop activity push coverage added on `codex/sync-batch-1`; migration 008 pending remote apply/manual sync verification
+- **Current focus:** All prior work promoted to staging. Staging is clean at v5.3.0. Ready for new feature development.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -130,8 +46,9 @@ See `.headbox/workspace-map.md` for the full project file tree.
 | `src/App.jsx` | Main React entry | When touching app structure |
 | `public/manifest.json` | Chrome MV3 manifest | When changing permissions/pages |
 | `vite.config.js` | Multi-page build config | When adding pages or changing build |
+| `docs/parallel-development-workflow.md` | Worktree, branching, zone ownership, merge strategy | When creating implementation plans — mandatory parallelability review |
 
-> 📎 More files added as they become frequently used. Reviewed at 20th-use.
+> 📎 More files added as they frequently used. Reviewed at 20th-use.
 
 ---
 
@@ -156,9 +73,10 @@ See `.headbox/workspace-map.md` for the full project file tree.
 6. **On `checkpoint`** — update any known task(s) with progress and reference artifacts.
 7. **Practice progressive disclosure.** Do NOT read every file. Read what you need.
 8. **Check `.headbox/sticky-notes/`** at session start for notes left by other agents or humans.
-9. **Number Implementation Plans** — Every implementation plan must carry a unique number AND a descriptive suffix in its **document title/heading** (e.g. `# Implementation Plan 019: Distribution Strategy`). Register the number in `.headbox/plan-registry.md` before writing. Never reuse or overwrite an existing plan number — if a collision occurs, append a letter (e.g. `019b`). \n   - **File naming:** If your tool constrains the artifact filename (e.g. always saves as `implementation_plan.md`), that is acceptable — the number in the heading + registry entry is the source of truth. After creation, the file may be renamed to include the number (e.g. `implementation_plan_019_distribution.md`) to make it a distinct artifact rather than an overwritable singleton. The **core invariant is: never overwrite an existing plan**.
-10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion. Format: `> **Current version:** X.Y.Z → **Target version:** X.Y.Z`. **Versioning calculation:** Count all fixes (patch), minor features, and major/breaking changes in the plan. The target version is calculated additively: `MAJOR.+MINOR_COUNT.+FIX_COUNT`. Example: if current is `1.0.0` and the plan has 3 minor features and 4 fixes, the target is `1.3.4`. Major version increments only for breaking/architectural changes. **Dev-machine version bump:** The version MUST be bumped in the manifest (and synced via `npm run version:sync`) when features are committed to a branch — not deferred to merge. The dev machine is ground zero; the user must always be able to confirm which build they are testing from the extension manager. Never leave new feature commits at the old version number.
-11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status (draft/approved/completed/superseded). Check this registry before choosing a plan number.
+9. **Number Implementation Plans** — Every implementation plan must carry a unique number AND a descriptive suffix in its **document title/heading** (e.g. `# Implementation Plan 019: Distribution Strategy`). Register the number in `.headbox/plan-registry.md` before writing. Never reuse or overwrite an existing plan number.
+10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion.
+11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status.
+12. **Parallelability Review** — After completing an implementation plan, **read `docs/parallel-development-workflow.md`** and append a `## Parallelability Review` section to the plan covering: zones touched, shared files modified, conflicts with active worktrees, whether it can run parallel, max branch lifetime, and scope-split points if >1 week. This is the final step before requesting user approval.
 
 ---
 
@@ -167,14 +85,14 @@ See `.headbox/workspace-map.md` for the full project file tree.
 - **Update `docs/progress.md`** at the end of every session with: date, goal, what was done, key findings, decisions, next steps.
 - **Update `Tabatha_Changelog.md`** when shipping version changes.
 - **Legacy code in `v0_legacy/`** — reference only. Do not modify. All new work happens in `src/`.
-- **Multi-page build** — Tabatha has separate HTML entry points: `index.html`, `home.html`, `popup.html`, `sidebar.html`, `settings.html`. Changes to build config affect all of them.
-- **Chrome extension context** — always test changes by loading unpacked at `chrome://extensions` and checking the Service Worker console.
+- **Multi-page build** — Tabatha has separate HTML entry points: `index.html`, `home.html`, `popup.html`, `sidebar.html`, `settings.html`.
+- **Chrome extension context** — always test changes by loading unpacked at `chrome://extensions`.
 
 ---
 
 ## Valeting (Parking Lot Protocol)
 
-When you notice something that is **not part of your current task**, do not act on it unless it's obligatory. Instead, **append** an entry to `.headbox/parking_lot.md`:
+When you notice something that is **not part of your current task**, append an entry to `.headbox/parking_lot.md`:
 
 ```
 ## {date} — {brief_title}
@@ -200,12 +118,13 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 1. Update all known task(s) with a progress comment.
 2. Include: what was done, what's next, references to artifacts with file paths.
 3. If no task is known, ask the user if there's one to associate.
+4. **Project Update Integration:** Checkpoints when made should also be applied to the Asana project [Flux Development](https://app.asana.com/1/9526911872029/project/1214031898449333/) (GID `1214031898449333`) as a Project update, which serves as the central Asana project for all things Flux family.
 
 ---
 
 ## Implementation Plan Registry
 
-See `.headbox/plan-registry.md` for the full list of implementation plans created across all conversations. **Always check this file before numbering a new plan.**
+See `.headbox/plan-registry.md` for the full list of plans. Always check this file before numbering a new plan.
 
 ---
 
@@ -213,7 +132,7 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 
 **After every session, update the Session Log below.**
 
-- **Append** a new entry. **Never delete** previous entries.
+- **Append** a new entry to the Session Log.
 - **Increment the usage counter** in the headbox header by 1.
 - **On every 20th use**: ask the user if anything should be updated.
 - You MAY update `Current version` and `Current focus` in Project State.
@@ -247,8 +166,8 @@ See `.headbox/plan-registry.md` for the full list of implementation plans create
 | 2026-05-14 | Claude (Opus 4.7) | PR #11 Review/Merge + Plan 023 Task 06 closeout | Reviewed PR #11 (`refactor/decomp-v2-router` → `refactor/decomp-v2`), merged via merge commit (`c7e4522`). On `refactor/decomp-v2-task06-cleanup` removed transitional `serviceFlags.focus.ready` stub from `tabService` + matching `services: { focus: { ready: true } }` injection in `background.js`; deleted dead local `autoQueueFromIntent` / `linkTabToFocus` fallback bodies and the now-unused `addFocus` helper. Tallied semantic ledger (no `breaking`, 1 `feature`, 3 `internal-schema`) → bumped `3.34.5` → **`4.0.0` (MAJOR, user override)** via `manifest.json` + `npm run version:sync`. Build green; `background.js` at 169 lines. | User to run the 9-step manual regression checklist (clock cycle, focus lifecycle, InBar, groups, blockgate, settings, markdown export, tasks, companion bridge); then open final PR `refactor/decomp-v2` → `master`. |
 | 2026-05-16 | Antigravity | Workspace Deep Review & Cleanup | Deep review of repo state. Removed `Tabatha-alarm` stale worktree. Synced local `refactor/decomp-v2` with origin. Cleaned up 7 fully-merged local branches and 11 fully-merged remote tracking branches. Protected `fix/popup-harmony` as active Plan 025 feature track. Updated `docs/progress.md` with cleanup log. | Test and integrate Plan 025 (`fix/popup-harmony`), conduct full V4 regression |
 | 2026-05-18 | Codex | Supabase Sync Batch 1 | Created `codex/sync-batch-1` from merged `refactor/decomp-v2`. Added migration 008 for org registry, clock sessions, and desktop activity tables. Extended syncService to push `tabathaOrg`, focus history, clock history, companion sessions, and desktop activity with diagnostics/watermarks. Bumped to v4.7.6 and verified build. | Apply migration 008 to Flux Supabase, load unpacked extension, hit Sync now, and verify Batch 1 tables populate. |
+| 2026-05-26 | Antigravity | Mike Transcript Features | Done comprehensive reconciliation, created specs #203-#206, enriched existing features (#184, #188, #192) with transcript details. | Proceed with prioritized Phase 3/4 development |
+
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-
-
