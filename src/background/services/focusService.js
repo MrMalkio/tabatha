@@ -200,6 +200,24 @@ async function emitAudit(type, message) {
   });
 }
 
+// ── Auto-generated system checkpoint for lifecycle transitions ──
+function autoCheckpoint(item, event) {
+  if (!item) return;
+  if (!item.checkpoint) item.checkpoint = [];
+  let elapsedAtMs = item.elapsedMs || 0;
+  if (item.lastResumedAt) elapsedAtMs += Date.now() - new Date(item.lastResumedAt).getTime();
+  item.checkpoint.push({
+    id: `sys_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    text: event,
+    progressLevel: 'none',
+    progressValue: 0,
+    createdAt: new Date().toISOString(),
+    focusId: item.id,
+    elapsedAtMs,
+    triggeredBy: 'system'
+  });
+}
+
 export async function getFocusEngine() {
   const { focusEngine } = await getStorage('focusEngine');
   const engine = focusEngine ? { ...focusEngine } : { ...DEFAULT_FOCUS_ENGINE };
@@ -254,6 +272,7 @@ function pauseItem(item, reason, engine) {
   item.pausedAt = new Date().toISOString();
   if (reason) item.pausedReason = reason;
   if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
+  autoCheckpoint(item, reason ? `Paused (${reason})` : 'Paused');
 }
 
 async function persistFocusHistoryCap(engine) {
@@ -314,6 +333,7 @@ export async function startFocus(label, timerMinutes = 15, tags = {}) {
     lastCheckpointAt: null,
     checkpointSnoozedUntil: null
   };
+  autoCheckpoint(engine.items[id], 'Focus started');
 
   engine.activeFocusId = id;
   await setFocusEngine(engine);
@@ -419,6 +439,7 @@ export async function completeFocus(focusId) {
   if (item.focusState === 'active' || item.focusState === 'drifted') {
     addElapsedSinceResume(item, engine);
   }
+  autoCheckpoint(item, 'Completed / Resolved');
   item.focusState = 'completed';
   item.funnelStage = 'resolved';
   item.endedAt = new Date().toISOString();
@@ -529,6 +550,7 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
   item.backburnered = true;
   item.backburneredAt = new Date().toISOString();
   item.backburnerDurationMinutes = durationMinutes;
+  autoCheckpoint(item, `Backburnered for ${durationMinutes}m${reason ? ': ' + reason : ''}`);
   item.backburnerReason = reason;
   item.lastPausedAt = new Date().toISOString();
   item.backburnerExpired = false; // reset expired flag
@@ -754,6 +776,7 @@ async function resumeFocus(focusId) {
   item.focusState = 'active';
   item.lastResumedAt = new Date().toISOString();
   item.pausedAt = null;
+  autoCheckpoint(item, 'Resumed');
   if (item.funnelStage === 'focus' || item.funnelStage === 'todo' || item.funnelStage === 'unsorted') {
     item.funnelStage = 'addressing';
   }

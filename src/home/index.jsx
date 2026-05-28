@@ -307,12 +307,12 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
             <div style={{ marginTop: '10px', padding: '8px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>📊 Checkpoint Timeline</div>
               {(activeFocus.checkpoint || []).slice().reverse().map((cpn, i) => (
-                <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px' }}>
+                <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px', opacity: cpn.triggeredBy === 'system' ? 0.6 : 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                    <span style={{ fontWeight: 600 }}>{LEVEL_EMOJI[cpn.progressLevel] || '📋'} {cpn.progressLevel?.replace('_', ' ')}</span>
+                    <span style={{ fontWeight: 600 }}>{cpn.triggeredBy === 'system' ? '⚙️' : (LEVEL_EMOJI[cpn.progressLevel] || '📋')} {cpn.triggeredBy === 'system' ? cpn.text : cpn.progressLevel?.replace('_', ' ')}</span>
                     <span style={{ fontSize: '9px', color: 'var(--color-text-muted)' }}>{cpn.createdAt ? new Date(cpn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} · {Math.floor((cpn.elapsedAtMs || 0) / 60000)}m in</span>
                   </div>
-                  {cpn.text && <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', lineHeight: 1.3 }}>{cpn.text}</div>}
+                  {cpn.text && cpn.triggeredBy !== 'system' && <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', lineHeight: 1.3 }}>{cpn.text}</div>}
                 </div>
               ))}
             </div>

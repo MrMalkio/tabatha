@@ -348,7 +348,7 @@
   2. Add a manual "test connection" button
   3. Both: auto-detect + manual test + download URL placeholder
 
-## 2026-05-28 — Video Call Idle Suppression + Calendar Tie-in
+## ~~2026-05-28 — Video Call Idle Suppression + Calendar Tie-in~~ ✅ PARTIAL (URL added, calendar deferred to Plan 035)
 - **Noticed while:** Regression testing T6 (video call suppression)
 - **What:** Current suppression relies on tab audible state. Should ALSO consider: (1) URL matching for known meeting domains, (2) calendar events with Meet/Zoom links attached (when calendar integration is available).
 - **Why it matters:** Audible-only detection misses muted calls, silent presentations, and pre-meeting tabs.
