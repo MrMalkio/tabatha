@@ -57,6 +57,7 @@ const SECTIONS = [
   { id: 'privacy', label: '🔒 Privacy & Capture' },
   { id: 'webhooks', label: '🔗 Webhooks' },
   { id: 'desktop', label: '🖥️ Desktop Activity' },
+  { id: 'integrations', label: '🔌 Integrations' },
   { id: 'developer', label: '🛠 Developer' },
   { id: 'about', label: 'ℹ️ About' },
 ];
@@ -1594,6 +1595,92 @@ function Settings() {
 
             {activeSection === 'desktop' && (
               <DesktopActivityPanel settings={settings} updateSetting={updateSetting} />
+            )}
+
+            {activeSection === 'integrations' && (
+              <div>
+                <div style={sectionLabel}>🔌 External Integrations</div>
+                <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  Connect Tabatha to external services for enhanced time tracking and project management.
+                </p>
+
+                {/* Asana */}
+                <GlassCard style={{ padding: '16px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '16px' }}>📋</span>
+                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Asana</span>
+                    </div>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
+                      background: settings.asanaWidgetEnabled ? '#66bb6a22' : '#9e9e9e22',
+                      color: settings.asanaWidgetEnabled ? '#66bb6a' : '#9e9e9e',
+                    }}>
+                      {settings.asanaWidgetEnabled ? '✓ Enabled' : '○ Not configured'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0 0 8px', lineHeight: 1.5 }}>
+                    Push time entries from Tabatha clock sessions to your Asana workspace via the Flux Asana Widget.
+                    Requires the Flux Widget Server running locally.
+                  </p>
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Widget Server URL</span>
+                    <input
+                      type="text" placeholder="https://localhost:8443"
+                      value={settings.asanaWidgetUrl || ''}
+                      onChange={(e) => updateSetting('asanaWidgetUrl', e.target.value)}
+                      style={{ ...inputStyle, width: '200px' }}
+                    />
+                  </div>
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Enable Asana sync</span>
+                    <Toggle value={!!settings.asanaWidgetEnabled} onChange={v => updateSetting('asanaWidgetEnabled', v)} />
+                  </div>
+                  <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '8px 0 0', lineHeight: 1.5, fontStyle: 'italic' }}>
+                    📘 See <strong>docs/guides/asana-integration.md</strong> for full setup instructions.
+                  </p>
+                </GlassCard>
+
+                {/* Supabase */}
+                <GlassCard style={{ padding: '16px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '16px' }}>☁️</span>
+                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Supabase Cloud Sync</span>
+                    </div>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
+                      background: isSignedIn ? '#66bb6a22' : '#9e9e9e22',
+                      color: isSignedIn ? '#66bb6a' : '#9e9e9e',
+                    }}>
+                      {isSignedIn ? '✓ Connected' : '○ Not signed in'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0', lineHeight: 1.5 }}>
+                    Sync focuses, clock sessions, and org data to the cloud. Manage your account in the <strong>Sync & Account</strong> section.
+                  </p>
+                </GlassCard>
+
+                {/* Desktop Companion */}
+                <GlassCard style={{ padding: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '16px' }}>🖥️</span>
+                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Desktop Companion</span>
+                    </div>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
+                      background: settings.companionEnabled ? '#66bb6a22' : '#9e9e9e22',
+                      color: settings.companionEnabled ? '#66bb6a' : '#9e9e9e',
+                    }}>
+                      {settings.companionEnabled ? '✓ Enabled' : '○ Not configured'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0', lineHeight: 1.5 }}>
+                    Tracks active desktop applications to provide cross-app activity context. Configure in the <strong>Desktop Activity</strong> section.
+                  </p>
+                </GlassCard>
+              </div>
             )}
 
             {activeSection === 'developer' && (
