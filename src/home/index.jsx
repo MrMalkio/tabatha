@@ -130,7 +130,8 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   };
 
   // Plan 025: CPN helpers
-  const cpnCount = (activeFocus.checkpoint || []).length;
+  const cpnCount = (activeFocus.checkpoint || []).filter(c => c.triggeredBy !== 'system').length;
+  const cpnTotalCount = (activeFocus.checkpoint || []).length;
   const isStale = activeFocus.lastCheckpointAt
     ? (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000
     : activeFocus.startedAt && (Date.now() - new Date(activeFocus.startedAt).getTime()) > 30 * 60000;
@@ -217,7 +218,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         <Tooltip text={`Checkpoint note${isStale ? ' (overdue!)' : ''}`}>
           <button onClick={() => setShowCPN(!showCPN)} style={btnStyle(isStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isStale ? '🟠' : ''}{cpnCount > 0 ? ` (${cpnCount})` : ''}</button>
         </Tooltip>
-        {cpnCount > 0 && (
+        {cpnTotalCount > 0 && (
           <Tooltip text="View checkpoint timeline">
             <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
           </Tooltip>
@@ -302,7 +303,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       </AnimatePresence>
       {/* Plan 025: Checkpoint Timeline */}
       <AnimatePresence>
-        {showTimeline && cpnCount > 0 && (
+        {showTimeline && cpnTotalCount > 0 && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
             <div style={{ marginTop: '10px', padding: '8px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>📊 Checkpoint Timeline</div>

@@ -378,6 +378,7 @@ export async function addFocus(label, timerMinutes = 15, tags = {}) {
     parentFocusId: engine.activeFocusId || null,
     contextSwitchCount: 0,
     offDevice: false,
+    priority: 5,
     checkpoint: [],
     lastCheckpointAt: null,
     checkpointSnoozedUntil: null
@@ -584,12 +585,24 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
       label: createNewFocusLabel.trim(),
       description: `Temporary focus while waiting for "${item.label}"`,
       focusState: 'active',
+      funnelStage: 'addressing',
+      createdAt: new Date().toISOString(),
       startedAt: new Date().toISOString(),
       lastResumedAt: new Date().toISOString(),
+      endedAt: null,
+      pausedAt: null,
+      timerMinutes: 15,
+      elapsedMs: 0,
+      overMs: 0,
       checkpoint: [],
       tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
-      elapsedMs: 0,
       associatedTabIds: [...(item.associatedTabIds || [])],
+      parentFocusId: null,
+      contextSwitchCount: 0,
+      priority: 5,
+      offDevice: false,
+      lastCheckpointAt: null,
+      checkpointSnoozedUntil: null,
       backburnerTransitionFocusId: id
     };
     newActiveFocusId = newId;
