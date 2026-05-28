@@ -383,7 +383,7 @@
   1. Create companion feature sync plan after Plan 031 lands ← **suggested**
   2. Bundle into existing Plan 019 (distribution)
 
-## 2026-05-28 — Backburner + New Focus Edge Case
+## ~~2026-05-28 — Backburner + New Focus Edge Case~~ ✅ RESOLVED
 - **Noticed while:** Regression testing RT-9 (InBar edit dropdown options)
 - **What:** When backburnering a focus and choosing "create new" instead of selecting from the list, the current tab loses its intent assignment and the InBar edit dropdown shows no focuses to select from. The newly created focus does become active, but the tab→focus association is broken.
 - **Why it matters:** Users commonly backburner and immediately start fresh work. The new focus should auto-associate with the current tab and the InBar should reflect the new intent.
@@ -392,7 +392,7 @@
   2. Re-run `checkContextNeeded` on the active tab after backburner completes
   3. Both: explicit association + context re-check
 
-## 2026-05-28 — Homepage Section Navigation Sidebar
+## ~~2026-05-28 — Homepage Section Navigation Sidebar~~ ✅ RESOLVED
 - **Noticed while:** User feedback during regression testing
 - **What:** User wants the collapsible section headers (Shift Controls, Now, Focus Engine, Activity, Analytics, Context Activity, Panels) moved out of the main body and into a persistent left sidebar for quick navigation. Clicking a sidebar item scrolls to that section. Current header icons: ⏱️, 🎯, 🔍, 📊, 📈, 📊, 📋.
 - **Why it matters:** As the homepage grows, vertical scroll to find sections becomes friction. Sidebar nav provides at-a-glance overview + one-click jumps.

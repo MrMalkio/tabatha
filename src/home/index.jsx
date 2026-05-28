@@ -208,6 +208,9 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         <Tooltip text="Add a new intent">
           <button onClick={() => setAddMode(addMode === 'intent' ? null : 'intent')} style={btnStyle(addMode === 'intent' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>+ Intent</button>
         </Tooltip>
+        <Tooltip text="Add a sub-focus under this focus">
+          <button onClick={() => setAddMode(addMode === 'subfocus' ? null : 'subfocus')} style={btnStyle(addMode === 'subfocus' ? '#ab47bc' : 'var(--color-text-muted)')}>📌 Sub-focus</button>
+        </Tooltip>
         <Tooltip text={activeFocus.offDevice ? 'Off-device ON — popups suppressed' : 'Mark as off-device — suppress popups'}>
           <button onClick={toggleOffDevice} style={btnStyle(activeFocus.offDevice ? '#ef5350' : 'var(--color-text-muted)')}>{activeFocus.offDevice ? '📴 Off-Device' : '📱'}</button>
         </Tooltip>
@@ -342,6 +345,7 @@ function FocusQueue({ items, actions }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <span style={{ fontSize: '10px', color: funnel.color }}>{funnel.icon}</span>
                 <span style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                {item.parentFocusId && <span style={{ fontSize: '8px', color: '#ab47bc', background: '#ab47bc18', padding: '1px 4px', borderRadius: '3px', fontWeight: 600 }}>child</span>}
                 {item.focusState === 'paused' && <span style={{ fontSize: '9px', color: '#ffa726' }}>⏸</span>}
                 <span style={{ fontSize: '10px', color: funnel.color, textTransform: 'capitalize' }}>{item.funnelStage || 'unsorted'}</span>
               </div>
