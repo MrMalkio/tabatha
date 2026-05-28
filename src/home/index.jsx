@@ -474,6 +474,118 @@ function CollapsibleSection({ id, title, icon, defaultOpen = true, children, col
   );
 }
 
+// ── Section Navigation definitions ──
+const SECTION_NAV = [
+  { id: 'shift', label: 'Shift Controls', icon: '⏱️' },
+  { id: 'nowbar', label: 'Now', icon: '🎯' },
+  { id: 'focus', label: 'Focus Engine', icon: '🔍' },
+  { id: 'heatmap', label: 'Activity', icon: '📊' },
+  { id: 'analytics', label: 'Analytics', icon: '📈' },
+  { id: 'activity', label: 'Context Activity', icon: '📊' },
+  { id: 'panels', label: 'Panels', icon: '📋' },
+];
+
+// ── SectionNav ── persistent sidebar for quick section navigation
+function SectionNav({ collapsedSections, setCollapsedSections }) {
+  const [activeId, setActiveId] = useState(SECTION_NAV[0]?.id);
+
+  // Scroll-spy: track which section is currently in view
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.id.replace('section-', '');
+            setActiveId(sectionId);
+          }
+        }
+      },
+      { rootMargin: '-80px 0px -60% 0px', threshold: 0.1 }
+    );
+
+    const timer = setTimeout(() => {
+      for (const s of SECTION_NAV) {
+        const el = document.getElementById(`section-${s.id}`);
+        if (el) observer.observe(el);
+      }
+    }, 300);
+
+    return () => { clearTimeout(timer); observer.disconnect(); };
+  }, []);
+
+  const handleClick = (id) => {
+    // Auto-expand if collapsed
+    if (collapsedSections.includes(id)) {
+      setCollapsedSections(prev => {
+        const next = prev.filter(s => s !== id);
+        chrome?.storage?.local?.set?.({ collapsedSections: next });
+        return next;
+      });
+    }
+    setTimeout(() => {
+      document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
+  return (
+    <nav style={{
+      position: 'sticky',
+      top: '16px',
+      width: '44px',
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '2px',
+      paddingTop: '72px',
+      alignSelf: 'flex-start',
+      zIndex: 10,
+    }}>
+      {SECTION_NAV.map(s => {
+        const isActive = activeId === s.id;
+        const isCollapsed = collapsedSections.includes(s.id);
+        return (
+          <button
+            key={s.id}
+            onClick={() => handleClick(s.id)}
+            title={s.label}
+            style={{
+              background: isActive ? 'var(--color-accent-primary)' : 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '15px',
+              opacity: isCollapsed ? 0.4 : (isActive ? 1 : 0.6),
+              transition: 'all 0.2s ease',
+              position: 'relative',
+              color: isActive ? '#000' : 'var(--color-text-primary)',
+            }}
+          >
+            {s.icon}
+            {isActive && (
+              <span style={{
+                position: 'absolute',
+                left: '-2px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '3px',
+                height: '18px',
+                borderRadius: '2px',
+                background: 'var(--color-accent-primary)',
+                display: isActive ? 'block' : 'none',
+              }} />
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 // ── FocusHistory ──
 function FocusHistory({ history }) {
   const [expanded, setExpanded] = useState(false);
@@ -1500,6 +1612,11 @@ function Home() {
         {/* Other browser-profile installs of this user — awareness chips */}
         <OtherProfilesStrip style={{ marginBottom: '8px' }} />
 
+        {/* Main layout: SectionNav sidebar + content */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+          <SectionNav collapsedSections={collapsedSections} setCollapsedSections={setCollapsedSections} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+
         {/* Shift Controls — hidden on Personal-classified profiles */}
         {!isPersonal ? (
           <CollapsibleSection id="shift" title="Shift Controls" icon="⏱️" collapsedSections={collapsedSections} toggleSection={toggleSection}>
@@ -1921,6 +2038,8 @@ function Home() {
             </div>
           </div>
         )}
+          </div>{/* end content column */}
+        </div>{/* end flex wrapper */}
       </div>
 
       <LinkMergeModal 

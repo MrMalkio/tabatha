@@ -566,9 +566,12 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
       lastResumedAt: new Date().toISOString(),
       checkpoint: [],
       tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
-      elapsedMs: 0
+      elapsedMs: 0,
+      associatedTabIds: [...(item.associatedTabIds || [])],
+      backburnerTransitionFocusId: id
     };
     newActiveFocusId = newId;
+    item.backburnerTransitionFocusId = newId;
 
     // Create default 15 min focus timer for new temporary focus if desired
     chrome.alarms.create(`focus-timer-${newId}`, { delayInMinutes: 15 });
