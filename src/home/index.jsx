@@ -438,13 +438,19 @@ function BackburnerDock({ items, actions }) {
 function CollapsibleSection({ id, title, icon, defaultOpen = true, children, collapsedSections, toggleSection, compact, action }) {
   const isOpen = collapsedSections ? !collapsedSections.includes(id) : defaultOpen;
 
+  // When collapsed, render only a tiny scroll anchor — no visible header
+  if (!isOpen) {
+    return <div id={`section-${id}`} style={{ height: '0px', overflow: 'hidden' }} />;
+  }
+
   return (
-    <div id={`section-${id}`} style={{ marginBottom: isOpen ? '12px' : (compact ? '0' : '4px') }}>
+    <div id={`section-${id}`} style={{ marginBottom: '12px' }}>
+      {/* Minimal header row — only show action buttons, title is in the sidebar */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: isOpen ? '6px' : '0',
+        marginBottom: '6px',
         width: '100%'
       }}>
         <button
@@ -452,28 +458,25 @@ function CollapsibleSection({ id, title, icon, defaultOpen = true, children, col
           style={{
             background: 'transparent', border: 'none', color: 'var(--color-text-muted)',
             fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em',
-            fontWeight: 600, cursor: 'pointer', padding: compact && !isOpen ? '0' : '2px 0',
+            fontWeight: 600, cursor: 'pointer', padding: '2px 0',
             display: 'flex', alignItems: 'center', gap: '6px', flex: 1, textAlign: 'left',
           }}
         >
-          <span style={{ fontSize: '12px', transition: 'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
           {icon && <span style={{ fontSize: '11px' }}>{icon}</span>}
           {title}
         </button>
-        {isOpen && action}
+        {action}
       </div>
       <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            {children}
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          style={{ overflow: 'hidden' }}
+        >
+          {children}
+        </motion.div>
       </AnimatePresence>
     </div>
   );
@@ -491,7 +494,7 @@ const SECTION_NAV = [
 ];
 
 // ── SectionNav ── persistent sidebar for quick section navigation
-function SectionNav({ collapsedSections, setCollapsedSections }) {
+function SectionNav({ collapsedSections, setCollapsedSections, sidebarExpanded, setSidebarExpanded }) {
   const [activeId, setActiveId] = useState(SECTION_NAV[0]?.id);
 
   // Scroll-spy: track which section is currently in view
@@ -519,74 +522,142 @@ function SectionNav({ collapsedSections, setCollapsedSections }) {
   }, []);
 
   const handleClick = (id) => {
-    // Auto-expand if collapsed
-    if (collapsedSections.includes(id)) {
+    const isCollapsed = collapsedSections.includes(id);
+    if (activeId === id && !isCollapsed) {
+      // Already viewing this section → collapse it
       setCollapsedSections(prev => {
-        const next = prev.filter(s => s !== id);
+        const next = [...prev, id];
         chrome?.storage?.local?.set?.({ collapsedSections: next });
         return next;
       });
+    } else {
+      // Navigate to this section → expand if collapsed
+      if (isCollapsed) {
+        setCollapsedSections(prev => {
+          const next = prev.filter(s => s !== id);
+          chrome?.storage?.local?.set?.({ collapsedSections: next });
+          return next;
+        });
+      }
+      setTimeout(() => {
+        document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
     }
-    setTimeout(() => {
-      document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
   };
 
+  // Split: open sections stay in order at top, collapsed go to bottom
+  const openSections = SECTION_NAV.filter(s => !collapsedSections.includes(s.id));
+  const closedSections = SECTION_NAV.filter(s => collapsedSections.includes(s.id));
+
   return (
-    <nav style={{
-      position: 'sticky',
-      top: '16px',
-      width: '44px',
-      flexShrink: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '2px',
-      paddingTop: '72px',
-      alignSelf: 'flex-start',
-      zIndex: 10,
-    }}>
-      {SECTION_NAV.map(s => {
+    <nav
+      onMouseEnter={() => setSidebarExpanded(true)}
+      onMouseLeave={() => setSidebarExpanded(false)}
+      style={{
+        position: 'sticky',
+        top: '16px',
+        width: sidebarExpanded ? '160px' : '44px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
+        paddingTop: '72px',
+        alignSelf: 'flex-start',
+        zIndex: 10,
+        transition: 'width 0.2s ease',
+        overflow: 'hidden',
+      }}>
+      {openSections.map(s => {
         const isActive = activeId === s.id;
-        const isCollapsed = collapsedSections.includes(s.id);
         return (
           <button
             key={s.id}
             onClick={() => handleClick(s.id)}
-            title={s.label}
+            title={sidebarExpanded ? undefined : s.label}
             style={{
               background: isActive ? 'var(--color-accent-primary)' : 'transparent',
               border: 'none',
               borderRadius: '6px',
-              width: '36px',
-              height: '36px',
+              width: '100%',
+              height: '34px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '8px',
+              padding: '0 8px',
               cursor: 'pointer',
               fontSize: '15px',
-              opacity: isCollapsed ? 0.4 : (isActive ? 1 : 0.6),
+              opacity: isActive ? 1 : 0.6,
               transition: 'all 0.2s ease',
               position: 'relative',
               color: isActive ? '#000' : 'var(--color-text-primary)',
+              whiteSpace: 'nowrap',
             }}
           >
-            {s.icon}
+            <span style={{ flexShrink: 0, width: '20px', textAlign: 'center' }}>{s.icon}</span>
+            {sidebarExpanded && (
+              <span style={{
+                fontSize: '11px',
+                fontWeight: isActive ? 700 : 500,
+                letterSpacing: '0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>{s.label}</span>
+            )}
             {isActive && (
               <span style={{
                 position: 'absolute',
-                left: '-2px',
+                left: '0px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 width: '3px',
                 height: '18px',
                 borderRadius: '2px',
                 background: 'var(--color-accent-primary)',
-                display: isActive ? 'block' : 'none',
               }} />
             )}
           </button>
         );
       })}
+      {closedSections.length > 0 && (
+        <>
+          <div style={{ height: '1px', background: 'var(--color-border)', margin: '6px 4px', opacity: 0.4 }} />
+          {closedSections.map(s => (
+            <button
+              key={s.id}
+              onClick={() => handleClick(s.id)}
+              title={sidebarExpanded ? undefined : `${s.label} (closed)`}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                width: '100%',
+                height: '30px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0 8px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                opacity: 0.3,
+                transition: 'all 0.2s ease',
+                color: 'var(--color-text-muted)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span style={{ flexShrink: 0, width: '20px', textAlign: 'center' }}>{s.icon}</span>
+              {sidebarExpanded && (
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 400,
+                  textDecoration: 'line-through',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>{s.label}</span>
+              )}
+            </button>
+          ))}
+        </>
+      )}
     </nav>
   );
 }
@@ -1359,6 +1430,7 @@ function Home() {
   const [recentlyClosed, setRecentlyClosed] = useState([]);
   const [welcomeBack, setWelcomeBack] = useState(null);
   const [collapsedSections, setCollapsedSections] = useState([]);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   // Load collapsed state from storage
   useEffect(() => {
@@ -1619,7 +1691,7 @@ function Home() {
 
         {/* Main layout: SectionNav sidebar + content */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-          <SectionNav collapsedSections={collapsedSections} setCollapsedSections={setCollapsedSections} />
+          <SectionNav collapsedSections={collapsedSections} setCollapsedSections={setCollapsedSections} sidebarExpanded={sidebarExpanded} setSidebarExpanded={setSidebarExpanded} />
           <div style={{ flex: 1, minWidth: 0 }}>
 
         {/* Shift Controls — hidden on Personal-classified profiles */}
