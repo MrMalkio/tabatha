@@ -5,6 +5,59 @@
 
 ---
 
+## Session - 2026-05-28 (Unified Calendar Plan 030 Architecture)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** working tree (master/staging)
+**Goal:** Architect the Unified Calendar & Scheduling System (Plan 030) with Google, Outlook, and iCal parity.
+
+### What Was Done
+
+- [x] **Technical Scoping & Architecture Design** — Authored the comprehensive implementation plan for Plan 030 in `docs/Plan-030-time-blocking-calendar.md`.
+- [x] **Database Schema Specification** — Designed local SQL schemas for calendars (`tabatha_calendars`) and events (`tabatha_calendar_events`) including RRule recurrence engines and focus/task bindings.
+- [x] **UI/UX Component Mockups** — Designed React structural specifications for both the full-page Month/Week/Day `CalendarView` (Homepage) and the vertical compact agenda view `CalendarAgenda` (Sidebar).
+- [x] **Sync Engine Definition** — Detailed the incremental sync protocol utilizing delta tokens, background fetch loops via alarms, and immediate outbound push triggers with debounced writes.
+- [x] **Parallelability & Handoff Review** — Analyzed dependencies against the current `feat/gap-completion` worktree to guarantee safe, parallelized task distribution.
+
+### Key Decisions
+
+- **Visual Parity**: Committed to a React Big Calendar component architecture with custom Framer Motion drag/drop event triggers.
+- **Offline-First Storage**: Stored local calendar items inside Chrome extension state, with Supabase database backing as the authoritative sync registry.
+
+### Next Steps
+
+- Initiate Phase 1 implementation by executing the local calendar schema migrations.
+- Build out the React Homepage Calendar grid view.
+
+## Session - 2026-05-28 (Backburner Frontend & Core Alarm Engine Implementation)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** working tree (master/staging)
+**Goal:** Implement the "Back Burner" (#207) momentary check-in UI and core alarm notification engine.
+
+### What Was Done
+
+- [x] **Backburner Focus Implementation** — Created the `backburnerFocus` business logic inside `focusService.js` that updates the item in `focusEngine` with `backburnered: true`, duration, reason, and registers alarms. Handles automatic switching to an existing focus or creating a brand new temporary focus.
+- [x] **Chrome Alarms Service Integration** — Added the `backburner-timer-*` alarm listener in `alarmsService.js`. When the alarm fires, it flags the focus as `backburnerExpired: true`, clears active overlay states, and broadcasts a `BACKBURNER_ALERT` event to all pages and content scripts.
+- [x] **InBar Prompt & Overlay Card UI** —
+  - Added the Backburner button in the InBar footer.
+  - Implemented the dropdown popup for setting backburner duration, entering the reason, selecting a fallback focus from active focus items, or creating a new temporary focus.
+  - Built the `backburner-alert-card` that pops up when a backburner timer expires. Includes **Dismiss** (clears backburner states), **Snooze** (adds 10m to alarm), and **Resume Focus** (activates backburnered focus and dismisses).
+- [x] **Message Handler Registration** — Added `DISMISS_BACKBURNER` and `SNOOZE_BACKBURNER` runtime message handlers to the service router.
+- [x] **Successful Build** — Ran `npm run build` with 100% success (0 errors).
+
+### Key Decisions
+
+- **InBar Presence**: Decided to utilize standard content script overlays within the shadow DOM to keep alerts completely non-intrusive and natively integrated without requiring complex host window context manipulations.
+- **Snooze Duration**: Hardcoded to 10 minutes by default for high predictability.
+
+### Next Steps
+
+- Proceed with testing of the Backburner UI and full lifecycle in a live unpacked Chrome extension environment.
+- Integrate the remaining features from Plan 031 once this foundation is fully verified.
+
+---
+
 ## Session - 2026-05-28 (Backburner & Smart Deferral Scoping)
 
 **Agent:** Antigravity (Gemini)

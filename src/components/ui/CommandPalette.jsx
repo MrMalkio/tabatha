@@ -78,6 +78,7 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
       { type: 'action', icon: '🏢', label: 'View projects', actionFn: () => navigate('projects') },
       { type: 'action', icon: '🏛️', label: 'View org hierarchy', actionFn: () => navigate('org') },
       { type: 'action', icon: '⚙️', label: 'Open settings', actionFn: () => { window.open(chrome.runtime.getURL('settings.html')); close(); } },
+      { type: 'action', icon: '🖥️', label: 'Open activity editor', actionFn: () => { window.open(chrome.runtime.getURL('activity.html')); close(); } },
       { type: 'action', icon: '🎨', label: 'Switch theme', actionFn: () => navigate('theme') },
     ];
     

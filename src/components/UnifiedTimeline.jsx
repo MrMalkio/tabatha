@@ -58,10 +58,11 @@ function formatTimeOfDay(isoString) {
   }
 }
 
-export default function UnifiedTimeline({ compact = false }) {
+export default function UnifiedTimeline({ compact = false, selectedDate = null }) {
   const [connected, setConnected] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [clockSession, setClockSession] = useState(null);
+  const [clockHistory, setClockHistory] = useState([]);
   const [hoveredSession, setHoveredSession] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [dayStartTime, setDayStartTime] = useState('00:00');
@@ -72,11 +73,12 @@ export default function UnifiedTimeline({ compact = false }) {
   useEffect(() => {
     // Load initial data
     chrome.storage.local.get(
-      ['companionConnected', 'companionRecentSessions', 'clockSession', 'settings'],
+      ['companionConnected', 'companionRecentSessions', 'clockSession', 'clockHistory', 'settings'],
       (result) => {
         setConnected(!!result.companionConnected);
         setSessions(result.companionRecentSessions || []);
         setClockSession(result.clockSession || null);
+        setClockHistory(result.clockHistory || []);
         if (result.settings?.activityDayStartTime) {
           setDayStartTime(result.settings.activityDayStartTime);
         }
@@ -100,6 +102,9 @@ export default function UnifiedTimeline({ compact = false }) {
       if (changes.clockSession) {
         setClockSession(changes.clockSession.newValue || null);
       }
+      if (changes.clockHistory) {
+        setClockHistory(changes.clockHistory.newValue || []);
+      }
       if (changes.settings?.newValue) {
         const s = changes.settings.newValue;
         if (s.activityDayStartTime !== undefined) setDayStartTime(s.activityDayStartTime || '00:00');
@@ -118,9 +123,16 @@ export default function UnifiedTimeline({ compact = false }) {
 
     // Parse day start time setting (e.g. "09:00")
     const [startH, startM] = (dayStartTime || '00:00').split(':').map(Number);
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startH, startM).getTime();
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+    
+    // Base selectedDate support
+    let baseDate = new Date();
+    if (selectedDate) {
+      const [y, m, d] = selectedDate.split('-').map(Number);
+      baseDate = new Date(y, m - 1, d);
+    }
+    
+    const todayStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), startH, startM).getTime();
+    const todayEnd = todayStart + 86400000;
 
     const minMs = (minDurationSec || 0) * 1000;
 
@@ -148,6 +160,7 @@ export default function UnifiedTimeline({ compact = false }) {
         startMs: new Date(s.started_at || s.startedAt).getTime(),
         endMs: new Date(s.ended_at || s.endedAt || s.started_at || s.startedAt).getTime(),
         durationMs: s.duration_ms,
+        category: s.category || 'other',
       }))
       .filter(s => s.startMs >= todayStart && s.startMs < todayEnd)
       .filter(s => !isHidden(s.startMs))
@@ -185,11 +198,26 @@ export default function UnifiedTimeline({ compact = false }) {
       completed = merged;
     }
 
-    // Add break segments from clockSession
-    if (clockSession?.active && clockSession.breaks?.length) {
-      for (const brk of clockSession.breaks) {
+    // Add break segments from clockSession and clockHistory
+    const allBreaks = [];
+    if (clockSession?.breaks?.length) {
+      allBreaks.push(...clockSession.breaks);
+    }
+    if (clockSession?.onBreak && clockSession.breakStartedAt) {
+      allBreaks.push({ start: clockSession.breakStartedAt, end: new Date().toISOString() });
+    }
+    if (clockHistory?.length) {
+      for (const hist of clockHistory) {
+        if (hist.breaks?.length) {
+          allBreaks.push(...hist.breaks);
+        }
+      }
+    }
+
+    if (allBreaks.length) {
+      for (const brk of allBreaks) {
         const bStart = new Date(brk.start).getTime();
-        const bEnd = new Date(brk.end).getTime();
+        const bEnd = new Date(brk.end || Date.now()).getTime();
         if (bStart >= todayStart && bStart < todayEnd && !isHidden(bStart)) {
           completed.push({
             id: `break-${bStart}`,
@@ -199,22 +227,6 @@ export default function UnifiedTimeline({ compact = false }) {
             category: 'break',
             app_display_name: 'Break',
             window_title: 'On break',
-            isBreak: true,
-          });
-        }
-      }
-      // Also add active break if currently on break
-      if (clockSession.onBreak && clockSession.breakStartedAt) {
-        const bStart = new Date(clockSession.breakStartedAt).getTime();
-        if (bStart >= todayStart && bStart < todayEnd && !isHidden(bStart)) {
-          completed.push({
-            id: 'break-active',
-            startMs: bStart,
-            endMs: Date.now(),
-            durationMs: Date.now() - bStart,
-            category: 'break',
-            app_display_name: 'Break (active)',
-            window_title: 'Currently on break',
             isBreak: true,
           });
         }
@@ -356,7 +368,7 @@ export default function UnifiedTimeline({ compact = false }) {
           alignItems: 'center',
           gap: '6px',
         }}>
-          🖥️ Context Activity — Today
+          🖥️ Context Activity — {selectedDate || 'Today'}
           <span style={{
             fontSize: '9px',
             opacity: 0.7,

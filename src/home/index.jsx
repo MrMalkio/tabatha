@@ -371,24 +371,33 @@ function FocusQueue({ items, actions }) {
 }
 
 // ── CollapsibleSection ──
-function CollapsibleSection({ id, title, icon, defaultOpen = true, children, collapsedSections, toggleSection, compact }) {
+function CollapsibleSection({ id, title, icon, defaultOpen = true, children, collapsedSections, toggleSection, compact, action }) {
   const isOpen = collapsedSections ? !collapsedSections.includes(id) : defaultOpen;
 
   return (
     <div id={`section-${id}`} style={{ marginBottom: isOpen ? '12px' : (compact ? '0' : '4px') }}>
-      <button
-        onClick={() => toggleSection?.(id)}
-        style={{
-          background: 'transparent', border: 'none', color: 'var(--color-text-muted)',
-          fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em',
-          fontWeight: 600, cursor: 'pointer', padding: compact && !isOpen ? '0' : '2px 0',
-          marginBottom: isOpen ? '6px' : '0', display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
-        }}
-      >
-        <span style={{ fontSize: '12px', transition: 'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
-        {icon && <span style={{ fontSize: '11px' }}>{icon}</span>}
-        {title}
-      </button>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: isOpen ? '6px' : '0',
+        width: '100%'
+      }}>
+        <button
+          onClick={() => toggleSection?.(id)}
+          style={{
+            background: 'transparent', border: 'none', color: 'var(--color-text-muted)',
+            fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em',
+            fontWeight: 600, cursor: 'pointer', padding: compact && !isOpen ? '0' : '2px 0',
+            display: 'flex', alignItems: 'center', gap: '6px', flex: 1, textAlign: 'left',
+          }}
+        >
+          <span style={{ fontSize: '12px', transition: 'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+          {icon && <span style={{ fontSize: '11px' }}>{icon}</span>}
+          {title}
+        </button>
+        {isOpen && action}
+      </div>
       <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
@@ -1557,7 +1566,43 @@ function Home() {
         </CollapsibleSection>
 
         {/* ═══ Collapsible: Context Activity Bar ═══ */}
-        <CollapsibleSection id="activity" title="Context Activity" icon="📊" compact collapsedSections={collapsedSections} toggleSection={toggleSection}>
+        <CollapsibleSection
+          id="activity"
+          title="Context Activity"
+          icon="📊"
+          compact
+          collapsedSections={collapsedSections}
+          toggleSection={toggleSection}
+          action={
+            <button
+              onClick={() => window.open(chrome.runtime.getURL('activity.html'), '_blank')}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: 'var(--color-accent-primary, #a3b59a)',
+                fontSize: '10px',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-sm, 4px)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.borderColor = 'var(--color-accent-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+              }}
+            >
+              ✏️ Edit Logs
+            </button>
+          }
+        >
           <UnifiedTimeline compact={false} />
         </CollapsibleSection>
 

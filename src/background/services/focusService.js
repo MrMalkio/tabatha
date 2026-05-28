@@ -49,6 +49,47 @@ export async function handleMessage(type, message) {
     case 'EXTEND_FOCUS_TIMER':
       return { focusEngine: await extendFocusTimer(message.focusId, message.extraMinutes) };
 
+    case 'LET_ME_COOK':
+      return { focusEngine: await letMeCook(message.focusId) };
+
+    case 'BACKBURNER_FOCUS': {
+      const engine = await backburnerFocus(
+        message.focusId,
+        message.durationMinutes,
+        message.reason,
+        message.switchToFocusId,
+        message.createNewFocusLabel
+      );
+      return { focusEngine: engine };
+    }
+
+    case 'DISMISS_BACKBURNER': {
+      const engine = await getFocusEngine();
+      const item = engine.items[message.focusId];
+      if (item) {
+        item.backburnered = false;
+        item.backburnerExpired = false;
+        chrome.alarms.clear(`backburner-timer-${message.focusId}`);
+        await setFocusEngine(engine);
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      }
+      return { focusEngine: engine };
+    }
+
+    case 'SNOOZE_BACKBURNER': {
+      const engine = await getFocusEngine();
+      const item = engine.items[message.focusId];
+      if (item) {
+        item.backburnerExpired = false;
+        item.backburnerDurationMinutes = 10;
+        chrome.alarms.clear(`backburner-timer-${message.focusId}`);
+        chrome.alarms.create(`backburner-timer-${message.focusId}`, { delayInMinutes: 10 });
+        await setFocusEngine(engine);
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      }
+      return { focusEngine: engine };
+    }
+
     case 'SET_FUNNEL_STAGE':
       return setFunnelStage(message.focusId, message.stage, message.confirmed);
 
@@ -371,6 +412,131 @@ export async function extendFocusTimer(focusId, extraMinutes = 5) {
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return engine;
+}
+
+export async function letMeCook(focusId) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  if (!id || !engine.items[id]) return engine;
+
+  const item = engine.items[id];
+  item.letMeCook = true;
+
+  // Clear focus timer and checkpoint prompt alarms so the user is never interrupted
+  chrome.alarms.clear(`focus-timer-${id}`);
+  chrome.alarms.clear(`checkpoint-prompt-${id}`);
+
+  if (item.focusState === 'drifted') {
+    if (item.lastResumedAt) {
+      item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    }
+    item.focusState = 'active';
+    item.lastResumedAt = new Date().toISOString();
+  }
+
+  await clearActivePopupForFocus(id);
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return engine;
+}
+
+export async function backburnerFocus(focusId, durationMinutes, reason, switchToFocusId, createNewFocusLabel) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  if (!id || !engine.items[id]) return engine;
+
+  const item = engine.items[id];
+  
+  // Set backburner properties
+  item.focusState = 'paused';
+  item.backburnered = true;
+  item.backburneredAt = new Date().toISOString();
+  item.backburnerDurationMinutes = durationMinutes;
+  item.backburnerReason = reason;
+  item.lastPausedAt = new Date().toISOString();
+  item.backburnerExpired = false; // reset expired flag
+  
+  // Update elapsed ms if active
+  if (id === engine.activeFocusId && item.lastResumedAt) {
+    item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    item.lastResumedAt = null;
+  }
+
+  // Clear focus/intent timers for the backburnered focus
+  chrome.alarms.clear(`focus-timer-${id}`);
+  chrome.alarms.clear(`checkpoint-prompt-${id}`);
+
+  // Create backburner alarm
+  const alarmName = `backburner-timer-${id}`;
+  chrome.alarms.create(alarmName, { delayInMinutes: durationMinutes });
+
+  // Update activeFocusId in engine
+  engine.activeFocusId = null;
+
+  // Track if we need to switch or create focus
+  let newActiveFocusId = null;
+
+  if (createNewFocusLabel && createNewFocusLabel.trim() !== '') {
+    // Create new focus
+    const newId = generateFocusId();
+    const resolvedTags = await applyDefaultRealm({});
+    engine.items[newId] = {
+      id: newId,
+      label: createNewFocusLabel.trim(),
+      description: `Temporary focus while waiting for "${item.label}"`,
+      focusState: 'active',
+      startedAt: new Date().toISOString(),
+      lastResumedAt: new Date().toISOString(),
+      checkpoint: [],
+      tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
+      elapsedMs: 0
+    };
+    newActiveFocusId = newId;
+
+    // Create default 15 min focus timer for new temporary focus if desired
+    chrome.alarms.create(`focus-timer-${newId}`, { delayInMinutes: 15 });
+  } else if (switchToFocusId && engine.items[switchToFocusId]) {
+    // Switch to existing focus
+    newActiveFocusId = switchToFocusId;
+    const targetItem = engine.items[switchToFocusId];
+    targetItem.focusState = 'active';
+    targetItem.lastResumedAt = new Date().toISOString();
+    
+    // Set timer for the existing focus if it had one
+    if (targetItem.timerEndAt) {
+      const remainingMs = new Date(targetItem.timerEndAt).getTime() - Date.now();
+      if (remainingMs > 0) {
+        chrome.alarms.create(`focus-timer-${switchToFocusId}`, { delayInMinutes: remainingMs / 60000 });
+      }
+    }
+  }
+
+  engine.activeFocusId = newActiveFocusId;
+
+  // Sync / broadcast updates
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return engine;
+}
+
+export async function handleBackburnerTimerExpired(focusId) {
+  const engine = await getFocusEngine();
+  if (!engine.items[focusId]) return;
+
+  const item = engine.items[focusId];
+  if (!item.backburnered) return;
+
+  // Mark backburner expired/alert state
+  item.backburnerExpired = true;
+  await setFocusEngine(engine);
+
+  // Broadcast alert so UI (InBar/popup) shows the return prompt beautifully
+  broadcastAll({
+    type: 'BACKBURNER_ALERT',
+    focusId,
+    label: item.label,
+    reason: item.backburnerReason
+  });
 }
 
 async function updateFocusTags(focusId, tags) {

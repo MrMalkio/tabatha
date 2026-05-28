@@ -28,12 +28,13 @@
 | 027 | multi_profile_sync | 2026-05-19 | Multi-Profile Awareness Sync Phase A+B+C — browser_profiles identity, classification axis, bootstrap pull org-registry dedup, Personal-classification hides clock UI, cross-profile awareness via browser_profile_status + Supabase Realtime | completed |
 | 028 | team_awareness_invite_mint | 2026-05-19 | Phase D first slice — manager RLS scoping over browser_profile_status + browser_profiles, create_invite_token RPC, Team Activity panel in Settings with member awareness chips and an in-app invite mint flow | completed |
 | 029 | auto_pause_overhaul | 2026-05-26 | Auto-Pause/Idle/Break lifecycle overhaul — fix 5 bugs, close 8 gaps, full configurability | draft |
-| 030 | time_blocking_calendar | 2026-05-26 | Time Blocking & Multi-Calendar Sync Engine (Google & Outlook Calendar Integration) | draft |
-| 031 | gap_completion | 2026-05-27 | Gap Completion for Plans 018/020/021/022 + Feature #207 — Activity Editor page, range trim, break segments, tab→focus creation, let-me-cook, video call idle suppression, sub-intent ticking, P1-P5, categories, audit logging, Asana frontend guide/verification, Back Burner engine | partial (1/8) — completed scoping and technical design for Feature #207 |
+| 030 | time_blocking_calendar | 2026-05-26 | Time Blocking & Multi-Calendar Sync Engine (Google & Outlook Calendar Integration) | renumbered → 035 |
+| 031 | gap_completion | 2026-05-27 | Gap Completion for Plans 018/020/021/022 + Feature #207 — Activity Editor page, range trim, break segments, tab→focus creation, let-me-cook, video call idle suppression, sub-intent ticking, P1-P5, categories, audit logging, Asana frontend guide/verification, Back Burner engine | partial (2/8) — completed scoping, technical design, and core implementation for Feature #207 (Backburner UI + alarms integration) |
 | 032 | deep_editing | 2026-05-27 | Deep Editing — Multi-Track Activity Timeline Editor. Premiere-style drag-handle editing, gap filling, contribution notes (#173), review queue (#204), audit trail. Absorbs Plan 031 Phase 1. Features #157, #195, #173, #204 | draft |
 | 033 | parallel_focuses | 2026-05-28 | Parallel Focuses — `activeFocusId` → `activeFocusIds` architectural change. Deferred from Plan 022/031. Depends on sub-intent (031 Phase 3) and Back Burner (031 Phase 6) as stepping stones | reserved |
 | 034 | smart_deferral | 2026-05-28 | Smart Deferral & Task Splitting Engine (Auto-Stint Scheduler) — Auto-stint allocation logic, splitting heuristics, calendar sync alignment | draft |
+| 035 | unified_calendar | 2026-05-28 | Unified Calendar & Scheduling System (renumbered from 030) — Full Month/Week/Day calendar, react-big-calendar UI, Sidebar agenda, calendarService CRUD, syncService bidirectional merge, Google & Outlook OAuth sync engine | partial (1/3) — Phase 1 backend complete (calendarService, syncService, Supabase migration). Phases 2-3 (UI, OAuth sync) pending |
 
 ---
 
-> **Next available number:** 035
+> **Next available number:** 036
