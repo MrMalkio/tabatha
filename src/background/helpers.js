@@ -17,6 +17,16 @@ export function patternToRegex(pattern) {
 export function detectCategory(url, audible, categories) {
   if (!url) return 'unknown';
 
+  // Plan 031: Built-in category patterns (fire before user rules)
+  const builtIn = [
+    { id: 'video_call', pattern: /meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|webex\.com/ },
+    { id: 'phone_call', pattern: /dialpad\.com|grasshopper\.com|ringcentral\.com|aircall\.io|vonage\.com/ },
+    { id: 'research',   pattern: /scholar\.google\.com|wikipedia\.org|arxiv\.org|developer\.|docs\.|stackoverflow\.com|mdn\./ },
+  ];
+  for (const { id, pattern } of builtIn) {
+    if (pattern.test(url)) return id;
+  }
+
   for (const [catId, cat] of Object.entries(categories)) {
     if (catId === 'unknown' || catId === 'work') continue;
     if (!cat.rules?.autoDetect) continue;

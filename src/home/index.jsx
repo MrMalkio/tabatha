@@ -359,9 +359,25 @@ function FocusQueue({ items, actions }) {
                 </Tooltip>
               </div>
             </div>
-            {/* Compact stage picker */}
-            <div style={{ marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
+            {/* Compact stage picker + priority selector */}
+            <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
               <StagePicker compact currentStage={item.funnelStage} onChange={(stage) => actions.updateFocus(item.id, { funnelStage: stage })} />
+              <select
+                value={item.priority || 5}
+                onChange={(e) => actions.updateFocus(item.id, { priority: Number(e.target.value) })}
+                style={{
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: (item.priority || 5) <= 2 ? '#ff6b6b' : (item.priority || 5) <= 4 ? '#ffa726' : '#66bb6a',
+                  fontSize: '9px', fontWeight: 600, padding: '2px 4px', borderRadius: '3px', cursor: 'pointer'
+                }}
+                title="Set priority (P1=Critical, P5=Low)"
+              >
+                <option value={1}>P1 Critical</option>
+                <option value={2}>P2 High</option>
+                <option value={3}>P3 Medium</option>
+                <option value={4}>P4 Normal</option>
+                <option value={5}>P5 Low</option>
+              </select>
             </div>
           </GlassCard>
         );

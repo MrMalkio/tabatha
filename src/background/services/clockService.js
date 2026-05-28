@@ -128,6 +128,17 @@ async function handleIdleStateChanged(newState) {
       }
     }
 
+    // Plan 031: Video call idle suppression — don't pause when in a meeting
+    try {
+      const audibleTabs = await chrome.tabs.query({ audible: true });
+      const meetingPatterns = /meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|webex\.com/;
+      const meetingTab = audibleTabs.find(t => meetingPatterns.test(t.url || ''));
+      if (meetingTab) {
+        console.log('[idle] Suppressed — active meeting tab detected:', meetingTab.url);
+        return;
+      }
+    } catch { /* tabs query failed — proceed with idle */ }
+
     await timeTracker.stopAllTracking();
     userIdleSince = new Date().toISOString();
     resetIdleAutoBreakApplied();

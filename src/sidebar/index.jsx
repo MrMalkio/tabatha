@@ -512,6 +512,23 @@ function Sidebar() {
                         <div style={{ display:'flex', alignItems:'center', gap:'4px', flex:1, minWidth:0 }}>
                           <span style={{ fontSize:'9px', color:f.color }}>{f.icon}</span>
                           <span style={{ fontSize:'11px', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.label}</span>
+                          <select
+                            value={item.priority || 5}
+                            onChange={(e) => { e.stopPropagation(); actions.updateFocus(item.id, { priority: Number(e.target.value) }); }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              background:'transparent', border:'1px solid rgba(255,255,255,0.1)',
+                              color: (item.priority||5) <= 2 ? '#ff6b6b' : (item.priority||5) <= 4 ? '#ffa726' : '#66bb6a',
+                              fontSize:'8px', fontWeight:600, padding:'1px 2px', borderRadius:'2px', cursor:'pointer', flexShrink:0
+                            }}
+                            title="Priority"
+                          >
+                            <option value={1}>P1</option>
+                            <option value={2}>P2</option>
+                            <option value={3}>P3</option>
+                            <option value={4}>P4</option>
+                            <option value={5}>P5</option>
+                          </select>
                         </div>
                         <div style={{ display:'flex', gap:'3px', flexShrink:0 }}>
                           <Tooltip text="Switch to this"><button onClick={() => actions.switchFocus(item.id)} style={btn('var(--color-accent-primary)')}>▶</button></Tooltip>
