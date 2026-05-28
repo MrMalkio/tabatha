@@ -10,6 +10,7 @@ import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStora
 const CATEGORY_ICONS = {
   work: '💼', media: '🎵', meeting: '📹', reference: '📚',
   messaging: '💬', email: '📧', learning: '🎓', entertainment: '🎮', unknown: '❓',
+  video_call: '📹', phone_call: '📞', research: '🔬',
 };
 
 import { formatTime } from '../utils/formatTime';

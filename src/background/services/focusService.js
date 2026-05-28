@@ -612,7 +612,8 @@ export async function handleBackburnerTimerExpired(focusId) {
     type: 'BACKBURNER_ALERT',
     focusId,
     label: item.label,
-    reason: item.backburnerReason
+    reason: item.backburnerReason,
+    backburneredAt: item.backburneredAt
   });
 }
 
@@ -707,6 +708,7 @@ async function updateFocus(message) {
   if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
   if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
   if (message.offDevice !== undefined) item.offDevice = !!message.offDevice;
+  if (message.priority !== undefined) item.priority = Number(message.priority);
   if (message.funnelStage !== undefined) {
     const result = applyStageTransition(engine, item, message.funnelStage, !!message.confirmed);
     if (result.error) {

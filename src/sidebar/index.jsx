@@ -540,6 +540,27 @@ function Sidebar() {
                 </div>
               )}
 
+              {/* Backburner Dock */}
+              {(() => {
+                const bb = (allItems || []).filter(i => i.backburneredAt);
+                if (bb.length === 0) return null;
+                return (
+                  <div style={{ marginBottom:'6px' }}>
+                    <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'#ff9800', fontWeight:600, marginBottom:'4px' }}>🔥 Backburner ({bb.length})</div>
+                    {bb.map(item => (
+                      <div key={item.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 6px', marginBottom:'2px', background:'rgba(255,152,0,0.06)', borderRadius:'var(--radius-sm)', border:'1px solid rgba(255,152,0,0.2)' }}>
+                        <span style={{ fontSize:'11px', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>🔥 {item.label}</span>
+                        <div style={{ display:'flex', gap:'3px', flexShrink:0 }}>
+                          <Tooltip text="Resume"><button onClick={() => sendMessage('RESUME_BACKBURNER', { focusId: item.id })} style={btn('#66bb6a')}>▶</button></Tooltip>
+                          <Tooltip text="Snooze"><button onClick={() => sendMessage('SNOOZE_BACKBURNER', { focusId: item.id, snoozeMinutes: 10 })} style={btn('#ffa726')}>⏰</button></Tooltip>
+                          <Tooltip text="Dismiss"><button onClick={() => sendMessage('DISMISS_BACKBURNER', { focusId: item.id })} style={btn('#ef5350')}>✕</button></Tooltip>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {/* History */}
               {history && history.length > 0 && (
                 <div>

@@ -1412,6 +1412,29 @@
       });
     }
 
+    // ── Backburner Alert — check-in overlay (singleton) ──
+    if (msg.type === 'BACKBURNER_ALERT') {
+      if (document.getElementById('tabatha-popup-overlay')) return; // singleton
+      const overlay = _createOverlay();
+      const card = _createCard();
+      const elapsed = msg.backburneredAt ? Math.floor((Date.now() - new Date(msg.backburneredAt).getTime()) / 60000) : '?';
+      card.innerHTML = `
+        <div style="font-size:32px;margin-bottom:8px;">🔥</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#ff9800;">Backburner Check-in</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"<strong style="color:#ff9800;">${msg.label || 'Backburnered Focus'}</strong>" has been on the backburner for ${elapsed}m.</div>
+        <div style="font-size:12px;color:#888;margin-bottom:12px;">Would you like to come back to it?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+          <button id="bb-resume" style="${_popupBtnStyle('#66bb6a')}">▶ Resume</button>
+          <button id="bb-snooze" style="${_popupBtnStyle('#ffa726')}">⏰ Snooze 10m</button>
+          <button id="bb-dismiss" style="${_popupBtnStyle('#ef5350')}">✕ Dismiss</button>
+        </div>`;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      card.querySelector('#bb-resume')?.addEventListener('click', () => _dismissAndSend(overlay, 'RESUME_BACKBURNER', { focusId: msg.focusId }));
+      card.querySelector('#bb-snooze')?.addEventListener('click', () => _dismissAndSend(overlay, 'SNOOZE_BACKBURNER', { focusId: msg.focusId, snoozeMinutes: 10 }));
+      card.querySelector('#bb-dismiss')?.addEventListener('click', () => _dismissAndSend(overlay, 'DISMISS_BACKBURNER', { focusId: msg.focusId }));
+    }
+
     // ── Popup Dismissed — cross-tab cleanup ──
     if (msg.type === 'POPUP_DISMISSED') {
       _removeExistingOverlay();

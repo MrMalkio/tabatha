@@ -338,3 +338,47 @@
   1. Address in priority order (DB password → migrations → regression) before any production push ← **suggested**
   2. Bundle into a "v6.0.0 release readiness" plan
   3. Address incrementally as features stabilize
+
+## 2026-05-28 — Desktop Companion Status Detection + Download Link
+- **Noticed while:** Regression testing T11 (Integrations panel)
+- **What:** Companion card shows "not configured" even though the companion is running on the same PC. Also needs a stubbed download link for when it's not configured.
+- **Why it matters:** Users can't tell if the integration is working; no onboarding path to get started.
+- **Options:**
+  1. Ping companion WebSocket from settings panel to detect running state ← **suggested**
+  2. Add a manual "test connection" button
+  3. Both: auto-detect + manual test + download URL placeholder
+
+## 2026-05-28 — Video Call Idle Suppression + Calendar Tie-in
+- **Noticed while:** Regression testing T6 (video call suppression)
+- **What:** Current suppression relies on tab audible state. Should ALSO consider: (1) URL matching for known meeting domains, (2) calendar events with Meet/Zoom links attached (when calendar integration is available).
+- **Why it matters:** Audible-only detection misses muted calls, silent presentations, and pre-meeting tabs.
+- **Options:**
+  1. Add URL-based detection as primary, audible as secondary ← **suggested**
+  2. Wait for calendar integration (Plan 035) to add event-based detection
+  3. Both: URL now, calendar later
+
+## 2026-05-28 — Sub-Intent Creation UX Discoverability
+- **Noticed while:** Regression testing T7 (sub-intent parent tick)
+- **What:** Users don't know how to create a sub-intent/child focus under a parent. No visible UI affordance for creating hierarchical focus items.
+- **Why it matters:** Sub-intents and parent ticking are implemented in the backend but unreachable via UI.
+- **Options:**
+  1. Add "Add sub-focus" button on active focus card ← **suggested**
+  2. Drag-and-drop nesting in queue
+  3. Context menu on queue items
+
+## 2026-05-28 — Structured Checkpoints from State Changes
+- **Noticed while:** Regression testing (unrelated observation)
+- **What:** Focus lifecycle changes (start, pause, backburner, etc.) and text-capture events should auto-generate structured checkpoint entries in the checkpoint log.
+- **Why it matters:** Currently checkpoints are manual; auto-generation ensures complete audit trail.
+- **Options:**
+  1. Emit checkpoint entries from focusService for key state transitions ← **suggested**
+  2. Separate checkpoint service that observes FOCUS_ENGINE_UPDATED broadcasts
+  3. Both: service + broadcast observer
+
+## 2026-05-28 — Companion Updates for New Features
+- **Noticed while:** Regression testing T14b (backburner cascade)
+- **What:** Desktop companion needs updates to support new features: backburner state awareness, focus priority display, video call detection via window titles, calendar event sync.
+- **Why it matters:** Companion is out of sync with extension feature set.
+- **Options:**
+  1. Create companion feature sync plan after Plan 031 lands ← **suggested**
+  2. Bundle into existing Plan 019 (distribution)

@@ -277,7 +277,7 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
                   const dateStr = (() => {
                     try {
                       const d = new Date(log.date);
-                      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     } catch { return log.date; }
                   })();
                   return (
@@ -288,6 +288,7 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
                       <td style={{ padding: '5px 10px', whiteSpace: 'nowrap', fontSize: '10px' }}>{dateStr}</td>
                       <td style={{ padding: '5px 10px', fontWeight: 500, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.label}>
                         {log.label}
+                        <span style={{ fontSize: '8px', color: cfg.color, background: cfg.color + '18', padding: '0 3px', borderRadius: '2px', marginLeft: '4px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{cfg.label}</span>
                         {log.domain && <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>({log.domain})</span>}
                       </td>
                       <td style={{ padding: '5px 10px' }}>

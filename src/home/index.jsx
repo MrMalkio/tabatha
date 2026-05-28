@@ -49,6 +49,7 @@ function getGreeting() {
 const CATEGORY_ICONS = {
   work: '💼', media: '🎵', meeting: '📹', reference: '📚',
   messaging: '💬', email: '📧', learning: '🎓', entertainment: '🎮', unknown: '❓',
+  video_call: '📹', phone_call: '📞', research: '🔬',
 };
 
 // ── FocusBar ──
@@ -378,6 +379,48 @@ function FocusQueue({ items, actions }) {
                 <option value={4}>P4 Normal</option>
                 <option value={5}>P5 Low</option>
               </select>
+            </div>
+          </GlassCard>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── BackburnerDock ──
+function BackburnerDock({ items, actions }) {
+  const backburnered = (items || []).filter(i => i.backburneredAt);
+  if (backburnered.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#ff9800', marginBottom: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+        🔥 Backburner ({backburnered.length})
+      </div>
+      {backburnered.map(item => {
+        const elapsed = item.backburneredAt ? Math.floor((Date.now() - new Date(item.backburneredAt).getTime()) / 60000) : 0;
+        return (
+          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', borderLeft: '3px solid #ff9800', background: 'rgba(255,152,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  🔥 {item.label}
+                </div>
+                <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                  Backburnered {elapsed}m ago{item.backburnerTransitionFocusId ? ' • switched to another focus' : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                <Tooltip text="Resume this focus">
+                  <button onClick={(e) => { e.stopPropagation(); sendMessage('RESUME_BACKBURNER', { focusId: item.id }); }} style={btnStyle('#66bb6a')}>▶</button>
+                </Tooltip>
+                <Tooltip text="Snooze 10 more minutes">
+                  <button onClick={(e) => { e.stopPropagation(); sendMessage('SNOOZE_BACKBURNER', { focusId: item.id, snoozeMinutes: 10 }); }} style={btnStyle('#ffa726')}>⏰</button>
+                </Tooltip>
+                <Tooltip text="Dismiss backburner">
+                  <button onClick={(e) => { e.stopPropagation(); sendMessage('DISMISS_BACKBURNER', { focusId: item.id }); }} style={btnStyle('#ef5350')}>✕</button>
+                </Tooltip>
+              </div>
             </div>
           </GlassCard>
         );
@@ -1551,6 +1594,7 @@ function Home() {
                 <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
               )}
               <FocusQueue items={allItems} actions={actions} />
+              <BackburnerDock items={allItems} actions={actions} />
               <FocusHistory history={history} />
             </>
           ) : (
