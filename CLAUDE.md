@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 5.3.0
+- **Current version:** 5.7.0
 - **Current focus:** All prior work promoted to staging. Staging is clean at v5.3.0. Ready for new feature development.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
@@ -170,7 +170,7 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-05-18 | Codex | Supabase Sync Batch 1 | Created `codex/sync-batch-1` from merged `refactor/decomp-v2`. Added migration 008 for org registry, clock sessions, and desktop activity tables. Extended syncService to push `tabathaOrg`, focus history, clock history, companion sessions, and desktop activity with diagnostics/watermarks. Bumped to v4.7.6 and verified build. | Apply migration 008 to Flux Supabase, load unpacked extension, hit Sync now, and verify Batch 1 tables populate. |
 | 2026-05-26 | Antigravity | Mike Transcript Features | Done comprehensive reconciliation, created specs #203-#206, enriched existing features (#184, #188, #192) with transcript details. | Proceed with prioritized Phase 3/4 development |
 | 2026-05-28 | Antigravity | Backburner & Smart Deferral Scoping | Designed and registered Feature #207 (Backburner) and Feature #208 (Smart Deferral & Splitting Engine). Updated index and backlog. | Initiate frontend / UI implementation planning for v0.3.0 |
-| 2026-05-28 | Antigravity | Calendar Scoping & Plan 030 | Drafted Plan 030 detailed technical implementation plan (Unified Calendar, Month/Week/Day scheduling, Sidebar agenda, delta sync). | Begin Phase 1 database migrations and local CRUD schemas |
+| 2026-05-28 | Antigravity | Calendar Scoping & Plan 035 | Drafted Plan 035 detailed technical implementation plan (Unified Calendar, Month/Week/Day scheduling, Sidebar agenda, delta sync). Renumbered from 030. | Begin Phase 2 UI implementation (CalendarView, CalendarAgenda) |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

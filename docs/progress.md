@@ -5,11 +5,11 @@
 
 ---
 
-## Session - 2026-05-28 (Unified Calendar Plan 030 Architecture)
+## Session - 2026-05-28 (Unified Calendar Plan 035 Architecture)
 
 **Agent:** Antigravity (Gemini)
 **Branch:** working tree (master/staging)
-**Goal:** Architect the Unified Calendar & Scheduling System (Plan 030) with Google, Outlook, and iCal parity.
+**Goal:** Architect the Unified Calendar & Scheduling System (Plan 035) with Google, Outlook, and iCal parity.
 
 ### What Was Done
 

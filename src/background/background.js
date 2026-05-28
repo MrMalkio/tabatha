@@ -47,6 +47,7 @@ import {
 } from './services/groupService.js';
 import * as blockgateService from './services/blockgateService.js';
 import { configureBlockgateService } from './services/blockgateService.js';
+import * as calendarService from './services/calendarService.js';
 import * as alarmService from './services/alarmService.js';
 import {
   configureAlarmService,
@@ -150,6 +151,7 @@ const services = [
   focusService,
   groupService,
   blockgateService,
+  calendarService,
   alarmService,
   syncService,
   awarenessService
