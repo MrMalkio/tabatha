@@ -5,6 +5,27 @@ file.
 
 ---
 
+## [v5.8.0] - Plan 031 Gap Completion — Auto-Checkpoint + SectionNav + Sub-Focus + Backburner Fixes - _2026-05-28_
+
+### Added
+
+- **Auto-Checkpoint System** (`focusService.autoCheckpoint`): Lifecycle transitions (started, paused, resumed, completed, backburnered) now automatically generate system checkpoint entries. These appear in the Checkpoint Timeline with ⚙️ prefix at 60% opacity, distinguishable from manual user-submitted notes. System entries do not count toward the badge number or trigger stale-nudge timers.
+- **Sub-Focus Button** (FocusBar): `📌 Sub-focus` button in the FocusBar action row. Creates a child focus under the currently active parent. Queue items with a parent now display a purple `child` badge.
+- **SectionNav Sidebar Refactor**: Homepage navigation sidebar is now hover-expandable (44px icons → 160px icon+title on hover). Smart click logic: clicking an active section collapses it; clicking a different section navigates to it and auto-expands. Collapsed sections drop to the bottom of the sidebar with a divider and line-through styling. Collapsed section headers no longer render in the page body (zero-height anchor only), saving vertical real estate.
+- **Feature Spec #209** (`docs/features/209-focus-resolution-tab-cleanup.md`): Documented the Focus Resolution & Tab Cleanup feature for future implementation.
+
+### Fixed
+
+- **Backburner create-new-focus skeleton** (Critical): When backburnering a focus and choosing "Create New", the replacement focus object was missing 12 fields (`funnelStage`, `timerMinutes`, `createdAt`, `pausedAt`, `endedAt`, `overMs`, `parentFocusId`, `contextSwitchCount`, `priority`, `offDevice`, `lastCheckpointAt`, `checkpointSnoozedUntil`). These undefined values broke the priority dropdown, funnel stage picker, and timer display. Now uses the canonical field set matching `startFocus`.
+- **Backburner tab association inheritance**: Create-new-focus during backburner now inherits `associatedTabIds` from the backburnered focus and cross-links via `backburnerTransitionFocusId` for audit trail.
+- **`addFocus` missing priority**: The `addFocus` function (used when adding to queue) was missing the `priority` field, causing the priority selector in FocusQueue to render undefined. Now defaults to P5.
+- **Checkpoint badge count inflation**: The `📋 (N)` badge on the FocusBar was counting all checkpoint entries including system auto-entries, inflating the number. Badge now filters to user-only; timeline visibility uses total count.
+- **Video call idle suppression**: Idle detection now checks both audible meeting tabs (existing) AND the active tab's URL against meeting domain patterns (Meet, Zoom, Teams, WebEx). Prevents premature auto-pausing during muted calls or meeting waiting rooms.
+- **Regression RT-2**: LogsPanel type column added (replaces colored badge in details column).
+- **Regression RT-7**: Category override logic for domain-specific patterns (Meet → Communication, Scholar → Research).
+
+---
+
 ## [v5.3.0] - Plan 028 Phase D₂ — companion as a first-class install + clock-stacking warning + invite revocation - _2026-05-19_
 
 ### Added
