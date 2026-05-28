@@ -269,8 +269,17 @@
 | 199 | Morning Kickstart / Daily Planning View | UI | 📋 | v0.3.0 | #174, #122 | [concept](../../docs/features/199-morning-kickstart.md) |
 | 200 | Decision Fatigue Reducer (Routine vs. Choice) | Focus | 📋 | v0.3.0 | #174, #199 | [concept](../../docs/features/200-decision-fatigue-reducer.md) |
 | 201 | Follow-Through Score / Accountability Metric | Data | 📋 | v0.3.0 | #122, #184, #11 | [concept](../../docs/features/201-follow-through-score.md) |
+| **— WORKFLOW & SESSION RECOVERY (Backlog 2026-05-19)** |
+| 202 | Session Resurrection (context-aware recovery, Ghost Snapshot, Ice Box) | Focus | 📋 | TBD | #172, #184 | [concept](../../docs/features/202-session-resurrection.md) |
+| **— BUSINESS TAXONOMY & EXPORTS (Mike Transcript, 2026-05-26)** |
+| 203 | Business Taxonomy Mapping (On vs. In the Business) | Focus | 📋 | v0.4.0 | #188, #158 | [concept](../../docs/features/203-business-taxonomy-mapping.md) |
+| 204 | Activity Review & Approval Flow (timesheet review before push) | Time | 📋 | v0.3.0 | #156, #195 | [concept](../../docs/features/204-activity-review-approval-flow.md) |
+| 205 | QBO / Payroll Timesheet Export | Billing | 📋 | v0.4.0 | #204, #159 | [concept](../../docs/features/205-qbo-payroll-export.md) |
+| 206 | Time Block Compliance Tracker | Focus | 📋 | v0.3.0 | #174, #192 | [concept](../../docs/features/206-time-block-compliance-tracker.md) |
 | **— FOCUS QUEUE ENHANCEMENTS (Backlog 2026-05-26)** |
 | 185 | Focus Auto-Resume Control & Queue-for-Later | Focus | 📋 | v0.2.0 | #122 | [concept](../../docs/features/185-focus-auto-resume-queue.md) |
+| 207 | Back Burner Focuses (parallel/deferred work waiting pairs, momentary check-ins) | Focus | 📋 | v0.3.0 | #122, #123 | [concept](../../docs/features/207-backburner.md) |
+| 208 | Smart Deferral & Task Splitting Engine (Auto-Stint Scheduler) | Focus | 📋 | v0.3.0 | #122, #192, #193, #206 | [concept](../../docs/features/208-smart-deferral-stint-scheduling.md) |
 | **— ASANA INTEGRATION (Backlog 2026-05-26)** |
 | 186 | Asana Task ↔ Focus Linking (attach at creation/edit + auto-focus from URL) | Integration | 📋 | v0.2.0 | #54, #142, #122 | [concept](../../docs/features/186-asana-focus-linking.md) |
 | **— BUG FIXES (Logged 2026-05-26)** |

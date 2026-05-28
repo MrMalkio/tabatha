@@ -176,5 +176,11 @@ linked `asanaGid`:
 - Should the InBar's 📋 manual button expand into a mini-form inline, or open a
   small floating card? - OPen in sidebar
 - When `stuck` is selected, should it immediately prompt for a roadblock
-  description, or just tag the CPN? - it should be in the note, the note should
-  serve as sthe description or in thi scase the note for the CPN is cumpolsory.
+  description, or just tag the CPN?
+  - **Answer:** It should be in the note; the note serves as the description. In this case, the note for the CPN is compulsory.
+  - **Escalation Flow Rules:** When the user marks their status as "Stuck" and saves, a secondary quick-form escalates the problem:
+    1. *Do you need help?* (Toggle: Yes/No)
+    2. *Who from?* (Select teammate/manager or "Self" if just need time to cook)
+    3. *Are you getting pulled?* (Toggle: Yes/No - indicating if external interruption/scope-creep is the root cause)
+    This escalation form data is appended to the CPN metadata and can auto-generate a Slack/Asana roadblock notification for team collaboration.
+  - **Self-Unstuck Gamification:** If a user resolves a "Stuck" checkpoint themselves (by subsequently registering a progress note of "A Lot" or "Almost Done" on the same focus, or completing the focus successfully), they receive a **+5 "Self-Rescued" boost** to their Follow-Through Score (#201), reinforcing positive problem-solving.

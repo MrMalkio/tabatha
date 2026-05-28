@@ -6,7 +6,7 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 14 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 15 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
@@ -77,6 +77,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
 10. **Version in Implementation Plans** — Every implementation plan must state the **current version** and the **expected target version** upon completion.
 11. **Maintain Plan Registry** — After creating any implementation plan, **append** an entry to `.headbox/plan-registry.md` with: number, suffix, date, conversation topic, and status.
 12. **Parallelability Review** — After completing an implementation plan, **read `docs/parallel-development-workflow.md`** and append a `## Parallelability Review` section to the plan covering: zones touched, shared files modified, conflicts with active worktrees, whether it can run parallel, max branch lifetime, and scope-split points if >1 week. This is the final step before requesting user approval.
+13. **Honest Plan Progress** — Never mark a plan `superseded`. If work was done through other means, credit it and update the progress fraction. Plan statuses are: `draft`, `partial (X/Y)`, `completed`, or `archived`. At every `checkpoint`, update the status of the associated plan(s) in `.headbox/plan-registry.md` with the current progress fraction.
 
 ---
 
@@ -119,6 +120,7 @@ When the user says **`checkpoint`** or you reach a natural stopping point:
 2. Include: what was done, what's next, references to artifacts with file paths.
 3. If no task is known, ask the user if there's one to associate.
 4. **Project Update Integration:** Checkpoints when made should also be applied to the Asana project [Flux Development](https://app.asana.com/1/9526911872029/project/1214031898449333/) (GID `1214031898449333`) as a Project update, which serves as the central Asana project for all things Flux family.
+5. **Plan Registry Progress:** Update the associated plan(s) in `.headbox/plan-registry.md` with the current `partial (X/Y)` progress fraction.
 
 ---
 
@@ -167,6 +169,7 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-05-16 | Antigravity | Workspace Deep Review & Cleanup | Deep review of repo state. Removed `Tabatha-alarm` stale worktree. Synced local `refactor/decomp-v2` with origin. Cleaned up 7 fully-merged local branches and 11 fully-merged remote tracking branches. Protected `fix/popup-harmony` as active Plan 025 feature track. Updated `docs/progress.md` with cleanup log. | Test and integrate Plan 025 (`fix/popup-harmony`), conduct full V4 regression |
 | 2026-05-18 | Codex | Supabase Sync Batch 1 | Created `codex/sync-batch-1` from merged `refactor/decomp-v2`. Added migration 008 for org registry, clock sessions, and desktop activity tables. Extended syncService to push `tabathaOrg`, focus history, clock history, companion sessions, and desktop activity with diagnostics/watermarks. Bumped to v4.7.6 and verified build. | Apply migration 008 to Flux Supabase, load unpacked extension, hit Sync now, and verify Batch 1 tables populate. |
 | 2026-05-26 | Antigravity | Mike Transcript Features | Done comprehensive reconciliation, created specs #203-#206, enriched existing features (#184, #188, #192) with transcript details. | Proceed with prioritized Phase 3/4 development |
+| 2026-05-28 | Antigravity | Backburner & Smart Deferral Scoping | Designed and registered Feature #207 (Backburner) and Feature #208 (Smart Deferral & Splitting Engine). Updated index and backlog. | Initiate frontend / UI implementation planning for v0.3.0 |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

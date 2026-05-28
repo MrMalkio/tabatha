@@ -5,6 +5,64 @@
 
 ---
 
+## Session - 2026-05-28 (Backburner & Smart Deferral Scoping)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** n/a (docs-only, working tree)
+**Goal:** Formalize and integrate the "Back Burner" (#207) and "Smart Deferral/Stint Scheduling" (#208) focus management features into the Tabatha ecosystem.
+
+### What Was Done
+
+- [x] **Technical Scoping & Spec Drafting** — Created full feature specs in `docs/features/`:
+  - `docs/features/207-backburner.md`: Outlines non-intrusive InBar reminders, Momentary Check-in mechanics, and continuous time tracking defaults.
+  - `docs/features/208-smart-deferral-stint-scheduling.md`: Details the Auto-Stint Scheduling heuristic, calendar-gap matching, and task fragmentation rules.
+- [x] **Feature Matrix Integration** — Registered Features #207 and #208 in `v0_legacy/docs/features.md` and added them to `tabatha_feature_backlog.md` (Batch 12).
+- [x] **Plan Registry Update** — Registered Plan 034 for the Smart Deferral Engine and set Plan 031 progress to `partial (1/8)`.
+- [x] **Documentation Sync** — Updated the Headbox instructions and synced `GEMINI.md`, `CLAUDE.md`, and `.gemini/agent.md`.
+
+### Key Decisions
+
+- **Reminder Presentation**: Confirmed floating non-intrusive InBar alerts as the default reminder pattern to prevent user flow disruption.
+- **Time Logging Options**: Set continuous focus time logging with check-in classification as the default operational mode for Backburner items.
+
+### Next Steps
+
+- Initiate frontend/UI implementation planning for v0.3.0.
+- Implement the desktop-extension handshake in the `alarmsService`.
+
+---
+
+## Session - 2026-05-26 (Mike Transcript Features Assimilation)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** n/a (docs-only, working tree)
+**Goal:** Assimilate all missing Mike Transcript concepts and features into the master feature list and feature specifications.
+
+### What Was Done
+
+- [x] **Comprehensive Audit & Reconciliation** — Verified every single competitive insight, taxonomic category, and operational flow from `tabby_idea_call_feature_list.md` against existing docs.
+- [x] **New Feature Specifications** — Created 4 new top-tier feature specifications in `docs/features/`:
+  - `#203`: Business Taxonomy Mapping (On vs. In the Business) — separating client billable vs internal overhead (Sales/Marketing, HR, Admin, R&D)
+  - `#204`: Activity Review & Approval Flow (Rise-Style Pending Queue) — draft log editing, heuristic client/service guessing, and bulk approval prior to payroll sync
+  - `#205`: QuickBooks Online Payroll Export Workflow — OAuth integration, employee/client mapping, and Timesheets API sync to run payroll in 2 minutes
+  - `#206`: Time Block Compliance & Deviation Tracker — dual-track planned vs actual visual overlay, divergence triggers, and accountability compliance scoring
+- [x] **Enriched Existing Features** — Updated core specifications with high-fidelity insights:
+  - `#188`: Added integration heuristics for the third-party **Write Tool QuickBooks Extension** for reliable browser-level active tab client-name harvesting.
+  - `#184`: Scoped the timed **stuck escalation prompts flow** (Do you need help? → Who? → Are you getting pulled?) and the **self-unstuck gamified reward points** (+5 Follow-Through Score boost).
+  - `#192`: Scoped **Priority-Based Empty-Slot Autofill** for scheduling high-priority pending items between calendar gaps to reduce choice paralysis.
+- [x] **Verification** — Ran `npm run build` cleanly — 100% success with 0 errors.
+
+### Key Decisions
+
+- Kept the "On vs. In the Business" taxonomic taxonomy unified with existing "Realms" but clearly separated billable service/client flows from internal department overhead.
+- Bridged passive tracking and manual timesheets with an editable Rise-style pending review queue to eliminate timer-switching friction.
+
+### Next Steps
+
+- Proceed with development of these core prioritized Phase 3/4 feature sets (specifically automatic client detection #188 and review queue #204).
+
+---
+
 ## Session - 2026-05-19 (Feature #202: Session Resurrection Spec)
 
 **Agent:** Antigravity (Claude Opus 4.6 Thinking)
