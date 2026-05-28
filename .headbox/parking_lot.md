@@ -357,7 +357,7 @@
   2. Wait for calendar integration (Plan 035) to add event-based detection
   3. Both: URL now, calendar later
 
-## 2026-05-28 — Sub-Intent Creation UX Discoverability
+## ~~2026-05-28 — Sub-Intent Creation UX Discoverability~~ ✅ RESOLVED
 - **Noticed while:** Regression testing T7 (sub-intent parent tick)
 - **What:** Users don't know how to create a sub-intent/child focus under a parent. No visible UI affordance for creating hierarchical focus items.
 - **Why it matters:** Sub-intents and parent ticking are implemented in the backend but unreachable via UI.
