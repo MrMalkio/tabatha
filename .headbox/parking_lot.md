@@ -366,7 +366,7 @@
   2. Drag-and-drop nesting in queue
   3. Context menu on queue items
 
-## 2026-05-28 — Structured Checkpoints from State Changes
+## ~~2026-05-28 — Structured Checkpoints from State Changes~~ ✅ RESOLVED
 - **Noticed while:** Regression testing (unrelated observation)
 - **What:** Focus lifecycle changes (start, pause, backburner, etc.) and text-capture events should auto-generate structured checkpoint entries in the checkpoint log.
 - **Why it matters:** Currently checkpoints are manual; auto-generation ensures complete audit trail.
