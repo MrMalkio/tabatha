@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Tooltip } from '../components/ui/Tooltip';
+import { useChromeStorage } from '../hooks/useChromeStorage';
 
 function formatDuration(ms) {
   if (!ms || ms < 0) return '00:00';
@@ -29,6 +30,7 @@ const LOG_TYPES = {
   context: { icon: '🏷️', label: 'Context Set', color: '#26a69a' },
   blocked: { icon: '🚫', label: 'Blocked Site', color: '#ef5350' },
   task:    { icon: '✅', label: 'Task Update', color: '#4caf50' },
+  audit:   { icon: '📝', label: 'Audit Trail', color: '#78909c' },
 };
 
 function getIntentContext(entry) {
@@ -44,6 +46,7 @@ function isIntentChangeEntry(entry) {
 }
 
 export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHistory, focusHistory, intentChangeLog }) {
+  const [auditLog] = useChromeStorage('activityAuditLog', []);
   const [filterDate, setFilterDate] = useState('');
   const [filterIntent, setFilterIntent] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
@@ -153,9 +156,24 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
       });
     }
 
+    // Plan 031: Audit trail entries
+    if (auditLog && auditLog.length > 0) {
+      auditLog.forEach((entry, idx) => {
+        list.push({
+          id: `audit-${idx}`, logType: 'audit',
+          date: entry.timestamp,
+          label: `${entry.action}${entry.focusLabel ? ': ' + entry.focusLabel : ''}`,
+          intent: entry.focusLabel || '',
+          category: 'audit',
+          domain: entry.activeTabUrl ? (() => { try { return new URL(entry.activeTabUrl).hostname; } catch { return ''; } })() : '',
+          duration: 0,
+        });
+      });
+    }
+
     // Sort by date descending
     return list.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [tabs, timeTracking, intentHistory, focusHistory, clockHistory, intentChangeLog]);
+  }, [tabs, timeTracking, intentHistory, focusHistory, clockHistory, intentChangeLog, auditLog]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {

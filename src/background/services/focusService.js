@@ -6,6 +6,7 @@ import { fireWebhook as defaultFireWebhook } from '../webhooks.js';
 import { getStorage, setStorage, getSettings } from './storageService.js';
 import { archiveBeforeCap } from './archiveService.js';
 import { broadcastAll, broadcastToExtension } from './notificationService.js';
+import { logAudit } from '../../services/activityAudit.js';
 
 let injectedDeps = {};
 let focusAlarmsRegistered = false;
@@ -21,6 +22,13 @@ export function registerFocusServiceAlarms() {
 }
 
 export async function handleMessage(type, message) {
+  const result = await _handleMessage(type, message);
+  // Plan 031: fire-and-forget audit emission for focus lifecycle actions
+  if (result !== undefined) emitAudit(type, message);
+  return result;
+}
+
+async function _handleMessage(type, message) {
   switch (type) {
     case 'GET_FOCUS_ENGINE':
       return { focusEngine: await getFocusEngine() };
@@ -130,6 +138,29 @@ export async function handleMessage(type, message) {
     default:
       return undefined;
   }
+}
+
+// Plan 031: Audit-logged actions set — fire-and-forget after handler returns
+const AUDITABLE_ACTIONS = new Set([
+  'START_FOCUS', 'COMPLETE_FOCUS', 'SWITCH_FOCUS', 'PAUSE_FOCUS', 'RESUME_FOCUS',
+  'EXTEND_FOCUS_TIMER', 'LET_ME_COOK', 'BACKBURNER_FOCUS', 'SNOOZE_BACKBURNER',
+  'DISMISS_BACKBURNER', 'SAVE_CHECKPOINT_NOTE'
+]);
+
+async function emitAudit(type, message) {
+  if (!AUDITABLE_ACTIONS.has(type)) return;
+  let tabUrl = null, tabTitle = null;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab) { tabUrl = tab.url; tabTitle = tab.title; }
+  } catch { /* content scripts may not have tab access */ }
+  logAudit(type, {
+    focusId: message.focusId || null,
+    focusLabel: message.label || null,
+    activeTabUrl: tabUrl,
+    activeTabTitle: tabTitle,
+    metadata: { timerMinutes: message.timerMinutes, extraMinutes: message.extraMinutes, reason: message.reason },
+  });
 }
 
 export async function getFocusEngine() {
