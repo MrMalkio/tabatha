@@ -5,6 +5,37 @@
 
 ---
 
+## Session - 2026-05-28 (v5.8.0 Stabilization + SectionNav Refactor)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** feat/gap-completion
+**Goal:** Finalize regression fixes, code audit, and SectionNav UX refactor.
+
+### What Was Done
+
+- [x] **Regression Fix RT-9** — Fixed backburner create-new-focus path: inherit `associatedTabIds` and `backburnerTransitionFocusId` cross-linking.
+- [x] **Sub-focus Discoverability** — Added `📌 Sub-focus` button to FocusBar action row + purple `child` badge in FocusQueue items.
+- [x] **Video Call Idle Suppression** — Enhanced idle detection to check both audible meeting tabs AND active tab URL patterns (Meet, Zoom, Teams, WebEx).
+- [x] **Auto-Checkpoint System** — Built `autoCheckpoint()` helper that records lifecycle transitions (started, paused, resumed, completed, backburnered) as `triggeredBy: 'system'` entries. UI shows them with ⚙️ prefix at 60% opacity.
+- [x] **Code Audit** — Found and fixed 3 bugs: incomplete focus skeleton in backburner create-new (12 missing fields), missing `priority` in `addFocus`, and checkpoint badge count inflation from system entries.
+- [x] **SectionNav Refactor** — Sidebar now hover-expandable (44px→160px), shows icon+title labels on hover. Smart click: same section = toggle collapse; different section = navigate + expand. Collapsed sections drop to bottom of sidebar with divider + line-through. Collapsed sections render zero-height anchor (no wasted vertical space).
+- [x] **Version bump** — 5.7.2 → 5.8.0 (2 features, 4 fixes).
+
+### Key Decisions
+
+- System checkpoints do NOT reset the `lastCheckpointAt` or stale timer — user still gets nudged for manual notes.
+- Badge count filters out system entries; timeline visibility uses total count.
+- Sidebar keeps titles in body header when open (needed for action buttons); collapsed sections have no body header at all.
+
+### Next Steps
+
+- Full regression retest on v5.8.0 (SectionNav interaction, backburner with create-new, auto-checkpoints visible in timeline)
+- Plan 035 (Unified Calendar) execution
+- Companion sync parity (backburner, priority, video call title)
+- Changelog entry for 5.8.0
+
+---
+
 ## Session - 2026-05-28 (Unified Calendar Plan 035 Architecture)
 
 **Agent:** Antigravity (Gemini)

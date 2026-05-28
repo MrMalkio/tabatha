@@ -6,7 +6,7 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 16 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 17 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
@@ -171,6 +171,7 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-05-26 | Antigravity | Mike Transcript Features | Done comprehensive reconciliation, created specs #203-#206, enriched existing features (#184, #188, #192) with transcript details. | Proceed with prioritized Phase 3/4 development |
 | 2026-05-28 | Antigravity | Backburner & Smart Deferral Scoping | Designed and registered Feature #207 (Backburner) and Feature #208 (Smart Deferral & Splitting Engine). Updated index and backlog. | Initiate frontend / UI implementation planning for v0.3.0 |
 | 2026-05-28 | Antigravity | Calendar Scoping & Plan 035 | Drafted Plan 035 detailed technical implementation plan (Unified Calendar, Month/Week/Day scheduling, Sidebar agenda, delta sync). Renumbered from 030. | Begin Phase 2 UI implementation (CalendarView, CalendarAgenda) |
+| 2026-05-28 | Antigravity | v5.8.0 Stabilization + SectionNav | Code audit (3 bugs fixed), auto-checkpoint system, sub-focus UX, video call suppression, SectionNav hover-expand refactor with smart toggle. Bumped 5.7.2→5.8.0. | Regression retest v5.8.0, Plan 035 Calendar execution, Companion sync parity |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
