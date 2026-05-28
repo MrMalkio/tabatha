@@ -6,7 +6,7 @@ import { fireWebhook as defaultFireWebhook } from '../webhooks.js';
 import { getStorage, setStorage, getSettings } from './storageService.js';
 import { archiveBeforeCap } from './archiveService.js';
 import { broadcastAll, broadcastToExtension } from './notificationService.js';
-import { logAudit } from '../../services/activityAudit.js';
+import { logAudit } from './activityAuditService.js';
 
 let injectedDeps = {};
 let focusAlarmsRegistered = false;
@@ -101,6 +101,43 @@ async function _handleMessage(type, message) {
     case 'SET_FUNNEL_STAGE':
       return setFunnelStage(message.focusId, message.stage, message.confirmed);
 
+    case 'RESUME_BACKBURNER': {
+      const engine = await getFocusEngine();
+      const item = engine.items[message.focusId];
+      if (!item || !item.backburnered) return { focusEngine: engine };
+
+      // Cascade: pause the currently active focus (if any)
+      if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+        const currentActive = engine.items[engine.activeFocusId];
+        if (currentActive.focusState === 'active') {
+          pauseItem(currentActive, 'backburner-resume-cascade', engine);
+        }
+      }
+
+      // Clear backburner state and activate the returning focus
+      item.backburnered = false;
+      item.backburnerExpired = false;
+      item.backburnerReason = null;
+      item.backburnerDurationMinutes = null;
+      item.backburneredAt = null;
+      item.focusState = 'active';
+      item.lastResumedAt = new Date().toISOString();
+      chrome.alarms.clear(`backburner-timer-${message.focusId}`);
+
+      // Restore focus timer if it had remaining time
+      if (item.timerEndAt) {
+        const remainingMs = new Date(item.timerEndAt).getTime() - Date.now();
+        if (remainingMs > 0) {
+          chrome.alarms.create(`focus-timer-${message.focusId}`, { delayInMinutes: remainingMs / 60000 });
+        }
+      }
+
+      engine.activeFocusId = message.focusId;
+      await setFocusEngine(engine);
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      return { focusEngine: engine };
+    }
+
     case 'UPDATE_FOCUS_TAGS':
       return { focusEngine: await updateFocusTags(message.focusId, message.tags) };
 
@@ -144,7 +181,7 @@ async function _handleMessage(type, message) {
 const AUDITABLE_ACTIONS = new Set([
   'START_FOCUS', 'COMPLETE_FOCUS', 'SWITCH_FOCUS', 'PAUSE_FOCUS', 'RESUME_FOCUS',
   'EXTEND_FOCUS_TIMER', 'LET_ME_COOK', 'BACKBURNER_FOCUS', 'SNOOZE_BACKBURNER',
-  'DISMISS_BACKBURNER', 'SAVE_CHECKPOINT_NOTE'
+  'DISMISS_BACKBURNER', 'RESUME_BACKBURNER', 'SAVE_CHECKPOINT_NOTE'
 ]);
 
 async function emitAudit(type, message) {

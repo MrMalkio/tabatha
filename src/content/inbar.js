@@ -1079,8 +1079,7 @@
       alertSwitchBtn.onclick = async () => {
         const focusId = alertSwitchBtn.dataset.focusId;
         try {
-          await chrome.runtime.sendMessage({ type: 'SWITCH_FOCUS', focusId });
-          await chrome.runtime.sendMessage({ type: 'DISMISS_BACKBURNER', focusId });
+          await chrome.runtime.sendMessage({ type: 'RESUME_BACKBURNER', focusId });
           backburnerAlertCard.classList.add('hidden');
           const refreshBtn = shadow.getElementById('refresh-btn');
           if (refreshBtn) refreshBtn.click();
