@@ -10,7 +10,8 @@ import { RETENTION_ALARM } from '../constants.js';
 import {
   handleFocusTimerExpired,
   handleUnfocusedNudge,
-  handleCheckpointPrompt
+  handleCheckpointPrompt,
+  handleBackburnerTimerExpired
 } from './focusService.js';
 import { handleContextTimerExpired } from './tabService.js';
 import { handlePomodoroComplete } from './notificationService.js';
@@ -45,6 +46,9 @@ async function handleAlarm(alarm) {
       const tabId = parseInt(name.slice('context-timer-'.length), 10);
       if (Number.isFinite(tabId)) return handleContextTimerExpired(tabId);
       return;
+    }
+    if (name.startsWith('backburner-timer-')) {
+      return handleBackburnerTimerExpired(name.slice('backburner-timer-'.length));
     }
     // Plan 025: Checkpoint prompt alarm
     if (name.startsWith('checkpoint-prompt-')) {

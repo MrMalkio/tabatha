@@ -281,6 +281,77 @@
     .pause-cancel { background: #333; color: #aaa; }
     .pause-cancel:hover { background: #444; }
 
+
+    /* Backburner Alert Notification Card */
+
+    .backburner-alert-card {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      width: 320px;
+      background: rgba(21, 9, 11, 0.95);
+      border: 1px solid #ff5252;
+      border-radius: 8px;
+      box-shadow: 0 4px 24px rgba(255, 82, 82, 0.35);
+      padding: 12px 14px;
+      pointer-events: auto;
+      backdrop-filter: blur(12px);
+      z-index: 2147483647;
+      animation: alertSlideIn 0.3s ease-out;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .backburner-alert-card.hidden { display: none; }
+    @keyframes alertSlideIn {
+      from { transform: translateX(120%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .backburner-alert-card-title {
+      font-weight: 700;
+      color: #ff5252;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .backburner-alert-card-focus {
+      font-size: 12px;
+      font-weight: 600;
+      color: #eee;
+    }
+    .backburner-alert-card-reason {
+      font-size: 10px;
+      color: #aaa;
+      font-style: italic;
+      background: rgba(255, 82, 82, 0.05);
+      padding: 6px 8px;
+      border-left: 2px solid #ff525255;
+      border-radius: 2px;
+    }
+    .backburner-alert-card-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+    .backburner-alert-card-btn {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+    .backburner-alert-switch { background: #ff5252; color: #fff; }
+    .backburner-alert-switch:hover { background: #ff7b7b; }
+    .backburner-alert-snooze { background: #333; color: #eee; }
+    .backburner-alert-snooze:hover { background: #444; }
+    .backburner-alert-dismiss { background: none; color: #888; border: 1px solid rgba(255,255,255,0.1); }
+    .backburner-alert-dismiss:hover { color: #eee; background: rgba(255,255,255,0.05); }
+
     /* Sticky note overlay */
     .sticky-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2147483645; display: flex; align-items: center; justify-content: center; }
     .sticky-overlay.hidden { display: none; }
@@ -335,6 +406,40 @@
     .new-focus-btn { width: 100%; background: none; border: 1px dashed rgba(255,255,255,0.15); border-radius: 4px; color: #888; padding: 5px; font-size: 10px; cursor: pointer; margin-top: 4px; }
     .new-focus-btn:hover { border-color: #00e5ff44; color: #00e5ff; }
 
+    /* === BACKBURNER === */
+    .bar-btn#backburner-btn { color: #888; }
+    .bar-btn#backburner-btn:hover { color: #ff5252; background: rgba(255,82,82,0.1); }
+    .backburner-prompt {
+      position: absolute;
+      ${position === 'bottom' ? 'bottom' : 'top'}: ${BAR_HEIGHT}px;
+      right: 80px;
+      width: 320px;
+      background: #1a0a0d;
+      border: 1px solid rgba(255,82,82,0.25);
+      border-radius: 8px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
+      padding: 12px 14px;
+      pointer-events: auto;
+      transform: scaleY(0);
+      transform-origin: ${position === 'bottom' ? 'bottom' : 'top'};
+      transition: transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 2147483647;
+    }
+    .backburner-prompt.open { transform: scaleY(1); }
+    .backburner-prompt-title { font-size: 10px; font-weight: 700; color: #ff5252; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .backburner-prompt-input { width: 100%; background: #0f0507; border: 1px solid rgba(255,82,82,0.2); border-radius: 4px; color: #eee; font-family: inherit; font-size: 11px; padding: 6px 8px; resize: none; outline: none; height: 38px; line-height: 1.4; box-sizing: border-box; }
+    .backburner-prompt-input:focus { border-color: #ff5252aa; }
+    .backburner-prompt-select { width: 100%; background: #0f0507; border: 1px solid rgba(255,82,82,0.2); border-radius: 4px; color: #eee; font-family: inherit; font-size: 11px; padding: 5px 8px; outline: none; box-sizing: border-box; }
+    .backburner-prompt-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
+    .backburner-prompt-btn { padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+    .backburner-confirm { background: #ff5252; color: #fff; }
+    .backburner-confirm:hover { background: #ff7b7b; }
+    .backburner-cancel { background: #333; color: #aaa; }
+    .backburner-cancel:hover { background: #444; }
+
     @keyframes stickyDrop { from { opacity: 0; transform: rotate(var(--tilt)) translateY(-30px) scale(0.9); } to { opacity: 1; transform: rotate(var(--tilt)) translateY(0) scale(1); } }
   `;
   shadow.appendChild(style);
@@ -386,10 +491,12 @@
         }
       </div>
       <div class="right">
+        ${activeFocus?.letMeCook ? `<span style="font-size:12px;margin-right:6px;" title="Let Me Cook Mode is active">🍳</span>` : ''}
         ${focusEndTime ? `<span class="timer timer-down" id="focus-countdown" title="Focus countdown">--:--</span>` : ''}
         <button class="bar-btn" id="edit-btn" title="Edit intent / Assign to focus">✏️</button>
         <button class="bar-btn" id="checkpoint-btn" title="Checkpoint — log progress note" style="${activeFocus?.lastCheckpointAt && (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000 ? 'color:#ffa726;' : ''}">📋</button>
         <button class="bar-btn" id="refresh-btn" title="Refresh InBar state">🔄</button>
+        <button class="bar-btn" id="backburner-btn" title="Backburner — put focus aside while waiting for something" style="${activeFocus ? '' : 'display:none;'}">🔥</button>
         <button class="bar-btn pause-btn" id="pause-btn" title="Pause — leave a note about where you left off">⏸</button>
         <button class="bar-btn note-btn" id="note-btn" title="Add note">📝</button>
         <button class="bar-btn" id="hide-bar" title="Collapse to nub">▾</button>
@@ -474,6 +581,41 @@
   `;
   shadow.appendChild(pausePrompt);
 
+  // 8d. Backburner prompt
+  const backburnerPrompt = document.createElement('div');
+  backburnerPrompt.className = 'backburner-prompt';
+  const getQueuedFocusListOptions = () => {
+    const actionable = (allFocusItems || []).filter(f =>
+      f.id !== activeFocusId && f.focusState !== 'completed' && f.funnelStage !== 'resolved'
+    );
+    let options = '<option value="">-- Switch to existing Focus --</option>';
+    actionable.forEach(f => {
+      options += `<option value="${f.id}">🎯 ${f.label}</option>`;
+    });
+    return options;
+  };
+
+  backburnerPrompt.innerHTML = `
+    <div class="backburner-prompt-title">🔥 Backburner: "${focusLabel || 'Current focus'}"</div>
+    <div style="font-size: 9px; color: #888; margin-bottom: 2px;">Put this aside while waiting. We'll remind you to return.</div>
+    <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 4px;">
+      <span style="font-size: 10px; color: #aaa;">Duration:</span>
+      <input type="number" id="backburner-duration" value="15" min="1" max="1440" style="width: 50px; background: #0f0507; border: 1px solid rgba(255,82,82,0.2); border-radius: 4px; color: #eee; font-size: 11px; padding: 3px 6px; text-align: center;">
+      <span style="font-size: 10px; color: #aaa;">mins</span>
+    </div>
+    <textarea class="backburner-prompt-input" id="backburner-reason" placeholder="What are you waiting for? (e.g. test suite to pass)"></textarea>
+    <div style="height: 1px; background: rgba(255,82,82,0.15); margin: 4px 0;"></div>
+    <div style="font-size: 9px; color: #ff5252aa; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;">What will you work on instead?</div>
+    <select class="backburner-prompt-select" id="backburner-switch-select">${getQueuedFocusListOptions()}</select>
+    <div style="font-size: 9px; color: #666; text-align: center; margin: 4px 0;">— OR CREATE NEW —</div>
+    <input type="text" class="backburner-prompt-input" id="backburner-new-focus" placeholder="Create a new temporary focus..." style="height: 28px;">
+    <div class="backburner-prompt-actions">
+      <button class="backburner-prompt-btn backburner-cancel" id="backburner-cancel">Cancel</button>
+      <button class="backburner-prompt-btn backburner-confirm" id="backburner-confirm">Backburner</button>
+    </div>
+  `;
+  shadow.appendChild(backburnerPrompt);
+
   // 8c. Sticky note overlay
   const stickyTilt = (Math.random() * 6 - 3).toFixed(1); // -3° to +3°
   const stickyOverlay = document.createElement('div');
@@ -501,6 +643,27 @@
   `;
   stickyOverlay.innerHTML = buildStickyHTML();
   shadow.appendChild(stickyOverlay);
+
+  // 8e. Backburner expired alert overlay
+  const backburnerAlertCard = document.createElement('div');
+  const expiredBackburnerItem = (allFocusItems || []).find(f => f.backburnered && f.backburnerExpired);
+  backburnerAlertCard.className = `backburner-alert-card${expiredBackburnerItem ? '' : ' hidden'}`;
+  
+  const buildBackburnerAlertHTML = (item) => {
+    if (!item) return '';
+    return `
+      <div class="backburner-alert-card-title">🔥 Backburner Expired</div>
+      <div class="backburner-alert-card-focus">🎯 ${item.label}</div>
+      ${item.backburnerReason ? `<div class="backburner-alert-card-reason">Waiting for: "${item.backburnerReason}"</div>` : ''}
+      <div class="backburner-alert-card-actions">
+        <button class="backburner-alert-card-btn backburner-alert-dismiss" id="backburner-alert-dismiss" data-focus-id="${item.id}">Dismiss</button>
+        <button class="backburner-alert-card-btn backburner-alert-snooze" id="backburner-alert-snooze" data-focus-id="${item.id}">Snooze 10m</button>
+        <button class="backburner-alert-card-btn backburner-alert-switch" id="backburner-alert-switch" data-focus-id="${item.id}">Resume Focus</button>
+      </div>
+    `;
+  };
+  backburnerAlertCard.innerHTML = buildBackburnerAlertHTML(expiredBackburnerItem);
+  shadow.appendChild(backburnerAlertCard);
 
   // 9. Timer logic
   let intentTimerEl = shadow.getElementById('intent-timer');
@@ -573,6 +736,16 @@
     if (isPaused) {
       stickyOverlay.innerHTML = buildStickyHTML();
     }
+
+    // Update backburner alert card
+    const expiredItem = (allFocusItems || []).find(f => f.backburnered && f.backburnerExpired);
+    if (expiredItem) {
+      backburnerAlertCard.innerHTML = buildBackburnerAlertHTML(expiredItem);
+      backburnerAlertCard.classList.remove('hidden');
+    } else {
+      backburnerAlertCard.classList.add('hidden');
+    }
+
     // Re-query timer elements (they only exist when not paused)
     intentTimerEl = shadow.getElementById('intent-timer');
     taskTimerEl = shadow.getElementById('task-timer');
@@ -734,6 +907,16 @@
           }
           const focusListEl = shadow.getElementById('focus-list');
           if (focusListEl) focusListEl.innerHTML = buildFocusList();
+
+          // Update backburner alert card
+          const expiredItem = (allFocusItems || []).find(f => f.backburnered && f.backburnerExpired);
+          if (expiredItem) {
+            backburnerAlertCard.innerHTML = buildBackburnerAlertHTML(expiredItem);
+            backburnerAlertCard.classList.remove('hidden');
+          } else {
+            backburnerAlertCard.classList.add('hidden');
+          }
+
           bindBarEvents();
         } catch (e) { /* refresh failed silently */ }
       };
@@ -795,7 +978,7 @@
         if (!focusId) return;
         try {
           // Switch to this focus — activates it and reassigns the intent
-          await chrome.runtime.sendMessage({ type: 'SWITCH_FOCUS', payload: { focusId } });
+          await chrome.runtime.sendMessage({ type: 'SWITCH_FOCUS', focusId });
           editDropdown.classList.remove('open');
         } catch (e) { /* send failed */ }
       };
@@ -811,6 +994,96 @@
           await chrome.runtime.sendMessage({ type: 'START_FOCUS', label, timerMinutes: 15 });
           editDropdown.classList.remove('open');
         } catch (e) { /* send failed */ }
+      };
+    }
+
+    // ── Backburner ──
+    const backburnerBtn = shadow.getElementById('backburner-btn');
+    if (backburnerBtn) {
+      backburnerBtn.onclick = () => {
+        const isOpen = backburnerPrompt.classList.contains('open');
+        // Close other panels first
+        notesPanel.classList.remove('open');
+        pausePrompt.classList.remove('open');
+        editDropdown.classList.remove('open');
+        backburnerPrompt.classList.toggle('open', !isOpen);
+        if (!isOpen) {
+          const reasonInp = shadow.getElementById('backburner-reason');
+          if (reasonInp) reasonInp.focus();
+        }
+      };
+    }
+
+    const backburnerCancelBtn = shadow.getElementById('backburner-cancel');
+    if (backburnerCancelBtn) {
+      backburnerCancelBtn.onclick = () => {
+        backburnerPrompt.classList.remove('open');
+      };
+    }
+
+    const backburnerConfirmBtn = shadow.getElementById('backburner-confirm');
+    if (backburnerConfirmBtn) {
+      backburnerConfirmBtn.onclick = async () => {
+        const duration = Number(shadow.getElementById('backburner-duration')?.value || 15);
+        const reason = shadow.getElementById('backburner-reason')?.value?.trim() || '';
+        const switchSelect = shadow.getElementById('backburner-switch-select');
+        const switchToFocusId = switchSelect ? switchSelect.value : '';
+        const createNewFocusLabel = shadow.getElementById('backburner-new-focus')?.value?.trim() || '';
+
+        try {
+          await chrome.runtime.sendMessage({
+            type: 'BACKBURNER_FOCUS',
+            focusId: activeFocusId,
+            durationMinutes: duration,
+            reason: reason,
+            switchToFocusId: switchToFocusId,
+            createNewFocusLabel: createNewFocusLabel
+          });
+          backburnerPrompt.classList.remove('open');
+          // Trigger a refresh of InBar data immediately
+          const refreshBtn = shadow.getElementById('refresh-btn');
+          if (refreshBtn) refreshBtn.click();
+        } catch (e) { /* send failed */ }
+      };
+    }
+
+    // ── Backburner Alert Card Event Handlers ──
+    const alertDismissBtn = shadow.getElementById('backburner-alert-dismiss');
+    if (alertDismissBtn) {
+      alertDismissBtn.onclick = async () => {
+        const focusId = alertDismissBtn.dataset.focusId;
+        try {
+          await chrome.runtime.sendMessage({ type: 'DISMISS_BACKBURNER', focusId });
+          backburnerAlertCard.classList.add('hidden');
+          const refreshBtn = shadow.getElementById('refresh-btn');
+          if (refreshBtn) refreshBtn.click();
+        } catch (e) { /* failed */ }
+      };
+    }
+
+    const alertSnoozeBtn = shadow.getElementById('backburner-alert-snooze');
+    if (alertSnoozeBtn) {
+      alertSnoozeBtn.onclick = async () => {
+        const focusId = alertSnoozeBtn.dataset.focusId;
+        try {
+          await chrome.runtime.sendMessage({ type: 'SNOOZE_BACKBURNER', focusId });
+          backburnerAlertCard.classList.add('hidden');
+          const refreshBtn = shadow.getElementById('refresh-btn');
+          if (refreshBtn) refreshBtn.click();
+        } catch (e) { /* failed */ }
+      };
+    }
+
+    const alertSwitchBtn = shadow.getElementById('backburner-alert-switch');
+    if (alertSwitchBtn) {
+      alertSwitchBtn.onclick = async () => {
+        const focusId = alertSwitchBtn.dataset.focusId;
+        try {
+          await chrome.runtime.sendMessage({ type: 'RESUME_BACKBURNER', focusId });
+          backburnerAlertCard.classList.add('hidden');
+          const refreshBtn = shadow.getElementById('refresh-btn');
+          if (refreshBtn) refreshBtn.click();
+        } catch (e) { /* failed */ }
       };
     }
   };
@@ -949,7 +1222,7 @@
 
   // 13. Listen for updates — full hot-reload
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === 'FOCUS_ENGINE_UPDATED' || msg.type === 'TAB_UPDATED' || msg.type === 'INTENT_UPDATED') {
+    if (msg.type === 'FOCUS_ENGINE_UPDATED' || msg.type === 'TAB_UPDATED' || msg.type === 'INTENT_UPDATED' || msg.type === 'BACKBURNER_ALERT') {
       chrome.runtime.sendMessage({ type: 'GET_INBAR_DATA' }).then(res => {
         if (!res) return;
         // Update mutable state
@@ -979,6 +1252,16 @@
         // Update edit dropdown focus list
         const focusListEl = shadow.getElementById('focus-list');
         if (focusListEl) focusListEl.innerHTML = buildFocusList();
+        
+        // Update backburner alert card
+        const expiredItem = (allFocusItems || []).find(f => f.backburnered && f.backburnerExpired);
+        if (expiredItem) {
+          backburnerAlertCard.innerHTML = buildBackburnerAlertHTML(expiredItem);
+          backburnerAlertCard.classList.remove('hidden');
+        } else {
+          backburnerAlertCard.classList.add('hidden');
+        }
+
         // Re-bind events
         bindBarEvents();
       }).catch(() => {});
@@ -1016,7 +1299,11 @@
       return m > 0 ? `${m}m ${s}s` : `${s}s`;
     };
     const _buildFTEActions = (card, overlay, focusId) => {
-      card.querySelector('#fte-extend')?.addEventListener('click', () => _dismissAndSend(overlay, 'EXTEND_FOCUS_TIMER', { focusId, extraMinutes: 5 }));
+      card.querySelector('#fte-extend-custom')?.addEventListener('click', () => {
+        const val = Number(card.querySelector('#fte-snooze-custom-val')?.value || 5);
+        _dismissAndSend(overlay, 'EXTEND_FOCUS_TIMER', { focusId, extraMinutes: val });
+      });
+      card.querySelector('#fte-cook')?.addEventListener('click', () => _dismissAndSend(overlay, 'LET_ME_COOK', { focusId }));
       card.querySelector('#fte-switch')?.addEventListener('click', async () => {
         try {
           const res = await chrome.runtime.sendMessage({ type: 'GET_FOCUS_ENGINE' });
@@ -1040,8 +1327,12 @@
       });
     };
     const _fteButtonsHTML = () => `
-      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;">
-        <button id="fte-extend" style="${_popupBtnStyle('#00e5ff')}">⏱️ +5 min</button>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:6px;border:1px solid #444;height:32px;box-sizing:border-box;">
+          <input type="number" id="fte-snooze-custom-val" value="5" min="1" max="180" style="width:32px;background:#111;color:#eee;border:1px solid #555;border-radius:4px;font-size:11px;text-align:center;padding:2px 0;border:none;">
+          <button id="fte-extend-custom" style="background:#00e5ff22;color:#00e5ff;border:1px solid #00e5ff44;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;cursor:pointer;">⏱️ Snooze</button>
+        </div>
+        <button id="fte-cook" style="${_popupBtnStyle('#ffd54f')}">🍳 Let Me Cook</button>
         <button id="fte-switch" style="${_popupBtnStyle('#29b6f6')}">🔄 Switch</button>
         <button id="fte-pause" style="${_popupBtnStyle('#ffa726')}">⏸ Pause</button>
         <button id="fte-break" style="${_popupBtnStyle('#ce93d8')}">☕ Break</button>
@@ -1119,6 +1410,29 @@
         timerMinutes: msg.timerMinutes,
         triggeredBy: 'auto_prompt'
       });
+    }
+
+    // ── Backburner Alert — check-in overlay (singleton) ──
+    if (msg.type === 'BACKBURNER_ALERT') {
+      if (document.getElementById('tabatha-popup-overlay')) return; // singleton
+      const overlay = _createOverlay();
+      const card = _createCard();
+      const elapsed = msg.backburneredAt ? Math.floor((Date.now() - new Date(msg.backburneredAt).getTime()) / 60000) : '?';
+      card.innerHTML = `
+        <div style="font-size:32px;margin-bottom:8px;">🔥</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#ff9800;">Backburner Check-in</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"<strong style="color:#ff9800;">${msg.label || 'Backburnered Focus'}</strong>" has been on the backburner for ${elapsed}m.</div>
+        <div style="font-size:12px;color:#888;margin-bottom:12px;">Would you like to come back to it?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+          <button id="bb-resume" style="${_popupBtnStyle('#66bb6a')}">▶ Resume</button>
+          <button id="bb-snooze" style="${_popupBtnStyle('#ffa726')}">⏰ Snooze 10m</button>
+          <button id="bb-dismiss" style="${_popupBtnStyle('#ef5350')}">✕ Dismiss</button>
+        </div>`;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      card.querySelector('#bb-resume')?.addEventListener('click', () => _dismissAndSend(overlay, 'RESUME_BACKBURNER', { focusId: msg.focusId }));
+      card.querySelector('#bb-snooze')?.addEventListener('click', () => _dismissAndSend(overlay, 'SNOOZE_BACKBURNER', { focusId: msg.focusId, snoozeMinutes: 10 }));
+      card.querySelector('#bb-dismiss')?.addEventListener('click', () => _dismissAndSend(overlay, 'DISMISS_BACKBURNER', { focusId: msg.focusId }));
     }
 
     // ── Popup Dismissed — cross-tab cleanup ──

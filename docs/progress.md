@@ -5,6 +5,148 @@
 
 ---
 
+## Session - 2026-05-28 (v5.8.0 Stabilization + SectionNav Refactor)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** feat/gap-completion
+**Goal:** Finalize regression fixes, code audit, and SectionNav UX refactor.
+
+### What Was Done
+
+- [x] **Regression Fix RT-9** — Fixed backburner create-new-focus path: inherit `associatedTabIds` and `backburnerTransitionFocusId` cross-linking.
+- [x] **Sub-focus Discoverability** — Added `📌 Sub-focus` button to FocusBar action row + purple `child` badge in FocusQueue items.
+- [x] **Video Call Idle Suppression** — Enhanced idle detection to check both audible meeting tabs AND active tab URL patterns (Meet, Zoom, Teams, WebEx).
+- [x] **Auto-Checkpoint System** — Built `autoCheckpoint()` helper that records lifecycle transitions (started, paused, resumed, completed, backburnered) as `triggeredBy: 'system'` entries. UI shows them with ⚙️ prefix at 60% opacity.
+- [x] **Code Audit** — Found and fixed 3 bugs: incomplete focus skeleton in backburner create-new (12 missing fields), missing `priority` in `addFocus`, and checkpoint badge count inflation from system entries.
+- [x] **SectionNav Refactor** — Sidebar now hover-expandable (44px→160px), shows icon+title labels on hover. Smart click: same section = toggle collapse; different section = navigate + expand. Collapsed sections drop to bottom of sidebar with divider + line-through. Collapsed sections render zero-height anchor (no wasted vertical space).
+- [x] **Version bump** — 5.7.2 → 5.8.0 (2 features, 4 fixes).
+
+### Key Decisions
+
+- System checkpoints do NOT reset the `lastCheckpointAt` or stale timer — user still gets nudged for manual notes.
+- Badge count filters out system entries; timeline visibility uses total count.
+- Sidebar keeps titles in body header when open (needed for action buttons); collapsed sections have no body header at all.
+
+### Next Steps
+
+- Full regression retest on v5.8.0 (SectionNav interaction, backburner with create-new, auto-checkpoints visible in timeline)
+- Plan 035 (Unified Calendar) execution
+- Companion sync parity (backburner, priority, video call title)
+- Changelog entry for 5.8.0
+
+---
+
+## Session - 2026-05-28 (Unified Calendar Plan 035 Architecture)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** working tree (master/staging)
+**Goal:** Architect the Unified Calendar & Scheduling System (Plan 035) with Google, Outlook, and iCal parity.
+
+### What Was Done
+
+- [x] **Technical Scoping & Architecture Design** — Authored the comprehensive implementation plan for Plan 030 in `docs/Plan-030-time-blocking-calendar.md`.
+- [x] **Database Schema Specification** — Designed local SQL schemas for calendars (`tabatha_calendars`) and events (`tabatha_calendar_events`) including RRule recurrence engines and focus/task bindings.
+- [x] **UI/UX Component Mockups** — Designed React structural specifications for both the full-page Month/Week/Day `CalendarView` (Homepage) and the vertical compact agenda view `CalendarAgenda` (Sidebar).
+- [x] **Sync Engine Definition** — Detailed the incremental sync protocol utilizing delta tokens, background fetch loops via alarms, and immediate outbound push triggers with debounced writes.
+- [x] **Parallelability & Handoff Review** — Analyzed dependencies against the current `feat/gap-completion` worktree to guarantee safe, parallelized task distribution.
+
+### Key Decisions
+
+- **Visual Parity**: Committed to a React Big Calendar component architecture with custom Framer Motion drag/drop event triggers.
+- **Offline-First Storage**: Stored local calendar items inside Chrome extension state, with Supabase database backing as the authoritative sync registry.
+
+### Next Steps
+
+- Initiate Phase 1 implementation by executing the local calendar schema migrations.
+- Build out the React Homepage Calendar grid view.
+
+## Session - 2026-05-28 (Backburner Frontend & Core Alarm Engine Implementation)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** working tree (master/staging)
+**Goal:** Implement the "Back Burner" (#207) momentary check-in UI and core alarm notification engine.
+
+### What Was Done
+
+- [x] **Backburner Focus Implementation** — Created the `backburnerFocus` business logic inside `focusService.js` that updates the item in `focusEngine` with `backburnered: true`, duration, reason, and registers alarms. Handles automatic switching to an existing focus or creating a brand new temporary focus.
+- [x] **Chrome Alarms Service Integration** — Added the `backburner-timer-*` alarm listener in `alarmsService.js`. When the alarm fires, it flags the focus as `backburnerExpired: true`, clears active overlay states, and broadcasts a `BACKBURNER_ALERT` event to all pages and content scripts.
+- [x] **InBar Prompt & Overlay Card UI** —
+  - Added the Backburner button in the InBar footer.
+  - Implemented the dropdown popup for setting backburner duration, entering the reason, selecting a fallback focus from active focus items, or creating a new temporary focus.
+  - Built the `backburner-alert-card` that pops up when a backburner timer expires. Includes **Dismiss** (clears backburner states), **Snooze** (adds 10m to alarm), and **Resume Focus** (activates backburnered focus and dismisses).
+- [x] **Message Handler Registration** — Added `DISMISS_BACKBURNER` and `SNOOZE_BACKBURNER` runtime message handlers to the service router.
+- [x] **Successful Build** — Ran `npm run build` with 100% success (0 errors).
+
+### Key Decisions
+
+- **InBar Presence**: Decided to utilize standard content script overlays within the shadow DOM to keep alerts completely non-intrusive and natively integrated without requiring complex host window context manipulations.
+- **Snooze Duration**: Hardcoded to 10 minutes by default for high predictability.
+
+### Next Steps
+
+- Proceed with testing of the Backburner UI and full lifecycle in a live unpacked Chrome extension environment.
+- Integrate the remaining features from Plan 031 once this foundation is fully verified.
+
+---
+
+## Session - 2026-05-28 (Backburner & Smart Deferral Scoping)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** n/a (docs-only, working tree)
+**Goal:** Formalize and integrate the "Back Burner" (#207) and "Smart Deferral/Stint Scheduling" (#208) focus management features into the Tabatha ecosystem.
+
+### What Was Done
+
+- [x] **Technical Scoping & Spec Drafting** — Created full feature specs in `docs/features/`:
+  - `docs/features/207-backburner.md`: Outlines non-intrusive InBar reminders, Momentary Check-in mechanics, and continuous time tracking defaults.
+  - `docs/features/208-smart-deferral-stint-scheduling.md`: Details the Auto-Stint Scheduling heuristic, calendar-gap matching, and task fragmentation rules.
+- [x] **Feature Matrix Integration** — Registered Features #207 and #208 in `v0_legacy/docs/features.md` and added them to `tabatha_feature_backlog.md` (Batch 12).
+- [x] **Plan Registry Update** — Registered Plan 034 for the Smart Deferral Engine and set Plan 031 progress to `partial (1/8)`.
+- [x] **Documentation Sync** — Updated the Headbox instructions and synced `GEMINI.md`, `CLAUDE.md`, and `.gemini/agent.md`.
+
+### Key Decisions
+
+- **Reminder Presentation**: Confirmed floating non-intrusive InBar alerts as the default reminder pattern to prevent user flow disruption.
+- **Time Logging Options**: Set continuous focus time logging with check-in classification as the default operational mode for Backburner items.
+
+### Next Steps
+
+- Initiate frontend/UI implementation planning for v0.3.0.
+- Implement the desktop-extension handshake in the `alarmsService`.
+
+---
+
+## Session - 2026-05-26 (Mike Transcript Features Assimilation)
+
+**Agent:** Antigravity (Gemini)
+**Branch:** n/a (docs-only, working tree)
+**Goal:** Assimilate all missing Mike Transcript concepts and features into the master feature list and feature specifications.
+
+### What Was Done
+
+- [x] **Comprehensive Audit & Reconciliation** — Verified every single competitive insight, taxonomic category, and operational flow from `tabby_idea_call_feature_list.md` against existing docs.
+- [x] **New Feature Specifications** — Created 4 new top-tier feature specifications in `docs/features/`:
+  - `#203`: Business Taxonomy Mapping (On vs. In the Business) — separating client billable vs internal overhead (Sales/Marketing, HR, Admin, R&D)
+  - `#204`: Activity Review & Approval Flow (Rise-Style Pending Queue) — draft log editing, heuristic client/service guessing, and bulk approval prior to payroll sync
+  - `#205`: QuickBooks Online Payroll Export Workflow — OAuth integration, employee/client mapping, and Timesheets API sync to run payroll in 2 minutes
+  - `#206`: Time Block Compliance & Deviation Tracker — dual-track planned vs actual visual overlay, divergence triggers, and accountability compliance scoring
+- [x] **Enriched Existing Features** — Updated core specifications with high-fidelity insights:
+  - `#188`: Added integration heuristics for the third-party **Write Tool QuickBooks Extension** for reliable browser-level active tab client-name harvesting.
+  - `#184`: Scoped the timed **stuck escalation prompts flow** (Do you need help? → Who? → Are you getting pulled?) and the **self-unstuck gamified reward points** (+5 Follow-Through Score boost).
+  - `#192`: Scoped **Priority-Based Empty-Slot Autofill** for scheduling high-priority pending items between calendar gaps to reduce choice paralysis.
+- [x] **Verification** — Ran `npm run build` cleanly — 100% success with 0 errors.
+
+### Key Decisions
+
+- Kept the "On vs. In the Business" taxonomic taxonomy unified with existing "Realms" but clearly separated billable service/client flows from internal department overhead.
+- Bridged passive tracking and manual timesheets with an editable Rise-style pending review queue to eliminate timer-switching friction.
+
+### Next Steps
+
+- Proceed with development of these core prioritized Phase 3/4 feature sets (specifically automatic client detection #188 and review queue #204).
+
+---
+
 ## Session - 2026-05-19 (Feature #202: Session Resurrection Spec)
 
 **Agent:** Antigravity (Claude Opus 4.6 Thinking)

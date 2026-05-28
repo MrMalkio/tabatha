@@ -338,3 +338,65 @@
   1. Address in priority order (DB password → migrations → regression) before any production push ← **suggested**
   2. Bundle into a "v6.0.0 release readiness" plan
   3. Address incrementally as features stabilize
+
+## 2026-05-28 — Desktop Companion Status Detection + Download Link
+- **Noticed while:** Regression testing T11 (Integrations panel)
+- **What:** Companion card shows "not configured" even though the companion is running on the same PC. Also needs a stubbed download link for when it's not configured.
+- **Why it matters:** Users can't tell if the integration is working; no onboarding path to get started.
+- **Options:**
+  1. Ping companion WebSocket from settings panel to detect running state ← **suggested**
+  2. Add a manual "test connection" button
+  3. Both: auto-detect + manual test + download URL placeholder
+
+## ~~2026-05-28 — Video Call Idle Suppression + Calendar Tie-in~~ ✅ PARTIAL (URL added, calendar deferred to Plan 035)
+- **Noticed while:** Regression testing T6 (video call suppression)
+- **What:** Current suppression relies on tab audible state. Should ALSO consider: (1) URL matching for known meeting domains, (2) calendar events with Meet/Zoom links attached (when calendar integration is available).
+- **Why it matters:** Audible-only detection misses muted calls, silent presentations, and pre-meeting tabs.
+- **Options:**
+  1. Add URL-based detection as primary, audible as secondary ← **suggested**
+  2. Wait for calendar integration (Plan 035) to add event-based detection
+  3. Both: URL now, calendar later
+
+## ~~2026-05-28 — Sub-Intent Creation UX Discoverability~~ ✅ RESOLVED
+- **Noticed while:** Regression testing T7 (sub-intent parent tick)
+- **What:** Users don't know how to create a sub-intent/child focus under a parent. No visible UI affordance for creating hierarchical focus items.
+- **Why it matters:** Sub-intents and parent ticking are implemented in the backend but unreachable via UI.
+- **Options:**
+  1. Add "Add sub-focus" button on active focus card ← **suggested**
+  2. Drag-and-drop nesting in queue
+  3. Context menu on queue items
+
+## ~~2026-05-28 — Structured Checkpoints from State Changes~~ ✅ RESOLVED
+- **Noticed while:** Regression testing (unrelated observation)
+- **What:** Focus lifecycle changes (start, pause, backburner, etc.) and text-capture events should auto-generate structured checkpoint entries in the checkpoint log.
+- **Why it matters:** Currently checkpoints are manual; auto-generation ensures complete audit trail.
+- **Options:**
+  1. Emit checkpoint entries from focusService for key state transitions ← **suggested**
+  2. Separate checkpoint service that observes FOCUS_ENGINE_UPDATED broadcasts
+  3. Both: service + broadcast observer
+
+## 2026-05-28 — Companion Updates for New Features
+- **Noticed while:** Regression testing T14b (backburner cascade)
+- **What:** Desktop companion needs updates to support new features: backburner state awareness, focus priority display, video call detection via window titles, calendar event sync.
+- **Why it matters:** Companion is out of sync with extension feature set.
+- **Options:**
+  1. Create companion feature sync plan after Plan 031 lands ← **suggested**
+  2. Bundle into existing Plan 019 (distribution)
+
+## ~~2026-05-28 — Backburner + New Focus Edge Case~~ ✅ RESOLVED
+- **Noticed while:** Regression testing RT-9 (InBar edit dropdown options)
+- **What:** When backburnering a focus and choosing "create new" instead of selecting from the list, the current tab loses its intent assignment and the InBar edit dropdown shows no focuses to select from. The newly created focus does become active, but the tab→focus association is broken.
+- **Why it matters:** Users commonly backburner and immediately start fresh work. The new focus should auto-associate with the current tab and the InBar should reflect the new intent.
+- **Options:**
+  1. In `BACKBURNER_FOCUS` handler, if creating a new focus, also call `associateTabWithFocus` for the sender tab ← **suggested**
+  2. Re-run `checkContextNeeded` on the active tab after backburner completes
+  3. Both: explicit association + context re-check
+
+## ~~2026-05-28 — Homepage Section Navigation Sidebar~~ ✅ RESOLVED
+- **Noticed while:** User feedback during regression testing
+- **What:** User wants the collapsible section headers (Shift Controls, Now, Focus Engine, Activity, Analytics, Context Activity, Panels) moved out of the main body and into a persistent left sidebar for quick navigation. Clicking a sidebar item scrolls to that section. Current header icons: ⏱️, 🎯, 🔍, 📊, 📈, 📊, 📋.
+- **Why it matters:** As the homepage grows, vertical scroll to find sections becomes friction. Sidebar nav provides at-a-glance overview + one-click jumps.
+- **Options:**
+  1. CSS sticky sidebar with scroll-to-section links ← **suggested**
+  2. Floating hamburger menu with section anchors
+  3. Top horizontal nav bar (tabs-style) with scroll-spy

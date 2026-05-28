@@ -10,6 +10,7 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
   const [selectedTargetId, setSelectedTargetId] = useState('');
   const [newTaskName, setNewTaskName] = useState('');
   const [newFocusLabel, setNewFocusLabel] = useState('');
+  const [timerMinutes, setTimerMinutes] = useState(15);
 
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
@@ -38,7 +39,7 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
       chrome.runtime.sendMessage({ type: 'LINK_TAB_TO_INTENT', tabId: targetItem.id, targetIntentId: selectedTargetId });
     } else if (type === 'tab' && mode === 'create') {
       // Create a new focus item from this tab's intent
-      chrome.runtime.sendMessage({ type: 'ADD_FOCUS', label: newFocusLabel, timerMinutes: 15 }, (resp) => {
+      chrome.runtime.sendMessage({ type: 'ADD_FOCUS', label: newFocusLabel, timerMinutes: Number(timerMinutes || 15) }, (resp) => {
         if (resp?.newFocusId) {
           // Link the tab to the newly created focus
           chrome.runtime.sendMessage({ type: 'LINK_TAB_TO_INTENT', tabId: targetItem.id, targetIntentId: resp.newFocusId });
@@ -104,9 +105,15 @@ export function LinkMergeModal({ isOpen, onClose, targetItem, type }) {
 
             {/* Create focus from tab */}
             {mode === 'create' && type === 'tab' && (
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Name your new focus</label>
-                <input type="text" placeholder="Focus label..." value={newFocusLabel} onChange={e => setNewFocusLabel(e.target.value)} style={inputStyle} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Name your new focus</label>
+                  <input type="text" placeholder="Focus label..." value={newFocusLabel} onChange={e => setNewFocusLabel(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Timer Duration (minutes)</label>
+                  <input type="number" min="1" max="180" value={timerMinutes} onChange={e => setTimerMinutes(Math.max(1, Number(e.target.value)))} style={inputStyle} />
+                </div>
               </div>
             )}
 

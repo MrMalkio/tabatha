@@ -22,7 +22,9 @@ const DURABLE_SYNC_KEYS = new Set([
   'tabathaOrg',
   'clockHistory',
   'companionRecentSessions',
-  'desktopActivity'
+  'desktopActivity',
+  'calendars',
+  'calendarEvents'
 ]);
 
 export function configureSyncService(injected = {}) {
@@ -437,6 +439,177 @@ function buildDesktopRows(companionRecentSessions, desktopActivity, scope, lastD
   return { rows, newest: newest > lastSyncMs ? new Date(newest).toISOString() : null };
 }
 
+function buildCalendarRows(calendars, scope) {
+  const now = new Date().toISOString();
+  return toArray(calendars)
+    .filter(item => item?.id && item?.name)
+    .map(item => ({
+      ...scope,
+      calendar_id: item.id,
+      name: item.name,
+      color: item.color || '#6366f1',
+      provider: item.provider || 'native',
+      provider_calendar_id: item.providerCalendarId || null,
+      is_writable: item.isWritable !== false,
+      is_visible: item.isVisible !== false,
+      sync_token: item.syncToken || null,
+      created_at: isoOrNow(item.createdAt),
+      updated_at: isoOrNow(item.updatedAt),
+      metadata: item,
+      synced_at: now
+    }));
+}
+
+function buildCalendarEventRows(calendarEvents, scope) {
+  const now = new Date().toISOString();
+  return toArray(calendarEvents)
+    .filter(item => item?.id && item?.calendarId && item?.title)
+    .map(item => ({
+      ...scope,
+      calendar_id: item.calendarId,
+      event_id: item.id,
+      title: item.title,
+      description: item.description || '',
+      start_time: isoOrNow(item.startTime),
+      end_time: isoOrNow(item.endTime),
+      is_all_day: !!item.isAllDay,
+      color_override: item.colorOverride || null,
+      location: item.location || '',
+      rrule: item.rrule || null,
+      exdate: item.exdate || '',
+      associated_focus_id: item.associatedFocusId || null,
+      associated_task_id: item.associatedTaskId || null,
+      provider_event_id: item.providerEventId || null,
+      etag: item.etag || null,
+      last_synced_at: isoOrNull(item.lastSyncedAt),
+      created_at: isoOrNow(item.createdAt),
+      updated_at: isoOrNow(item.updatedAt),
+      metadata: item,
+      synced_at: now
+    }));
+}
+
+async function syncCalendarsAndEvents(supabase, scope) {
+  try {
+    const { calendars: localCalendars } = await getStorage('calendars');
+    const { calendarEvents: localEvents } = await getStorage('calendarEvents');
+
+    const localCalArr = Array.isArray(localCalendars) ? localCalendars : [];
+    const localEvtArr = Array.isArray(localEvents) ? localEvents : [];
+
+    // 1. PULL from Supabase
+    const { data: serverCalendars, error: calError } = await supabase
+      .schema('tabatha')
+      .from('calendars')
+      .select('*')
+      .eq('profile_id', scope.profile_id);
+
+    if (calError) {
+      await recordDiagnostic('pull_calendars_failed', calError);
+      return false;
+    }
+
+    const { data: serverEvents, error: evtError } = await supabase
+      .schema('tabatha')
+      .from('calendar_events')
+      .select('*')
+      .eq('profile_id', scope.profile_id);
+
+    if (evtError) {
+      await recordDiagnostic('pull_events_failed', evtError);
+      return false;
+    }
+
+    // 2. Bidirectional Merge Calendars
+    const mergedCalendars = [...localCalArr];
+    for (const serverCal of serverCalendars || []) {
+      const localIdx = mergedCalendars.findIndex(c => c.id === serverCal.calendar_id);
+      const serverMetadata = serverCal.metadata || {};
+      const serverItem = {
+        id: serverCal.calendar_id,
+        name: serverCal.name,
+        color: serverCal.color,
+        provider: serverCal.provider,
+        providerCalendarId: serverCal.provider_calendar_id,
+        isWritable: serverCal.is_writable,
+        isVisible: serverCal.is_visible,
+        syncToken: serverCal.sync_token,
+        createdAt: serverCal.created_at,
+        updatedAt: serverCal.updated_at,
+        ...serverMetadata
+      };
+
+      if (localIdx < 0) {
+        mergedCalendars.push(serverItem);
+      } else {
+        const localItem = mergedCalendars[localIdx];
+        const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
+        const serverTime = new Date(serverCal.updated_at || serverCal.created_at || 0).getTime();
+        if (serverTime > localTime) {
+          mergedCalendars[localIdx] = serverItem;
+        }
+      }
+    }
+
+    // 3. Bidirectional Merge Events
+    const mergedEvents = [...localEvtArr];
+    for (const serverEvt of serverEvents || []) {
+      const localIdx = mergedEvents.findIndex(e => e.id === serverEvt.event_id);
+      const serverMetadata = serverEvt.metadata || {};
+      const serverItem = {
+        id: serverEvt.event_id,
+        calendarId: serverEvt.calendar_id,
+        title: serverEvt.title,
+        description: serverEvt.description || '',
+        startTime: serverEvt.start_time,
+        endTime: serverEvt.end_time,
+        isAllDay: !!serverEvt.is_all_day,
+        colorOverride: serverEvt.color_override || null,
+        location: serverEvt.location || '',
+        rrule: serverEvt.rrule || null,
+        exdate: serverEvt.exdate || '',
+        associatedFocusId: serverEvt.associated_focus_id || null,
+        associatedTaskId: serverEvt.associated_task_id || null,
+        providerEventId: serverEvt.provider_event_id || null,
+        etag: serverEvt.etag || null,
+        lastSyncedAt: serverEvt.last_synced_at || null,
+        createdAt: serverEvt.created_at,
+        updatedAt: serverEvt.updated_at,
+        ...serverMetadata
+      };
+
+      if (localIdx < 0) {
+        mergedEvents.push(serverItem);
+      } else {
+        const localItem = mergedEvents[localIdx];
+        const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
+        const serverTime = new Date(serverEvt.updated_at || serverEvt.created_at || 0).getTime();
+        if (serverTime > localTime) {
+          mergedEvents[localIdx] = serverItem;
+        }
+      }
+    }
+
+    // Save merged arrays back to chrome.storage.local
+    await setStorage({
+      calendars: mergedCalendars,
+      calendarEvents: mergedEvents
+    });
+
+    // 4. PUSH upserts back to Supabase
+    const calRows = buildCalendarRows(mergedCalendars, scope);
+    const evtRows = buildCalendarEventRows(mergedEvents, scope);
+
+    const okCal = await upsertRows(supabase, 'calendars', calRows, 'profile_id, calendar_id', 'calendars_upsert_failed');
+    const okEvt = await upsertRows(supabase, 'calendar_events', evtRows, 'profile_id, event_id', 'calendar_events_upsert_failed');
+
+    return okCal && okEvt;
+  } catch (err) {
+    await recordDiagnostic('sync_calendars_failed', err);
+    return false;
+  }
+}
+
 async function syncOrgRegistry(supabase, scope) {
   const { tabathaOrg } = await getStorage('tabathaOrg');
   if (!tabathaOrg) return true;
@@ -572,6 +745,7 @@ export async function syncToSupabase() {
     if (!(await syncOrgRegistry(supabase, scope))) hadError = true;
     if (!(await syncClockHistory(supabase, scope))) hadError = true;
     if (!(await syncDesktopActivity(supabase, scope))) hadError = true;
+    if (!(await syncCalendarsAndEvents(supabase, scope))) hadError = true;
 
     if (partial) {
       await recordDiagnostic('partial_sync', 'Sync ran with org/team scoping disabled because migration 005 has not been applied. Run supabase/migrations/005_add_profile_defaults.sql in the Supabase SQL Editor.');

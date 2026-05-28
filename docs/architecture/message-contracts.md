@@ -37,6 +37,11 @@ Each entry documents:
 | `RESUME_FOCUS` | `{ focusId }` | `{ focusEngine }` or `{ error, focusEngine }` | ✅ |
 | `LINK_INTENT_TO_TASK` | `{ intentId, taskId?, newTaskName? }` | `{ success }` | ✅ |
 | `MERGE_INTENTS` | `{ sourceIntentId, targetIntentId }` | `{ success }` | ✅ |
+| `LET_ME_COOK` | `{ focusId }` | `{ focusEngine }` | ✅ — Plan 031: sets `letMeCook: true`, clears focus timer alarm |
+| `BACKBURNER_FOCUS` | `{ focusId, durationMinutes, reason?, switchToFocusId?, createNewFocusLabel? }` | `{ focusEngine }` | ✅ — Plan 031: pauses focus, sets backburner alarm, optionally creates/switches to transition focus |
+| `DISMISS_BACKBURNER` | `{ focusId }` | `{ focusEngine }` | ✅ — Plan 031: clears backburner flags + alarm |
+| `SNOOZE_BACKBURNER` | `{ focusId }` | `{ focusEngine }` | ✅ — Plan 031: resets backburnerExpired, creates new 10min alarm |
+| `RESUME_BACKBURNER` | `{ focusId }` | `{ focusEngine }` | ✅ — Plan 031: cascade-pauses current active focus, clears backburner state, activates returning focus |
 
 ---
 
@@ -232,6 +237,7 @@ These are sent through `notificationService` helpers and don't have response sha
 | `CLOCK_SESSION_UPDATED` | `broadcastToExtension` | Clock service receives the scoped helper from the router |
 | `COMPANION_IDLE_STATE` | `broadcastToExtension` | Fires only when desktop idle state changes (`idle` ↔ `active`) |
 | `STORAGE_CAP_WARNING` | `chrome.runtime.sendMessage` | Archive service warning, extension UI only |
+| `BACKBURNER_ALERT` | `broadcastAll` | Plan 031: backburner timer expired — InBar + popup show return prompt with resume/snooze/dismiss |
 
 ---
 
@@ -247,3 +253,4 @@ These are sent through `notificationService` helpers and don't have response sha
 | 2026-05-14 | `DELETE_TASK` / archived `UPDATE_TASK` | Archived org tasks now receive `archivedAt`; tasks older than `settings.storage.archivedTasksColdAfterDays` move from `tabathaOrg.tasks` to `_archivedTasks`. Request/response shapes unchanged. | Task 04c cold-store efficiency fix |
 | 2026-05-14 | `COMPLETE_FOCUS` | Dropped `focusEngine.history` entries are archived through `archiveBeforeCap` before applying `settings.storage.focusHistoryCap`. Request/response shapes unchanged. | Task 04b history retention fix |
 | 2026-05-14 | `chrome.tabs.onRemoved` | Closed tabs with saved InBar notes now write the note into `closedContexts` before `inbarNotes[tabId]` is pruned. Request/response shapes unchanged. | Task 04a lifecycle cleanup |
+| 2026-05-28 | focusService | Added `LET_ME_COOK`, `BACKBURNER_FOCUS`, `DISMISS_BACKBURNER`, `SNOOZE_BACKBURNER`, `RESUME_BACKBURNER` handlers. Added `BACKBURNER_ALERT` broadcast. | Plan 031 gap completion |

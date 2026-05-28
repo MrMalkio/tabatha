@@ -15,6 +15,7 @@ export default defineConfig({
         home: resolve(__dirname, 'home.html'),
         settings: resolve(__dirname, 'settings.html'),
         workshifts: resolve(__dirname, 'workshifts.html'),
+        activity: resolve(__dirname, 'activity.html'),
         background: resolve(__dirname, 'src/background/background.js'),
         gatekeeper: resolve(__dirname, 'src/content/gatekeeper.js'),
         blockgate: resolve(__dirname, 'src/content/blockgate.js'),

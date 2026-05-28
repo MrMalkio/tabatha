@@ -512,6 +512,23 @@ function Sidebar() {
                         <div style={{ display:'flex', alignItems:'center', gap:'4px', flex:1, minWidth:0 }}>
                           <span style={{ fontSize:'9px', color:f.color }}>{f.icon}</span>
                           <span style={{ fontSize:'11px', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.label}</span>
+                          <select
+                            value={item.priority || 5}
+                            onChange={(e) => { e.stopPropagation(); actions.updateFocus(item.id, { priority: Number(e.target.value) }); }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              background:'transparent', border:'1px solid rgba(255,255,255,0.1)',
+                              color: (item.priority||5) <= 2 ? '#ff6b6b' : (item.priority||5) <= 4 ? '#ffa726' : '#66bb6a',
+                              fontSize:'8px', fontWeight:600, padding:'1px 2px', borderRadius:'2px', cursor:'pointer', flexShrink:0
+                            }}
+                            title="Priority"
+                          >
+                            <option value={1}>P1</option>
+                            <option value={2}>P2</option>
+                            <option value={3}>P3</option>
+                            <option value={4}>P4</option>
+                            <option value={5}>P5</option>
+                          </select>
                         </div>
                         <div style={{ display:'flex', gap:'3px', flexShrink:0 }}>
                           <Tooltip text="Switch to this"><button onClick={() => actions.switchFocus(item.id)} style={btn('var(--color-accent-primary)')}>▶</button></Tooltip>
@@ -522,6 +539,27 @@ function Sidebar() {
                   })}
                 </div>
               )}
+
+              {/* Backburner Dock */}
+              {(() => {
+                const bb = (allItems || []).filter(i => i.backburneredAt);
+                if (bb.length === 0) return null;
+                return (
+                  <div style={{ marginBottom:'6px' }}>
+                    <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'#ff9800', fontWeight:600, marginBottom:'4px' }}>🔥 Backburner ({bb.length})</div>
+                    {bb.map(item => (
+                      <div key={item.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 6px', marginBottom:'2px', background:'rgba(255,152,0,0.06)', borderRadius:'var(--radius-sm)', border:'1px solid rgba(255,152,0,0.2)' }}>
+                        <span style={{ fontSize:'11px', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>🔥 {item.label}</span>
+                        <div style={{ display:'flex', gap:'3px', flexShrink:0 }}>
+                          <Tooltip text="Resume"><button onClick={() => sendMessage('RESUME_BACKBURNER', { focusId: item.id })} style={btn('#66bb6a')}>▶</button></Tooltip>
+                          <Tooltip text="Snooze"><button onClick={() => sendMessage('SNOOZE_BACKBURNER', { focusId: item.id, snoozeMinutes: 10 })} style={btn('#ffa726')}>⏰</button></Tooltip>
+                          <Tooltip text="Dismiss"><button onClick={() => sendMessage('DISMISS_BACKBURNER', { focusId: item.id })} style={btn('#ef5350')}>✕</button></Tooltip>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* History */}
               {history && history.length > 0 && (

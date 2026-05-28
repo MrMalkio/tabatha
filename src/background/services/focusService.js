@@ -6,6 +6,7 @@ import { fireWebhook as defaultFireWebhook } from '../webhooks.js';
 import { getStorage, setStorage, getSettings } from './storageService.js';
 import { archiveBeforeCap } from './archiveService.js';
 import { broadcastAll, broadcastToExtension } from './notificationService.js';
+import { logAudit } from './activityAuditService.js';
 
 let injectedDeps = {};
 let focusAlarmsRegistered = false;
@@ -21,6 +22,13 @@ export function registerFocusServiceAlarms() {
 }
 
 export async function handleMessage(type, message) {
+  const result = await _handleMessage(type, message);
+  // Plan 031: fire-and-forget audit emission for focus lifecycle actions
+  if (result !== undefined) emitAudit(type, message);
+  return result;
+}
+
+async function _handleMessage(type, message) {
   switch (type) {
     case 'GET_FOCUS_ENGINE':
       return { focusEngine: await getFocusEngine() };
@@ -49,8 +57,86 @@ export async function handleMessage(type, message) {
     case 'EXTEND_FOCUS_TIMER':
       return { focusEngine: await extendFocusTimer(message.focusId, message.extraMinutes) };
 
+    case 'LET_ME_COOK':
+      return { focusEngine: await letMeCook(message.focusId) };
+
+    case 'BACKBURNER_FOCUS': {
+      const engine = await backburnerFocus(
+        message.focusId,
+        message.durationMinutes,
+        message.reason,
+        message.switchToFocusId,
+        message.createNewFocusLabel
+      );
+      return { focusEngine: engine };
+    }
+
+    case 'DISMISS_BACKBURNER': {
+      const engine = await getFocusEngine();
+      const item = engine.items[message.focusId];
+      if (item) {
+        item.backburnered = false;
+        item.backburnerExpired = false;
+        chrome.alarms.clear(`backburner-timer-${message.focusId}`);
+        await setFocusEngine(engine);
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      }
+      return { focusEngine: engine };
+    }
+
+    case 'SNOOZE_BACKBURNER': {
+      const engine = await getFocusEngine();
+      const item = engine.items[message.focusId];
+      if (item) {
+        item.backburnerExpired = false;
+        item.backburnerDurationMinutes = 10;
+        chrome.alarms.clear(`backburner-timer-${message.focusId}`);
+        chrome.alarms.create(`backburner-timer-${message.focusId}`, { delayInMinutes: 10 });
+        await setFocusEngine(engine);
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      }
+      return { focusEngine: engine };
+    }
+
     case 'SET_FUNNEL_STAGE':
       return setFunnelStage(message.focusId, message.stage, message.confirmed);
+
+    case 'RESUME_BACKBURNER': {
+      const engine = await getFocusEngine();
+      const item = engine.items[message.focusId];
+      if (!item || !item.backburnered) return { focusEngine: engine };
+
+      // Cascade: pause the currently active focus (if any)
+      if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
+        const currentActive = engine.items[engine.activeFocusId];
+        if (currentActive.focusState === 'active') {
+          pauseItem(currentActive, 'backburner-resume-cascade', engine);
+        }
+      }
+
+      // Clear backburner state and activate the returning focus
+      item.backburnered = false;
+      item.backburnerExpired = false;
+      item.backburnerReason = null;
+      item.backburnerDurationMinutes = null;
+      item.backburneredAt = null;
+      item.focusState = 'active';
+      item.lastResumedAt = new Date().toISOString();
+      chrome.alarms.clear(`backburner-timer-${message.focusId}`);
+
+      // Restore focus timer if it had remaining time
+      if (item.timerEndAt) {
+        const remainingMs = new Date(item.timerEndAt).getTime() - Date.now();
+        if (remainingMs > 0) {
+          chrome.alarms.create(`focus-timer-${message.focusId}`, { delayInMinutes: remainingMs / 60000 });
+        }
+      }
+
+      engine.activeFocusId = message.focusId;
+      await setFocusEngine(engine);
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+      return { focusEngine: engine };
+    }
 
     case 'UPDATE_FOCUS_TAGS':
       return { focusEngine: await updateFocusTags(message.focusId, message.tags) };
@@ -91,6 +177,47 @@ export async function handleMessage(type, message) {
   }
 }
 
+// Plan 031: Audit-logged actions set — fire-and-forget after handler returns
+const AUDITABLE_ACTIONS = new Set([
+  'START_FOCUS', 'COMPLETE_FOCUS', 'SWITCH_FOCUS', 'PAUSE_FOCUS', 'RESUME_FOCUS',
+  'EXTEND_FOCUS_TIMER', 'LET_ME_COOK', 'BACKBURNER_FOCUS', 'SNOOZE_BACKBURNER',
+  'DISMISS_BACKBURNER', 'RESUME_BACKBURNER', 'SAVE_CHECKPOINT_NOTE'
+]);
+
+async function emitAudit(type, message) {
+  if (!AUDITABLE_ACTIONS.has(type)) return;
+  let tabUrl = null, tabTitle = null;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab) { tabUrl = tab.url; tabTitle = tab.title; }
+  } catch { /* content scripts may not have tab access */ }
+  logAudit(type, {
+    focusId: message.focusId || null,
+    focusLabel: message.label || null,
+    activeTabUrl: tabUrl,
+    activeTabTitle: tabTitle,
+    metadata: { timerMinutes: message.timerMinutes, extraMinutes: message.extraMinutes, reason: message.reason },
+  });
+}
+
+// ── Auto-generated system checkpoint for lifecycle transitions ──
+function autoCheckpoint(item, event) {
+  if (!item) return;
+  if (!item.checkpoint) item.checkpoint = [];
+  let elapsedAtMs = item.elapsedMs || 0;
+  if (item.lastResumedAt) elapsedAtMs += Date.now() - new Date(item.lastResumedAt).getTime();
+  item.checkpoint.push({
+    id: `sys_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    text: event,
+    progressLevel: 'none',
+    progressValue: 0,
+    createdAt: new Date().toISOString(),
+    focusId: item.id,
+    elapsedAtMs,
+    triggeredBy: 'system'
+  });
+}
+
 export async function getFocusEngine() {
   const { focusEngine } = await getStorage('focusEngine');
   const engine = focusEngine ? { ...focusEngine } : { ...DEFAULT_FOCUS_ENGINE };
@@ -123,19 +250,29 @@ async function applyDefaultRealm(tags = {}) {
   return tags;
 }
 
-function addElapsedSinceResume(item) {
+function addElapsedSinceResume(item, engine) {
   if (item?.lastResumedAt) {
-    item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    const delta = Date.now() - new Date(item.lastResumedAt).getTime();
+    item.elapsedMs = (item.elapsedMs || 0) + delta;
     item.lastResumedAt = null;
+
+    // Plan 031: Sub-intent parent tick — propagate elapsed to parent focus
+    if (item.parentFocusId && engine?.items?.[item.parentFocusId]) {
+      const parent = engine.items[item.parentFocusId];
+      if (parent.focusState !== 'completed') {
+        parent.elapsedMs = (parent.elapsedMs || 0) + delta;
+      }
+    }
   }
 }
 
-function pauseItem(item, reason) {
-  addElapsedSinceResume(item);
+function pauseItem(item, reason, engine) {
+  addElapsedSinceResume(item, engine);
   item.focusState = 'paused';
   item.pausedAt = new Date().toISOString();
   if (reason) item.pausedReason = reason;
   if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
+  autoCheckpoint(item, reason ? `Paused (${reason})` : 'Paused');
 }
 
 async function persistFocusHistoryCap(engine) {
@@ -161,7 +298,7 @@ export async function startFocus(label, timerMinutes = 15, tags = {}) {
   if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
     const current = engine.items[engine.activeFocusId];
     if (current.focusState === 'active' || current.focusState === 'drifted') {
-      pauseItem(current);
+      pauseItem(current, undefined, engine);
       chrome.alarms.clear(`focus-timer-${engine.activeFocusId}`);
     }
   }
@@ -196,6 +333,7 @@ export async function startFocus(label, timerMinutes = 15, tags = {}) {
     lastCheckpointAt: null,
     checkpointSnoozedUntil: null
   };
+  autoCheckpoint(engine.items[id], 'Focus started');
 
   engine.activeFocusId = id;
   await setFocusEngine(engine);
@@ -240,6 +378,7 @@ export async function addFocus(label, timerMinutes = 15, tags = {}) {
     parentFocusId: engine.activeFocusId || null,
     contextSwitchCount: 0,
     offDevice: false,
+    priority: 5,
     checkpoint: [],
     lastCheckpointAt: null,
     checkpointSnoozedUntil: null
@@ -257,7 +396,7 @@ export async function switchFocus(focusId) {
   if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
     const current = engine.items[engine.activeFocusId];
     if (current.focusState === 'active' || current.focusState === 'drifted') {
-      pauseItem(current);
+      pauseItem(current, undefined, engine);
       chrome.alarms.clear(`focus-timer-${engine.activeFocusId}`);
       chrome.alarms.clear(`checkpoint-prompt-${engine.activeFocusId}`);
     }
@@ -299,8 +438,9 @@ export async function completeFocus(focusId) {
 
   const item = engine.items[id];
   if (item.focusState === 'active' || item.focusState === 'drifted') {
-    addElapsedSinceResume(item);
+    addElapsedSinceResume(item, engine);
   }
+  autoCheckpoint(item, 'Completed / Resolved');
   item.focusState = 'completed';
   item.funnelStage = 'resolved';
   item.endedAt = new Date().toISOString();
@@ -373,6 +513,148 @@ export async function extendFocusTimer(focusId, extraMinutes = 5) {
   return engine;
 }
 
+export async function letMeCook(focusId) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  if (!id || !engine.items[id]) return engine;
+
+  const item = engine.items[id];
+  item.letMeCook = true;
+
+  // Clear focus timer and checkpoint prompt alarms so the user is never interrupted
+  chrome.alarms.clear(`focus-timer-${id}`);
+  chrome.alarms.clear(`checkpoint-prompt-${id}`);
+
+  if (item.focusState === 'drifted') {
+    if (item.lastResumedAt) {
+      item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    }
+    item.focusState = 'active';
+    item.lastResumedAt = new Date().toISOString();
+  }
+
+  await clearActivePopupForFocus(id);
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return engine;
+}
+
+export async function backburnerFocus(focusId, durationMinutes, reason, switchToFocusId, createNewFocusLabel) {
+  const engine = await getFocusEngine();
+  const id = focusId || engine.activeFocusId;
+  if (!id || !engine.items[id]) return engine;
+
+  const item = engine.items[id];
+  
+  // Set backburner properties
+  item.focusState = 'paused';
+  item.backburnered = true;
+  item.backburneredAt = new Date().toISOString();
+  item.backburnerDurationMinutes = durationMinutes;
+  autoCheckpoint(item, `Backburnered for ${durationMinutes}m${reason ? ': ' + reason : ''}`);
+  item.backburnerReason = reason;
+  item.lastPausedAt = new Date().toISOString();
+  item.backburnerExpired = false; // reset expired flag
+  
+  // Update elapsed ms if active
+  if (id === engine.activeFocusId && item.lastResumedAt) {
+    item.elapsedMs = (item.elapsedMs || 0) + (Date.now() - new Date(item.lastResumedAt).getTime());
+    item.lastResumedAt = null;
+  }
+
+  // Clear focus/intent timers for the backburnered focus
+  chrome.alarms.clear(`focus-timer-${id}`);
+  chrome.alarms.clear(`checkpoint-prompt-${id}`);
+
+  // Create backburner alarm
+  const alarmName = `backburner-timer-${id}`;
+  chrome.alarms.create(alarmName, { delayInMinutes: durationMinutes });
+
+  // Update activeFocusId in engine
+  engine.activeFocusId = null;
+
+  // Track if we need to switch or create focus
+  let newActiveFocusId = null;
+
+  if (createNewFocusLabel && createNewFocusLabel.trim() !== '') {
+    // Create new focus
+    const newId = generateFocusId();
+    const resolvedTags = await applyDefaultRealm({});
+    engine.items[newId] = {
+      id: newId,
+      label: createNewFocusLabel.trim(),
+      description: `Temporary focus while waiting for "${item.label}"`,
+      focusState: 'active',
+      funnelStage: 'addressing',
+      createdAt: new Date().toISOString(),
+      startedAt: new Date().toISOString(),
+      lastResumedAt: new Date().toISOString(),
+      endedAt: null,
+      pausedAt: null,
+      timerMinutes: 15,
+      elapsedMs: 0,
+      overMs: 0,
+      checkpoint: [],
+      tags: { realm: '', client: '', project: '', task: '', ...resolvedTags },
+      associatedTabIds: [...(item.associatedTabIds || [])],
+      parentFocusId: null,
+      contextSwitchCount: 0,
+      priority: 5,
+      offDevice: false,
+      lastCheckpointAt: null,
+      checkpointSnoozedUntil: null,
+      backburnerTransitionFocusId: id
+    };
+    newActiveFocusId = newId;
+    item.backburnerTransitionFocusId = newId;
+
+    // Create default 15 min focus timer for new temporary focus if desired
+    chrome.alarms.create(`focus-timer-${newId}`, { delayInMinutes: 15 });
+  } else if (switchToFocusId && engine.items[switchToFocusId]) {
+    // Switch to existing focus
+    newActiveFocusId = switchToFocusId;
+    const targetItem = engine.items[switchToFocusId];
+    targetItem.focusState = 'active';
+    targetItem.lastResumedAt = new Date().toISOString();
+    
+    // Set timer for the existing focus if it had one
+    if (targetItem.timerEndAt) {
+      const remainingMs = new Date(targetItem.timerEndAt).getTime() - Date.now();
+      if (remainingMs > 0) {
+        chrome.alarms.create(`focus-timer-${switchToFocusId}`, { delayInMinutes: remainingMs / 60000 });
+      }
+    }
+  }
+
+  engine.activeFocusId = newActiveFocusId;
+
+  // Sync / broadcast updates
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return engine;
+}
+
+export async function handleBackburnerTimerExpired(focusId) {
+  const engine = await getFocusEngine();
+  if (!engine.items[focusId]) return;
+
+  const item = engine.items[focusId];
+  if (!item.backburnered) return;
+
+  // Mark backburner expired/alert state
+  item.backburnerExpired = true;
+  await setFocusEngine(engine);
+
+  // Broadcast alert so UI (InBar/popup) shows the return prompt beautifully
+  broadcastAll({
+    type: 'BACKBURNER_ALERT',
+    focusId,
+    label: item.label,
+    reason: item.backburnerReason,
+    backburneredAt: item.backburneredAt
+  });
+}
+
 async function updateFocusTags(focusId, tags) {
   const engine = await getFocusEngine();
   const id = focusId || engine.activeFocusId;
@@ -424,14 +706,14 @@ function applyStageTransition(engine, item, newStage, confirmed = false) {
   item.funnelStage = to;
 
   if (to === 'resolved') {
-    addElapsedSinceResume(item);
+    addElapsedSinceResume(item, engine);
     item.focusState = 'completed';
     item.endedAt = new Date().toISOString();
     if (engine.activeFocusId === item.id) engine.activeFocusId = null;
   } else if (to === 'addressing' && item.focusState !== 'active') {
     if (engine.activeFocusId && engine.activeFocusId !== item.id) {
       const prev = engine.items[engine.activeFocusId];
-      if (prev?.focusState === 'active') pauseItem(prev);
+      if (prev?.focusState === 'active') pauseItem(prev, undefined, engine);
     }
     item.focusState = 'active';
     item.lastResumedAt = new Date().toISOString();
@@ -464,6 +746,7 @@ async function updateFocus(message) {
   if (message.timerMinutes !== undefined) item.timerMinutes = message.timerMinutes;
   if (message.tags !== undefined) item.tags = { ...item.tags, ...message.tags };
   if (message.offDevice !== undefined) item.offDevice = !!message.offDevice;
+  if (message.priority !== undefined) item.priority = Number(message.priority);
   if (message.funnelStage !== undefined) {
     const result = applyStageTransition(engine, item, message.funnelStage, !!message.confirmed);
     if (result.error) {
@@ -485,7 +768,7 @@ async function pauseFocus(focusId) {
   const item = id ? engine.items[id] : null;
   if (!item) return { error: 'Focus not found', focusEngine: engine };
 
-  pauseItem(item);
+  pauseItem(item, undefined, engine);
   chrome.alarms.clear(`checkpoint-prompt-${id}`);
   await clearActivePopupForFocus(id);
   await setFocusEngine(engine);
@@ -500,12 +783,13 @@ async function resumeFocus(focusId) {
 
   if (engine.activeFocusId && engine.activeFocusId !== focusId) {
     const current = engine.items[engine.activeFocusId];
-    if (current?.focusState === 'active') pauseItem(current);
+    if (current?.focusState === 'active') pauseItem(current, undefined, engine);
   }
 
   item.focusState = 'active';
   item.lastResumedAt = new Date().toISOString();
   item.pausedAt = null;
+  autoCheckpoint(item, 'Resumed');
   if (item.funnelStage === 'focus' || item.funnelStage === 'todo' || item.funnelStage === 'unsorted') {
     item.funnelStage = 'addressing';
   }
@@ -662,7 +946,7 @@ export async function pauseActiveFocus(reason) {
   if (engine.activeFocusId && engine.items[engine.activeFocusId]) {
     const active = engine.items[engine.activeFocusId];
     if (active.focusState === 'active') {
-      pauseItem(active, reason);
+      pauseItem(active, reason, engine);
       await setFocusEngine(engine);
       broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
     }
@@ -678,6 +962,9 @@ export async function handleFocusTimerExpired(focusId) {
   const engine = await getFocusEngine();
   const item = engine.items[focusId];
   if (!item || item.focusState !== 'active') return;
+
+  // Plan 031: Let Me Cook — suppress all timer alarms when user chose to keep cooking
+  if (item.letMeCook) return;
 
   // Plan 025: Off-device suppression
   if (item.offDevice) return;

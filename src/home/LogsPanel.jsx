@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Tooltip } from '../components/ui/Tooltip';
+import { useChromeStorage } from '../hooks/useChromeStorage';
 
 function formatDuration(ms) {
   if (!ms || ms < 0) return '00:00';
@@ -29,6 +30,7 @@ const LOG_TYPES = {
   context: { icon: '🏷️', label: 'Context Set', color: '#26a69a' },
   blocked: { icon: '🚫', label: 'Blocked Site', color: '#ef5350' },
   task:    { icon: '✅', label: 'Task Update', color: '#4caf50' },
+  audit:   { icon: '📝', label: 'Audit Trail', color: '#78909c' },
 };
 
 function getIntentContext(entry) {
@@ -44,6 +46,7 @@ function isIntentChangeEntry(entry) {
 }
 
 export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHistory, focusHistory, intentChangeLog }) {
+  const [auditLog] = useChromeStorage('activityAuditLog', []);
   const [filterDate, setFilterDate] = useState('');
   const [filterIntent, setFilterIntent] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
@@ -153,9 +156,24 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
       });
     }
 
+    // Plan 031: Audit trail entries
+    if (auditLog && auditLog.length > 0) {
+      auditLog.forEach((entry, idx) => {
+        list.push({
+          id: `audit-${idx}`, logType: 'audit',
+          date: entry.timestamp,
+          label: `${entry.action}${entry.focusLabel ? ': ' + entry.focusLabel : ''}`,
+          intent: entry.focusLabel || '',
+          category: 'audit',
+          domain: entry.activeTabUrl ? (() => { try { return new URL(entry.activeTabUrl).hostname; } catch { return ''; } })() : '',
+          duration: 0,
+        });
+      });
+    }
+
     // Sort by date descending
     return list.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [tabs, timeTracking, intentHistory, focusHistory, clockHistory, intentChangeLog]);
+  }, [tabs, timeTracking, intentHistory, focusHistory, clockHistory, intentChangeLog, auditLog]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
@@ -245,6 +263,7 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
               <tr>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px', width: '24px' }}></th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Date</th>
+                <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Type</th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Details</th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Intent</th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px', textAlign: 'right' }}>Time</th>
@@ -252,14 +271,14 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
             </thead>
             <tbody>
               {visibleLogs.length === 0 ? (
-                <tr><td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)' }}>No logs found.</td></tr>
+                <tr><td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)' }}>No logs found.</td></tr>
               ) : (
                 visibleLogs.map(log => {
                   const cfg = LOG_TYPES[log.logType] || LOG_TYPES.tab;
                   const dateStr = (() => {
                     try {
                       const d = new Date(log.date);
-                      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     } catch { return log.date; }
                   })();
                   return (
@@ -268,6 +287,9 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
                         <span title={cfg.label} style={{ fontSize: '12px' }}>{cfg.icon}</span>
                       </td>
                       <td style={{ padding: '5px 10px', whiteSpace: 'nowrap', fontSize: '10px' }}>{dateStr}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '9px', color: cfg.color, background: cfg.color + '18', padding: '1px 5px', borderRadius: '3px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{cfg.label}</span>
+                      </td>
                       <td style={{ padding: '5px 10px', fontWeight: 500, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.label}>
                         {log.label}
                         {log.domain && <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>({log.domain})</span>}

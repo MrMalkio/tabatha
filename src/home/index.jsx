@@ -49,6 +49,7 @@ function getGreeting() {
 const CATEGORY_ICONS = {
   work: '💼', media: '🎵', meeting: '📹', reference: '📚',
   messaging: '💬', email: '📧', learning: '🎓', entertainment: '🎮', unknown: '❓',
+  video_call: '📹', phone_call: '📞', research: '🔬',
 };
 
 // ── FocusBar ──
@@ -129,7 +130,8 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   };
 
   // Plan 025: CPN helpers
-  const cpnCount = (activeFocus.checkpoint || []).length;
+  const cpnCount = (activeFocus.checkpoint || []).filter(c => c.triggeredBy !== 'system').length;
+  const cpnTotalCount = (activeFocus.checkpoint || []).length;
   const isStale = activeFocus.lastCheckpointAt
     ? (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000
     : activeFocus.startedAt && (Date.now() - new Date(activeFocus.startedAt).getTime()) > 30 * 60000;
@@ -207,13 +209,16 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         <Tooltip text="Add a new intent">
           <button onClick={() => setAddMode(addMode === 'intent' ? null : 'intent')} style={btnStyle(addMode === 'intent' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>+ Intent</button>
         </Tooltip>
+        <Tooltip text="Add a sub-focus under this focus">
+          <button onClick={() => setAddMode(addMode === 'subfocus' ? null : 'subfocus')} style={btnStyle(addMode === 'subfocus' ? '#ab47bc' : 'var(--color-text-muted)')}>📌 Sub-focus</button>
+        </Tooltip>
         <Tooltip text={activeFocus.offDevice ? 'Off-device ON — popups suppressed' : 'Mark as off-device — suppress popups'}>
           <button onClick={toggleOffDevice} style={btnStyle(activeFocus.offDevice ? '#ef5350' : 'var(--color-text-muted)')}>{activeFocus.offDevice ? '📴 Off-Device' : '📱'}</button>
         </Tooltip>
         <Tooltip text={`Checkpoint note${isStale ? ' (overdue!)' : ''}`}>
           <button onClick={() => setShowCPN(!showCPN)} style={btnStyle(isStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isStale ? '🟠' : ''}{cpnCount > 0 ? ` (${cpnCount})` : ''}</button>
         </Tooltip>
-        {cpnCount > 0 && (
+        {cpnTotalCount > 0 && (
           <Tooltip text="View checkpoint timeline">
             <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
           </Tooltip>
@@ -298,17 +303,17 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       </AnimatePresence>
       {/* Plan 025: Checkpoint Timeline */}
       <AnimatePresence>
-        {showTimeline && cpnCount > 0 && (
+        {showTimeline && cpnTotalCount > 0 && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
             <div style={{ marginTop: '10px', padding: '8px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>📊 Checkpoint Timeline</div>
               {(activeFocus.checkpoint || []).slice().reverse().map((cpn, i) => (
-                <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px' }}>
+                <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px', opacity: cpn.triggeredBy === 'system' ? 0.6 : 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                    <span style={{ fontWeight: 600 }}>{LEVEL_EMOJI[cpn.progressLevel] || '📋'} {cpn.progressLevel?.replace('_', ' ')}</span>
+                    <span style={{ fontWeight: 600 }}>{cpn.triggeredBy === 'system' ? '⚙️' : (LEVEL_EMOJI[cpn.progressLevel] || '📋')} {cpn.triggeredBy === 'system' ? cpn.text : cpn.progressLevel?.replace('_', ' ')}</span>
                     <span style={{ fontSize: '9px', color: 'var(--color-text-muted)' }}>{cpn.createdAt ? new Date(cpn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} · {Math.floor((cpn.elapsedAtMs || 0) / 60000)}m in</span>
                   </div>
-                  {cpn.text && <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', lineHeight: 1.3 }}>{cpn.text}</div>}
+                  {cpn.text && cpn.triggeredBy !== 'system' && <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', lineHeight: 1.3 }}>{cpn.text}</div>}
                 </div>
               ))}
             </div>
@@ -341,6 +346,7 @@ function FocusQueue({ items, actions }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <span style={{ fontSize: '10px', color: funnel.color }}>{funnel.icon}</span>
                 <span style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                {item.parentFocusId && <span style={{ fontSize: '8px', color: '#ab47bc', background: '#ab47bc18', padding: '1px 4px', borderRadius: '3px', fontWeight: 600 }}>child</span>}
                 {item.focusState === 'paused' && <span style={{ fontSize: '9px', color: '#ffa726' }}>⏸</span>}
                 <span style={{ fontSize: '10px', color: funnel.color, textTransform: 'capitalize' }}>{item.funnelStage || 'unsorted'}</span>
               </div>
@@ -359,9 +365,67 @@ function FocusQueue({ items, actions }) {
                 </Tooltip>
               </div>
             </div>
-            {/* Compact stage picker */}
-            <div style={{ marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
+            {/* Compact stage picker + priority selector */}
+            <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
               <StagePicker compact currentStage={item.funnelStage} onChange={(stage) => actions.updateFocus(item.id, { funnelStage: stage })} />
+              <select
+                value={item.priority || 5}
+                onChange={(e) => actions.updateFocus(item.id, { priority: Number(e.target.value) })}
+                style={{
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: (item.priority || 5) <= 2 ? '#ff6b6b' : (item.priority || 5) <= 4 ? '#ffa726' : '#66bb6a',
+                  fontSize: '9px', fontWeight: 600, padding: '2px 4px', borderRadius: '3px', cursor: 'pointer'
+                }}
+                title="Set priority (P1=Critical, P5=Low)"
+              >
+                <option value={1}>P1 Critical</option>
+                <option value={2}>P2 High</option>
+                <option value={3}>P3 Medium</option>
+                <option value={4}>P4 Normal</option>
+                <option value={5}>P5 Low</option>
+              </select>
+            </div>
+          </GlassCard>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── BackburnerDock ──
+function BackburnerDock({ items, actions }) {
+  const backburnered = (items || []).filter(i => i.backburneredAt);
+  if (backburnered.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#ff9800', marginBottom: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+        🔥 Backburner ({backburnered.length})
+      </div>
+      {backburnered.map(item => {
+        const elapsed = item.backburneredAt ? Math.floor((Date.now() - new Date(item.backburneredAt).getTime()) / 60000) : 0;
+        return (
+          <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', borderLeft: '3px solid #ff9800', background: 'rgba(255,152,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  🔥 {item.label}
+                </div>
+                <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                  Backburnered {elapsed}m ago{item.backburnerTransitionFocusId ? ' • switched to another focus' : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                <Tooltip text="Resume this focus">
+                  <button onClick={(e) => { e.stopPropagation(); sendMessage('RESUME_BACKBURNER', { focusId: item.id }); }} style={btnStyle('#66bb6a')}>▶</button>
+                </Tooltip>
+                <Tooltip text="Snooze 10 more minutes">
+                  <button onClick={(e) => { e.stopPropagation(); sendMessage('SNOOZE_BACKBURNER', { focusId: item.id, snoozeMinutes: 10 }); }} style={btnStyle('#ffa726')}>⏰</button>
+                </Tooltip>
+                <Tooltip text="Dismiss backburner">
+                  <button onClick={(e) => { e.stopPropagation(); sendMessage('DISMISS_BACKBURNER', { focusId: item.id }); }} style={btnStyle('#ef5350')}>✕</button>
+                </Tooltip>
+              </div>
             </div>
           </GlassCard>
         );
@@ -371,38 +435,230 @@ function FocusQueue({ items, actions }) {
 }
 
 // ── CollapsibleSection ──
-function CollapsibleSection({ id, title, icon, defaultOpen = true, children, collapsedSections, toggleSection, compact }) {
+function CollapsibleSection({ id, title, icon, defaultOpen = true, children, collapsedSections, toggleSection, compact, action }) {
   const isOpen = collapsedSections ? !collapsedSections.includes(id) : defaultOpen;
 
+  // When collapsed, render only a tiny scroll anchor — no visible header
+  if (!isOpen) {
+    return <div id={`section-${id}`} style={{ height: '0px', overflow: 'hidden' }} />;
+  }
+
   return (
-    <div id={`section-${id}`} style={{ marginBottom: isOpen ? '12px' : (compact ? '0' : '4px') }}>
-      <button
-        onClick={() => toggleSection?.(id)}
-        style={{
-          background: 'transparent', border: 'none', color: 'var(--color-text-muted)',
-          fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em',
-          fontWeight: 600, cursor: 'pointer', padding: compact && !isOpen ? '0' : '2px 0',
-          marginBottom: isOpen ? '6px' : '0', display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
-        }}
-      >
-        <span style={{ fontSize: '12px', transition: 'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
-        {icon && <span style={{ fontSize: '11px' }}>{icon}</span>}
-        {title}
-      </button>
+    <div id={`section-${id}`} style={{ marginBottom: '12px' }}>
+      {/* Minimal header row — only show action buttons, title is in the sidebar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '6px',
+        width: '100%'
+      }}>
+        <button
+          onClick={() => toggleSection?.(id)}
+          style={{
+            background: 'transparent', border: 'none', color: 'var(--color-text-muted)',
+            fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em',
+            fontWeight: 600, cursor: 'pointer', padding: '2px 0',
+            display: 'flex', alignItems: 'center', gap: '6px', flex: 1, textAlign: 'left',
+          }}
+        >
+          {icon && <span style={{ fontSize: '11px' }}>{icon}</span>}
+          {title}
+        </button>
+        {action}
+      </div>
       <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            {children}
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          style={{ overflow: 'hidden' }}
+        >
+          {children}
+        </motion.div>
       </AnimatePresence>
     </div>
+  );
+}
+
+// ── Section Navigation definitions ──
+const SECTION_NAV = [
+  { id: 'shift', label: 'Shift Controls', icon: '⏱️' },
+  { id: 'nowbar', label: 'Now', icon: '🎯' },
+  { id: 'focus', label: 'Focus Engine', icon: '🔍' },
+  { id: 'heatmap', label: 'Activity', icon: '📊' },
+  { id: 'analytics', label: 'Analytics', icon: '📈' },
+  { id: 'activity', label: 'Context Activity', icon: '📊' },
+  { id: 'panels', label: 'Panels', icon: '📋' },
+];
+
+// ── SectionNav ── persistent sidebar for quick section navigation
+function SectionNav({ collapsedSections, setCollapsedSections, sidebarExpanded, setSidebarExpanded }) {
+  const [activeId, setActiveId] = useState(SECTION_NAV[0]?.id);
+
+  // Scroll-spy: track which section is currently in view
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.id.replace('section-', '');
+            setActiveId(sectionId);
+          }
+        }
+      },
+      { rootMargin: '-80px 0px -60% 0px', threshold: 0.1 }
+    );
+
+    const timer = setTimeout(() => {
+      for (const s of SECTION_NAV) {
+        const el = document.getElementById(`section-${s.id}`);
+        if (el) observer.observe(el);
+      }
+    }, 300);
+
+    return () => { clearTimeout(timer); observer.disconnect(); };
+  }, []);
+
+  const handleClick = (id) => {
+    const isCollapsed = collapsedSections.includes(id);
+    if (activeId === id && !isCollapsed) {
+      // Already viewing this section → collapse it
+      setCollapsedSections(prev => {
+        const next = [...prev, id];
+        chrome?.storage?.local?.set?.({ collapsedSections: next });
+        return next;
+      });
+    } else {
+      // Navigate to this section → expand if collapsed
+      if (isCollapsed) {
+        setCollapsedSections(prev => {
+          const next = prev.filter(s => s !== id);
+          chrome?.storage?.local?.set?.({ collapsedSections: next });
+          return next;
+        });
+      }
+      setTimeout(() => {
+        document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    }
+  };
+
+  // Split: open sections stay in order at top, collapsed go to bottom
+  const openSections = SECTION_NAV.filter(s => !collapsedSections.includes(s.id));
+  const closedSections = SECTION_NAV.filter(s => collapsedSections.includes(s.id));
+
+  return (
+    <nav
+      onMouseEnter={() => setSidebarExpanded(true)}
+      onMouseLeave={() => setSidebarExpanded(false)}
+      style={{
+        position: 'sticky',
+        top: '16px',
+        width: sidebarExpanded ? '160px' : '44px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
+        paddingTop: '72px',
+        alignSelf: 'flex-start',
+        zIndex: 10,
+        transition: 'width 0.2s ease',
+        overflow: 'hidden',
+      }}>
+      {openSections.map(s => {
+        const isActive = activeId === s.id;
+        return (
+          <button
+            key={s.id}
+            onClick={() => handleClick(s.id)}
+            title={sidebarExpanded ? undefined : s.label}
+            style={{
+              background: isActive ? 'var(--color-accent-primary)' : 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              width: '100%',
+              height: '34px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '0 8px',
+              cursor: 'pointer',
+              fontSize: '15px',
+              opacity: isActive ? 1 : 0.6,
+              transition: 'all 0.2s ease',
+              position: 'relative',
+              color: isActive ? '#000' : 'var(--color-text-primary)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ flexShrink: 0, width: '20px', textAlign: 'center' }}>{s.icon}</span>
+            {sidebarExpanded && (
+              <span style={{
+                fontSize: '11px',
+                fontWeight: isActive ? 700 : 500,
+                letterSpacing: '0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>{s.label}</span>
+            )}
+            {isActive && (
+              <span style={{
+                position: 'absolute',
+                left: '0px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '3px',
+                height: '18px',
+                borderRadius: '2px',
+                background: 'var(--color-accent-primary)',
+              }} />
+            )}
+          </button>
+        );
+      })}
+      {closedSections.length > 0 && (
+        <>
+          <div style={{ height: '1px', background: 'var(--color-border)', margin: '6px 4px', opacity: 0.4 }} />
+          {closedSections.map(s => (
+            <button
+              key={s.id}
+              onClick={() => handleClick(s.id)}
+              title={sidebarExpanded ? undefined : `${s.label} (closed)`}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                width: '100%',
+                height: '30px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0 8px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                opacity: 0.3,
+                transition: 'all 0.2s ease',
+                color: 'var(--color-text-muted)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span style={{ flexShrink: 0, width: '20px', textAlign: 'center' }}>{s.icon}</span>
+              {sidebarExpanded && (
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 400,
+                  textDecoration: 'line-through',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>{s.label}</span>
+              )}
+            </button>
+          ))}
+        </>
+      )}
+    </nav>
   );
 }
 
@@ -1174,6 +1430,7 @@ function Home() {
   const [recentlyClosed, setRecentlyClosed] = useState([]);
   const [welcomeBack, setWelcomeBack] = useState(null);
   const [collapsedSections, setCollapsedSections] = useState([]);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   // Load collapsed state from storage
   useEffect(() => {
@@ -1432,6 +1689,11 @@ function Home() {
         {/* Other browser-profile installs of this user — awareness chips */}
         <OtherProfilesStrip style={{ marginBottom: '8px' }} />
 
+        {/* Main layout: SectionNav sidebar + content */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+          <SectionNav collapsedSections={collapsedSections} setCollapsedSections={setCollapsedSections} sidebarExpanded={sidebarExpanded} setSidebarExpanded={setSidebarExpanded} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+
         {/* Shift Controls — hidden on Personal-classified profiles */}
         {!isPersonal ? (
           <CollapsibleSection id="shift" title="Shift Controls" icon="⏱️" collapsedSections={collapsedSections} toggleSection={toggleSection}>
@@ -1526,6 +1788,7 @@ function Home() {
                 <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
               )}
               <FocusQueue items={allItems} actions={actions} />
+              <BackburnerDock items={allItems} actions={actions} />
               <FocusHistory history={history} />
             </>
           ) : (
@@ -1557,7 +1820,43 @@ function Home() {
         </CollapsibleSection>
 
         {/* ═══ Collapsible: Context Activity Bar ═══ */}
-        <CollapsibleSection id="activity" title="Context Activity" icon="📊" compact collapsedSections={collapsedSections} toggleSection={toggleSection}>
+        <CollapsibleSection
+          id="activity"
+          title="Context Activity"
+          icon="📊"
+          compact
+          collapsedSections={collapsedSections}
+          toggleSection={toggleSection}
+          action={
+            <button
+              onClick={() => window.open(chrome.runtime.getURL('activity.html'), '_blank')}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: 'var(--color-accent-primary, #a3b59a)',
+                fontSize: '10px',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-sm, 4px)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.borderColor = 'var(--color-accent-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+              }}
+            >
+              ✏️ Edit Logs
+            </button>
+          }
+        >
           <UnifiedTimeline compact={false} />
         </CollapsibleSection>
 
@@ -1816,6 +2115,8 @@ function Home() {
             </div>
           </div>
         )}
+          </div>{/* end content column */}
+        </div>{/* end flex wrapper */}
       </div>
 
       <LinkMergeModal 
