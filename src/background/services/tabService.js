@@ -228,7 +228,9 @@ async function handleTabUpdated(tabId, changeInfo, tab) {
     tabs[tabId].url = changeInfo.url;
     const categories = await getCategories();
     const newCat = detectCategory(changeInfo.url, tab.audible, categories);
-    if (tabs[tabId].category === 'unknown') {
+    if (newCat !== 'unknown') {
+      tabs[tabId].category = newCat;
+    } else if (tabs[tabId].category === 'unknown') {
       tabs[tabId].category = newCat;
     }
     await timeTracker.startTracking(tabId, changeInfo.url, tabs[tabId]);

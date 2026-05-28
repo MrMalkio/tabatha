@@ -263,6 +263,7 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
               <tr>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px', width: '24px' }}></th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Date</th>
+                <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Type</th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Details</th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px' }}>Intent</th>
                 <th style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '10px', textAlign: 'right' }}>Time</th>
@@ -270,7 +271,7 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
             </thead>
             <tbody>
               {visibleLogs.length === 0 ? (
-                <tr><td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)' }}>No logs found.</td></tr>
+                <tr><td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-muted)' }}>No logs found.</td></tr>
               ) : (
                 visibleLogs.map(log => {
                   const cfg = LOG_TYPES[log.logType] || LOG_TYPES.tab;
@@ -286,9 +287,11 @@ export function LogsPanel({ intentHistory, tabs, timeTracking, allItems, clockHi
                         <span title={cfg.label} style={{ fontSize: '12px' }}>{cfg.icon}</span>
                       </td>
                       <td style={{ padding: '5px 10px', whiteSpace: 'nowrap', fontSize: '10px' }}>{dateStr}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '9px', color: cfg.color, background: cfg.color + '18', padding: '1px 5px', borderRadius: '3px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{cfg.label}</span>
+                      </td>
                       <td style={{ padding: '5px 10px', fontWeight: 500, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.label}>
                         {log.label}
-                        <span style={{ fontSize: '8px', color: cfg.color, background: cfg.color + '18', padding: '0 3px', borderRadius: '2px', marginLeft: '4px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{cfg.label}</span>
                         {log.domain && <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginLeft: '4px' }}>({log.domain})</span>}
                       </td>
                       <td style={{ padding: '5px 10px' }}>
