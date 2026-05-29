@@ -66,7 +66,8 @@ import * as awarenessService from './services/awarenessService.js';
 import {
   configureAwarenessService,
   startAwareness,
-  notifyStateChange as notifyAwarenessStateChange
+  notifyStateChange as notifyAwarenessStateChange,
+  setLocalIdleState as setAwarenessIdleState
 } from './services/awarenessService.js';
 import {
   configureCompanionInstallService,
@@ -115,7 +116,8 @@ configureClockService({
   setFocusEngine: focusService.setFocusEngine,
   getTabData,
   triggerSync,
-  notifyAwarenessStateChange
+  notifyAwarenessStateChange,
+  setAwarenessIdleState
 });
 
 configureFocusService({
@@ -181,6 +183,15 @@ registerTabServiceListeners();
 registerTabTrackingListeners();
 registerUrlLockNavigationListener();
 registerClockServiceListeners();
+
+// Plan 036 (#187): OS-unlock auto clock-in. The desktop companion emits an
+// idle→active transition when the workstation is unlocked; honour it only when
+// the user picked the 'os_unlock' trigger (clockService gates on settings).
+companionBridge.on('idleState', (payload) => {
+  if (payload && payload.isIdle === false) {
+    clockService.maybeAutoClockIn('os_unlock');
+  }
+});
 registerGroupServiceListeners();
 registerFocusServiceAlarms();
 registerSyncServiceAlarms();

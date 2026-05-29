@@ -153,6 +153,10 @@ async function _handleMessage(type, message) {
     case 'RESUME_FOCUS':
       return resumeFocus(message.focusId);
 
+    // Plan 036: user's response to the Smart Idle Engine prompt.
+    case 'IDLE_PROMPT_RESPONSE':
+      return idlePromptResponse(message);
+
     // ── Plan 025: Checkpoint Progress Notes ──
     case 'SAVE_CHECKPOINT_NOTE':
       return saveCheckpointNote(message);
@@ -181,7 +185,8 @@ async function _handleMessage(type, message) {
 const AUDITABLE_ACTIONS = new Set([
   'START_FOCUS', 'COMPLETE_FOCUS', 'SWITCH_FOCUS', 'PAUSE_FOCUS', 'RESUME_FOCUS',
   'EXTEND_FOCUS_TIMER', 'LET_ME_COOK', 'BACKBURNER_FOCUS', 'SNOOZE_BACKBURNER',
-  'DISMISS_BACKBURNER', 'RESUME_BACKBURNER', 'SAVE_CHECKPOINT_NOTE'
+  'DISMISS_BACKBURNER', 'RESUME_BACKBURNER', 'SAVE_CHECKPOINT_NOTE',
+  'IDLE_PROMPT_RESPONSE'
 ]);
 
 async function emitAudit(type, message) {
@@ -799,6 +804,35 @@ async function resumeFocus(focusId) {
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   await endBreakIfActive();
   return { focusEngine: engine };
+}
+
+// Plan 036: resolve a pending Smart Idle Engine prompt.
+//   on_task  → keep the focus active (user confirms they're still working)
+//   diverged → mark the active focus drifted (UI then prompts for a new focus)
+//   pause    → pause the focus (legacy idle behaviour, on demand)
+async function idlePromptResponse(message) {
+  const response = message.response || 'pause';
+  const engine = await getFocusEngine();
+  const id = message.focusId || engine.activeFocusId;
+
+  // Clear the pending marker so the idle-auto-break fallback won't double-act.
+  try {
+    const { _idlePrompt } = await getStorage('_idlePrompt');
+    if (_idlePrompt) {
+      await setStorage({ _idlePrompt: null });
+      broadcastAll({ type: 'IDLE_PROMPT_RESOLVED', id: _idlePrompt.id, resolution: response });
+    }
+  } catch { /* non-critical */ }
+
+  if (response === 'on_task') {
+    return { focusEngine: engine, resolution: 'on_task' };
+  }
+  if (response === 'diverged') {
+    const r = await markFocusDrifted(id);
+    return { focusEngine: r.engine, resolution: 'diverged' };
+  }
+  const paused = await pauseFocus(id);
+  return { ...paused, resolution: 'pause' };
 }
 
 async function endBreakIfActive() {

@@ -17,6 +17,26 @@ export const DEFAULT_SETTINGS = {
   checkpointIntervalFraction: 0.33,
   checkpointStaleMinutes: 30,
   checkpointAutoPostAsana: false,
+  // ── Intelligent Focus Lifecycle (Plan 036) ──
+  // Phase 1 — Smart Idle Engine
+  idleConfirmationEnabled: true,          // prompt before auto-pausing on idle (false = legacy hard-pause)
+  companionIdleGraceMinutes: 5,           // how recent desktop-companion activity must be to suppress idle
+  meetingDomains: [
+    'meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com',
+    'webex.com', 'app.webex.com', 'whereby.com', 'around.co'
+  ],
+  meetingIdleGraceMinutes: 60,            // max meeting duration suppressed before idle can fire anyway
+  autoResumeOnReturn: true,               // auto-resume the paused focus when the user returns from idle
+  // Phase 1 — Auto clock-in (#187)
+  autoClockInEnabled: false,              // master toggle for auto clock-in
+  autoClockInTrigger: 'chrome_open',      // 'chrome_open' | 'os_unlock'
+  // Phase 2 — Auto-Focus heuristic engine
+  autoFocusEnabled: true,                 // master enable for heuristic focus suggestions
+  autoFocusConfidence: 'high',            // minimum confidence to surface: 'explicit' | 'high' | 'medium'
+  // Phase 3 — Drift detection
+  driftDetectionEnabled: true,
+  driftThresholdMinutes: 3,               // time on unrelated tabs before prompting
+  driftSnoozeMinutes: 5,                  // "just checking" snooze duration
   storage: {
     snapshotIntervalMinutes: 30,
     snapshotCap: 20,

@@ -21,6 +21,10 @@ let deps = {};
 let realtimeChannel = null;
 let heartbeatTimer = null;
 let lastPayload = null;
+// Plan 036: this profile's Chrome idle verdict, published in the status row's
+// metadata so OTHER profiles can tell whether we are truly active. Stored in
+// metadata (jsonb) to avoid a schema migration.
+let localIdleState = 'active'; // 'active' | 'idle' | 'locked'
 let activeProfileId = null;
 let activeBrowserProfileId = null;
 let storageListenerRegistered = false;
@@ -159,7 +163,7 @@ async function buildStatusPayload({ online }) {
     focus_timer_minutes,
     focus_elapsed_ms,
     focus_timer_ends_at,
-    metadata: {},
+    metadata: { idle_state: localIdleState },
     updated_at: now
   };
 }
@@ -172,6 +176,9 @@ function shallowEqualMostFields(a, b) {
   for (const k of keys) {
     if (a[k] !== b[k]) return false;
   }
+  // Plan 036: idle_state lives in metadata — a change here must force a full
+  // upsert (the heartbeat-only refresh path doesn't touch metadata).
+  if ((a.metadata?.idle_state ?? null) !== (b.metadata?.idle_state ?? null)) return false;
   return true;
 }
 
@@ -238,6 +245,20 @@ export async function notifyStateChange() {
   schedulePush();
 }
 
+// Plan 036: update this profile's Chrome idle verdict and propagate it to the
+// status row so other profiles can suppress their own idle pausing while we
+// are still active. Idempotent — a no-op state change won't force a push.
+export async function setLocalIdleState(state) {
+  const next = (state === 'idle' || state === 'locked') ? state : 'active';
+  if (next === localIdleState) return;
+  localIdleState = next;
+  schedulePush();
+}
+
+export function getLocalIdleState() {
+  return localIdleState;
+}
+
 // Cache the merged list of other-install statuses under chrome.storage
 // so the React hook stays reactive. Includes only OTHER installs (not
 // this one). Marks rows as stale if last_heartbeat_at older than 5m.
@@ -270,6 +291,7 @@ async function rebuildOtherProfilesCache(supabase, profileId, selfBrowserProfile
           online: !!s.online && !stale,
           stale,
           last_heartbeat_at: s.last_heartbeat_at,
+          idle_state: s.metadata?.idle_state || null,
           clock_state: s.clock_state,
           clocked_in_at: s.clocked_in_at,
           on_break_since: s.on_break_since,
