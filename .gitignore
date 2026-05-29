@@ -38,3 +38,6 @@ v0_legacy/recon/
 
 # Private transcripts / named-individual docs
 docs/features/mike-transcript-extraction.md
+
+# Packaged extension artifacts
+*.zip

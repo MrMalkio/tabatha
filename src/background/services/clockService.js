@@ -158,7 +158,7 @@ export const getClockStatus = () => clock.getClockStatus();
  * meetings still suppress idle, then falls back to the desktop companion's
  * active app. Returns { detected, source?, ... }.
  */
-async function isUserInMeeting() {
+export async function isUserInMeeting() {
   try {
     const settings = await getSettings();
     const meetingDomains = settings.meetingDomains?.length
@@ -202,7 +202,7 @@ async function isUserInMeeting() {
  * active meetings. Additive/benign: a false-positive only keeps the user
  * "active" slightly longer; it never causes a pause.
  */
-async function collectIdleSuppressors() {
+export async function collectIdleSuppressors() {
   const suppressors = [];
   const settings = await getSettings();
 
@@ -238,7 +238,7 @@ async function collectIdleSuppressors() {
 }
 
 // Immediately accumulate elapsed time and pause the active focus.
-async function hardPauseActiveFocus(reason) {
+export async function hardPauseActiveFocus(reason) {
   const engine = await deps.getFocusEngine?.();
   if (!engine?.activeFocusId) return null;
   const active = engine.items[engine.activeFocusId];
@@ -256,7 +256,7 @@ async function hardPauseActiveFocus(reason) {
   return engine.activeFocusId;
 }
 
-async function handleIdleStateChanged(newState) {
+export async function handleIdleStateChanged(newState) {
   if (newState === 'idle' || newState === 'locked') {
     // Step 1: always publish THIS profile's idle verdict so other profiles can
     // suppress their own pausing (profile-local state is informational only).
