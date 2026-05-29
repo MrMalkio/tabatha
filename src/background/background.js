@@ -62,6 +62,12 @@ import {
   syncToSupabase,
   triggerSync
 } from './services/syncService.js';
+import * as autoFocusService from './services/autoFocusService.js';
+import {
+  configureAutoFocusService,
+  registerAutoFocusListeners,
+  evaluateTab as evaluateAutoFocus
+} from './services/autoFocusService.js';
 import * as awarenessService from './services/awarenessService.js';
 import {
   configureAwarenessService,
@@ -106,7 +112,8 @@ configureTabService({
   autoQueueFromIntent: focusService.autoQueueFromIntent,
   linkTabToFocus: focusService.linkTabToFocus,
   setTabData,
-  logEvent: tabTrackingService.logEvent
+  logEvent: tabTrackingService.logEvent,
+  evaluateAutoFocus
 });
 
 configureClockService({
@@ -129,6 +136,17 @@ configureFocusService({
   fireWebhook,
   endBreakIfActive: clockService.endBreakIfActive,
   notifyAwarenessStateChange
+});
+
+configureAutoFocusService({
+  getFocusEngine: focusService.getFocusEngine,
+  getTabData,
+  startFocus: focusService.startFocus,
+  markFocusDrifted: focusService.markFocusDrifted,
+  pauseActiveFocus: focusService.pauseActiveFocus,
+  linkTabToFocus: focusService.linkTabToFocus,
+  companionBridge,
+  fireWebhook
 });
 
 configureGroupService({ setTabData });
@@ -156,7 +174,8 @@ const services = [
   calendarService,
   alarmService,
   syncService,
-  awarenessService
+  awarenessService,
+  autoFocusService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -194,6 +213,7 @@ companionBridge.on('idleState', (payload) => {
 });
 registerGroupServiceListeners();
 registerFocusServiceAlarms();
+registerAutoFocusListeners();
 registerSyncServiceAlarms();
 registerSyncStorageListener();
 registerAlarmServiceListener();
