@@ -1292,6 +1292,25 @@
       Object.assign(c.style, { background:'#1a1a1a',border:'1px solid #333',borderRadius:'8px',padding:'24px 32px',maxWidth:'440px',width:'90vw',textAlign:'center',color:'#eee' });
       return c;
     };
+    // Plan 036: non-blocking auto-focus suggestion chip. Auto-fades after 8s,
+    // never steals focus or blocks the page (challenge-response Resolution 5).
+    const _showAutoFocusChip = (msg) => {
+      document.getElementById('tabatha-autofocus-chip')?.remove();
+      const chip = document.createElement('div');
+      chip.id = 'tabatha-autofocus-chip';
+      Object.assign(chip.style, { position:'fixed',bottom:'16px',right:'16px',zIndex:'2147483646',background:'#1a1a1a',border:'1px solid #ab47bc66',borderRadius:'10px',padding:'10px 12px',maxWidth:'320px',boxShadow:'0 6px 24px rgba(0,0,0,0.4)',fontFamily:"'Segoe UI',system-ui,sans-serif",color:'#eee',display:'flex',alignItems:'center',gap:'10px',transition:'opacity 0.4s ease',opacity:'0' });
+      chip.innerHTML = `<span style="font-size:16px;">⚡</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${msg.label || 'Set a focus?'}</div><div style="font-size:10px;color:#888;">Suggested focus</div></div>
+        <button id="afc-accept" style="${_popupBtnStyle('#66bb6a')}padding:4px 10px;">Set</button>
+        <button id="afc-dismiss" style="background:transparent;border:none;color:#888;font-size:14px;cursor:pointer;line-height:1;">✕</button>`;
+      document.documentElement.appendChild(chip);
+      requestAnimationFrame(() => { chip.style.opacity = '1'; });
+      let fadeTimer = setTimeout(() => { chip.style.opacity = '0'; setTimeout(() => chip.remove(), 400); }, 8000);
+      const clearFade = () => clearTimeout(fadeTimer);
+      chip.addEventListener('mouseenter', clearFade);
+      chip.querySelector('#afc-accept')?.addEventListener('click', async () => { clearFade(); try { await chrome.runtime.sendMessage({ type: 'ACCEPT_AUTO_FOCUS', label: msg.label }); } catch {} chip.remove(); });
+      chip.querySelector('#afc-dismiss')?.addEventListener('click', async () => { clearFade(); try { await chrome.runtime.sendMessage({ type: 'DISMISS_AUTO_FOCUS', domain: msg.domain }); } catch {} chip.remove(); });
+    };
     const _fmtIdleDuration = (ms) => {
       const totalSec = Math.floor((ms || 0) / 1000);
       const m = Math.floor(totalSec / 60);
@@ -1433,6 +1452,65 @@
       card.querySelector('#bb-resume')?.addEventListener('click', () => _dismissAndSend(overlay, 'RESUME_BACKBURNER', { focusId: msg.focusId }));
       card.querySelector('#bb-snooze')?.addEventListener('click', () => _dismissAndSend(overlay, 'SNOOZE_BACKBURNER', { focusId: msg.focusId, snoozeMinutes: 10 }));
       card.querySelector('#bb-dismiss')?.addEventListener('click', () => _dismissAndSend(overlay, 'DISMISS_BACKBURNER', { focusId: msg.focusId }));
+    }
+
+    // ── Plan 036: Smart Idle Prompt (singleton) ──
+    if (msg.type === 'IDLE_PROMPT') {
+      if (document.getElementById('tabatha-popup-overlay')) return; // singleton
+      const overlay = _createOverlay();
+      const card = _createCard();
+      card.innerHTML = `
+        <div style="font-size:30px;margin-bottom:8px;">💤</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Still on task?</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:14px;">Chrome's been quiet, but you might still be working on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+          <button id="idle-ontask" style="${_popupBtnStyle('#66bb6a')}">✅ Yes, on task</button>
+          <button id="idle-diverged" style="${_popupBtnStyle('#ffa726')}">↪ I diverged</button>
+          <button id="idle-pause" style="${_popupBtnStyle('#888')}">⏸ Pause focus</button>
+        </div>`;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      const respond = (response) => _dismissAndSend(overlay, 'IDLE_PROMPT_RESPONSE', { focusId: msg.focusId, response });
+      card.querySelector('#idle-ontask')?.addEventListener('click', () => respond('on_task'));
+      card.querySelector('#idle-diverged')?.addEventListener('click', () => respond('diverged'));
+      card.querySelector('#idle-pause')?.addEventListener('click', () => respond('pause'));
+    }
+
+    // ── Plan 036: idle prompt resolved elsewhere (return / timeout / another tab) ──
+    if (msg.type === 'IDLE_PROMPT_RESOLVED') {
+      _removeExistingOverlay();
+    }
+
+    // ── Plan 036: Focus Drift Detected (singleton) ──
+    if (msg.type === 'FOCUS_DRIFT_DETECTED') {
+      if (document.getElementById('tabatha-popup-overlay')) return; // singleton
+      const overlay = _createOverlay();
+      const card = _createCard();
+      card.innerHTML = `
+        <div style="font-size:30px;margin-bottom:8px;">🧭</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Drifting off?</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:14px;">You've been on unrelated tabs for a bit while focused on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+          <button id="drift-still" style="${_popupBtnStyle('#66bb6a')}">✅ Still working on it</button>
+          <button id="drift-switch" style="${_popupBtnStyle('#ab47bc')}">🔀 Switching tasks</button>
+          <button id="drift-checking" style="${_popupBtnStyle('#888')}">👀 Just checking</button>
+        </div>`;
+      overlay.appendChild(card);
+      document.documentElement.appendChild(overlay);
+      let curTabId = null;
+      chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }).then(r => { curTabId = r?.tabId ?? null; }).catch(() => {});
+      const respond = (response) => _dismissAndSend(overlay, 'FOCUS_DRIFT_RESPONSE', { focusId: msg.focusId, response, tabId: curTabId });
+      card.querySelector('#drift-still')?.addEventListener('click', () => respond('still_working'));
+      card.querySelector('#drift-switch')?.addEventListener('click', () => respond('switching'));
+      card.querySelector('#drift-checking')?.addEventListener('click', () => respond('just_checking'));
+    }
+
+    // ── Plan 036: Auto-Focus suggestion — non-blocking transient chip ──
+    if (msg.type === 'AUTO_FOCUS_SUGGESTED') {
+      _showAutoFocusChip(msg);
+    }
+    if (msg.type === 'AUTO_FOCUS_DISMISSED') {
+      document.getElementById('tabatha-autofocus-chip')?.remove();
     }
 
     // ── Popup Dismissed — cross-tab cleanup ──

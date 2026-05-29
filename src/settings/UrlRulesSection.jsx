@@ -222,6 +222,7 @@ function RulesTab({ urlRules, newRule, setNewRule, addRule, removeRule, updateRu
                       {rule.defaultIntent && <span>Intent: <strong style={{ color: 'var(--color-accent-primary)' }}>{rule.defaultIntent}</strong> · </span>}
                       {rule.defaultContext && <span>Context: <strong>{rule.defaultContext}</strong> · </span>}
                       {rule.autoApply ? '✅ Auto-apply' : '⏸ Manual'}
+                      {rule.autoCreateFocus && <span style={{ color: 'var(--color-accent-primary)' }}> · 🎯 Auto-create focus</span>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '4px' }}>
@@ -244,6 +245,7 @@ function EditRuleForm({ rule, onSave, onCancel }) {
   const [intent, setIntent] = useState(rule.defaultIntent || '');
   const [context, setContext] = useState(rule.defaultContext || '');
   const [autoApply, setAutoApply] = useState(rule.autoApply !== false);
+  const [autoCreateFocus, setAutoCreateFocus] = useState(!!rule.autoCreateFocus);
 
   return (
     <div>
@@ -254,14 +256,22 @@ function EditRuleForm({ rule, onSave, onCancel }) {
         <input style={{ ...inputStyle, flex: 1 }} value={intent} onChange={e => setIntent(e.target.value)} placeholder="Default intent" />
         <input style={{ ...inputStyle, flex: 1 }} value={context} onChange={e => setContext(e.target.value)} placeholder="Default context" />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={autoApply} onChange={e => setAutoApply(e.target.checked)} />
-          Auto-apply on match
-        </label>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={autoApply} onChange={e => setAutoApply(e.target.checked)} />
+            Auto-apply on match
+          </label>
+          <Tooltip text="Plan 036: when a tab matches this pattern and no focus is active, silently create + start a focus using the default intent as its label.">
+            <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={autoCreateFocus} onChange={e => setAutoCreateFocus(e.target.checked)} />
+              🎯 Auto-create focus
+            </label>
+          </Tooltip>
+        </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           <button onClick={onCancel} style={{ ...btnSmall, background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>Cancel</button>
-          <button onClick={() => onSave(rule.id, { pattern, defaultIntent: intent || null, defaultContext: context || null, autoApply })} style={btnSmall}>Save</button>
+          <button onClick={() => onSave(rule.id, { pattern, defaultIntent: intent || null, defaultContext: context || null, autoApply, autoCreateFocus })} style={btnSmall}>Save</button>
         </div>
       </div>
     </div>
