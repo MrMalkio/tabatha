@@ -5,6 +5,26 @@ file.
 
 ---
 
+## [v6.0.0] - Plan 036 Intelligent Focus Lifecycle — Smart Idle + Auto-Focus + Drift - _2026-05-29_
+
+Absorbs Plans 026 (Auto Focus) and 029 (Auto-Pause Overhaul). Resolves bugs B05/B08 and addresses features #149–#152, #187. Incorporates the challenge-audit resolutions (multi-profile sync race, meeting detection, drift false-positives, prompt-storm mitigation).
+
+### Added
+
+- **Smart Idle Engine** (`clockService`): before pausing the global focus, `collectIdleSuppressors()` consults (a) other browser profiles via the awareness cache, (b) desktop-companion activity within a configurable grace window, and (c) a hardened 3-layer `isUserInMeeting()` scan (all open tabs + companion app), so muted/backgrounded meetings and cross-profile activity no longer trigger false pauses. When idle is genuine, an `IDLE_PROMPT` is shown ("Yes, on task" / "I diverged" / "Pause focus") instead of a silent hard-pause; an unanswered prompt falls back to a hard pause after 5 minutes. Legacy hard-pause is still available via the "Prompt before pausing" toggle.
+- **Multi-profile idle state** (`awarenessService`): each profile now publishes its Chrome idle verdict in the `browser_profile_status.metadata` jsonb (no schema migration) and surfaces it in the `_otherProfiles` cache, fixing the multi-profile sync-override hazard where an unattended profile could pause an actively-worked focus account-wide.
+- **Auto-Focus heuristic engine** (`autoFocusService`): when no focus is active, tab activations/navigations are matched against URL rules (explicit auto-create), category/domain groups (high confidence), and the companion app category (medium), surfacing a non-blocking InBar chip that auto-fades after 8s. A per-domain exponential decay engine (30→60→120→240→480m) suppresses repeat prompts after dismissal.
+- **Context drift detection** (`autoFocusService`): a 5-layer association hierarchy (direct association, companion overrule, URL-rule intent, category/domain-group, hostname) plus a localhost/chrome:// whitelist decides whether a tab counts as drift. A wandering→drifted state machine (armed by the `auto-focus-drift` alarm at `driftThresholdMinutes`) raises `FOCUS_DRIFT_DETECTED` with "Still working / Switching / Just checking" options and emits a `context_drift` webhook.
+- **Auto clock-in (#187)**: optional, with a configurable trigger — "When Chrome opens" (default, via `runtime.onStartup`) or "On OS unlock" (via the desktop companion's idle→active transition).
+- **Companion bridge helpers** (`companionService`): `lastHeartbeat`, `getActiveApp`/`getActiveAppCategory`, and `isRecentlyActive(grace)` for the idle and drift engines.
+- **Settings → 🧠 Focus Lifecycle** panel: idle behaviour (prompt toggle, thresholds, companion grace, meeting-domain editor), auto-focus (enable, confidence, dismissal-history viewer/clear), drift detection (enable + thresholds), and auto clock-in (enable + trigger). URL Rules gain a per-rule **🎯 Auto-create focus** toggle.
+
+### Changed
+
+- Idle handling no longer mutates the global focus when the user is active on another profile, in another desktop app, or in a meeting — it only updates this profile's own status.
+
+---
+
 ## [v5.8.0] - Plan 031 Gap Completion — Auto-Checkpoint + SectionNav + Sub-Focus + Backburner Fixes - _2026-05-28_
 
 ### Added
