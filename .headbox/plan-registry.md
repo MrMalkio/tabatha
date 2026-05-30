@@ -34,7 +34,10 @@
 | 033 | parallel_focuses | 2026-05-28 | Parallel Focuses — `activeFocusId` → `activeFocusIds` architectural change. Deferred from Plan 022/031. Depends on sub-intent (031 Phase 3) and Back Burner (031 Phase 6) as stepping stones | reserved |
 | 034 | smart_deferral | 2026-05-28 | Smart Deferral & Task Splitting Engine (Auto-Stint Scheduler) — Auto-stint allocation logic, splitting heuristics, calendar sync alignment | draft |
 | 035 | unified_calendar | 2026-05-28 | Unified Calendar & Scheduling System (renumbered from 030) — Full Month/Week/Day calendar, react-big-calendar UI, Sidebar agenda, calendarService CRUD, syncService bidirectional merge, Google & Outlook OAuth sync engine | partial (1/3) — Phase 1 backend complete (calendarService, syncService, Supabase migration). Phases 2-3 (UI, OAuth sync) pending |
+| 036 | focus_lifecycle | 2026-05-29 | Intelligent Focus Lifecycle — absorbs Plans 026 (Auto Focus) + 029 (Auto-Pause Overhaul). Smart Idle Engine (multi-profile/companion/meeting suppression, prompt-instead-of-pause), Auto-Focus heuristic engine + decay, context drift detection, Focus Lifecycle settings + InBar prompts, auto clock-in (#187). Bugs B05/B08, features #149-#152/#187. Incorporates challenge-audit resolutions 1-5 | partial (4/5) — all 4 phases code-complete on `feat/plan-036-focus-lifecycle` (off staging) → **v6.0.0**. 22 node:test regression tests green, vite build + version:check green, `dist-v6.0.0` produced. Remaining (5th): in-browser manual regression matrix + companion-dependent paths, then PR → staging. Not yet merged |
 
 ---
 
-> **Next available number:** 036
+> **Next available number:** 037
+
+> **Note:** Plans 026 (auto_focus) and 029 (auto_pause_overhaul) are **absorbed by Plan 036** — credit their scope there; do not execute them independently.

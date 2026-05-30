@@ -5,6 +5,50 @@
 
 ---
 
+## Session - 2026-05-29 (Plan 036 Intelligent Focus Lifecycle — v6.0.0) — CHECKPOINT
+
+**Agent:** Claude (Opus 4.8)
+**Branch:** `feat/plan-036-focus-lifecycle` (off `staging`, in isolated worktree)
+**Goal:** Execute Plan 036 (authored by Antigravity) end-to-end — all 4 phases, absorbing Plans 026 (Auto Focus) + 029 (Auto-Pause Overhaul).
+
+### What Was Done
+
+- [x] **Grounded in real code** — read clock/focus/companion/awareness/tab/alarm/storage services + background router + settings UI before writing; verified every plan claim against the actual codebase.
+- [x] **Phase 1 — Smart Idle Engine** (`clockService`): `collectIdleSuppressors()` consults other browser profiles, the desktop companion, and a hardened 3-layer `isUserInMeeting()` (all-tab scan + companion app) before ever pausing the global focus. `IDLE_PROMPT` (on-task/diverged/pause) instead of silent hard-pause, with a 5-min hard-pause fallback. Companion bridge gained `lastHeartbeat`/`getActiveApp`/`isRecentlyActive`. Awareness publishes per-profile `idle_state` via status `metadata` jsonb (no migration). Auto clock-in (#187): chrome-open default + os-unlock option.
+- [x] **Phase 2 — Auto-Focus** (new `autoFocusService`): URL-rule (explicit auto-create) → category/domain (high) → companion app (medium) matching; non-blocking InBar chip; per-domain exponential decay engine (30→60→120→240→480m).
+- [x] **Phase 3 — Drift detection**: 5-layer association hierarchy + localhost/chrome:// whitelist + companion overrule; wandering→drifted state machine on `auto-focus-drift` alarm; `FOCUS_DRIFT_DETECTED` + `context_drift` webhook.
+- [x] **Phase 4 — UI**: Settings **🧠 Focus Lifecycle** panel (idle/auto-focus/drift/clock-in + meeting-domain editor + dismissal viewer), per-rule **🎯 Auto-create focus** toggle on URL Rules, InBar overlays for idle/drift + auto-focus chip.
+- [x] **Phase 5 — Release**: bumped manifest → **v6.0.0**, propagated via `version:sync`, changelog entry added.
+- [x] **Regression tests**: 22 `node:test` tests with an in-memory `chrome` mock (no new deps) covering meeting detection, multi-profile sync-race suppression, decay engine, drift association, companion helpers. `npm test` script added.
+- [x] **Dist**: produced `dist-v6.0.0/` in the main Tabatha dir (matches existing `dist-vX.X.X` convention) for unpacked loading; also `tabatha-v6.0.0.zip`.
+
+### Key Decisions
+
+- Published per-profile idle state through the existing `browser_profile_status.metadata` jsonb rather than a new column — satisfies challenge-audit Resolution 1 (sync-race) with **zero migration** (migrations 008-013 are still unapplied, a separate Tier-1 blocker).
+- Auto clock-in defaults to "When Chrome opens" with a Settings option for "On OS unlock" (per user decision).
+- URL-rule `autoCreateFocus` defaults to `false` (opt-in) so existing rules are unaffected.
+- All 4 phases on a single branch (per user), committed per-phase, build verified each phase.
+
+### Verification
+
+- `npm test` → 22/22 green · `npm run build` → green · `npm run version:check` → in sync at 6.0.0.
+- **NOT yet done:** in-browser manual regression matrix; companion-dependent paths (OS-unlock, desktop idle suppression) untestable without the companion running. Branch not pushed/merged.
+
+### Next Steps
+
+- User to load `dist-v6.0.0` unpacked and run the 10-point manual matrix (idle suppression, meeting suppression, idle/drift prompts render, auto-focus chip, settings persistence, auto clock-in).
+- Address findings, then push branch + open PR `feat/plan-036-focus-lifecycle` → `staging`.
+- Separately (Tier-1 release gate, out of Plan 036 scope): rotate Supabase password, apply migrations 008-013.
+
+### Artifacts
+
+- Branch `feat/plan-036-focus-lifecycle` (6 commits)
+- New: `src/background/services/autoFocusService.js`, `test/*.test.js`, `testutils/chromeMock.js`, `src/settings` FocusLifecyclePanel
+- `dist-v6.0.0/` (main dir), `tabatha-v6.0.0.zip`
+- Plan registry: entry 036 = `partial (4/5)`
+
+---
+
 ## Session - 2026-05-28 (v5.8.0 Stabilization + SectionNav Refactor)
 
 **Agent:** Antigravity (Gemini)
