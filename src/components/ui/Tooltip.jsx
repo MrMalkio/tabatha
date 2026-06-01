@@ -15,8 +15,14 @@ export function Tooltip({ text, children, position = 'top', delay = 300 }) {
     timerRef.current = setTimeout(() => {
       if (triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
+        // Clamp x so the tooltip (max ~280px wide) never clips the viewport edges.
+        // Left edge: keep at least 8px from viewport left.
+        // Right edge: keep at least 8px from viewport right.
+        const rawX = rect.left + rect.width / 2;
+        const TOOLTIP_HALF = 140; // half of maxWidth 280
+        const clampedX = Math.max(TOOLTIP_HALF + 8, Math.min(rawX, window.innerWidth - TOOLTIP_HALF - 8));
         setCoords({
-          x: rect.left + rect.width / 2,
+          x: clampedX,
           y: position === 'top' ? rect.top : rect.bottom,
         });
       }
@@ -49,7 +55,9 @@ export function Tooltip({ text, children, position = 'top', delay = 300 }) {
         fontWeight: 500,
         padding: '5px 10px',
         borderRadius: '6px',
-        whiteSpace: 'nowrap',
+        whiteSpace: 'normal',
+        maxWidth: '280px',
+        wordBreak: 'break-word',
         pointerEvents: 'none',
         zIndex: 99999, // Ensure it's above all panels
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',

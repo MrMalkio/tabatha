@@ -347,17 +347,27 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
 
       {/* ── Idle Behaviour ── */}
       <div style={sectionLabel}>Idle Behaviour</div>
-      <Tooltip text="When idle is detected with an active focus, prompt you (Yes/diverged/pause) instead of silently pausing. Turn off for the old hard-pause behaviour." position="bottom">
+      <Tooltip text="Master switch. When OFF, going idle never pauses or prompts about any focus — including off-device focuses. Turn off if you prefer to manage focus state manually." position="bottom">
         <div style={fieldRow}>
-          <span style={fieldLabel}>Prompt before pausing</span>
-          <Toggle value={settings.idleConfirmationEnabled !== false} onChange={v => updateSetting('idleConfirmationEnabled', v)} />
+          <span style={fieldLabel}>Auto-pause on idle</span>
+          <Toggle value={settings.autoPauseEnabled !== false} onChange={v => updateSetting('autoPauseEnabled', v)} />
         </div>
       </Tooltip>
+      {settings.autoPauseEnabled !== false && (
+        <>
+          <Tooltip text="When idle is detected, show a prompt ('Yes, on task / I diverged / Pause') instead of silently pausing. Turn off to restore the old hard-pause behaviour." position="bottom">
+            <div style={{ ...fieldRow, paddingLeft: '12px' }}>
+              <span style={{ ...fieldLabel, color: 'var(--color-text-muted)' }}>↳ Prompt before pausing</span>
+              <Toggle value={settings.idleConfirmationEnabled !== false} onChange={v => updateSetting('idleConfirmationEnabled', v)} />
+            </div>
+          </Tooltip>
+        </>
+      )}
       <div style={fieldRow}>
         <span style={fieldLabel}>Idle threshold (minutes)</span>
         <input type="number" min="1" max="30" value={settings.idleThresholdMinutes ?? 5} onChange={e => updateSetting('idleThresholdMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
       </div>
-      <Tooltip text="How recently the desktop companion must have seen activity (e.g. you typing in another app) for Tabatha to suppress a Chrome idle pause." position="bottom">
+      <Tooltip text="How recently the desktop companion must have seen activity (e.g. typing in another app) for Tabatha to suppress a Chrome idle pause." position="bottom">
         <div style={fieldRow}>
           <span style={fieldLabel}>Companion grace (minutes)</span>
           <input type="number" min="1" max="30" value={settings.companionIdleGraceMinutes ?? 5} onChange={e => updateSetting('companionIdleGraceMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
@@ -372,16 +382,18 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
         <input type="number" min="5" max="180" value={settings.meetingIdleGraceMinutes ?? 60} onChange={e => updateSetting('meetingIdleGraceMinutes', parseInt(e.target.value) || 60)} style={inputStyle} />
       </div>
       <div style={{ padding: '6px 0' }}>
-        <div style={{ ...fieldLabel, marginBottom: '6px' }}>Meeting domains (one per line)</div>
+        <div style={{ ...fieldLabel, marginBottom: '4px' }}>Meeting domains</div>
+        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+          One domain per line. Press <kbd style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '0 4px', fontSize: '10px' }}>Enter</kbd> after each. Tabs on these domains suppress idle/auto-pause even when muted or backgrounded.
+        </div>
         <textarea
           style={textareaStyle}
+          placeholder={'meet.google.com\nzoom.us\nteams.microsoft.com'}
           value={meetingDomains.join('\n')}
-          onChange={e => updateSetting('meetingDomains', e.target.value.split(/[\n,]/).map(s => s.trim()).filter(Boolean))}
+          onChange={e => updateSetting('meetingDomains', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+          onKeyDown={e => e.stopPropagation()}
           spellCheck={false}
         />
-        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-          Tabs on these domains suppress idle/auto-pause even when muted or backgrounded.
-        </div>
       </div>
 
       {/* ── Auto-Focus ── */}

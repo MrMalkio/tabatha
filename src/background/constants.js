@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   checkpointAutoPostAsana: false,
   // ── Intelligent Focus Lifecycle (Plan 036) ──
   // Phase 1 — Smart Idle Engine
+  autoPauseEnabled: true,                 // master toggle: false = idle never touches focus state at all
   idleConfirmationEnabled: true,          // prompt before auto-pausing on idle (false = legacy hard-pause)
   companionIdleGraceMinutes: 5,           // how recent desktop-companion activity must be to suppress idle
   meetingDomains: [

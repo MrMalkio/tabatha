@@ -243,6 +243,9 @@ export async function hardPauseActiveFocus(reason) {
   if (!engine?.activeFocusId) return null;
   const active = engine.items[engine.activeFocusId];
   if (active?.focusState !== 'active') return null;
+  // Off-device focuses are exempt from all idle-triggered mutations — the user
+  // deliberately flagged this work as happening outside Chrome.
+  if (active.offDevice) return null;
   if (active.lastResumedAt) {
     active.elapsedMs = (active.elapsedMs || 0) + (Date.now() - new Date(active.lastResumedAt).getTime());
     active.lastResumedAt = null;
@@ -295,7 +298,15 @@ export async function handleIdleStateChanged(newState) {
     const active = activeId ? engine.items[activeId] : null;
     const hasActiveFocus = active?.focusState === 'active';
 
-    if (hasActiveFocus && settings.idleConfirmationEnabled !== false) {
+    // Off-device focuses: user is intentionally working outside Chrome.
+    // Never prompt or pause — the focus stays active until they return.
+    const isOffDevice = hasActiveFocus && active.offDevice;
+
+    // Master auto-pause toggle: autoPauseEnabled === false means no idle-driven
+    // focus mutations at all — not even a prompt.
+    const autoPauseEnabled = settings.autoPauseEnabled !== false;
+
+    if (hasActiveFocus && !isOffDevice && autoPauseEnabled && settings.idleConfirmationEnabled !== false) {
       // Prompt instead of hard-pausing. Persist a pending marker so (a) the
       // InBar/popup can render the prompt and (b) the idle-auto-break alarm can
       // fall back to a hard pause if the user never responds.
@@ -310,8 +321,8 @@ export async function handleIdleStateChanged(newState) {
         focusLabel: active.label,
         since: userIdleSince
       });
-    } else if (hasActiveFocus) {
-      // Legacy hard-pause behaviour (idleConfirmationEnabled === false).
+    } else if (hasActiveFocus && !isOffDevice && autoPauseEnabled) {
+      // idleConfirmationEnabled === false → legacy hard-pause.
       await hardPauseActiveFocus('idle');
     }
 
