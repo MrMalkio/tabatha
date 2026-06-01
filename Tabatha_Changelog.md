@@ -5,6 +5,21 @@ file.
 
 ---
 
+## [v6.1.0] - Plan 037 Focus Time Editing + Plan 036 QA fixes - _2026-05-29_
+
+### Added
+
+- **Focus time editing** (Plan 037): the checkpoint timeline (📊) gains a "🛠 Adjust tracked time" row — quick deltas (−5m/−1m/+1m/+5m), a set-exact-minutes input, and **Remove last pause** (restores the time a pause ate and reactivates the focus). New handlers `ADJUST_FOCUS_TIME`, `SET_FOCUS_ELAPSED`, `REMOVE_LAST_PAUSE`, all clamped to wall-clock time and audit-logged.
+- **Auto-pause master toggle** (`autoPauseEnabled`): Settings → Focus Lifecycle. When off, going idle never mutates any focus — not even a prompt.
+
+### Fixed
+
+- **Off-device focuses are no longer paused by idle.** Both `handleIdleStateChanged` and `hardPauseActiveFocus` now exempt `offDevice` focuses, fixing the time-data corruption where an off-device focus was silently paused while the user worked outside Chrome.
+- **Tooltips no longer clip off-screen.** Tooltip x-position is clamped to the viewport and long text wraps (max 280px) — fixes the cut-off tooltips in Settings and everywhere else.
+- **Meeting-domain editor**: the textarea now splits on newlines only (not commas), shows a format placeholder + Enter hint, and stops host-page keyboard shortcuts from intercepting input.
+
+---
+
 ## [v6.0.0] - Plan 036 Intelligent Focus Lifecycle — Smart Idle + Auto-Focus + Drift - _2026-05-29_
 
 Absorbs Plans 026 (Auto Focus) and 029 (Auto-Pause Overhaul). Resolves bugs B05/B08 and addresses features #149–#152, #187. Incorporates the challenge-audit resolutions (multi-profile sync race, meeting detection, drift false-positives, prompt-storm mitigation).
