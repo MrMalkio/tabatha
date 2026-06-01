@@ -68,6 +68,8 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [showTimeline, setShowTimeline] = useState(false);
   // Plan 037: time editing
   const [setExactMin, setSetExactMin] = useState('');
+  const [tlEdit, setTlEdit] = useState(false);
+  const [editCpn, setEditCpn] = useState(null); // { id, text, progressLevel }
   // Feature #186: Window count
   const [windowCount, setWindowCount] = useState(0);
 
@@ -157,6 +159,14 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     }
   };
   const hasPause = activeFocus.focusState === 'paused' || (activeFocus.checkpoint || []).some(c => c.triggeredBy === 'system' && /^Paused/i.test(c.text || ''));
+  // Plan 037 Phase 2: per-entry checkpoint editing
+  const startEditCpn = (cpn) => setEditCpn({ id: cpn.id, text: cpn.text || '', progressLevel: cpn.progressLevel || 'none' });
+  const saveCpnEdit = async () => {
+    if (!editCpn) return;
+    await sendMessage('EDIT_CHECKPOINT', { focusId: activeFocus.id, checkpointId: editCpn.id, text: editCpn.text, progressLevel: editCpn.progressLevel });
+    setEditCpn(null);
+  };
+  const deleteCpn = (id) => sendMessage('DELETE_CHECKPOINT', { focusId: activeFocus.id, checkpointId: id });
 
   return (
     <GlassCard style={{ padding: '16px', marginBottom: '12px', position: 'relative', overflow: 'visible', borderLeft: isPaused ? '3px solid #ffa726' : undefined }}>
@@ -314,44 +324,87 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Plan 025: Checkpoint Timeline */}
+      {/* Plan 025/037: Checkpoint Timeline + edit mode */}
       <AnimatePresence>
         {showTimeline && cpnTotalCount > 0 && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
             <div style={{ marginTop: '10px', padding: '8px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-              <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>📊 Checkpoint Timeline</div>
-
-              {/* Plan 037: Time adjustments */}
-              <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid var(--color-border)' }}>
-                <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>🛠 Adjust tracked time</div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button onClick={() => adjustTime(-5)} style={timeEditBtn}>−5m</button>
-                  <button onClick={() => adjustTime(-1)} style={timeEditBtn}>−1m</button>
-                  <button onClick={() => adjustTime(1)} style={timeEditBtn}>+1m</button>
-                  <button onClick={() => adjustTime(5)} style={timeEditBtn}>+5m</button>
-                  {hasPause && (
-                    <Tooltip text="Restore the time lost to the most recent pause and resume this focus">
-                      <button onClick={removeLastPauseAction} style={{ ...timeEditBtn, borderColor: '#66bb6a', color: '#66bb6a' }}>↩ Remove last pause</button>
-                    </Tooltip>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginTop: '6px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Set exact (min):</span>
-                  <input type="number" min="0" value={setExactMin} onChange={e => setSetExactMin(e.target.value)} placeholder={Math.round((activeFocus.liveElapsedMs || 0) / 60000)}
-                    style={{ width: '64px', padding: '2px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
-                  <button onClick={applyExactTime} disabled={setExactMin === ''} style={{ ...timeEditBtn, opacity: setExactMin === '' ? 0.4 : 1 }}>Set</button>
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>📊 Checkpoint Timeline</span>
+                <Tooltip text={tlEdit ? 'Finish editing' : 'Edit times & notes for this focus'}>
+                  <button onClick={() => { setTlEdit(!tlEdit); setEditCpn(null); }} style={{ ...timeEditBtn, borderColor: tlEdit ? '#66bb6a' : 'var(--color-border)', color: tlEdit ? '#66bb6a' : 'var(--color-text-muted)' }}>{tlEdit ? '✓ Done' : '✏️ Edit'}</button>
+                </Tooltip>
               </div>
 
-              {(activeFocus.checkpoint || []).slice().reverse().map((cpn, i) => (
-                <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px', opacity: cpn.triggeredBy === 'system' ? 0.6 : 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                    <span style={{ fontWeight: 600 }}>{cpn.triggeredBy === 'system' ? '⚙️' : (LEVEL_EMOJI[cpn.progressLevel] || '📋')} {cpn.triggeredBy === 'system' ? cpn.text : cpn.progressLevel?.replace('_', ' ')}</span>
-                    <span style={{ fontSize: '9px', color: 'var(--color-text-muted)' }}>{cpn.createdAt ? new Date(cpn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} · {Math.floor((cpn.elapsedAtMs || 0) / 60000)}m in</span>
+              {!tlEdit && (
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>Tap <strong>✏️ Edit</strong> to correct tracked time, edit a note, or add/remove entries.</div>
+              )}
+
+              {/* Plan 037: Time adjustments (edit mode) */}
+              {tlEdit && (
+                <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid var(--color-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>🕐 Total tracked time</span>
+                    <span style={{ fontSize: '14px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatElapsed(activeFocus.liveElapsedMs)}</span>
                   </div>
-                  {cpn.text && cpn.triggeredBy !== 'system' && <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', lineHeight: 1.3 }}>{cpn.text}</div>}
+                  <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>Wrong? Nudge it with the buttons, or type an exact value. Great for recovering time lost to a false pause.</div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button onClick={() => adjustTime(-5)} style={timeEditBtn}>−5m</button>
+                    <button onClick={() => adjustTime(-1)} style={timeEditBtn}>−1m</button>
+                    <button onClick={() => adjustTime(1)} style={timeEditBtn}>+1m</button>
+                    <button onClick={() => adjustTime(5)} style={timeEditBtn}>+5m</button>
+                    <span style={{ width: '1px', height: '18px', background: 'var(--color-border)', margin: '0 2px' }} />
+                    <input type="number" min="0" value={setExactMin} onChange={e => setSetExactMin(e.target.value)} placeholder="exact min"
+                      style={{ width: '78px', padding: '2px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
+                    <button onClick={applyExactTime} disabled={setExactMin === ''} style={{ ...timeEditBtn, opacity: setExactMin === '' ? 0.4 : 1 }}>Set</button>
+                  </div>
+                  {hasPause && (
+                    <button onClick={removeLastPauseAction} style={{ ...timeEditBtn, borderColor: '#66bb6a', color: '#66bb6a', marginTop: '6px' }}>↩ Remove last pause &amp; restore its time</button>
+                  )}
                 </div>
-              ))}
+              )}
+
+              {(activeFocus.checkpoint || []).slice().reverse().map((cpn, i) => {
+                const isSys = cpn.triggeredBy === 'system';
+                const isEditingThis = editCpn?.id === cpn.id;
+                return (
+                  <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnTotalCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px', opacity: isSys && !tlEdit ? 0.6 : 1 }}>
+                    {isEditingThis ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <textarea value={editCpn.text} onChange={e => setEditCpn({ ...editCpn, text: e.target.value })} rows={2}
+                          style={{ width: '100%', padding: '4px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                        {!isSys && (
+                          <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                            {['none', 'little', 'lot', 'almost_done', 'stuck'].map(lv => (
+                              <button key={lv} onClick={() => setEditCpn({ ...editCpn, progressLevel: lv })} title={lv.replace('_', ' ')} style={{ ...timeEditBtn, padding: '1px 6px', borderColor: editCpn.progressLevel === lv ? 'var(--color-accent-primary)' : 'var(--color-border)' }}>{LEVEL_EMOJI[lv]}</button>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button onClick={saveCpnEdit} style={{ ...timeEditBtn, borderColor: '#66bb6a', color: '#66bb6a' }}>💾 Save</button>
+                          <button onClick={() => setEditCpn(null)} style={timeEditBtn}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px', gap: '6px' }}>
+                          <span style={{ fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{isSys ? '⚙️' : (LEVEL_EMOJI[cpn.progressLevel] || '📋')} {isSys ? cpn.text : cpn.progressLevel?.replace('_', ' ')}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                            <span style={{ fontSize: '9px', color: 'var(--color-text-muted)' }}>{cpn.createdAt ? new Date(cpn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} · {Math.floor((cpn.elapsedAtMs || 0) / 60000)}m in{cpn.editedAt ? ' · edited' : ''}</span>
+                            {tlEdit && !isSys && <button onClick={() => startEditCpn(cpn)} title="Edit note" style={{ ...timeEditBtn, padding: '0 5px' }}>✏️</button>}
+                            {tlEdit && <button onClick={() => deleteCpn(cpn.id)} title="Delete entry" style={{ ...timeEditBtn, padding: '0 5px', borderColor: '#ef5350', color: '#ef5350' }}>✕</button>}
+                          </span>
+                        </div>
+                        {cpn.text && !isSys && <div style={{ color: 'var(--color-text-muted)', fontSize: '10px', lineHeight: 1.3 }}>{cpn.text}</div>}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              {tlEdit && (
+                <button onClick={() => setShowCPN(true)} style={{ ...timeEditBtn, marginTop: '8px', width: '100%', borderStyle: 'dashed' }}>+ Add checkpoint note</button>
+              )}
             </div>
           </motion.div>
         )}

@@ -70,3 +70,34 @@ test('time-edit handlers reject an unknown focus', async () => {
   const r = await focus.handleMessage('ADJUST_FOCUS_TIME', { focusId: 'nope', adjustmentMs: MIN });
   assert.equal(r.error, 'Focus not found');
 });
+
+test('EDIT_CHECKPOINT updates note text and progress level', async () => {
+  seed(baseItem({ checkpoint: [{ id: 'c1', text: 'old', progressLevel: 'none', progressValue: 0, triggeredBy: 'home' }] }));
+  const r = await focus.handleMessage('EDIT_CHECKPOINT', { focusId: 'f1', checkpointId: 'c1', text: 'new text', progressLevel: 'lot' });
+  const cp = r.focusEngine.items.f1.checkpoint[0];
+  assert.equal(cp.text, 'new text');
+  assert.equal(cp.progressLevel, 'lot');
+  assert.equal(cp.progressValue, 3); // PROGRESS_VALUES.lot
+  assert.ok(cp.editedAt);
+});
+
+test('DELETE_CHECKPOINT removes the entry and reindexes lastCheckpointAt', async () => {
+  seed(baseItem({
+    lastCheckpointAt: '2026-05-29T10:05:00Z',
+    checkpoint: [
+      { id: 'c1', text: 'first', triggeredBy: 'home', createdAt: '2026-05-29T10:00:00Z' },
+      { id: 'c2', text: 'second', triggeredBy: 'home', createdAt: '2026-05-29T10:05:00Z' }
+    ]
+  }));
+  const r = await focus.handleMessage('DELETE_CHECKPOINT', { focusId: 'f1', checkpointId: 'c2' });
+  const f1 = r.focusEngine.items.f1;
+  assert.equal(f1.checkpoint.length, 1);
+  assert.equal(f1.checkpoint[0].id, 'c1');
+  assert.equal(f1.lastCheckpointAt, '2026-05-29T10:00:00Z'); // now points at the newest remaining user note
+});
+
+test('DELETE_CHECKPOINT on unknown id returns an error', async () => {
+  seed(baseItem({ checkpoint: [{ id: 'c1', text: 'x', triggeredBy: 'home' }] }));
+  const r = await focus.handleMessage('DELETE_CHECKPOINT', { focusId: 'f1', checkpointId: 'zzz' });
+  assert.equal(r.error, 'Checkpoint not found');
+});

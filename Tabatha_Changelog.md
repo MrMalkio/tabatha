@@ -5,6 +5,23 @@ file.
 
 ---
 
+## [v6.3.0] - Plan 037 Phase 2 Checkpoint Timeline Editing - _2026-05-29_
+
+### Added
+
+- **Timeline edit mode**: the checkpoint timeline (📊) now has an **✏️ Edit / ✓ Done** toggle. In edit mode you can:
+  - Edit any note's text and progress level inline (✏️ per entry).
+  - Delete any entry (✕), including auto-generated system entries.
+  - Add a new checkpoint note (+ Add checkpoint note).
+  - Adjust tracked time with clearer UI — the total is shown prominently with an explanation, so the time controls are no longer cryptic.
+- New handlers `EDIT_CHECKPOINT` and `DELETE_CHECKPOINT` (focusService).
+
+### Changed
+
+- The "Adjust tracked time" controls now live inside Edit mode with a labelled total and helper text (previously an unexplained button row).
+
+---
+
 ## [v6.2.0] - Plan 038 Phase 1 Persistent Domain Store - _2026-05-29_
 
 ### Added

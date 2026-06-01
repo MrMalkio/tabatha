@@ -165,6 +165,12 @@ async function _handleMessage(type, message) {
     case 'REMOVE_LAST_PAUSE':
       return removeLastPause(message.focusId);
 
+    // Plan 037 Phase 2: per-entry checkpoint editing.
+    case 'EDIT_CHECKPOINT':
+      return editCheckpoint(message);
+    case 'DELETE_CHECKPOINT':
+      return deleteCheckpoint(message.focusId, message.checkpointId);
+
     // ── Plan 025: Checkpoint Progress Notes ──
     case 'SAVE_CHECKPOINT_NOTE':
       return saveCheckpointNote(message);
@@ -937,6 +943,46 @@ async function removeLastPause(focusId) {
     }
   }
   autoCheckpoint(item, '🛠 Pause removed (time restored)');
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+// Edit an existing checkpoint entry's text and/or progress level.
+async function editCheckpoint(message) {
+  const engine = await getFocusEngine();
+  const item = message.focusId ? engine.items[message.focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+  const cp = (item.checkpoint || []).find(c => c.id === message.checkpointId);
+  if (!cp) return { error: 'Checkpoint not found', focusEngine: engine };
+
+  if (message.text !== undefined) cp.text = message.text;
+  if (message.progressLevel !== undefined) {
+    cp.progressLevel = message.progressLevel;
+    cp.progressValue = PROGRESS_VALUES[message.progressLevel] ?? 0;
+  }
+  cp.editedAt = new Date().toISOString();
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+// Remove a single checkpoint entry by id.
+async function deleteCheckpoint(focusId, checkpointId) {
+  const engine = await getFocusEngine();
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  const cps = item.checkpoint || [];
+  const idx = cps.findIndex(c => c.id === checkpointId);
+  if (idx === -1) return { error: 'Checkpoint not found', focusEngine: engine };
+  cps.splice(idx, 1);
+
+  // Keep lastCheckpointAt honest: point it at the newest remaining user note.
+  const lastUser = [...cps].reverse().find(c => c.triggeredBy !== 'system');
+  item.lastCheckpointAt = lastUser?.createdAt || null;
 
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
