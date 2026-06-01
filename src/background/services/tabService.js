@@ -189,6 +189,9 @@ async function handleTabCreated(tab) {
 
   await setTabData(tabs);
 
+  // Plan 038: persist the domain visit for the URL Rules domain store.
+  injectedDeps.recordDomainVisit?.(tabs[tab.id].url, tabs[tab.id].intent);
+
   // Plan 036: let the auto-focus engine evaluate the new tab (it self-gates on
   // settings + active-focus state).
   injectedDeps.evaluateAutoFocus?.(tab.id);
@@ -238,6 +241,8 @@ async function handleTabUpdated(tabId, changeInfo, tab) {
       tabs[tabId].category = newCat;
     }
     await timeTracker.startTracking(tabId, changeInfo.url, tabs[tabId]);
+    // Plan 038: record the new domain/path.
+    injectedDeps.recordDomainVisit?.(changeInfo.url, tabs[tabId].intent);
     // Plan 036: a navigation is a fresh context signal for auto-focus/drift.
     injectedDeps.evaluateAutoFocus?.(tabId);
   }

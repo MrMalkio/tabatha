@@ -38,6 +38,8 @@ export const DEFAULT_SETTINGS = {
   driftDetectionEnabled: true,
   driftThresholdMinutes: 3,               // time on unrelated tabs before prompting
   driftSnoozeMinutes: 5,                  // "just checking" snooze duration
+  // ── URL Rules Intelligence (Plan 038) ──
+  domainHistoryMaxDomains: 2000,          // LRU cap on the persistent domain store
   storage: {
     snapshotIntervalMinutes: 30,
     snapshotCap: 20,

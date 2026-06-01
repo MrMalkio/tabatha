@@ -68,6 +68,8 @@ import {
   registerAutoFocusListeners,
   evaluateTab as evaluateAutoFocus
 } from './services/autoFocusService.js';
+import * as domainHistoryService from './services/domainHistoryService.js';
+import { recordDomainVisit } from './services/domainHistoryService.js';
 import * as awarenessService from './services/awarenessService.js';
 import {
   configureAwarenessService,
@@ -113,7 +115,8 @@ configureTabService({
   linkTabToFocus: focusService.linkTabToFocus,
   setTabData,
   logEvent: tabTrackingService.logEvent,
-  evaluateAutoFocus
+  evaluateAutoFocus,
+  recordDomainVisit
 });
 
 configureClockService({
@@ -175,7 +178,8 @@ const services = [
   alarmService,
   syncService,
   awarenessService,
-  autoFocusService
+  autoFocusService,
+  domainHistoryService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

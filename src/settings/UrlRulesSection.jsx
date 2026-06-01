@@ -279,46 +279,136 @@ function EditRuleForm({ rule, onSave, onCancel }) {
 }
 
 // ═══════════════════════════════════════
-// Domains Tab — Browse domain groups
+// Domains Tab — Persistent domain store (Plan 038 Phase 1)
 // ═══════════════════════════════════════
+function fmtRel(iso) {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 function DomainsTab({ domainGroups, matchedRules, skippedDomains }) {
   const [expanded, setExpanded] = useState(null);
+  const [history, setHistory] = useState(null); // persistent store
+  const [showDismissed, setShowDismissed] = useState(false);
+  const [search, setSearch] = useState('');
 
-  if (domainGroups.length === 0) {
-    return <div style={{ textAlign: 'center', padding: '30px', color: 'var(--color-text-muted)', fontSize: '12px' }}>No tabs tracked yet. Browse some sites first.</div>;
+  const refresh = () => {
+    sendMessage('GET_DOMAIN_HISTORY').then(res => setHistory(res?.domains || [])).catch(() => setHistory([]));
+  };
+  useEffect(() => { refresh(); }, []);
+
+  // Merge persistent history with live open-tab enrichment (paths/intents/contexts).
+  const merged = useMemo(() => {
+    const liveByDomain = {};
+    for (const g of domainGroups) liveByDomain[g.domain] = g;
+    const byDomain = {};
+    for (const h of (history || [])) {
+      const live = liveByDomain[h.domain] || {};
+      byDomain[h.domain] = {
+        domain: h.domain,
+        visitCount: h.visitCount || 0,
+        lastSeen: h.lastSeen,
+        status: h.status || 'active',
+        paths: [...new Set([...(h.paths || []), ...((live.paths) || [])])],
+        intents: [...new Set([...(h.observedIntents || []), ...((live.intents) || [])])],
+        contexts: live.contexts || [],
+        liveTabs: (live.tabs || []).length,
+        rules: matchedRules[h.domain] || []
+      };
+    }
+    // Include any live domains not yet persisted (first visit this session).
+    for (const g of domainGroups) {
+      if (!byDomain[g.domain]) {
+        byDomain[g.domain] = {
+          domain: g.domain, visitCount: g.tabs.length, lastSeen: g.lastSeen, status: 'active',
+          paths: g.paths || [], intents: g.intents || [], contexts: g.contexts || [],
+          liveTabs: (g.tabs || []).length, rules: matchedRules[g.domain] || []
+        };
+      }
+    }
+    let list = Object.values(byDomain);
+    if (!showDismissed) list = list.filter(d => d.status !== 'dismissed');
+    if (search.trim()) list = list.filter(d => d.domain.includes(search.trim().toLowerCase()));
+    return list.sort((a, b) => new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0));
+  }, [history, domainGroups, matchedRules, showDismissed, search]);
+
+  const setStatus = async (domain, msgType) => {
+    await sendMessage(msgType, { domain });
+    refresh();
+  };
+
+  if (history === null) {
+    return <div style={{ textAlign: 'center', padding: '30px', color: 'var(--color-text-muted)', fontSize: '12px' }}>Loading domain history…</div>;
   }
+
+  const dismissedCount = (history || []).filter(d => d.status === 'dismissed').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
-        Showing {domainGroups.length} domains from your current browsing session. Click to expand link variations.
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+        <input
+          style={{ ...inputStyle, flex: 1, minWidth: '140px' }}
+          placeholder="Filter domains…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <label style={{ fontSize: '10px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={showDismissed} onChange={e => setShowDismissed(e.target.checked)} />
+          Show dismissed{dismissedCount > 0 ? ` (${dismissedCount})` : ''}
+        </label>
       </div>
-      {domainGroups.map(group => {
+      <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
+        {merged.length} domain{merged.length !== 1 ? 's' : ''} remembered. Tabatha stores these permanently so you can make rules anytime — even for sites you're not on now.
+      </div>
+      {merged.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-text-muted)', fontSize: '12px' }}>No domains yet. Browse a few sites and they'll appear here.</div>
+      )}
+      {merged.map(group => {
         const isExpanded = expanded === group.domain;
         const isSkipped = (skippedDomains || []).includes(group.domain);
-        const rules = matchedRules[group.domain] || [];
+        const rules = group.rules;
+        const statusBadge = group.status === 'targeted'
+          ? <span style={{ color: '#ab47bc', marginLeft: '6px' }}>⭐ targeted</span>
+          : group.status === 'dismissed'
+            ? <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px' }}>🚫 dismissed</span>
+            : null;
 
         return (
-          <GlassCard key={group.domain} style={{ padding: '10px 14px', cursor: 'pointer' }} onClick={() => setExpanded(isExpanded ? null : group.domain)}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px' }}>🌐</span>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, fontFamily: 'monospace' }}>{group.domain}</div>
+          <GlassCard key={group.domain} style={{ padding: '10px 14px', cursor: 'pointer', opacity: group.status === 'dismissed' ? 0.55 : 1 }} onClick={() => setExpanded(isExpanded ? null : group.domain)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <span style={{ fontSize: '14px' }}>{group.status === 'targeted' ? '⭐' : '🌐'}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.domain}</div>
                   <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
-                    {group.tabs.length} tab{group.tabs.length !== 1 ? 's' : ''} · {group.paths.length} path{group.paths.length !== 1 ? 's' : ''}
+                    {group.visitCount} visit{group.visitCount !== 1 ? 's' : ''} · {group.paths.length} path{group.paths.length !== 1 ? 's' : ''} · {fmtRel(group.lastSeen)}
+                    {group.liveTabs > 0 && <span style={{ color: 'var(--color-accent-primary)', marginLeft: '6px' }}>● {group.liveTabs} open</span>}
                     {isSkipped && <span style={{ color: '#ffa726', marginLeft: '6px' }}>⏭ skipped</span>}
                     {rules.length > 0 && <span style={{ color: 'var(--color-accent-primary)', marginLeft: '6px' }}>📐 {rules.length} rule{rules.length > 1 ? 's' : ''}</span>}
+                    {statusBadge}
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {group.intents.length > 0 && (
-                  <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                    {group.intents.slice(0, 3).map((intent, i) => (
-                      <span key={i} style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '8px', background: 'var(--color-accent-primary)22', color: 'var(--color-accent-primary)', fontWeight: 600 }}>{intent}</span>
-                    ))}
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                {group.status !== 'targeted' && (
+                  <Tooltip text="Target — Tabatha will prompt you to make a rule next time you visit">
+                    <button onClick={() => setStatus(group.domain, 'TARGET_DOMAIN')} style={{ ...btnSmall, background: '#ab47bc22', color: '#ab47bc', padding: '2px 8px' }}>⭐</button>
+                  </Tooltip>
+                )}
+                {group.status !== 'dismissed' ? (
+                  <Tooltip text="Dismiss — hide this domain and stop prompting about it">
+                    <button onClick={() => setStatus(group.domain, 'DISMISS_DOMAIN')} style={{ ...btnSmall, background: 'var(--color-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', padding: '2px 8px' }}>🚫</button>
+                  </Tooltip>
+                ) : (
+                  <Tooltip text="Restore to active">
+                    <button onClick={() => setStatus(group.domain, 'RESTORE_DOMAIN')} style={{ ...btnSmall, background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', padding: '2px 8px' }}>↩</button>
+                  </Tooltip>
                 )}
                 <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', transition: 'transform 0.15s', transform: isExpanded ? 'rotate(180deg)' : '' }}>▼</span>
               </div>

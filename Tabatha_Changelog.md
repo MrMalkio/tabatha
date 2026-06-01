@@ -5,6 +5,15 @@ file.
 
 ---
 
+## [v6.2.0] - Plan 038 Phase 1 Persistent Domain Store - _2026-05-29_
+
+### Added
+
+- **Persistent domain history** (`domainHistoryService`): Tabatha now permanently remembers every domain (and its path variations, visit count, and observed intents) you visit — independent of whether the tab is still open. Capped at 2000 domains (configurable), LRU-evicted. This is the data backbone for building URL rules at any time, not just for currently-open sites.
+- **Settings → URL Rules → Domain Groups** rebuilt on the persistent store: search/filter, visit count, last-seen, live-open indicator, and per-domain **⭐ Target** (prompt me to make a rule next visit), **🚫 Dismiss** (hide + stop prompting), and **↩ Restore** actions. A "Show dismissed" toggle reveals hidden domains.
+
+---
+
 ## [v6.1.0] - Plan 037 Focus Time Editing + Plan 036 QA fixes - _2026-05-29_
 
 ### Added
