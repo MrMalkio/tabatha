@@ -66,6 +66,8 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [showCPN, setShowCPN] = useState(false);
   const [cpnText, setCpnText] = useState('');
   const [showTimeline, setShowTimeline] = useState(false);
+  // Plan 037: time editing
+  const [setExactMin, setSetExactMin] = useState('');
   // Feature #186: Window count
   const [windowCount, setWindowCount] = useState(0);
 
@@ -144,6 +146,17 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     await actions.updateFocus(activeFocus.id, { offDevice: !activeFocus.offDevice });
   };
   const LEVEL_EMOJI = { none: '😐', little: '📈', lot: '🚀', almost_done: '🏁', stuck: '🚧' };
+  // Plan 037: time editing helpers
+  const adjustTime = (deltaMin) => sendMessage('ADJUST_FOCUS_TIME', { focusId: activeFocus.id, adjustmentMs: deltaMin * 60000, reason: 'manual edit' });
+  const removeLastPauseAction = () => sendMessage('REMOVE_LAST_PAUSE', { focusId: activeFocus.id });
+  const applyExactTime = () => {
+    const m = parseFloat(setExactMin);
+    if (!Number.isNaN(m) && m >= 0) {
+      sendMessage('SET_FOCUS_ELAPSED', { focusId: activeFocus.id, elapsedMs: m * 60000 });
+      setSetExactMin('');
+    }
+  };
+  const hasPause = activeFocus.focusState === 'paused' || (activeFocus.checkpoint || []).some(c => c.triggeredBy === 'system' && /^Paused/i.test(c.text || ''));
 
   return (
     <GlassCard style={{ padding: '16px', marginBottom: '12px', position: 'relative', overflow: 'visible', borderLeft: isPaused ? '3px solid #ffa726' : undefined }}>
@@ -307,6 +320,29 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
             <div style={{ marginTop: '10px', padding: '8px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>📊 Checkpoint Timeline</div>
+
+              {/* Plan 037: Time adjustments */}
+              <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>🛠 Adjust tracked time</div>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button onClick={() => adjustTime(-5)} style={timeEditBtn}>−5m</button>
+                  <button onClick={() => adjustTime(-1)} style={timeEditBtn}>−1m</button>
+                  <button onClick={() => adjustTime(1)} style={timeEditBtn}>+1m</button>
+                  <button onClick={() => adjustTime(5)} style={timeEditBtn}>+5m</button>
+                  {hasPause && (
+                    <Tooltip text="Restore the time lost to the most recent pause and resume this focus">
+                      <button onClick={removeLastPauseAction} style={{ ...timeEditBtn, borderColor: '#66bb6a', color: '#66bb6a' }}>↩ Remove last pause</button>
+                    </Tooltip>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginTop: '6px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Set exact (min):</span>
+                  <input type="number" min="0" value={setExactMin} onChange={e => setSetExactMin(e.target.value)} placeholder={Math.round((activeFocus.liveElapsedMs || 0) / 60000)}
+                    style={{ width: '64px', padding: '2px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
+                  <button onClick={applyExactTime} disabled={setExactMin === ''} style={{ ...timeEditBtn, opacity: setExactMin === '' ? 0.4 : 1 }}>Set</button>
+                </div>
+              </div>
+
               {(activeFocus.checkpoint || []).slice().reverse().map((cpn, i) => (
                 <div key={cpn.id || i} style={{ padding: '5px 0', borderBottom: i < cpnCount - 1 ? '1px solid var(--color-border)' : 'none', fontSize: '11px', opacity: cpn.triggeredBy === 'system' ? 0.6 : 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
@@ -329,6 +365,13 @@ const btnStyle = (color) => ({
   borderRadius: 'var(--radius-sm)', padding: '3px 10px', fontSize: '11px',
   cursor: 'pointer', fontWeight: 600,
 });
+
+// Plan 037: compact time-edit button
+const timeEditBtn = {
+  background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)',
+  borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: '11px',
+  cursor: 'pointer', fontWeight: 600, fontVariantNumeric: 'tabular-nums',
+};
 
 // ── FocusQueue ──
 function FocusQueue({ items, actions }) {
