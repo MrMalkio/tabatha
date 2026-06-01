@@ -36,6 +36,26 @@ test('isUserInMeeting detects a backgrounded, muted meeting tab (all-tab scan)',
   assert.equal(verdict.source, 'browser');
 });
 
+test('isUserInMeeting ignores a STALE meeting tab (forgotten, past grace window)', async () => {
+  // Open 3h ago, muted, not the active tab, no call-y title → must NOT suppress
+  // idle (otherwise a forgotten Zoom tab disables idle all day).
+  configure({
+    tabs: { 99: { url: 'https://zoom.us/j/123', audible: false, active: false, title: 'Zoom', openedAt: minsAgo(180) } },
+    store: { settings: { meetingIdleGraceMinutes: 60 } }
+  });
+  const verdict = await clock.isUserInMeeting();
+  assert.equal(verdict.detected, false);
+});
+
+test('isUserInMeeting still catches a recently-joined muted meeting (within grace)', async () => {
+  configure({
+    tabs: { 98: { url: 'https://zoom.us/j/123', audible: false, active: false, title: 'Zoom', openedAt: minsAgo(10) } },
+    store: { settings: { meetingIdleGraceMinutes: 60 } }
+  });
+  const verdict = await clock.isUserInMeeting();
+  assert.equal(verdict.detected, true);
+});
+
 test('isUserInMeeting ignores a brief, non-call landing page', async () => {
   configure({
     tabs: { 12: { url: 'https://zoom.us/pricing', audible: false, active: false, title: 'Plans', openedAt: minsAgo(0) } }

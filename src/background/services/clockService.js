@@ -166,6 +166,10 @@ export async function isUserInMeeting() {
       : ['meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com', 'webex.com', 'app.webex.com'];
     const tabs = await getTabData();
 
+    // Grace window bounds the weakest "muted, backgrounded meeting" signal so a
+    // forgotten meeting tab can't disable idle detection forever.
+    const graceMs = (settings.meetingIdleGraceMinutes ?? 60) * 60000;
+
     // L1 (domain present) + L2 (live-call signals) — scan every tracked tab.
     for (const [tabId, tabData] of Object.entries(tabs)) {
       const url = (tabData?.url || '').toLowerCase();
@@ -173,10 +177,13 @@ export async function isUserInMeeting() {
       try {
         const chromeTab = await chrome.tabs.get(Number(tabId));
         const titleSignals = /\b(meeting|call|huddle|presenting|in call)\b/i.test(chromeTab?.title || '');
-        const isAudible = chromeTab?.audible === true;
-        const openedAt = tabData.openedAt ? new Date(tabData.openedAt).getTime() : Date.now();
-        const isEstablished = Date.now() - openedAt > 120_000; // open >2min ⇒ likely a real call, not a landing page
-        if (isAudible || titleSignals || isEstablished) {
+        const isAudible = chromeTab?.audible === true;      // unmuted / someone speaking
+        const isActiveTab = chromeTab?.active === true;      // user is looking at it
+        const openDuration = Date.now() - (tabData.openedAt ? new Date(tabData.openedAt).getTime() : Date.now());
+        // "Probably in a muted call I joined recently" — only counts WITHIN the
+        // grace window. After it, a stale tab no longer suppresses idle.
+        const recentMutedCall = openDuration > 120_000 && openDuration < graceMs;
+        if (isAudible || titleSignals || isActiveTab || recentMutedCall) {
           return { detected: true, source: 'browser', tabId, domain: url };
         }
       } catch { /* tab may have closed between query and get */ }

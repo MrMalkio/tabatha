@@ -41,6 +41,15 @@ From the 2026-05-29 QA + feature session:
 2. **`matchedRules`** in `UrlRulesSection` is computed only from open-tab domains, so rule counts show 0 for offline persistent domains. Improve to match against the persistent store.
 3. The user wants the **"upload my training to the community / developer"** path (Plan 038 Phase 3 export) — secure submission endpoint is a future infra task.
 
+## Pre-PR self-review (2026-05-29) — findings
+
+Done a full self-review of the ~2500-line branch diff before PR. Results:
+- **FIXED (v6.3.1):** `isUserInMeeting()` treated any meeting-domain tab open >2min as an active call → a forgotten Zoom/Meet tab disabled idle detection all day. Now bounded to `meetingIdleGraceMinutes` + an active-tab signal. Guarded by 2 new tests.
+- **Follow-up (not blocking):** `recordDomainVisit` does a full read-modify-write of the whole `domainHistory` object on EVERY navigation, fire-and-forget. (a) wasteful for large stores — consider debounce/batch; (b) two rapid navigations can race and lose a visit-count increment. Minor; fine for single-user now.
+- **Follow-up (minor UX):** the `idle-auto-break` clock break still fires after 5min of Chrome idle even if the user answered the IDLE_PROMPT with "Yes, on task". Confirming on-task should arguably suppress the clock auto-break. Decide with user.
+- Verified the inbar `onMessage` listener is NOT async and has no top-level `await` (drift handler uses `.then`) — OK.
+- **Build-proof caveat:** `Select-String` against `dist/assets/*.js` only finds **string literals** (e.g. message-type constants like `EDIT_CHECKPOINT`), NOT minified local variables/logic. Use it to confirm string-bearing features; for pure-logic fixes rely on tests + version bump.
+
 ## Next steps for whoever picks this up
 1. Decide with the user: keep stacking on this branch, or **push + PR `feat/plan-036-focus-lifecycle` → `staging`** now (it's a lot of value already; the branch is getting long-lived).
 2. If continuing: Plan 038 Phase 2 is the most natural next increment (makes ⭐ Target actually do something).

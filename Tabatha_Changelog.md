@@ -5,6 +5,14 @@ file.
 
 ---
 
+## [v6.3.1] - Self-review fix: stale meeting tab no longer disables idle - _2026-05-29_
+
+### Fixed
+
+- **Forgotten meeting tab permanently disabled idle detection.** `isUserInMeeting()` treated any meeting-domain tab open >2min as an active call, so a Zoom/Meet tab left open all day suppressed idle pausing indefinitely. The "muted backgrounded meeting" signal is now bounded to the meeting grace window (`meetingIdleGraceMinutes`, default 60m) and an explicit active-tab signal was added. Recently-joined muted meetings are still detected; stale tabs are not. (Found in a pre-PR self-review; guarded by new regression tests.)
+
+---
+
 ## [v6.3.0] - Plan 037 Phase 2 Checkpoint Timeline Editing - _2026-05-29_
 
 ### Added
