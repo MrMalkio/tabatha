@@ -5,6 +5,24 @@ file.
 
 ---
 
+## [v6.3.2] - QA regression fixes (idle overlay, sidebar parity, domain backfill) - _2026-05-29_
+
+### Fixed
+
+- **D1 — Idle overlay was dismissed when user moved their mouse.** Chrome fires `idle→active` when mouse moves, which was broadcasting `IDLE_PROMPT_RESOLVED` and removing the overlay. Now only dismissed on `timeout` (the hard-pause fallback). The user can move their mouse and click a response button.
+- **G — Domain Groups tab was empty on first load.** `recordDomainVisit` only fires on new navigations; existing tracked tabs were never recorded. Background now scans `chrome.storage.local.tabs` on startup and backfills the domain history.
+- **B7 — Meeting-domain textarea couldn't start a new line.** `onChange` was calling `filter(Boolean)`, deleting empty lines immediately when Enter was pressed. Now uses local draft state, saved to settings on blur.
+- **Notification icons** — `icons/icon128.png` relative path fails in service worker; replaced with `chrome.runtime.getURL(...)`.
+- **Timeline note text** — multi-line notes now render with `white-space: pre-wrap` instead of collapsing to one paragraph.
+
+### Added
+
+- **Sidebar parity** — Sidebar active-focus card now has 📊 checkpoint timeline (full edit mode), 📱/📴 off-device toggle, and 📌 Sub-focus button.
+- **`CheckpointTimeline` shared component** (`src/components/CheckpointTimeline.jsx`) used by both home FocusBar and sidebar.
+- **Auto-focus chip** fade extended 8s → 20s (chip was disappearing before user could dismiss InPop).
+
+---
+
 ## [v6.3.1] - Self-review fix: stale meeting tab no longer disables idle - _2026-05-29_
 
 ### Fixed
