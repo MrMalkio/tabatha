@@ -223,6 +223,20 @@ registerSyncStorageListener();
 registerAlarmServiceListener();
 registerBootstrap();
 
+// Plan 038: backfill domain history from tabs that were already open when the
+// extension loaded (recordDomainVisit only fires on new navigations, not
+// pre-existing tabs, so the Domains tab would show nothing on first use).
+(async () => {
+  try {
+    const { tabs: stored } = await chrome.storage.local.get('tabs');
+    if (stored && typeof stored === 'object') {
+      for (const t of Object.values(stored)) {
+        if (t?.url) await recordDomainVisit(t.url, t.intent || null);
+      }
+    }
+  } catch { /* best-effort */ }
+})();
+
 // Phase C: start cross-profile awareness once the SW is ready. The service
 // itself bails gracefully if auth or browser_profiles isn't ready yet, and
 // can be re-armed by sending `AWARENESS_START` (the Settings UI does this

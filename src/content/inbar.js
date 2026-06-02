@@ -1305,7 +1305,7 @@
         <button id="afc-dismiss" style="background:transparent;border:none;color:#888;font-size:14px;cursor:pointer;line-height:1;">✕</button>`;
       document.documentElement.appendChild(chip);
       requestAnimationFrame(() => { chip.style.opacity = '1'; });
-      let fadeTimer = setTimeout(() => { chip.style.opacity = '0'; setTimeout(() => chip.remove(), 400); }, 8000);
+      let fadeTimer = setTimeout(() => { chip.style.opacity = '0'; setTimeout(() => chip.remove(), 400); }, 20000);
       const clearFade = () => clearTimeout(fadeTimer);
       chip.addEventListener('mouseenter', clearFade);
       chip.querySelector('#afc-accept')?.addEventListener('click', async () => { clearFade(); try { await chrome.runtime.sendMessage({ type: 'ACCEPT_AUTO_FOCUS', label: msg.label }); } catch {} chip.remove(); });
@@ -1476,9 +1476,13 @@
       card.querySelector('#idle-pause')?.addEventListener('click', () => respond('pause'));
     }
 
-    // ── Plan 036: idle prompt resolved elsewhere (return / timeout / another tab) ──
+    // ── Plan 036: idle prompt resolved ──
+    // Only auto-dismiss the overlay on 'timeout' (the hard-pause fallback fired).
+    // On 'returned' the user just moved their mouse back to Chrome to click a
+    // button — removing the overlay at that moment is the exact bug that makes
+    // the options unreachable. Leave the overlay up; the button handlers remove it.
     if (msg.type === 'IDLE_PROMPT_RESOLVED') {
-      _removeExistingOverlay();
+      if (msg.resolution === 'timeout') _removeExistingOverlay();
     }
 
     // ── Plan 036: Focus Drift Detected (singleton) ──

@@ -461,7 +461,7 @@ export async function handleIdleStateChanged(newState) {
 
     chrome.notifications.create('welcome-back', {
       type: 'basic',
-      iconUrl: 'icons/icon128.png',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
       title: 'Welcome Back!',
       message: `You were away for ${Math.round(idleDuration / 60000)}m. Click to log your offline context.`,
       requireInteraction: true

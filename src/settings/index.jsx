@@ -322,6 +322,15 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
   ];
   const meetingDomains = settings.meetingDomains ?? DEFAULT_MEETING_DOMAINS;
 
+  // Local draft keeps newlines while typing (filter(Boolean) on the saved value
+  // was eating empty lines as the user pressed Enter to start a new line).
+  const [domainDraft, setDomainDraft] = useState(null); // null = not editing
+  const domainValue = domainDraft !== null ? domainDraft : meetingDomains.join('\n');
+  const commitDomains = (raw) => {
+    setDomainDraft(null);
+    updateSetting('meetingDomains', raw.split('\n').map(s => s.trim()).filter(Boolean));
+  };
+
   const loadDismissals = async () => {
     setLoadingDismissals(true);
     try {
@@ -389,8 +398,9 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
         <textarea
           style={textareaStyle}
           placeholder={'meet.google.com\nzoom.us\nteams.microsoft.com'}
-          value={meetingDomains.join('\n')}
-          onChange={e => updateSetting('meetingDomains', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+          value={domainValue}
+          onChange={e => setDomainDraft(e.target.value)}
+          onBlur={e => commitDomains(e.target.value)}
           onKeyDown={e => e.stopPropagation()}
           spellCheck={false}
         />
