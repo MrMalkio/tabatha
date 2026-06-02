@@ -1111,6 +1111,17 @@ export async function autoQueueFromIntent(intent, tabId) {
       const newItem = result.engine.items[result.newFocusId];
       if (newItem && tabId) {
         newItem.associatedTabIds = [...(newItem.associatedTabIds || []), tabId];
+
+        // Side-quest semantics (Plan 036 QA): a tab that switches to a NEW
+        // intent is no longer "on task" for the primary focus. Remove it from
+        // the active focus's associatedTabIds so drift detection fires normally.
+        if (result.engine.activeFocusId && result.engine.activeFocusId !== result.newFocusId) {
+          const activeFocus = result.engine.items[result.engine.activeFocusId];
+          if (activeFocus?.associatedTabIds) {
+            activeFocus.associatedTabIds = activeFocus.associatedTabIds.filter(id => id !== tabId);
+          }
+        }
+
         await setFocusEngine(result.engine);
       }
       broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });

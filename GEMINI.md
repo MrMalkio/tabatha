@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 6.3.2
+- **Current version:** 6.3.3
 - **Current focus:** All prior work promoted to staging. Staging is clean at v5.3.0. Ready for new feature development.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
