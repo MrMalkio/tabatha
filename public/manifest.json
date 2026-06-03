@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Tabatha",
-    "version": "6.3.4",
+    "version": "6.3.5",
     "description": "Context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions.",
     "permissions": [
         "tabs",

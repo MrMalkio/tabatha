@@ -525,7 +525,9 @@ function Settings() {
 
   const handleSaveDisplayName = async () => {
     const next = displayNameDraft.trim();
-    if (!next || !profile?.id) { setEditingDisplayName(false); return; }
+    // Require a name + an identity. Prefer profile.id but fall back to the
+    // auth user id so a momentarily-null profile can't make Save a no-op.
+    if (!next || !(profile?.id || session?.user?.id)) { setEditingDisplayName(false); return; }
     setSavingDisplayName(true);
     setAuthError(null);
     try {
@@ -533,13 +535,15 @@ function Settings() {
       // stale JWT silently rejects the update, the response is an empty
       // array (no error, just 0 rows). Without .select() we couldn't tell
       // the difference between "saved" and "silently dropped".
+      const baseUpdate = supabase
+        .schema('tabatha')
+        .from('profiles')
+        .update({ display_name: next, updated_at: new Date().toISOString() });
+      const scopedUpdate = profile?.id
+        ? baseUpdate.eq('id', profile.id)
+        : baseUpdate.eq('auth_user_id', session.user.id);
       const { data, error } = await Promise.race([
-        supabase
-          .schema('tabatha')
-          .from('profiles')
-          .update({ display_name: next, updated_at: new Date().toISOString() })
-          .eq('id', profile.id)
-          .select(),
+        scopedUpdate.select(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out after 10s — the cloud may be unreachable')), 10000))
       ]);
       if (error) throw error;
