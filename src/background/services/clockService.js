@@ -32,10 +32,29 @@ export function configureClockService(injected = {}) {
 export function registerClockServiceListeners() {
   if (idleListenerRegistered) return;
   idleListenerRegistered = true;
-  chrome.idle.setDetectionInterval(60);
+  applyIdleDetectionInterval();
   chrome.idle.onStateChanged.addListener(handleIdleStateChanged);
+  // QA fix: re-apply the detection interval whenever the threshold setting
+  // changes, so "Idle threshold (minutes)" takes effect immediately.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.settings) applyIdleDetectionInterval();
+  });
   // Plan 036: auto clock-in when Chrome (re)launches, if configured.
   chrome.runtime.onStartup.addListener(() => { maybeAutoClockIn('chrome_open'); });
+}
+
+// QA fix: the "Idle threshold (minutes)" setting now actually drives Chrome's
+// idle detection interval (was hardcoded to 60s, making the setting inert, so
+// the prompt always fired at ~60s regardless of the configured value). Chrome's
+// minimum interval is 15s.
+async function applyIdleDetectionInterval() {
+  try {
+    const settings = await getSettings();
+    const mins = settings.idleThresholdMinutes ?? 5;
+    chrome.idle.setDetectionInterval(Math.max(15, Math.round(mins * 60)));
+  } catch {
+    chrome.idle.setDetectionInterval(60);
+  }
 }
 
 /**

@@ -20,6 +20,7 @@ export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
   const [tlEdit, setTlEdit] = useState(false);
   const [editCpn, setEditCpn] = useState(null); // { id, text, progressLevel }
   const [setExactMin, setSetExactMin] = useState('');
+  const [copied, setCopied] = useState(false);
 
   if (!activeFocus) return null;
 
@@ -60,6 +61,26 @@ export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
   const deleteCpn = (id) =>
     sendMessage('DELETE_CHECKPOINT', { focusId: activeFocus.id, checkpointId: id });
 
+  // Clean plain-text copy of the whole timeline (oldest → newest), so the user
+  // can paste it elsewhere without screen-scraping irrelevant page elements.
+  const copyTimeline = async () => {
+    const lines = [`${activeFocus.label} — ${formatElapsed(activeFocus.liveElapsedMs)} tracked`];
+    for (const cpn of (activeFocus.checkpoint || [])) {
+      const t = cpn.createdAt ? new Date(cpn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      const mins = Math.floor((cpn.elapsedAtMs || 0) / 60000);
+      const label = cpn.triggeredBy === 'system' ? (cpn.text || 'event') : (cpn.progressLevel?.replace('_', ' ') || 'note');
+      lines.push(`[${t} · ${mins}m in] ${label}`);
+      if (cpn.text && cpn.triggeredBy !== 'system') {
+        lines.push('    ' + cpn.text.replace(/\n/g, '\n    '));
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked */ }
+  };
+
   return (
     <div style={{ marginTop: '10px', padding: '8px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
       {/* Header row */}
@@ -67,14 +88,21 @@ export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
         <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           📊 Checkpoint Timeline
         </span>
-        <Tooltip text={tlEdit ? 'Finish editing' : 'Edit times and notes for this focus'}>
-          <button
-            onClick={() => { setTlEdit(!tlEdit); setEditCpn(null); }}
-            style={{ ...timeEditBtn, borderColor: tlEdit ? '#66bb6a' : 'var(--color-border)', color: tlEdit ? '#66bb6a' : 'var(--color-text-muted)' }}
-          >
-            {tlEdit ? '✓ Done' : '✏️ Edit'}
-          </button>
-        </Tooltip>
+        <span style={{ display: 'flex', gap: '4px' }}>
+          <Tooltip text="Copy the timeline as clean text">
+            <button onClick={copyTimeline} style={{ ...timeEditBtn, color: copied ? '#66bb6a' : 'var(--color-text-muted)', borderColor: copied ? '#66bb6a' : 'var(--color-border)' }}>
+              {copied ? '✓ Copied' : '📋 Copy'}
+            </button>
+          </Tooltip>
+          <Tooltip text={tlEdit ? 'Finish editing' : 'Edit times and notes for this focus'}>
+            <button
+              onClick={() => { setTlEdit(!tlEdit); setEditCpn(null); }}
+              style={{ ...timeEditBtn, borderColor: tlEdit ? '#66bb6a' : 'var(--color-border)', color: tlEdit ? '#66bb6a' : 'var(--color-text-muted)' }}
+            >
+              {tlEdit ? '✓ Done' : '✏️ Edit'}
+            </button>
+          </Tooltip>
+        </span>
       </div>
 
       {!tlEdit && (

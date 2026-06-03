@@ -139,3 +139,16 @@ Dogfooding confirms a focus is effectively a **master task / epic**, and **sub-f
 ### BD-19 — Sidebar: show focus description/steps inline (collapsible)
 When working with the sidebar open, show **not just the focus title but its description/steps inline** (e.g. the 3 SQL steps from the 015 fix), so the user doesn't window-switch to read them. Collapsible: user can open/close it; **auto-collapsed when there's no description (title-only)**.
 **[C] Small, high-value, build-ready.** The sidebar already renders the active focus card (we just added 📊/📱/📌 there). Adding a collapsible description block is a contained change. Direct quality-of-life win, and it makes BD-16's "agent put the steps in the focus" actually visible where the user works. **Good quick-win candidate.**
+
+---
+
+# Addendum 2026-06-02b — Domain store refinements from RT (BD-20, BD-21)
+
+### BD-20 — Path-variation pattern matching / dedup (domain store)
+The Domains tab currently lists EVERY distinct path. For sites like `app.asana.com` this floods with near-identical paths that differ only in dynamic IDs (e.g. `/0/{projectId}/{taskId}`). The user wants the **default** behavior to **collapse same-pattern paths into one pattern**, weeding out duplicates, since a rule is usually about the *path type*, not the exact link. Exact-link matching should be a **secondary/optional setting**.
+**[C] Design:** templatize path segments — replace numeric IDs, UUIDs, and long hashes with placeholders (`/0/:id/:id`) and group by the templated pattern; show a count ("12 links") under each pattern. Keep the raw paths available on expand. Settings toggle: "Group paths by pattern" (default ON) vs "Show every link". This is the natural Plan 038 Phase-2 enrichment of the persistent domain store. Implementable; needs a small path-templatizer + grouping in DomainsTab + optionally stored on the domainHistory entry.
+
+### BD-21 — "Target domain" intent clarification + Phase-2 prompting (not yet built)
+Two things surfaced in RT:
+1. **Targeting a domain did not prompt a rule on next visit.** Correct — that proactive prompt is **Plan 038 Phase 2 (rule suggestions + prompt frequency), which is NOT implemented yet.** The ⭐ Target button currently only sets `status:'targeted'`; nothing consumes it. (Already noted in the 036/037/038 handoff sticky.)
+2. **Intent refinement:** targeting is **primarily to help the user define the various PATH TYPES** for a domain — not merely to auto-create rules. So Phase 2's targeted-domain flow should guide the user through **labeling path patterns** (pairs with BD-20's pattern grouping), and rule creation is one outcome of that, not the whole point. Folds into Plan 038 Phase 2/3 (and Training Mode BD-? / the existing BD-12 pipeline).
