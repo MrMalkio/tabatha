@@ -400,3 +400,22 @@
   1. CSS sticky sidebar with scroll-to-section links ← **suggested**
   2. Floating hamburger menu with section anchors
   3. Top horizontal nav bar (tabs-style) with scroll-spy
+
+## 2026-05-29 — Homepage hours stat mislabeled / wrong (BD-13)
+- **Noticed while:** v6.3.x QA brain-dump session
+- **What:** Top-left of the home page shows ~470 (hours) framed as "this week" total, which is impossible. Likely showing lifetime/aggregate elapsed but labeled as weekly.
+- **Why it matters:** First thing testers (incl. Mike) will see; an obviously-wrong headline number undermines trust. Highly visible.
+- **Options:**
+  1. Fix the label + add a this-week time-window filter to the aggregation ← **suggested** (quick win, do right after PR #21 merges)
+  2. Replace with the full today/this-week breakdown (rolls into BD-14 accurate non-double-counted time model)
+  3. Both: quick label/window fix now, full time-model later
+- **Full context:** see `.headbox/backlog-braindump-2026-05-29.md` (BD-13, BD-14)
+
+## 2026-05-29 — Vision brain-dump captured (BD-1 … BD-15)
+- **Noticed while:** v6.3.x QA session — user dumped ~15 distinct ideas/questions/bugs
+- **What:** Full capture lives in `.headbox/backlog-braindump-2026-05-29.md`. Covers: companion-managed distribution + CWS expandability (BD-1/2), tester distribution to non-GitHub users (BD-3), sync/team audit before testers (BD-4), CWS eligibility analysis (BD-5), onboarding v1 + help docs (BD-6), Mike "track everything" wedge (BD-7), auto-break→auto-clock-out recovery (BD-8), InPop passive/random modes (BD-9), Master Notification Matrix + surface-routing/escalation (BD-10), Agency Vault context ingestion (BD-11), in-app feedback/voting + agent-triage pipeline (BD-12), homepage hours bug (BD-13), accurate non-double-counted time + focus ratio (BD-14), auto-pause inattentive tabs + context-note prompt (BD-15).
+- **Why it matters:** Zero-context-loss capture so each becomes a real plan when prioritized. Includes Claude's technical answers on companion distribution + CWS file-integrity constraints.
+- **Options:**
+  1. Leave as backlog; spec individually when prioritized ← **suggested**
+  2. Promote the tester-enablement cluster (BD-3/4/6) to a near-term plan
+  3. Promote BD-8 (auto-clock-out) — most build-ready, extends current idle engine
