@@ -160,6 +160,7 @@ function Sidebar() {
   const [isCheckpointStale, setIsCheckpointStale] = useState(false);
   // Plan 037: Checkpoint Timeline
   const [showTimeline, setShowTimeline] = useState(false);
+  const [queueTlId, setQueueTlId] = useState(null); // queued item whose timeline is open
   // Feature #186: Window count
   const [windowCount, setWindowCount] = useState(0);
 
@@ -532,8 +533,10 @@ function Sidebar() {
                   <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Queue ({allItems.length})</div>
                   {allItems.slice(0,5).map(item => {
                     const f = FUNNEL_STAGES[item.funnelStage] || FUNNEL_STAGES.unsorted;
+                    const hasCheckpoints = (item.checkpoint || []).length > 0;
                     return (
-                      <div key={item.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 6px', marginBottom:'2px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)' }}>
+                      <div key={item.id} style={{ marginBottom:'2px' }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 6px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:'4px', flex:1, minWidth:0 }}>
                           <span style={{ fontSize:'9px', color:f.color }}>{f.icon}</span>
                           <span style={{ fontSize:'11px', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.label}</span>
@@ -556,9 +559,20 @@ function Sidebar() {
                           </select>
                         </div>
                         <div style={{ display:'flex', gap:'3px', flexShrink:0 }}>
+                          {hasCheckpoints && (
+                            <Tooltip text="View / copy timeline (no resume needed)"><button onClick={() => setQueueTlId(queueTlId === item.id ? null : item.id)} style={btn(queueTlId === item.id ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
+                          )}
                           <Tooltip text="Switch to this"><button onClick={() => actions.switchFocus(item.id)} style={btn('var(--color-accent-primary)')}>▶</button></Tooltip>
                           <Tooltip text="Mark as resolved"><button onClick={() => actions.completeFocus(item.id)} style={btn('#66bb6a')}>✓</button></Tooltip>
                         </div>
+                      </div>
+                      <AnimatePresence>
+                        {queueTlId === item.id && (
+                          <motion.div initial={{ height:0, opacity:0 }} animate={{ height:'auto', opacity:1 }} exit={{ height:0, opacity:0 }} transition={{ duration:0.15 }} style={{ overflow:'hidden' }}>
+                            <CheckpointTimeline activeFocus={item} sendMessage={sendMessage} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                       </div>
                     );
                   })}

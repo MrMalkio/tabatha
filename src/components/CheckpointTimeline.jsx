@@ -216,9 +216,9 @@ export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
         );
       })}
 
-      {tlEdit && (
+      {tlEdit && onAddNote && (
         <button
-          onClick={() => { setTlEdit(false); onAddNote?.(); }}
+          onClick={() => { setTlEdit(false); onAddNote(); }}
           style={{ ...timeEditBtn, marginTop: '8px', width: '100%', borderStyle: 'dashed' }}
         >
           + Add checkpoint note

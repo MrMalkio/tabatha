@@ -326,6 +326,7 @@ const btnStyle = (color) => ({
 
 // ── FocusQueue ──
 function FocusQueue({ items, actions }) {
+  const [tlId, setTlId] = useState(null); // which queued item's timeline is open
   if (!items || items.length === 0) return null;
   return (
     <div style={{ marginBottom: '12px' }}>
@@ -334,6 +335,7 @@ function FocusQueue({ items, actions }) {
       </div>
       {items.map(item => {
         const funnel = FUNNEL_STAGES[item.funnelStage] || FUNNEL_STAGES.unsorted;
+        const hasCheckpoints = (item.checkpoint || []).length > 0;
         return (
           <GlassCard key={item.id} style={{ padding: '8px 12px', marginBottom: '4px', borderLeft: item.focusState === 'paused' ? '3px solid #ffa726' : `3px solid ${funnel.color}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => item.focusState === 'paused' ? actions.resumeFocus(item.id) : actions.switchFocus(item.id)}>
@@ -354,11 +356,24 @@ function FocusQueue({ items, actions }) {
                     <button onClick={(e) => { e.stopPropagation(); actions.switchFocus(item.id); }} style={btnStyle('var(--color-accent-primary)')}>▶</button>
                   </Tooltip>
                 )}
+                {hasCheckpoints && (
+                  <Tooltip text="View / copy / edit this focus's timeline (no need to resume)">
+                    <button onClick={(e) => { e.stopPropagation(); setTlId(tlId === item.id ? null : item.id); }} style={btnStyle(tlId === item.id ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button>
+                  </Tooltip>
+                )}
                 <Tooltip text="Mark as resolved">
                   <button onClick={(e) => { e.stopPropagation(); actions.completeFocus(item.id); }} style={btnStyle('#66bb6a')}>✓</button>
                 </Tooltip>
               </div>
             </div>
+            {/* Plan 037: review a paused/queued focus's timeline without resuming */}
+            <AnimatePresence>
+              {tlId === item.id && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+                  <CheckpointTimeline activeFocus={item} sendMessage={sendMessage} />
+                </motion.div>
+              )}
+            </AnimatePresence>
             {/* Compact stage picker + priority selector */}
             <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
               <StagePicker compact currentStage={item.funnelStage} onChange={(stage) => actions.updateFocus(item.id, { funnelStage: stage })} />
