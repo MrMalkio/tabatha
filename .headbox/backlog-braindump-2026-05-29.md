@@ -116,3 +116,26 @@ Vision: Tabatha **pulls context from any available source** (incl. Agency Vault)
 5. **Growth loop:** BD-12 (feedback/voting + agent triage).
 6. **Compliance:** BD-5 (CWS eligibility) — before any public listing.
 7. **Long-horizon:** BD-1/BD-2 (companion distribution model), BD-11 (Agency Vault ingestion).
+
+---
+
+# Addendum 2026-06-02 — Dogfooding insights (BD-16 … BD-19)
+
+> Context: user is using Tabatha to track the work of building Tabatha. The friction of manually creating a sub-focus to track "run the 015 RLS fix in the SQL editor" surfaced these. The meta-insight: **the agent telling the human to go do a thing should instead push that thing into Tabatha as a ready-to-go focus.**
+
+### BD-16 — Agent-directed focus injection ("take direction from an agent" mode)
+An agent (via **any** channel — CLI / API / MCP / skill / plugin / companion bridge) can **create a focus + associated tasks for the human to execute**, fully pre-populated: description/steps, links, and even **auto-open the tab(s)** the user needs. A user-enable setting: *"only take direction from an agent"* (e.g. during a tutorial, or while an agent orchestrates a work session). Because Tabatha already knows the user's live context, the agent can decide **how/when to interrupt** (silent queue vs InBar chip vs popup) and ensure everything needed is inside the focus details. The user just clicks **OK → Tabatha switches focus → they jump straight in.**
+**[C] Feasibility (high):** Tabatha already has `START_FOCUS` / `ADD_FOCUS` / `SWITCH_FOCUS` message handlers and a desktop-companion WebSocket bridge. Exposing a thin, authenticated local endpoint (companion bridge or a localhost/native-messaging hook) that maps to those handlers is very tractable — an agent could literally post `{type:'ADD_FOCUS', label, description, tabs, tasks}` today with minimal new surface. This is a genuine differentiator and a natural extension of the existing architecture. Pairs with the "OK → switch" UX from BD-19.
+**[C] Guardrails to design:** auth/trust for who can inject; interruption policy (the Notification Matrix BD-10 governs surface/escalation); rate-limiting; an audit trail of agent-created focuses.
+
+### BD-17 — User-to-user baton passing (delegated/pre-approved interruptions)
+Same mechanism, **staff-to-staff**: hand off a task with full context ("passing the baton"). It's task management with **predefined, pre-approved interruptions under configured circumstances** — so a teammate (or manager) can drop a focus into your queue/flow under rules you've agreed to. Needs per-user configuration of who can interrupt, when, and how loudly.
+**[C]** Builds directly on BD-16 + the team/sync layer (plans 027/028) + Notification Matrix (BD-10). The "pre-approved interruption" config is the key new primitive.
+
+### BD-18 — Reconcile the focus / sub-focus / task / subtask model (focus = epic/master-task)
+Dogfooding confirms a focus is effectively a **master task / epic**, and **sub-focuses ≈ subtasks**. We also have a separate `tasks` concept. Need a **cleaner, more efficient model** that avoids unnecessary duplication **and** avoids over-aggregation/over-consolidation. Expand the editable detail available on a focus (description, steps, links, checklist) to match epic-level richness.
+**[C]** This is a data-model rationalization — worth a dedicated design doc before building. Question to resolve: do `tasks` and `sub-focuses` merge into one hierarchy, or stay distinct with clear roles (e.g. tasks = external/Asana-linked work items, focuses = time-tracked attention sessions)? The Plan 037 timeline/checkpoint infra and the focus item schema are the building blocks.
+
+### BD-19 — Sidebar: show focus description/steps inline (collapsible)
+When working with the sidebar open, show **not just the focus title but its description/steps inline** (e.g. the 3 SQL steps from the 015 fix), so the user doesn't window-switch to read them. Collapsible: user can open/close it; **auto-collapsed when there's no description (title-only)**.
+**[C] Small, high-value, build-ready.** The sidebar already renders the active focus card (we just added 📊/📱/📌 there). Adding a collapsible description block is a contained change. Direct quality-of-life win, and it makes BD-16's "agent put the steps in the focus" actually visible where the user works. **Good quick-win candidate.**
