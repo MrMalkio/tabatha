@@ -87,6 +87,12 @@ export function useAuth() {
       let prof = null;
       const WIDE = 'id, auth_user_id, display_name, avatar_url, default_org_id, default_team_id, created_at';
       const MIN = 'id, auth_user_id, display_name, avatar_url, created_at';
+      // BARE = only the columns guaranteed by migration 001. Falling back to
+      // this means a missing OPTIONAL column (avatar_url/default_* from
+      // migrations 005/007) can never null out the profile — which previously
+      // made the name appear stuck on the "Tabatha User" fallback and made
+      // Save a silent no-op (it requires profile.id).
+      const BARE = 'id, auth_user_id, display_name';
 
       const tryRead = async (cols) => supabase
         .schema('tabatha')
@@ -99,6 +105,10 @@ export function useAuth() {
       if (readRes.error) {
         await writeAuthDiagnostic('profile_wide_select_failed', readRes.error);
         readRes = await tryRead(MIN);
+      }
+      if (readRes.error) {
+        await writeAuthDiagnostic('profile_min_select_failed', readRes.error);
+        readRes = await tryRead(BARE);
       }
 
       if (readRes.error) {
