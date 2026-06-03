@@ -1,12 +1,13 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "5.8.0",
+  "version": "6.3.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --test",
     "preview": "vite preview",
     "version:sync": "node scripts/sync-version.mjs",
     "version:check": "node scripts/sync-version.mjs --check",

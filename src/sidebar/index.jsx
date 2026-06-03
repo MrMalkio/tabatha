@@ -12,6 +12,7 @@ import { StagePicker } from '../components/ui/StagePicker';
 import { TagPicker } from '../components/ui/TagPicker';
 import { useOrgData } from '../hooks/useOrgData';
 import { formatTime } from '../utils/formatTime';
+import { CheckpointTimeline } from '../components/CheckpointTimeline';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -157,6 +158,8 @@ function Sidebar() {
   const [showCheckpoint, setShowCheckpoint] = useState(false);
   const [cpnText, setCpnText] = useState('');
   const [isCheckpointStale, setIsCheckpointStale] = useState(false);
+  // Plan 037: Checkpoint Timeline
+  const [showTimeline, setShowTimeline] = useState(false);
   // Feature #186: Window count
   const [windowCount, setWindowCount] = useState(0);
 
@@ -408,6 +411,15 @@ function Sidebar() {
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                     <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
                     <Tooltip text="Checkpoint note"><button onClick={() => setShowCheckpoint(p => !p)} style={btn(isCheckpointStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isCheckpointStale ? '🟠' : ''}</button></Tooltip>
+                    {(activeFocus.checkpoint || []).length > 0 && (
+                      <Tooltip text="View/edit checkpoint timeline"><button onClick={() => setShowTimeline(p => !p)} style={btn(showTimeline ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
+                    )}
+                    <Tooltip text={activeFocus.offDevice ? 'Off-device ON — idle suppressed' : 'Mark as off-device — idle won\'t pause this focus'}>
+                      <button onClick={() => sendMessage('UPDATE_FOCUS', { focusId: activeFocus.id, offDevice: !activeFocus.offDevice })} style={btn(activeFocus.offDevice ? '#ef5350' : 'var(--color-text-muted)')}>{activeFocus.offDevice ? '📴' : '📱'}</button>
+                    </Tooltip>
+                    <Tooltip text="Add a sub-focus or queued intent">
+                      <button onClick={() => setShowNewIntent(true)} style={btn('var(--color-text-muted)')}>📌 Sub</button>
+                    </Tooltip>
                   </div>
                   {/* Stage picker */}
                   <div style={{ marginTop:'6px' }}>
@@ -448,6 +460,19 @@ function Sidebar() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                  {/* Plan 037: Checkpoint Timeline */}
+                  <AnimatePresence>
+                    {showTimeline && (
+                      <motion.div initial={{ height:0, opacity:0 }} animate={{ height:'auto', opacity:1 }} exit={{ height:0, opacity:0 }} transition={{ duration:0.15 }} style={{ overflow:'hidden' }}>
+                        <CheckpointTimeline
+                          activeFocus={activeFocus}
+                          sendMessage={sendMessage}
+                          onAddNote={() => { setShowTimeline(false); setShowCheckpoint(true); }}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Plan 025: Inline Checkpoint Note form */}
                   <AnimatePresence>
                     {showCheckpoint && (

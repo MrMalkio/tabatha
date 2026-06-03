@@ -16,6 +16,7 @@ import {
 import { handleContextTimerExpired } from './tabService.js';
 import { handlePomodoroComplete } from './notificationService.js';
 import { handleIdleAutoBreak } from './clockService.js';
+import { handleDriftCheck } from './autoFocusService.js';
 import { saveSessionSnapshot, exportMarkdown } from './sessionService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
@@ -77,6 +78,8 @@ async function handleAlarm(alarm) {
         return handleUnfocusedNudge();
       case 'idle-auto-break':
         return handleIdleAutoBreak();
+      case 'auto-focus-drift':
+        return handleDriftCheck();
       default:
         return;
     }

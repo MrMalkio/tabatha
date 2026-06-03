@@ -62,11 +62,20 @@ import {
   syncToSupabase,
   triggerSync
 } from './services/syncService.js';
+import * as autoFocusService from './services/autoFocusService.js';
+import {
+  configureAutoFocusService,
+  registerAutoFocusListeners,
+  evaluateTab as evaluateAutoFocus
+} from './services/autoFocusService.js';
+import * as domainHistoryService from './services/domainHistoryService.js';
+import { recordDomainVisit } from './services/domainHistoryService.js';
 import * as awarenessService from './services/awarenessService.js';
 import {
   configureAwarenessService,
   startAwareness,
-  notifyStateChange as notifyAwarenessStateChange
+  notifyStateChange as notifyAwarenessStateChange,
+  setLocalIdleState as setAwarenessIdleState
 } from './services/awarenessService.js';
 import {
   configureCompanionInstallService,
@@ -105,7 +114,9 @@ configureTabService({
   autoQueueFromIntent: focusService.autoQueueFromIntent,
   linkTabToFocus: focusService.linkTabToFocus,
   setTabData,
-  logEvent: tabTrackingService.logEvent
+  logEvent: tabTrackingService.logEvent,
+  evaluateAutoFocus,
+  recordDomainVisit
 });
 
 configureClockService({
@@ -115,7 +126,8 @@ configureClockService({
   setFocusEngine: focusService.setFocusEngine,
   getTabData,
   triggerSync,
-  notifyAwarenessStateChange
+  notifyAwarenessStateChange,
+  setAwarenessIdleState
 });
 
 configureFocusService({
@@ -127,6 +139,17 @@ configureFocusService({
   fireWebhook,
   endBreakIfActive: clockService.endBreakIfActive,
   notifyAwarenessStateChange
+});
+
+configureAutoFocusService({
+  getFocusEngine: focusService.getFocusEngine,
+  getTabData,
+  startFocus: focusService.startFocus,
+  markFocusDrifted: focusService.markFocusDrifted,
+  pauseActiveFocus: focusService.pauseActiveFocus,
+  linkTabToFocus: focusService.linkTabToFocus,
+  companionBridge,
+  fireWebhook
 });
 
 configureGroupService({ setTabData });
@@ -154,7 +177,9 @@ const services = [
   calendarService,
   alarmService,
   syncService,
-  awarenessService
+  awarenessService,
+  autoFocusService,
+  domainHistoryService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -181,12 +206,36 @@ registerTabServiceListeners();
 registerTabTrackingListeners();
 registerUrlLockNavigationListener();
 registerClockServiceListeners();
+
+// Plan 036 (#187): OS-unlock auto clock-in. The desktop companion emits an
+// idle→active transition when the workstation is unlocked; honour it only when
+// the user picked the 'os_unlock' trigger (clockService gates on settings).
+companionBridge.on('idleState', (payload) => {
+  if (payload && payload.isIdle === false) {
+    clockService.maybeAutoClockIn('os_unlock');
+  }
+});
 registerGroupServiceListeners();
 registerFocusServiceAlarms();
+registerAutoFocusListeners();
 registerSyncServiceAlarms();
 registerSyncStorageListener();
 registerAlarmServiceListener();
 registerBootstrap();
+
+// Plan 038: backfill domain history from tabs that were already open when the
+// extension loaded (recordDomainVisit only fires on new navigations, not
+// pre-existing tabs, so the Domains tab would show nothing on first use).
+(async () => {
+  try {
+    const { tabs: stored } = await chrome.storage.local.get('tabs');
+    if (stored && typeof stored === 'object') {
+      for (const t of Object.values(stored)) {
+        if (t?.url) await recordDomainVisit(t.url, t.intent || null);
+      }
+    }
+  } catch { /* best-effort */ }
+})();
 
 // Phase C: start cross-profile awareness once the SW is ready. The service
 // itself bails gracefully if auth or browser_profiles isn't ready yet, and

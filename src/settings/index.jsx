@@ -42,6 +42,7 @@ const SECTIONS = [
   { id: 'appearance', label: '🎨 Appearance' },
   { id: 'clock', label: '🕐 FlipClock' },
   { id: 'focus', label: '🎯 Focus Engine' },
+  { id: 'lifecycle', label: '🧠 Focus Lifecycle' },
   { id: 'intent', label: '🚪 Intent-Popup' },
   { id: 'urlrules', label: '🔗 URL Rules' },
   { id: 'blocked', label: '🚫 Blocked Sites' },
@@ -306,6 +307,174 @@ function DeveloperPanel({ settings, updateSetting }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Plan 036 — Intelligent Focus Lifecycle settings.
+function FocusLifecyclePanel({ settings, updateSetting }) {
+  const [dismissals, setDismissals] = useState(null);
+  const [loadingDismissals, setLoadingDismissals] = useState(false);
+
+  const DEFAULT_MEETING_DOMAINS = [
+    'meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com',
+    'webex.com', 'app.webex.com', 'whereby.com', 'around.co'
+  ];
+  const meetingDomains = settings.meetingDomains ?? DEFAULT_MEETING_DOMAINS;
+
+  // Local draft keeps newlines while typing (filter(Boolean) on the saved value
+  // was eating empty lines as the user pressed Enter to start a new line).
+  const [domainDraft, setDomainDraft] = useState(null); // null = not editing
+  const domainValue = domainDraft !== null ? domainDraft : meetingDomains.join('\n');
+  const commitDomains = (raw) => {
+    setDomainDraft(null);
+    updateSetting('meetingDomains', raw.split('\n').map(s => s.trim()).filter(Boolean));
+  };
+
+  const loadDismissals = async () => {
+    setLoadingDismissals(true);
+    try {
+      const res = await sendMessage('GET_AUTO_FOCUS_DISMISSALS');
+      setDismissals(res?.dismissals || {});
+    } catch { setDismissals({}); }
+    setLoadingDismissals(false);
+  };
+
+  const clearDismissals = async () => {
+    await sendMessage('CLEAR_AUTO_FOCUS_DISMISSALS');
+    setDismissals({});
+  };
+
+  const textareaStyle = { ...inputStyle, width: '100%', minHeight: '88px', fontFamily: 'monospace', resize: 'vertical' };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px' }}>🧠 Focus Lifecycle</h2>
+      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
+        Controls how Tabatha detects idleness, suggests focuses automatically, and notices when you drift off-task.
+      </p>
+
+      {/* ── Idle Behaviour ── */}
+      <div style={sectionLabel}>Idle Behaviour</div>
+      <Tooltip text="Master switch. When OFF, going idle never pauses or prompts about any focus — including off-device focuses. Turn off if you prefer to manage focus state manually." position="bottom">
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Auto-pause on idle</span>
+          <Toggle value={settings.autoPauseEnabled !== false} onChange={v => updateSetting('autoPauseEnabled', v)} />
+        </div>
+      </Tooltip>
+      {settings.autoPauseEnabled !== false && (
+        <>
+          <Tooltip text="When idle is detected, show a prompt ('Yes, on task / I diverged / Pause') instead of silently pausing. Turn off to restore the old hard-pause behaviour." position="bottom">
+            <div style={{ ...fieldRow, paddingLeft: '12px' }}>
+              <span style={{ ...fieldLabel, color: 'var(--color-text-muted)' }}>↳ Prompt before pausing</span>
+              <Toggle value={settings.idleConfirmationEnabled !== false} onChange={v => updateSetting('idleConfirmationEnabled', v)} />
+            </div>
+          </Tooltip>
+        </>
+      )}
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Idle threshold (minutes)</span>
+        <input type="number" min="1" max="30" value={settings.idleThresholdMinutes ?? 5} onChange={e => updateSetting('idleThresholdMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
+      </div>
+      <Tooltip text="How recently the desktop companion must have seen activity (e.g. typing in another app) for Tabatha to suppress a Chrome idle pause." position="bottom">
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Companion grace (minutes)</span>
+          <input type="number" min="1" max="30" value={settings.companionIdleGraceMinutes ?? 5} onChange={e => updateSetting('companionIdleGraceMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
+        </div>
+      </Tooltip>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Auto-resume on return</span>
+        <Toggle value={settings.autoResumeOnReturn !== false} onChange={v => updateSetting('autoResumeOnReturn', v)} />
+      </div>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Meeting grace (minutes)</span>
+        <input type="number" min="5" max="180" value={settings.meetingIdleGraceMinutes ?? 60} onChange={e => updateSetting('meetingIdleGraceMinutes', parseInt(e.target.value) || 60)} style={inputStyle} />
+      </div>
+      <div style={{ padding: '6px 0' }}>
+        <div style={{ ...fieldLabel, marginBottom: '4px' }}>Meeting domains</div>
+        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+          One domain per line. Press <kbd style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '0 4px', fontSize: '10px' }}>Enter</kbd> after each. Tabs on these domains suppress idle/auto-pause even when muted or backgrounded.
+        </div>
+        <textarea
+          style={textareaStyle}
+          placeholder={'meet.google.com\nzoom.us\nteams.microsoft.com'}
+          value={domainValue}
+          onChange={e => setDomainDraft(e.target.value)}
+          onBlur={e => commitDomains(e.target.value)}
+          onKeyDown={e => e.stopPropagation()}
+          spellCheck={false}
+        />
+      </div>
+
+      {/* ── Auto-Focus ── */}
+      <div style={sectionLabel}>Auto-Focus</div>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Enable auto-focus suggestions</span>
+        <Toggle value={settings.autoFocusEnabled !== false} onChange={v => updateSetting('autoFocusEnabled', v)} />
+      </div>
+      <Tooltip text="Minimum confidence before a suggestion chip is shown. 'High' = category/domain-group matches; 'Medium' also surfaces desktop-app matches; 'Explicit only' shows nothing and relies on URL-rule auto-create." position="bottom">
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Suggestion confidence</span>
+          <select value={settings.autoFocusConfidence || 'high'} onChange={e => updateSetting('autoFocusConfidence', e.target.value)} style={selectStyle}>
+            <option value="explicit">Explicit only</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+          </select>
+        </div>
+      </Tooltip>
+      <div style={{ padding: '6px 0' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button onClick={loadDismissals} disabled={loadingDismissals} style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}>
+            {loadingDismissals ? 'Loading…' : 'View dismissal history'}
+          </button>
+          {dismissals && Object.keys(dismissals).length > 0 && (
+            <button onClick={clearDismissals} style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}>Clear</button>
+          )}
+        </div>
+        {dismissals && (
+          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+            {Object.keys(dismissals).length === 0
+              ? 'No dismissals recorded.'
+              : Object.entries(dismissals).map(([domain, d]) => (
+                  <div key={domain} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                    <span>{domain}</span>
+                    <span>{d.dismissCount}× · cooldown {d.cooldownMinutes}m</span>
+                  </div>
+                ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Drift Detection ── */}
+      <div style={sectionLabel}>Drift Detection</div>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Enable drift detection</span>
+        <Toggle value={settings.driftDetectionEnabled !== false} onChange={v => updateSetting('driftDetectionEnabled', v)} />
+      </div>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Drift threshold (minutes)</span>
+        <input type="number" min="1" max="15" value={settings.driftThresholdMinutes ?? 3} onChange={e => updateSetting('driftThresholdMinutes', parseInt(e.target.value) || 3)} style={inputStyle} />
+      </div>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Snooze duration (minutes)</span>
+        <input type="number" min="1" max="30" value={settings.driftSnoozeMinutes ?? 5} onChange={e => updateSetting('driftSnoozeMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
+      </div>
+
+      {/* ── Auto Clock-In ── */}
+      <div style={sectionLabel}>Auto Clock-In</div>
+      <div style={fieldRow}>
+        <span style={fieldLabel}>Enable auto clock-in</span>
+        <Toggle value={!!settings.autoClockInEnabled} onChange={v => updateSetting('autoClockInEnabled', v)} />
+      </div>
+      <Tooltip text="'When Chrome opens' clocks you in on browser launch. 'On OS unlock' uses the desktop companion to clock in when you unlock your computer (requires the companion running)." position="bottom">
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Clock-in trigger</span>
+          <select value={settings.autoClockInTrigger || 'chrome_open'} onChange={e => updateSetting('autoClockInTrigger', e.target.value)} style={selectStyle} disabled={!settings.autoClockInEnabled}>
+            <option value="chrome_open">When Chrome opens</option>
+            <option value="os_unlock">On OS unlock (companion)</option>
+          </select>
+        </div>
+      </Tooltip>
     </div>
   );
 }
@@ -1167,6 +1336,10 @@ function Settings() {
                   </div>
                 ))}
               </div>
+            )}
+
+            {activeSection === 'lifecycle' && (
+              <FocusLifecyclePanel settings={settings} updateSetting={updateSetting} />
             )}
 
             {activeSection === 'intent' && (

@@ -153,6 +153,24 @@ async function _handleMessage(type, message) {
     case 'RESUME_FOCUS':
       return resumeFocus(message.focusId);
 
+    // Plan 036: user's response to the Smart Idle Engine prompt.
+    case 'IDLE_PROMPT_RESPONSE':
+      return idlePromptResponse(message);
+
+    // Plan 037: Focus time editing.
+    case 'ADJUST_FOCUS_TIME':
+      return adjustFocusTime(message.focusId, message.adjustmentMs, message.reason);
+    case 'SET_FOCUS_ELAPSED':
+      return setFocusElapsed(message.focusId, message.elapsedMs);
+    case 'REMOVE_LAST_PAUSE':
+      return removeLastPause(message.focusId);
+
+    // Plan 037 Phase 2: per-entry checkpoint editing.
+    case 'EDIT_CHECKPOINT':
+      return editCheckpoint(message);
+    case 'DELETE_CHECKPOINT':
+      return deleteCheckpoint(message.focusId, message.checkpointId);
+
     // ── Plan 025: Checkpoint Progress Notes ──
     case 'SAVE_CHECKPOINT_NOTE':
       return saveCheckpointNote(message);
@@ -181,7 +199,9 @@ async function _handleMessage(type, message) {
 const AUDITABLE_ACTIONS = new Set([
   'START_FOCUS', 'COMPLETE_FOCUS', 'SWITCH_FOCUS', 'PAUSE_FOCUS', 'RESUME_FOCUS',
   'EXTEND_FOCUS_TIMER', 'LET_ME_COOK', 'BACKBURNER_FOCUS', 'SNOOZE_BACKBURNER',
-  'DISMISS_BACKBURNER', 'RESUME_BACKBURNER', 'SAVE_CHECKPOINT_NOTE'
+  'DISMISS_BACKBURNER', 'RESUME_BACKBURNER', 'SAVE_CHECKPOINT_NOTE',
+  'IDLE_PROMPT_RESPONSE',
+  'ADJUST_FOCUS_TIME', 'SET_FOCUS_ELAPSED', 'REMOVE_LAST_PAUSE'
 ]);
 
 async function emitAudit(type, message) {
@@ -801,6 +821,174 @@ async function resumeFocus(focusId) {
   return { focusEngine: engine };
 }
 
+// Plan 036: resolve a pending Smart Idle Engine prompt.
+//   on_task  → keep the focus active (user confirms they're still working)
+//   diverged → mark the active focus drifted (UI then prompts for a new focus)
+//   pause    → pause the focus (legacy idle behaviour, on demand)
+async function idlePromptResponse(message) {
+  const response = message.response || 'pause';
+  const engine = await getFocusEngine();
+  const id = message.focusId || engine.activeFocusId;
+
+  // Clear the pending marker so the idle-auto-break fallback won't double-act.
+  try {
+    const { _idlePrompt } = await getStorage('_idlePrompt');
+    if (_idlePrompt) {
+      await setStorage({ _idlePrompt: null });
+      broadcastAll({ type: 'IDLE_PROMPT_RESOLVED', id: _idlePrompt.id, resolution: response });
+    }
+  } catch { /* non-critical */ }
+
+  if (response === 'on_task') {
+    return { focusEngine: engine, resolution: 'on_task' };
+  }
+  if (response === 'diverged') {
+    const r = await markFocusDrifted(id);
+    return { focusEngine: r.engine, resolution: 'diverged' };
+  }
+  const paused = await pauseFocus(id);
+  return { ...paused, resolution: 'pause' };
+}
+
+// ════════════════════════════════════════════
+// Plan 037 — Focus Time Editing
+// ════════════════════════════════════════════
+
+// Total displayed elapsed = stored elapsedMs + (active ? now - lastResumedAt : 0).
+function liveElapsed(item) {
+  let ms = item.elapsedMs || 0;
+  if (item.lastResumedAt) ms += Date.now() - new Date(item.lastResumedAt).getTime();
+  return ms;
+}
+
+// Wall-clock ceiling: a focus can never have more active time than has elapsed
+// since it started. Guards against fat-fingered over-corrections.
+function wallClockMax(item) {
+  return item.startedAt ? Date.now() - new Date(item.startedAt).getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+// Apply a signed delta (ms) to the stored elapsed time. Clamped so the live
+// total stays within [0, wall-clock].
+async function adjustFocusTime(focusId, adjustmentMs, reason) {
+  const engine = await getFocusEngine();
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  const delta = Number(adjustmentMs) || 0;
+  const activePortion = item.lastResumedAt ? Date.now() - new Date(item.lastResumedAt).getTime() : 0;
+  const storedCeiling = Math.max(0, wallClockMax(item) - activePortion);
+  const next = Math.max(0, Math.min((item.elapsedMs || 0) + delta, storedCeiling));
+  const applied = next - (item.elapsedMs || 0);
+  item.elapsedMs = next;
+
+  const mins = Math.round(applied / 60000);
+  autoCheckpoint(item, `🛠 Time ${applied >= 0 ? '+' : ''}${mins}m${reason ? ' — ' + reason : ''}`);
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine, appliedMs: applied };
+}
+
+// Set the displayed elapsed to an absolute value (ms).
+async function setFocusElapsed(focusId, elapsedMs) {
+  const engine = await getFocusEngine();
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  const target = Math.max(0, Math.min(Number(elapsedMs) || 0, wallClockMax(item)));
+  const activePortion = item.lastResumedAt ? Date.now() - new Date(item.lastResumedAt).getTime() : 0;
+  item.elapsedMs = Math.max(0, target - activePortion);
+
+  autoCheckpoint(item, `🛠 Time set to ${Math.round(target / 60000)}m`);
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+// Remove the most recent pause: credit the time spent paused back into the
+// focus's elapsed total and (if it is currently paused) reactivate it. This is
+// the one-click fix for an idle/false pause that ate the user's time.
+async function removeLastPause(focusId) {
+  const engine = await getFocusEngine();
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  // If currently paused, credit time-since-pause and reactivate.
+  if (item.focusState === 'paused' && item.pausedAt) {
+    const pausedFor = Math.max(0, Date.now() - new Date(item.pausedAt).getTime());
+    item.elapsedMs = Math.min((item.elapsedMs || 0) + pausedFor, wallClockMax(item));
+
+    // Pause whatever else is currently active so we don't double-track.
+    if (engine.activeFocusId && engine.activeFocusId !== focusId) {
+      const cur = engine.items[engine.activeFocusId];
+      if (cur?.focusState === 'active') pauseItem(cur, undefined, engine);
+    }
+    item.focusState = 'active';
+    item.lastResumedAt = new Date().toISOString();
+    item.pausedAt = null;
+    item.pausedReason = null;
+    engine.activeFocusId = focusId;
+
+    // Restore the focus timer for the remaining budget.
+    const remaining = (item.timerMinutes || 0) * 60000 - (item.elapsedMs || 0);
+    chrome.alarms.clear(`focus-timer-${focusId}`);
+    if (remaining > 0) chrome.alarms.create(`focus-timer-${focusId}`, { delayInMinutes: remaining / 60000 });
+  }
+
+  // Splice out the most recent system "Paused…" checkpoint entry, if any.
+  const cps = item.checkpoint || [];
+  for (let i = cps.length - 1; i >= 0; i--) {
+    if (cps[i].triggeredBy === 'system' && /^Paused/i.test(cps[i].text || '')) {
+      cps.splice(i, 1);
+      break;
+    }
+  }
+  autoCheckpoint(item, '🛠 Pause removed (time restored)');
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+// Edit an existing checkpoint entry's text and/or progress level.
+async function editCheckpoint(message) {
+  const engine = await getFocusEngine();
+  const item = message.focusId ? engine.items[message.focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+  const cp = (item.checkpoint || []).find(c => c.id === message.checkpointId);
+  if (!cp) return { error: 'Checkpoint not found', focusEngine: engine };
+
+  if (message.text !== undefined) cp.text = message.text;
+  if (message.progressLevel !== undefined) {
+    cp.progressLevel = message.progressLevel;
+    cp.progressValue = PROGRESS_VALUES[message.progressLevel] ?? 0;
+  }
+  cp.editedAt = new Date().toISOString();
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
+// Remove a single checkpoint entry by id.
+async function deleteCheckpoint(focusId, checkpointId) {
+  const engine = await getFocusEngine();
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  const cps = item.checkpoint || [];
+  const idx = cps.findIndex(c => c.id === checkpointId);
+  if (idx === -1) return { error: 'Checkpoint not found', focusEngine: engine };
+  cps.splice(idx, 1);
+
+  // Keep lastCheckpointAt honest: point it at the newest remaining user note.
+  const lastUser = [...cps].reverse().find(c => c.triggeredBy !== 'system');
+  item.lastCheckpointAt = lastUser?.createdAt || null;
+
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine };
+}
+
 async function endBreakIfActive() {
   try {
     if (injectedDeps.endBreakIfActive) {
@@ -923,6 +1111,17 @@ export async function autoQueueFromIntent(intent, tabId) {
       const newItem = result.engine.items[result.newFocusId];
       if (newItem && tabId) {
         newItem.associatedTabIds = [...(newItem.associatedTabIds || []), tabId];
+
+        // Side-quest semantics (Plan 036 QA): a tab that switches to a NEW
+        // intent is no longer "on task" for the primary focus. Remove it from
+        // the active focus's associatedTabIds so drift detection fires normally.
+        if (result.engine.activeFocusId && result.engine.activeFocusId !== result.newFocusId) {
+          const activeFocus = result.engine.items[result.engine.activeFocusId];
+          if (activeFocus?.associatedTabIds) {
+            activeFocus.associatedTabIds = activeFocus.associatedTabIds.filter(id => id !== tabId);
+          }
+        }
+
         await setFocusEngine(result.engine);
       }
       broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });

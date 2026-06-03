@@ -5,6 +5,93 @@ file.
 
 ---
 
+## [v6.3.2] - QA regression fixes (idle overlay, sidebar parity, domain backfill) - _2026-05-29_
+
+### Fixed
+
+- **D1 — Idle overlay was dismissed when user moved their mouse.** Chrome fires `idle→active` when mouse moves, which was broadcasting `IDLE_PROMPT_RESOLVED` and removing the overlay. Now only dismissed on `timeout` (the hard-pause fallback). The user can move their mouse and click a response button.
+- **G — Domain Groups tab was empty on first load.** `recordDomainVisit` only fires on new navigations; existing tracked tabs were never recorded. Background now scans `chrome.storage.local.tabs` on startup and backfills the domain history.
+- **B7 — Meeting-domain textarea couldn't start a new line.** `onChange` was calling `filter(Boolean)`, deleting empty lines immediately when Enter was pressed. Now uses local draft state, saved to settings on blur.
+- **Notification icons** — `icons/icon128.png` relative path fails in service worker; replaced with `chrome.runtime.getURL(...)`.
+- **Timeline note text** — multi-line notes now render with `white-space: pre-wrap` instead of collapsing to one paragraph.
+
+### Added
+
+- **Sidebar parity** — Sidebar active-focus card now has 📊 checkpoint timeline (full edit mode), 📱/📴 off-device toggle, and 📌 Sub-focus button.
+- **`CheckpointTimeline` shared component** (`src/components/CheckpointTimeline.jsx`) used by both home FocusBar and sidebar.
+- **Auto-focus chip** fade extended 8s → 20s (chip was disappearing before user could dismiss InPop).
+
+---
+
+## [v6.3.1] - Self-review fix: stale meeting tab no longer disables idle - _2026-05-29_
+
+### Fixed
+
+- **Forgotten meeting tab permanently disabled idle detection.** `isUserInMeeting()` treated any meeting-domain tab open >2min as an active call, so a Zoom/Meet tab left open all day suppressed idle pausing indefinitely. The "muted backgrounded meeting" signal is now bounded to the meeting grace window (`meetingIdleGraceMinutes`, default 60m) and an explicit active-tab signal was added. Recently-joined muted meetings are still detected; stale tabs are not. (Found in a pre-PR self-review; guarded by new regression tests.)
+
+---
+
+## [v6.3.0] - Plan 037 Phase 2 Checkpoint Timeline Editing - _2026-05-29_
+
+### Added
+
+- **Timeline edit mode**: the checkpoint timeline (📊) now has an **✏️ Edit / ✓ Done** toggle. In edit mode you can:
+  - Edit any note's text and progress level inline (✏️ per entry).
+  - Delete any entry (✕), including auto-generated system entries.
+  - Add a new checkpoint note (+ Add checkpoint note).
+  - Adjust tracked time with clearer UI — the total is shown prominently with an explanation, so the time controls are no longer cryptic.
+- New handlers `EDIT_CHECKPOINT` and `DELETE_CHECKPOINT` (focusService).
+
+### Changed
+
+- The "Adjust tracked time" controls now live inside Edit mode with a labelled total and helper text (previously an unexplained button row).
+
+---
+
+## [v6.2.0] - Plan 038 Phase 1 Persistent Domain Store - _2026-05-29_
+
+### Added
+
+- **Persistent domain history** (`domainHistoryService`): Tabatha now permanently remembers every domain (and its path variations, visit count, and observed intents) you visit — independent of whether the tab is still open. Capped at 2000 domains (configurable), LRU-evicted. This is the data backbone for building URL rules at any time, not just for currently-open sites.
+- **Settings → URL Rules → Domain Groups** rebuilt on the persistent store: search/filter, visit count, last-seen, live-open indicator, and per-domain **⭐ Target** (prompt me to make a rule next visit), **🚫 Dismiss** (hide + stop prompting), and **↩ Restore** actions. A "Show dismissed" toggle reveals hidden domains.
+
+---
+
+## [v6.1.0] - Plan 037 Focus Time Editing + Plan 036 QA fixes - _2026-05-29_
+
+### Added
+
+- **Focus time editing** (Plan 037): the checkpoint timeline (📊) gains a "🛠 Adjust tracked time" row — quick deltas (−5m/−1m/+1m/+5m), a set-exact-minutes input, and **Remove last pause** (restores the time a pause ate and reactivates the focus). New handlers `ADJUST_FOCUS_TIME`, `SET_FOCUS_ELAPSED`, `REMOVE_LAST_PAUSE`, all clamped to wall-clock time and audit-logged.
+- **Auto-pause master toggle** (`autoPauseEnabled`): Settings → Focus Lifecycle. When off, going idle never mutates any focus — not even a prompt.
+
+### Fixed
+
+- **Off-device focuses are no longer paused by idle.** Both `handleIdleStateChanged` and `hardPauseActiveFocus` now exempt `offDevice` focuses, fixing the time-data corruption where an off-device focus was silently paused while the user worked outside Chrome.
+- **Tooltips no longer clip off-screen.** Tooltip x-position is clamped to the viewport and long text wraps (max 280px) — fixes the cut-off tooltips in Settings and everywhere else.
+- **Meeting-domain editor**: the textarea now splits on newlines only (not commas), shows a format placeholder + Enter hint, and stops host-page keyboard shortcuts from intercepting input.
+
+---
+
+## [v6.0.0] - Plan 036 Intelligent Focus Lifecycle — Smart Idle + Auto-Focus + Drift - _2026-05-29_
+
+Absorbs Plans 026 (Auto Focus) and 029 (Auto-Pause Overhaul). Resolves bugs B05/B08 and addresses features #149–#152, #187. Incorporates the challenge-audit resolutions (multi-profile sync race, meeting detection, drift false-positives, prompt-storm mitigation).
+
+### Added
+
+- **Smart Idle Engine** (`clockService`): before pausing the global focus, `collectIdleSuppressors()` consults (a) other browser profiles via the awareness cache, (b) desktop-companion activity within a configurable grace window, and (c) a hardened 3-layer `isUserInMeeting()` scan (all open tabs + companion app), so muted/backgrounded meetings and cross-profile activity no longer trigger false pauses. When idle is genuine, an `IDLE_PROMPT` is shown ("Yes, on task" / "I diverged" / "Pause focus") instead of a silent hard-pause; an unanswered prompt falls back to a hard pause after 5 minutes. Legacy hard-pause is still available via the "Prompt before pausing" toggle.
+- **Multi-profile idle state** (`awarenessService`): each profile now publishes its Chrome idle verdict in the `browser_profile_status.metadata` jsonb (no schema migration) and surfaces it in the `_otherProfiles` cache, fixing the multi-profile sync-override hazard where an unattended profile could pause an actively-worked focus account-wide.
+- **Auto-Focus heuristic engine** (`autoFocusService`): when no focus is active, tab activations/navigations are matched against URL rules (explicit auto-create), category/domain groups (high confidence), and the companion app category (medium), surfacing a non-blocking InBar chip that auto-fades after 8s. A per-domain exponential decay engine (30→60→120→240→480m) suppresses repeat prompts after dismissal.
+- **Context drift detection** (`autoFocusService`): a 5-layer association hierarchy (direct association, companion overrule, URL-rule intent, category/domain-group, hostname) plus a localhost/chrome:// whitelist decides whether a tab counts as drift. A wandering→drifted state machine (armed by the `auto-focus-drift` alarm at `driftThresholdMinutes`) raises `FOCUS_DRIFT_DETECTED` with "Still working / Switching / Just checking" options and emits a `context_drift` webhook.
+- **Auto clock-in (#187)**: optional, with a configurable trigger — "When Chrome opens" (default, via `runtime.onStartup`) or "On OS unlock" (via the desktop companion's idle→active transition).
+- **Companion bridge helpers** (`companionService`): `lastHeartbeat`, `getActiveApp`/`getActiveAppCategory`, and `isRecentlyActive(grace)` for the idle and drift engines.
+- **Settings → 🧠 Focus Lifecycle** panel: idle behaviour (prompt toggle, thresholds, companion grace, meeting-domain editor), auto-focus (enable, confidence, dismissal-history viewer/clear), drift detection (enable + thresholds), and auto clock-in (enable + trigger). URL Rules gain a per-rule **🎯 Auto-create focus** toggle.
+
+### Changed
+
+- Idle handling no longer mutates the global focus when the user is active on another profile, in another desktop app, or in a meeting — it only updates this profile's own status.
+
+---
+
 ## [v5.8.0] - Plan 031 Gap Completion — Auto-Checkpoint + SectionNav + Sub-Focus + Backburner Fixes - _2026-05-28_
 
 ### Added

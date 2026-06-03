@@ -25,6 +25,13 @@ class CompanionBridge {
     this.desktopClock = null;
     this.initialized = false;
     this.lastBroadcastedIdleState = null;
+    // Plan 036: heartbeat + desktop-activity tracking for the Smart Idle Engine.
+    // lastMessageAt proves the companion process is alive; lastActivityAt is
+    // the last time the user actually did something on the desktop (app switch
+    // or a non-idle IDLE_STATE); desktopIdle mirrors the companion's own idle.
+    this.lastMessageAt = null;
+    this.lastActivityAt = null;
+    this.desktopIdle = false;
   }
 
   initialize() {
@@ -157,6 +164,8 @@ class CompanionBridge {
   }
 
   _handleMessage(msg) {
+    // Plan 036: any inbound message proves the companion is alive.
+    this.lastMessageAt = Date.now();
     switch (msg.type) {
       case 'APP_SWITCH':
         this._handleAppSwitch(msg);
@@ -195,6 +204,10 @@ class CompanionBridge {
       category: msg.category,
       timestamp: msg.timestamp
     };
+
+    // Plan 036: an app switch is concrete desktop activity.
+    this.lastActivityAt = Date.now();
+    this.desktopIdle = false;
 
     chrome.storage.local.set({ companionActiveApp: this.lastAppSwitch });
     this._emit('appSwitch', this.lastAppSwitch);
@@ -255,6 +268,10 @@ class CompanionBridge {
       isIdle: msg.is_idle,
       idleMs: msg.idle_ms
     };
+
+    // Plan 036: track the companion's own idle verdict + activity timestamp.
+    this.desktopIdle = !!msg.is_idle;
+    if (!msg.is_idle) this.lastActivityAt = Date.now();
 
     this._emit('idleState', payload);
     if (state !== this.lastBroadcastedIdleState) {
@@ -318,6 +335,43 @@ class CompanionBridge {
 
   get activeApp() {
     return this.lastAppSwitch;
+  }
+
+  // Plan 036: timestamp (ms) of the last inbound companion message, or null.
+  get lastHeartbeat() {
+    return this.lastMessageAt;
+  }
+
+  // Plan 036: normalised active-app accessor for the idle/auto-focus engines.
+  // Returns null when nothing is known, otherwise the raw app switch plus a
+  // canonical `name` field (callers use `.name`).
+  getActiveApp() {
+    if (!this.lastAppSwitch) return null;
+    return {
+      ...this.lastAppSwitch,
+      name: this.lastAppSwitch.displayName || this.lastAppSwitch.appName || null
+    };
+  }
+
+  // Plan 036: category of the active desktop app (from the companion), or null.
+  getActiveAppCategory() {
+    return this.lastAppSwitch?.category || null;
+  }
+
+  // Plan 036: true when the desktop companion shows the user was genuinely
+  // active within `graceMs`. Requires a live connection, a recent message
+  // (companion not silently dead), recent concrete activity, and that the
+  // companion isn't itself reporting idle. Conservative by design: a false
+  // here simply lets the normal Chrome idle path proceed.
+  isRecentlyActive(graceMs = 5 * 60 * 1000) {
+    if (!this.connected) return false;
+    if (this.desktopIdle) return false;
+    const now = Date.now();
+    // The companion must have spoken recently, otherwise we can't trust it.
+    if (!this.lastMessageAt || now - this.lastMessageAt > graceMs) return false;
+    // And we need concrete activity (app switch / non-idle) within grace.
+    if (!this.lastActivityAt || now - this.lastActivityAt > graceMs) return false;
+    return true;
   }
 
   get clockState() {
