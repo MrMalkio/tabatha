@@ -5,6 +5,27 @@ file.
 
 ---
 
+## [v6.4.0] - Ghost-stint fix: durable install identity + Live Stints panel - _2026-06-04_
+
+### Added
+
+- **Live Stints panel** (Work Shifts → Live Stints view): lists all browser-profile installs currently clocked in — self, live siblings, and dead orphans — with per-install badges (live/stale/machine group), clock-in timestamp, last-seen heartbeat, and individual **Clock out** / **Dismiss** actions. Dead orphans show an end-time picker prefilled with `last_heartbeat_at`. Bulk **Clean up all offline** removes all stale presence rows in one step.
+- **`OtherProfilesStrip` stale-collapse**: the awareness strip now shows only live chips; stale orphans collapse into a single `🕘 N offline · clean up` chip that links to the Live Stints panel.
+- **Home clock indicator**: a compact chip near the home clock links to the Live Stints panel when sibling stints are present.
+- **New background handlers** in `awarenessService`: `LIST_LIVE_STINTS`, `CLOCK_OUT_INSTALL`, `DISMISS_INSTALL`, `CLEAR_ALL_OFFLINE`.
+- **Self-command listener** on the Supabase Realtime subscription: a live sibling install can be clocked out remotely by writing `metadata.clock_out_requested_at`; the target install runs its own local clock-out sequence.
+- **Pure reconciliation helpers** (`src/utils/stintReconciliation.js`): `isLiveConcurrent`, `reconstructStintFromStatus`, `resolveAttributionTarget`, `classifyInstallForCleanup`. 26 unit tests.
+
+### Fixed
+
+- **Concurrent-shift false warning**: the "hours may stack and double-count" popup now only fires for a genuinely live, same-classification install. Dead orphans (stale/offline) and installs with a different classification (personal vs professional) no longer trigger the warning.
+
+### Changed
+
+- **Durable install identity** (migration 017): `browser_profiles` gains `local_id` (stable per-install UUID) and `machine_id` (companion browser-profile link). A unique index on `(profile_id, local_id)` makes `ensureBrowserProfileRow` idempotent — the same install always maps to one row, regardless of concurrent syncs or storage resets. Existing rows keep `local_id IS NULL` and are reconciled via the Live Stints panel.
+
+---
+
 ## [v6.3.2] - QA regression fixes (idle overlay, sidebar parity, domain backfill) - _2026-05-29_
 
 ### Fixed
