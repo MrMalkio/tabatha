@@ -12,6 +12,7 @@ import { StagePicker } from '../components/ui/StagePicker';
 import { TagPicker } from '../components/ui/TagPicker';
 import { useOrgData } from '../hooks/useOrgData';
 import { formatTime } from '../utils/formatTime';
+import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
@@ -120,7 +121,7 @@ function Sidebar() {
   const [tabs] = useChromeStorage('tabs', {});
   const [timeTracking] = useChromeStorage('timeTracking', { byTab:{} });
   const [clockSession] = useChromeStorage('clockSession', { active:false });
-  const { isPersonal } = useInstallIdentity();
+  const { isPersonal, identity } = useInstallIdentity();
   const otherProfiles = useOtherProfiles();
 
   const guardedClockToggle = () => {
@@ -128,13 +129,13 @@ function Sidebar() {
       sendMessage('CLOCK_OUT');
       return;
     }
-    const stacking = otherProfiles.filter(p =>
-      p.classification !== 'personal' &&
-      (p.clock_state === 'clocked_in' || p.clock_state === 'on_break')
-    );
+    // Only a genuinely live install of the same classification stacks hours;
+    // stale/abandoned or different-classification installs don't warn.
+    const selfClassification = identity?.classification || 'professional';
+    const stacking = otherProfiles.filter(p => isLiveConcurrent(p, selfClassification));
     if (stacking.length > 0) {
       const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
-      const ok = window.confirm(`You're already clocked in on:\n${lines}\n\nClocking in here adds a second concurrent shift. Hours can stack and double-count. Continue?`);
+      const ok = window.confirm(`You're clocked in on another live install of the same type:\n${lines}\n\nClocking in here too runs concurrent shifts that can double-count hours. Continue?\n\n(Clear abandoned shifts in Work Shifts → Live Stints.)`);
       if (!ok) return;
     }
     sendMessage('CLOCK_IN');

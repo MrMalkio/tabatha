@@ -31,11 +31,21 @@ Time attribution feeds into profitability reports (#189), billing (#14), and QBO
 - Org Profiles (#158) define the client catalog; this feature tracks time against it
 - Replaces manual timer-switching (the core pain point for Mike)
 
+## Note — feeds the clock-into-context dimension
+
+The client/project this resolves is the **dimension the clock model should
+carry** so concurrent shifts across different clients are legitimate and
+attribute correctly. See the addendum in
+[#203 Business Taxonomy Mapping](203-business-taxonomy-mapping.md) for how this
+generalizes the same-classification concurrency guard introduced by the
+Ghost-Stint fix (`src/utils/stintReconciliation.js`).
+
 ## Related Features
 
 - #92 Client/Project Cataloging
 - #147 Universal URL Mapping Engine
 - #158 Org Profiles
 - #189 Service-Level Profitability Reporting
+- #203 Business Taxonomy Mapping
 - #204 Activity Review & Approval Flow
 - #205 QuickBooks Online Payroll Export Workflow

@@ -42,9 +42,32 @@ Introduces a primary taxonomic classification for all logged time and activities
     - **Teal / Blue:** "IN" the business (Client billable).
     - **Amber / Grey:** "ON" the business (Internal overhead).
 
+## Addendum — Clock dimension generalizes concurrency handling
+
+> Added during the Concurrent-Shift / Ghost-Stint fix (Migration 015 +
+> `src/utils/stintReconciliation.js`).
+
+Today clock-in carries **no** "what am I clocking into" dimension — a shift is a
+single boolean, and "professional vs personal" is only a property of which
+browser *install* you're in (`browser_profiles.classification`). That bluntness
+is why the concurrency warning could only reason at the install-classification
+level: `isLiveConcurrent(row, selfClassification)` currently treats a second
+live clock as a conflict **only when it shares the same classification**, and
+treats different classifications (professional + personal, or two businesses) as
+legitimate parallel work.
+
+When this feature lands the IN/ON taxonomy + `client_id` / `service_type` /
+`realm_id` on the stint record, the concurrency check should be **generalized
+from "same classification" to "same business/realm context"**: two simultaneous
+clocks are legitimate when they're IN different clients/services (or one IN and
+one ON the business), and only a true same-context overlap should warn or
+block. The hours then attribute correctly per client/service instead of
+double-counting a single ambiguous shift. This is the natural home for the
+multi-business / "owner working across entities" concurrency the user raised.
+
 ## Related Features
 
-- #188 Client/Project-Level Time Attribution
+- #188 Client/Project-Level Time Attribution (clock-into-context dimension; see addendum there)
 - #189 Service-Level Profitability Reporting
 - #158 Org Profiles
 - #159 Task Cost & Revenue Tracking

@@ -50,9 +50,17 @@ export function OtherProfilesStrip({ style = {} }) {
   const rows = useOtherProfiles();
   if (!rows.length) return null;
 
+  // Only show genuinely-live siblings as chips. Stale installs (no heartbeat in
+  // 5m) are almost always abandoned ghosts — collapse them into a single
+  // "+N offline" chip that links to Live Stints for cleanup, instead of
+  // cluttering the header with day-old frozen state.
+  const live = rows.filter(r => !r.stale);
+  const staleCount = rows.length - live.length;
+  if (!live.length && !staleCount) return null;
+
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '4px 0', ...style }}>
-      {rows.map(row => {
+      {live.map(row => {
         const icon = BROWSER_ICON[row.browser] || CLASSIFICATION_ICON[row.classification] || '🖥';
         const name = row.profile_name || `Install ${row.browser_profile_id?.slice(0, 6) || '—'}`;
         const dim = !row.online || row.stale;
@@ -80,6 +88,20 @@ export function OtherProfilesStrip({ style = {} }) {
           </div>
         );
       })}
+      {staleCount > 0 && (
+        <button
+          onClick={() => chrome.tabs.create({ url: 'workshifts.html#live' })}
+          title="Offline installs (no heartbeat in 5m) — review and clean up in Live Stints"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            padding: '4px 10px', borderRadius: '999px',
+            border: '1px dashed var(--color-border)', background: 'transparent',
+            fontSize: '11px', color: 'var(--color-text-muted)', cursor: 'pointer', opacity: 0.8
+          }}
+        >
+          🕘 {staleCount} offline · clean up
+        </button>
+      )}
     </div>
   );
 }
