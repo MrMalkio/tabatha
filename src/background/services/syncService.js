@@ -131,9 +131,15 @@ function syncScope(profileId, orgId, teamId, browserProfileId) {
 // on failure (already diagnosed).
 async function ensureBrowserProfileRow(supabase, profileId) {
   const identity = await getInstallIdentity();
+  // machine_id is best-effort: the companion's browser_profile id when this
+  // install is paired with a desktop companion (same machine by definition),
+  // else null. Core clock-in never depends on it.
+  const machineId = await getCompanionBrowserProfileId().catch(() => null);
   const payload = {
     profile_id: profileId,
     browser: 'chrome',
+    local_id: identity.localId || null,
+    machine_id: machineId || null,
     profile_name: identity.profileName || null,
     classification: identity.classification || 'professional',
     extension_installed: true,
@@ -142,6 +148,9 @@ async function ensureBrowserProfileRow(supabase, profileId) {
 
   try {
     if (identity.supabaseId) {
+      // Legacy / known install: keep its single existing row and adopt
+      // local_id onto it (the row predates this column). Do NOT upsert here
+      // or a NULL-local_id row would fail the conflict target and duplicate.
       const { error } = await supabase
         .schema('tabatha')
         .from('browser_profiles')
@@ -156,10 +165,12 @@ async function ensureBrowserProfileRow(supabase, profileId) {
       return identity.supabaseId;
     }
 
+    // Fresh install: upsert on (profile_id, local_id) so concurrent sync
+    // cycles converge on one row instead of racing two INSERTs.
     const { data, error } = await supabase
       .schema('tabatha')
       .from('browser_profiles')
-      .insert(payload)
+      .upsert(payload, { onConflict: 'profile_id,local_id' })
       .select('id')
       .single();
     if (error) {

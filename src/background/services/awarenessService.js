@@ -16,6 +16,11 @@
 
 import { getStorage, setStorage } from './storageService.js';
 import { getInstallIdentity } from '../../services/installIdentity.js';
+import {
+  reconstructStintFromStatus,
+  resolveAttributionTarget,
+  classifyInstallForCleanup
+} from '../../utils/stintReconciliation.js';
 
 let deps = {};
 let realtimeChannel = null;
@@ -29,6 +34,7 @@ let activeProfileId = null;
 let activeBrowserProfileId = null;
 let storageListenerRegistered = false;
 let pendingPushTimer = null;
+let lastHandledClockOutReq = null;
 
 const HEARTBEAT_INTERVAL_MS = 60_000;
 const PUSH_DEBOUNCE_MS = 500;
@@ -272,7 +278,7 @@ async function rebuildOtherProfilesCache(supabase, profileId, selfBrowserProfile
     const { data: meta } = await supabase
       .schema('tabatha')
       .from('browser_profiles')
-      .select('id, browser, profile_name, classification')
+      .select('id, browser, profile_name, classification, machine_id')
       .eq('profile_id', profileId);
 
     const metaById = new Map((meta || []).map(m => [m.id, m]));
@@ -288,6 +294,7 @@ async function rebuildOtherProfilesCache(supabase, profileId, selfBrowserProfile
           profile_name: m.profile_name || null,
           browser: m.browser || 'chrome',
           classification: m.classification || null,
+          machine_id: m.machine_id || null,
           online: !!s.online && !stale,
           stale,
           last_heartbeat_at: s.last_heartbeat_at,
@@ -324,13 +331,182 @@ async function subscribeToOtherProfiles(supabase, profileId, selfBrowserProfileI
     .on(
       'postgres_changes',
       { event: '*', schema: 'tabatha', table: 'browser_profile_status', filter: `profile_id=eq.${profileId}` },
-      () => { rebuildOtherProfilesCache(supabase, profileId, selfBrowserProfileId); }
+      (payload) => { handleRealtimeChange(payload, supabase, profileId, selfBrowserProfileId); }
     )
     .subscribe();
 }
 
+// Realtime fan-in. Rebuilds the others-cache on any change, and — if the
+// changed row is THIS install's — acts on a clock-out command another install
+// wrote into our metadata (the live-install path of CLOCK_OUT_INSTALL).
+async function handleRealtimeChange(payload, supabase, profileId, selfId) {
+  rebuildOtherProfilesCache(supabase, profileId, selfId);
+  try {
+    const row = payload?.new;
+    if (!row || row.browser_profile_id !== selfId) return;
+    const req = row.metadata?.clock_out_requested_at;
+    if (req && req !== lastHandledClockOutReq) {
+      lastHandledClockOutReq = req;
+      // clockOut() is a no-op if we're not clocked in, so this is safe.
+      if (deps.requestClockOut) await deps.requestClockOut();
+    }
+  } catch { /* best-effort */ }
+}
+
+// Read all installs for this user, enriched with browser_profiles meta and a
+// computed stale/online flag. Shared by LIST_LIVE_STINTS and clock-out.
+async function fetchInstalls(supabase, profileId, selfId) {
+  const { data: statuses } = await supabase
+    .schema('tabatha')
+    .from('browser_profile_status')
+    .select('*')
+    .eq('profile_id', profileId);
+  const { data: meta } = await supabase
+    .schema('tabatha')
+    .from('browser_profiles')
+    .select('id, browser, profile_name, classification, machine_id')
+    .eq('profile_id', profileId);
+
+  const metaById = new Map((meta || []).map(m => [m.id, m]));
+  const now = Date.now();
+  return (statuses || []).map(s => {
+    const m = metaById.get(s.browser_profile_id) || {};
+    const lastBeatMs = s.last_heartbeat_at ? new Date(s.last_heartbeat_at).getTime() : 0;
+    const stale = now - lastBeatMs > OFFLINE_THRESHOLD_MS;
+    return {
+      ...s,
+      profile_name: m.profile_name || null,
+      browser: m.browser || 'chrome',
+      classification: m.classification || null,
+      machine_id: m.machine_id || null,
+      online: !!s.online && !stale,
+      stale,
+      is_self: s.browser_profile_id === selfId
+    };
+  });
+}
+
+async function getClockScope(supabase, profileId) {
+  const { data } = await supabase
+    .schema('tabatha')
+    .from('profiles')
+    .select('default_org_id, default_team_id')
+    .eq('id', profileId)
+    .maybeSingle();
+  return { org_id: data?.default_org_id || null, team_id: data?.default_team_id || null };
+}
+
+// Clock out a single install. Three paths:
+//   - self        → run our own local clock-out
+//   - live other  → write a command into its row; it self-clocks-out
+//   - dead orphan → reconstruct its final stint, attribute it to a real
+//                   profile, write it to clock_sessions, delete the row
+async function clockOutInstall(supabase, profileId, browserProfileId, endTime) {
+  if (browserProfileId === activeBrowserProfileId) {
+    if (deps.requestClockOut) await deps.requestClockOut();
+    return { success: true, mode: 'local' };
+  }
+
+  const installs = await fetchInstalls(supabase, profileId, activeBrowserProfileId);
+  const target = installs.find(i => i.browser_profile_id === browserProfileId);
+  if (!target) return { error: 'install_not_found' };
+
+  if (target.online && !target.stale) {
+    const metadata = { ...(target.metadata || {}), clock_out_requested_at: new Date().toISOString() };
+    const { error } = await supabase
+      .schema('tabatha')
+      .from('browser_profile_status')
+      .update({ metadata, updated_at: new Date().toISOString() })
+      .eq('browser_profile_id', browserProfileId);
+    if (error) return { error: error.message };
+    return { success: true, mode: 'remote' };
+  }
+
+  // Dead orphan — reconstruct + attribute.
+  const reals = installs
+    .filter(i => !i.stale && i.browser_profile_id !== browserProfileId)
+    .map(i => ({ browser_profile_id: i.browser_profile_id, classification: i.classification, machine_id: i.machine_id }));
+  const attributedTo = resolveAttributionTarget(
+    { browser_profile_id: browserProfileId, classification: target.classification, machine_id: target.machine_id },
+    reals
+  );
+  const stint = reconstructStintFromStatus(target, endTime);
+  const scope = await getClockScope(supabase, profileId);
+
+  const { error: insErr } = await supabase
+    .schema('tabatha')
+    .from('clock_sessions')
+    .upsert({
+      profile_id: profileId,
+      org_id: scope.org_id,
+      team_id: scope.team_id,
+      browser_profile_id: attributedTo,
+      client_id: `reconstructed:${browserProfileId}:${stint.clocked_in_at}`,
+      ...stint,
+      source: 'reconstructed',
+      synced_at: new Date().toISOString()
+    }, { onConflict: 'profile_id,client_id' });
+  if (insErr) return { error: insErr.message };
+
+  // The stint is now preserved in clock_sessions, so the frozen presence row
+  // (clock AND focus state) is meaningless — delete it so its chip disappears
+  // from the awareness strip entirely rather than lingering dimmed.
+  const delErr = await deleteStatusRow(supabase, browserProfileId);
+  if (delErr) return { error: delErr.message };
+
+  return { success: true, mode: 'reconstructed', attributedTo, stint };
+}
+
+// Delete a sibling's presence row (RLS allows own-profile delete). Used for
+// reconciled orphans and for dismissing focus-only ghosts.
+async function deleteStatusRow(supabase, browserProfileId) {
+  const { error } = await supabase
+    .schema('tabatha')
+    .from('browser_profile_status')
+    .delete()
+    .eq('browser_profile_id', browserProfileId);
+  return error || null;
+}
+
+// Dismiss a stale install that has no open shift (focus-only ghost, or a
+// clocked-out row that's gone offline) — nothing to reconstruct, just clear
+// the stale presence row. Guarded so we never delete a live or self row.
+async function dismissInstall(supabase, profileId, browserProfileId) {
+  if (browserProfileId === activeBrowserProfileId) return { error: 'cannot_dismiss_self' };
+  const installs = await fetchInstalls(supabase, profileId, activeBrowserProfileId);
+  const target = installs.find(i => i.browser_profile_id === browserProfileId);
+  if (!target) return { error: 'install_not_found' };
+  if (!target.stale) return { error: 'install_is_live' };
+  const err = await deleteStatusRow(supabase, browserProfileId);
+  if (err) return { error: err.message };
+  await rebuildOtherProfilesCache(supabase, profileId, activeBrowserProfileId);
+  return { success: true, mode: 'dismissed' };
+}
+
+// Sweep every offline (stale) sibling: reconcile the ones still holding an
+// open shift (reconstruct a stint ending at their last heartbeat), and dismiss
+// the rest (focus-only ghosts, clocked-out rows). Self and live installs are
+// left untouched. This is what makes the awareness strip clean itself up.
+async function clearAllOffline(supabase, profileId) {
+  const installs = await fetchInstalls(supabase, profileId, activeBrowserProfileId);
+  let reconciled = 0;
+  let dismissed = 0;
+  for (const i of installs) {
+    const verdict = classifyInstallForCleanup(i, activeBrowserProfileId);
+    if (verdict === 'reconcile') {
+      const res = await clockOutInstall(supabase, profileId, i.browser_profile_id, i.last_heartbeat_at);
+      if (res?.success) reconciled++;
+    } else if (verdict === 'dismiss') {
+      const err = await deleteStatusRow(supabase, i.browser_profile_id);
+      if (!err) dismissed++;
+    }
+  }
+  await rebuildOtherProfilesCache(supabase, profileId, activeBrowserProfileId);
+  return { success: true, reconciled, dismissed, count: reconciled + dismissed };
+}
+
 // Public message handlers (wired into the service router).
-export async function handleMessage(type) {
+export async function handleMessage(type, message) {
   switch (type) {
     case 'AWARENESS_START':
       await startAwareness();
@@ -341,6 +517,23 @@ export async function handleMessage(type) {
     case 'AWARENESS_STOP':
       await stopAwareness({ markOffline: true });
       return { success: true };
+    case 'LIST_LIVE_STINTS': {
+      if (!deps.supabase || !activeProfileId) return { installs: [] };
+      const installs = await fetchInstalls(deps.supabase, activeProfileId, activeBrowserProfileId);
+      return { installs, selfBrowserProfileId: activeBrowserProfileId };
+    }
+    case 'CLOCK_OUT_INSTALL': {
+      if (!deps.supabase || !activeProfileId) return { error: 'not_ready' };
+      return await clockOutInstall(deps.supabase, activeProfileId, message?.browser_profile_id, message?.end_time);
+    }
+    case 'DISMISS_INSTALL': {
+      if (!deps.supabase || !activeProfileId) return { error: 'not_ready' };
+      return await dismissInstall(deps.supabase, activeProfileId, message?.browser_profile_id);
+    }
+    case 'CLEAR_ALL_OFFLINE': {
+      if (!deps.supabase || !activeProfileId) return { error: 'not_ready' };
+      return await clearAllOffline(deps.supabase, activeProfileId);
+    }
     default:
       return undefined;
   }

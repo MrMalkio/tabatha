@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
@@ -39,7 +39,9 @@ function WorkShifts() {
   const [clockSession] = useChromeStorage('clockSession', { active: false });
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('list'); // 'list' | 'weekly' | 'schedule' | 'analytics'
+  const [view, setView] = useState(() =>
+    (typeof window !== 'undefined' && window.location.hash === '#live') ? 'live' : 'list'
+  ); // 'list' | 'live' | 'weekly' | 'schedule' | 'analytics'
   const [selectedShift, setSelectedShift] = useState(null);
 
   // Load history from background
@@ -103,14 +105,14 @@ function WorkShifts() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          {['list', 'weekly', 'schedule', 'analytics'].map(v => (
+          {['list', 'live', 'weekly', 'schedule', 'analytics'].map(v => (
             <button key={v} onClick={() => setView(v)} style={{
               background: view === v ? 'var(--color-accent-primary)' : 'var(--color-surface)',
               color: view === v ? '#000' : 'var(--color-text-primary)',
               border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
               padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
               textTransform: 'capitalize',
-            }}>{v === 'analytics' ? '📊 Analytics' : v === 'weekly' ? '📅 Weekly' : v === 'schedule' ? '📋 Schedule' : '📋 All Shifts'}</button>
+            }}>{v === 'analytics' ? '📊 Analytics' : v === 'weekly' ? '📅 Weekly' : v === 'schedule' ? '📋 Schedule' : v === 'live' ? '🟢 Live Stints' : '📋 All Shifts'}</button>
           ))}
           <button onClick={() => chrome.tabs.create({ url: 'home.html' })} style={{
             background: 'var(--color-surface)', color: 'var(--color-text-primary)',
@@ -150,6 +152,9 @@ function WorkShifts() {
           <motion.div key={view} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
             {view === 'list' && (
               <ShiftListView history={history} loading={loading} selectedShift={selectedShift} onSelect={setSelectedShift} />
+            )}
+            {view === 'live' && (
+              <LiveStintsView />
             )}
             {view === 'weekly' && (
               <WeeklyView groups={weeklyGroups} />
@@ -481,6 +486,196 @@ function ScheduleView() {
     </div>
   );
 }
+
+// ═══════════════════════════════════════
+// Live Stints — all of this user's installs and their clock state, with the
+// ability to clock any (or all abandoned) out. Resolves the "ghost stint"
+// problem: an install that clocked in and vanished leaves a row stuck
+// 'clocked_in' that nothing else could reach.
+// ═══════════════════════════════════════
+const CLASS_ICON = { business: '💼', professional: '👔', work: '🏗', personal: '🏠' };
+const BROWSER_ICON = { desktop_companion: '💻', mobile_ios: '📱', mobile_android: '📱', tabatha_web: '🌐' };
+
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function installRank(i) {
+  const active = i.clock_state === 'clocked_in' || i.clock_state === 'on_break';
+  if (active && i.online && !i.stale) return 0;   // live shift
+  if (active && i.stale) return 1;                 // abandoned shift
+  return 2;                                        // idle / clocked out
+}
+
+function LiveStintsView() {
+  const [data, setData] = useState({ installs: [], selfBrowserProfileId: null });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(null);       // browser_profile_id being acted on, or 'all'
+  const [editing, setEditing] = useState(null); // browser_profile_id whose end-time picker is open
+  const [endInput, setEndInput] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const refresh = useCallback(() => {
+    sendMessage('LIST_LIVE_STINTS').then(res => {
+      setData({ installs: res?.installs || [], selfBrowserProfileId: res?.selfBrowserProfileId || null });
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const iv = setInterval(refresh, 10000);
+    return () => clearInterval(iv);
+  }, [refresh]);
+
+  const flash = (text) => { setMsg(text); setTimeout(() => setMsg(''), 4000); };
+
+  const doClockOut = async (inst, endTime) => {
+    setBusy(inst.browser_profile_id);
+    const res = await sendMessage('CLOCK_OUT_INSTALL', { browser_profile_id: inst.browser_profile_id, end_time: endTime || null });
+    setBusy(null); setEditing(null);
+    if (res?.error) flash('⚠ ' + res.error);
+    else flash(res?.mode === 'reconstructed' ? '✓ Reconstructed stint saved to history'
+      : res?.mode === 'remote' ? '✓ Asked that install to clock itself out'
+      : '✓ Clocked out');
+    refresh();
+  };
+
+  const doDismiss = async (inst) => {
+    setBusy(inst.browser_profile_id);
+    const res = await sendMessage('DISMISS_INSTALL', { browser_profile_id: inst.browser_profile_id });
+    setBusy(null);
+    flash(res?.error ? '⚠ ' + res.error : '✓ Dismissed offline install');
+    refresh();
+  };
+
+  const clearAllOffline = async () => {
+    if (!window.confirm('Clean up every offline install? Open shifts are reconstructed (ending at their last heartbeat, attributed to your matching real profile); the rest are dismissed. Live installs are untouched.')) return;
+    setBusy('all');
+    const res = await sendMessage('CLEAR_ALL_OFFLINE');
+    setBusy(null);
+    flash(res?.error ? '⚠ ' + res.error : `✓ Reconciled ${res?.reconciled || 0}, dismissed ${res?.dismissed || 0}`);
+    refresh();
+  };
+
+  const installs = useMemo(() => [...data.installs].sort((a, b) => installRank(a) - installRank(b)), [data.installs]);
+  const offlineCount = installs.filter(i => i.stale && i.browser_profile_id !== data.selfBrowserProfileId).length;
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)' }}>Loading installs…</div>;
+
+  if (installs.length === 0) return (
+    <GlassCard style={{ padding: '40px', textAlign: 'center' }}>
+      <div style={{ fontSize: '24px', marginBottom: '8px' }}>🖥️</div>
+      <div style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No install activity yet. Once you clock in, your installs appear here.</div>
+    </GlassCard>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '24px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+          {msg || `${installs.length} install(s)${offlineCount ? ` · ${offlineCount} offline` : ''}`}
+        </span>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button onClick={refresh} style={miniBtn}>↻ Refresh</button>
+          {offlineCount > 0 && (
+            <button onClick={clearAllOffline} disabled={busy === 'all'} style={{ ...miniBtn, borderColor: '#ffa726', color: '#ffa726' }}>
+              {busy === 'all' ? '…' : `🧹 Clean up all offline (${offlineCount})`}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {installs.map(i => {
+        const active = i.clock_state === 'clocked_in' || i.clock_state === 'on_break';
+        const live = i.online && !i.stale;
+        const abandoned = active && i.stale;
+        const isSelf = i.browser_profile_id === data.selfBrowserProfileId;
+        const name = i.profile_name || `Install ${i.browser_profile_id?.slice(0, 6) || '—'}`;
+        const icon = BROWSER_ICON[i.browser] || CLASS_ICON[i.classification] || '🖥';
+        const badge = active
+          ? (live ? { t: i.clock_state === 'on_break' ? '☕ on break (live)' : '🟢 clocked in (live)', c: '#66bb6a' }
+                  : { t: i.clock_state === 'on_break' ? '⚪ abandoned (was on break)' : '⚪ abandoned', c: '#ffa726' })
+          : { t: '⚪ clocked out', c: 'var(--color-text-muted)' };
+
+        return (
+          <GlassCard key={i.browser_profile_id} style={{ padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <span style={{ fontSize: '16px' }}>{icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {name}
+                    {isSelf && <span style={{ ...tag, background: '#42a5f522', color: '#42a5f5' }}>this install</span>}
+                    {i.classification && <span style={tag}>{i.classification}</span>}
+                    {i.machine_id && <span style={{ ...tag, opacity: 0.7 }}>🖥 {i.machine_id.slice(0, 6)}</span>}
+                  </div>
+                  <div style={{ fontSize: '10px', color: badge.c }}>
+                    {badge.t}
+                    {active && i.clocked_in_at && <span style={{ color: 'var(--color-text-muted)' }}> · since {fmtTime(i.clocked_in_at)} {fmtDate(i.clocked_in_at)}</span>}
+                    {i.last_heartbeat_at && <span style={{ color: 'var(--color-text-muted)' }}> · last seen {fmtTime(i.last_heartbeat_at)}</span>}
+                  </div>
+                </div>
+              </div>
+
+              {active && (
+                <button
+                  onClick={() => {
+                    if (abandoned) { setEditing(i.browser_profile_id); setEndInput(toLocalInput(i.last_heartbeat_at)); }
+                    else doClockOut(i);
+                  }}
+                  disabled={busy === i.browser_profile_id}
+                  style={{ ...miniBtn, borderColor: '#ef5350', color: '#ef5350', flexShrink: 0 }}
+                >
+                  {busy === i.browser_profile_id ? '…' : isSelf ? '⏹ Clock out' : abandoned ? '⏹ Reconcile' : '⏹ Clock out'}
+                </button>
+              )}
+              {!active && !isSelf && i.stale && (
+                <button
+                  onClick={() => doDismiss(i)}
+                  disabled={busy === i.browser_profile_id}
+                  title="This offline install has no open shift — remove its stale chip"
+                  style={{ ...miniBtn, flexShrink: 0 }}
+                >
+                  {busy === i.browser_profile_id ? '…' : '✕ Dismiss'}
+                </button>
+              )}
+            </div>
+
+            {editing === i.browser_profile_id && (
+              <div style={{ marginTop: '10px', borderTop: '1px solid var(--color-border)', paddingTop: '10px' }}>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+                  This shift was abandoned. Set when it should have ended (defaults to its last heartbeat). The stint is reconstructed and attributed to your matching real profile.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <input type="datetime-local" value={endInput} onChange={e => setEndInput(e.target.value)}
+                    min={toLocalInput(i.clocked_in_at)} max={toLocalInput(new Date().toISOString())}
+                    style={{ background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: '3px', color: 'var(--color-text-primary)', padding: '3px 6px', fontSize: '11px' }} />
+                  <button onClick={() => doClockOut(i, endInput ? new Date(endInput).toISOString() : null)} style={{ ...miniBtn, borderColor: '#66bb6a', color: '#66bb6a' }}>✓ Confirm</button>
+                  <button onClick={() => setEditing(null)} style={miniBtn}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </GlassCard>
+        );
+      })}
+    </div>
+  );
+}
+
+const miniBtn = {
+  background: 'var(--color-surface)', color: 'var(--color-text-primary)',
+  border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+  padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer'
+};
+const tag = {
+  fontSize: '8px', padding: '1px 5px', borderRadius: '3px',
+  background: 'var(--color-surface)', color: 'var(--color-text-muted)',
+  fontWeight: 700, letterSpacing: '0.04em', textTransform: 'capitalize'
+};
 
 // ── Mount ──
 const container = document.getElementById('root');

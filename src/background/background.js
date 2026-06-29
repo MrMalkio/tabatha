@@ -91,7 +91,12 @@ async function setTabData(tabs) {
 }
 
 configureSyncService({ supabase });
-configureAwarenessService({ supabase });
+configureAwarenessService({
+  supabase,
+  // Lets a remote install command this one to clock itself out via the full
+  // local path (history archive + companion + webhook + sync).
+  requestClockOut: () => clockService.handleMessage('CLOCK_OUT', {}, null)
+});
 configureCompanionInstallService({ supabase, companionBridge });
 
 configureNotificationService({

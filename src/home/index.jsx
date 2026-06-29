@@ -28,6 +28,7 @@ import { VoiceInput } from '../components/ui/VoiceInput';
 import { useOrgData } from '../hooks/useOrgData';
 
 import { formatTime } from '../utils/formatTime';
+import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { logger } from '../services/logger';
 import CompanionStatus from '../components/CompanionStatus';
 import UnifiedTimeline from '../components/UnifiedTimeline';
@@ -1544,7 +1545,7 @@ function Home() {
     [intentHistory]
   );
   const [clockSession] = useChromeStorage('clockSession', { active: false });
-  const { isPersonal } = useInstallIdentity();
+  const { isPersonal, identity } = useInstallIdentity();
   const otherProfiles = useOtherProfiles();
   const navTabs = [{ id: 'intents', label: '🎯 Intents' }, { id: 'tasks', label: '📋 Tasks' }, { id: 'projects', label: '🏢 Projects' }, { id: 'org', label: '🏛️ Org' }, { id: 'logs', label: '⏱ Logs' }, { id: 'tabs', label: '📑 Tabs' }, { id: 'contexts', label: '🗂 Sessions' }, { id: 'stashed', label: '📦 Stashed' }];
 
@@ -1565,17 +1566,15 @@ function Home() {
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
   const handleClockIn = async () => {
-    // Stacking warning: if another non-personal install is currently
-    // clocked in (or on break), confirm before adding a second active
-    // clock for the same user. Personal-classified installs don't have
-    // a clock at all, so they're excluded from the stack check.
-    const stacking = otherProfiles.filter(p =>
-      p.classification !== 'personal' &&
-      (p.clock_state === 'clocked_in' || p.clock_state === 'on_break')
-    );
+    // Stacking warning: only a *genuinely live* install of the SAME
+    // classification stacks hours. Stale/abandoned installs and installs of a
+    // different classification (personal, another business) are legitimate
+    // and don't warn — that conflation was the old false-alarm bug.
+    const selfClassification = identity?.classification || 'professional';
+    const stacking = otherProfiles.filter(p => isLiveConcurrent(p, selfClassification));
     if (stacking.length > 0) {
       const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
-      const ok = window.confirm(`You're already clocked in on:\n${lines}\n\nClocking in here adds a second concurrent shift. Hours can stack and double-count. Continue?`);
+      const ok = window.confirm(`You're clocked in on another live install of the same type:\n${lines}\n\nClocking in here too runs concurrent shifts that can double-count hours. Continue?\n\n(To clear abandoned shifts, use Work Shifts → Live Stints.)`);
       if (!ok) return;
     }
     setClockDebug('Sending CLOCK_IN...');
@@ -1742,6 +1741,18 @@ function Home() {
               <Tooltip text="View Shifts">
                 <button onClick={() => chrome.tabs.create({ url: 'workshifts.html' })} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}>⏱️ Shifts</button>
               </Tooltip>
+              {(() => {
+                const open = otherProfiles.filter(p => p.clock_state === 'clocked_in' || p.clock_state === 'on_break');
+                if (!open.length) return null;
+                const anyLive = open.some(p => p.online && !p.stale);
+                return (
+                  <Tooltip text={anyLive ? 'Another install has a live shift — manage in Live Stints' : 'Abandoned shifts on other installs — clear them in Live Stints'}>
+                    <button onClick={() => chrome.tabs.create({ url: 'workshifts.html#live' })} style={{ background: anyLive ? '#ffa72622' : 'transparent', border: `1px solid ${anyLive ? '#ffa726' : 'var(--color-border)'}`, borderRadius: 'var(--radius-sm)', color: anyLive ? '#ffa726' : 'var(--color-text-muted)', padding: '4px 8px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+                      {anyLive ? '🟢' : '⚪'} {open.length} other open
+                    </button>
+                  </Tooltip>
+                );
+              })()}
             </div>
           </GlassCard>
           </CollapsibleSection>
