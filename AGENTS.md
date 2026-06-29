@@ -176,3 +176,4 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
+| 2026-05-30 | Claude (Opus) | Feature Intake #210-214 | Captured 5 new feature specs from user: #210 Priority Challenge & Accountability Interrupts, #211 Audio Input & Voice Control, #212 InPop Intent Dropdown Header, #213 Focus/Task Data Architecture Normalization, #214 Priority Matrix & Lazy Priority (two-tier). All in docs/features/. #214 flags reconcile-with-Asana-skill for canonical matrix terms. | Reconcile #214 against Asana skill priority matrix; prioritize into Phase 3/4; spec AI-counterpart boundary for #211 |

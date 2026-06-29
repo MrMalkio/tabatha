@@ -852,3 +852,23 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 - Asana widget server: implement `POST_ASANA_COMMENT` webhook handler
 - Merge `fix/popup-harmony` into `refactor/decomp-v2` or `master` after regression
 - Version bump (Plan 025 adds ~3 minor features → 4.3.0 candidate)
+
+---
+
+## 2026-05-30 — Feature Intake: Priority, Voice, InPop (#210–#214)
+
+**Goal:** Capture new feature requests into the feature backlog (docs/features/).
+
+**Done:** Authored 5 new feature specs from user intake —
+- **#210 Priority Challenge & Accountability Interrupts** — rotating/anti-fatigue prompts ("is this the most important thing?", "more important than [higher-priority item]?"), Yes/No flows, digression timers, forced justification or priority re-rank, escalation ladder.
+- **#211 Audio Input & Voice Control** — field-level mic on every title/description, omnipresent floating voice button (every tab/window + extension bar + hotkey), phased non-AI → AI build, full voice control of Tabatha (create focus/task, settings, open windows, "plan my day" brain-dump).
+- **#212 InPop Intent Dropdown Header** — full-bleed header doubling as a quiet intent switcher (chevron), reassign tab to any active/all focus, inline new-intent create.
+- **#213 Focus/Task Data Architecture Normalization** — focus = priority-bearing parent task; every task must attach to a focus or be promoted to one; no orphan tasks.
+- **#214 Priority Matrix & Lazy Priority** — two tiers: lazy P1–P5 (fast) + Priority Matrix (urgency × relevance quadrants, nested 1–5, age tie-break). Unified comparable ordering for challenge/scheduler consumers.
+
+**Key findings/decisions:**
+- Priority split into TWO features (#213 data model, #214 priority system) per user.
+- #214 canonical Priority Matrix terms live in the **Asana skill** (not in repo) — flagged reconcile-before-implement.
+- No central feature registry exists; docs/features/*.md is the canonical list.
+
+**Next steps:** Reconcile #214 with the Asana skill matrix definition; slot #210/#213/#214 into Phase 3/4 prioritization; define the AI-counterpart boundary for #211 (which phases ship without AI).

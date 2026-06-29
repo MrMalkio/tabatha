@@ -419,3 +419,35 @@
   1. Leave as backlog; spec individually when prioritized ← **suggested**
   2. Promote the tester-enablement cluster (BD-3/4/6) to a near-term plan
   3. Promote BD-8 (auto-clock-out) — most build-ready, extends current idle engine
+
+## 2026-06-02 — Plan 036/037/038 work landed (PR #21) — coordination pointers
+- **Noticed while:** v6.x QA + Headbox cleanup
+- **What:** Plan 036 (Intelligent Focus Lifecycle) executed → PR #21 (`feat/plan-036-focus-lifecycle` → staging), shipped through v6.3.6. Split into registry entries 036 (the plan), 037 (time editing), 038 (URL-rules intelligence). DB migrations 015 + 016 fixed RLS recursion + browser_profiles writes (audit: `.headbox/db-rls-audit-2026-06-02.md`).
+- **Why it matters:** Open loops to close before "clean slate": merge PR #21, apply remaining migrations decision, finish in-browser RT.
+- **Options:** 1. Finish RT → merge PR #21 ← **suggested**  2. Hold for the cleanup thread
+
+## 2026-06-02 — Turn the backlog brain-dump into real plans/features (BD-1 … BD-31)
+- **Noticed while:** user directive — "everything in backlog-braindump needs to become features and plans"
+- **What:** `.headbox/backlog-braindump-2026-05-29.md` now holds BD-1…BD-31 (vision/ideas/bugs). None are yet real plans or feature specs. User wants to **road-map the PLANS** (each plan carries features/improvements + its own phases), not road-map loose features.
+- **Why it matters:** This is the next big planning pass. Should run AFTER the clean-slate (PRs merged, uncommitted work sorted).
+- **Options:**
+  1. New dedicated "roadmap synthesis" thread: parking lot + backlog + docs → batched plans with phases ← **suggested**
+  2. Convert BD items into individual feature specs first, then group into plans
+  3. Both, in sequence
+
+## 2026-06-02 — Headbox tracking / gitignore + uncommitted-work cleanup (CLEAN SLATE)
+- **Noticed while:** user flagged "headbox shouldn't be pushed to the repo, it should be gitignored" + a pile of uncommitted staging work
+- **What:** (a) `.headbox/` is currently partially git-tracked; user wants it treated as local workspace coordination (gitignore + decide what, if anything, stays versioned). (b) Staging has ~16 uncommitted files from prior sessions (v0_legacy/docs/features.md deletion, new docs/features/210-214 specs, AGENTS/CLAUDE/GEMINI edits, plan-registry edits, Plan-024 PROMPT). NOT from the 036 work. (c) Decide a single canonical Headbox location that all worktrees share (git worktrees each get their own working dir, so a gitignored .headbox is per-worktree unless symlinked or kept only in the main checkout).
+- **Why it matters:** "Clean slate before more development" — the user explicitly wants a fresh thread to sort ALL uncommitted work + Headbox tracking, then proceed.
+- **Options:**
+  1. New cleanup thread: triage every uncommitted file → commit/discard, set `.headbox` gitignore policy, pick canonical headbox location ← **suggested**
+  2. Do it inline now (risks mixing with feature work)
+
+## 2026-06-02 — Process: where do plan docs live? (doc-sprawl guard)
+- **Noticed while:** user — "is your process making new docs that aren't part of the headbox infrastructure? plan-registry and features.md are there for a reason."
+- **What:** Plan 037/038 full docs were created in `docs/plans/`. Need a confirmed convention: do full implementation-plan docs live in `docs/plans/`, in `.headbox/`, or only as registry rows + features.md entries? Avoid creating parallel doc systems.
+- **Why it matters:** Prevents documentation sprawl / divergence from the established Headbox (plan-registry + features.md).
+- **Options:**
+  1. Confirm `docs/plans/<NNN>-suffix.md` as the canonical home, referenced from plan-registry ← **suggested**
+  2. Move plan docs into `.headbox/plans/`
+  3. Keep plans as registry rows + features.md entries only (no separate plan doc)
