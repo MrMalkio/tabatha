@@ -77,7 +77,17 @@ function serverFocusToLocal(row) {
     tags: row.tags || {},
     createdAt: row.created_at || null,
     completedAt,
+    // Carried for the newest-wins merge only (the server stamps every push).
+    syncedAt: row.synced_at || null,
   };
+}
+
+// Reference time for newest-wins on focus items. Prefer an explicit edit/
+// completion stamp; fall back to the server sync stamp, then creation/start.
+function focusRefTime(f) {
+  return new Date(
+    f?.updatedAt || f?.completedAt || f?.endedAt || f?.syncedAt || f?.createdAt || f?.startedAt || 0,
+  ).getTime();
 }
 
 // Merge server rows into a local array keyed by `id`. Newest-wins: a server row
@@ -139,14 +149,42 @@ export async function rehydrateUserData({ supabase, scope }) {
   const engine = (await getFocusEngine()) || { activeFocusId: null, items: {}, history: [] };
   const items = { ...(engine.items || {}) };
   const history = toArray(engine.history).slice();
-  const historyIds = new Set(history.map(h => h?.id).filter(Boolean));
+  const historyIdx = new Map();
+  history.forEach((h, i) => { if (h?.id) historyIdx.set(h.id, i); });
+
+  // Newest-wins merge of cloud focus rows (mirrors mergeById for clock rows).
+  // Each id lives in exactly one place — active `items` or completed `history`.
+  // A cloud row only overwrites a local entry when it is >= the local ref time,
+  // so newer local metadata is never clobbered; ids are never duplicated.
   for (const f of serverFocus) {
+    if (!f?.id) continue;
     const isCompleted = f.focusState === 'completed' || !!f.completedAt;
+    const localItem = items[f.id];
+    const histPos = historyIdx.has(f.id) ? historyIdx.get(f.id) : -1;
+    const localEntry = localItem || (histPos >= 0 ? history[histPos] : null);
+
+    if (!localEntry) {
+      // Brand new id → land it in the right bucket.
+      if (isCompleted) { history.push(f); historyIdx.set(f.id, history.length - 1); }
+      else items[f.id] = f;
+      continue;
+    }
+
+    // Existing id → only apply if the cloud row is at least as new.
+    if (focusRefTime(f) < focusRefTime(localEntry)) continue;
+    const merged = { ...localEntry, ...f };
+
     if (isCompleted) {
-      if (!historyIds.has(f.id) && !items[f.id]) { history.push(f); historyIds.add(f.id); }
-      else if (items[f.id]) { items[f.id] = { ...items[f.id], ...f }; }
+      // Ensure it ends up in history (and not duplicated in items).
+      if (localItem) delete items[f.id];
+      if (histPos >= 0) history[histPos] = merged;
+      else { history.push(merged); historyIdx.set(f.id, history.length - 1); }
+    } else if (localItem) {
+      items[f.id] = merged;
     } else {
-      items[f.id] = { ...(items[f.id] || {}), ...f };
+      // Cloud says still-active but it currently lives in history; keep it in
+      // history to avoid resurrecting a completed focus as active.
+      history[histPos] = merged;
     }
   }
   const mergedEngine = { ...engine, items, history };

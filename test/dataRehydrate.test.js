@@ -119,6 +119,82 @@ test('merge is newest-wins and produces no duplicates', async () => {
   assert.equal(merged.clockedInAt, rows.clock_sessions[0].clocked_in_at);
 });
 
+// ── P3: focus items must be newest-wins, like clock rows ──
+
+test('P3: cloud-newer focus row overwrites the local active item', async () => {
+  const chrome = installChromeMock({
+    store: {
+      focusEngine: {
+        activeFocusId: null,
+        items: {
+          'foc-1': { id: 'foc-1', label: 'Stale local label', funnelStage: 'unsorted', focusState: 'paused', updatedAt: iso(500) },
+        },
+        history: [],
+      },
+    },
+  });
+  const rows = serverRows();
+  rows.focus_items[0].synced_at = iso(5); // server row is much newer
+  const sb = createSupabaseFake({ selects: rows });
+  const { rehydrateUserData } = await freshModule();
+
+  await rehydrateUserData({ supabase: sb, scope: { profile_id: PROFILE } });
+
+  const item = chrome._storage.focusEngine.items['foc-1'];
+  assert.ok(item, 'foc-1 still present in items');
+  assert.equal(item.label, 'Ship A3', 'newer cloud label should win');
+});
+
+test('P3: local-newer focus metadata is NOT clobbered by an older cloud row', async () => {
+  const chrome = installChromeMock({
+    store: {
+      focusEngine: {
+        activeFocusId: null,
+        items: {
+          'foc-1': { id: 'foc-1', label: 'Fresh local label', funnelStage: 'addressing', focusState: 'paused', updatedAt: iso(1) },
+        },
+        history: [],
+      },
+    },
+  });
+  const rows = serverRows();
+  rows.focus_items[0].synced_at = iso(300); // server row is older than local
+  const sb = createSupabaseFake({ selects: rows });
+  const { rehydrateUserData } = await freshModule();
+
+  await rehydrateUserData({ supabase: sb, scope: { profile_id: PROFILE } });
+
+  const item = chrome._storage.focusEngine.items['foc-1'];
+  assert.equal(item.label, 'Fresh local label', 'newer local metadata must survive');
+});
+
+test('P3: completed cloud focus merges into history with no duplicate ids', async () => {
+  const rows = serverRows();
+  rows.focus_items[0].focus_state = 'completed';
+  rows.focus_items[0].completed_at = iso(30);
+  // Two server rows with the SAME client_id should not duplicate.
+  rows.focus_items.push({ ...rows.focus_items[0] });
+  const chrome = installChromeMock({
+    store: {
+      focusEngine: {
+        activeFocusId: null,
+        items: {},
+        history: [{ id: 'foc-1', label: 'Old completed copy', focusState: 'completed', completedAt: iso(120) }],
+      },
+    },
+  });
+  const sb = createSupabaseFake({ selects: rows });
+  const { rehydrateUserData } = await freshModule();
+
+  await rehydrateUserData({ supabase: sb, scope: { profile_id: PROFILE } });
+
+  const history = chrome._storage.focusEngine.history;
+  const matches = history.filter(h => h.id === 'foc-1');
+  assert.equal(matches.length, 1, 'no duplicate history entries for foc-1');
+  // Newer cloud completion (iso(30)) wins over the local copy (iso(120)).
+  assert.equal(matches[0].label, 'Ship A3', 'newer cloud completion should win in history');
+});
+
 test('rehydrate is idempotent — second call is gated by _dataRehydratedAt', async () => {
   const chrome = installChromeMock({ store: {} });
   const sb = createSupabaseFake({ selects: serverRows() });
