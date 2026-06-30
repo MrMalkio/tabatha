@@ -11,6 +11,7 @@ import { getStorage, setStorage } from './storageService.js';
 import { getFocusEngine } from './focusService.js';
 import { getInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
 import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
+import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
 import { getCompanionBrowserProfileId } from './companionInstallService.js';
 
 let deps = {};
@@ -701,6 +702,23 @@ export async function syncToSupabase() {
     }
 
     const scope = syncScope(profileId, orgId, teamId, browserProfileId);
+
+    // Phase C: rehydrate the local activity view from the cloud once per
+    // profile per install (gated by _dataRehydratedAt[profileId]). A fresh or
+    // new-ID install (e.g. after the A2 key pin changed the extension ID) is
+    // push-only for clock/intent/focus and would otherwise show empty. This
+    // runs AFTER the org bootstrap (so focus/registry ids align) and BEFORE the
+    // pushes (so watermarks are set and the pushes below find 0 new rows).
+    if (await isRehydrateNeeded(profileId)) {
+      try {
+        const result = await rehydrateUserData({ supabase, scope });
+        await recordDiagnostic('data_rehydrate_completed',
+          `Rehydrated ${result.clock} clock, ${result.intent} intent, ${result.focus} focus rows from cloud.`);
+      } catch (err) {
+        await recordDiagnostic('data_rehydrate_failed', err);
+      }
+    }
+
     let hadError = false;
 
     const engine = await getFocusEngine();

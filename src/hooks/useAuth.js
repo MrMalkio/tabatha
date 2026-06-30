@@ -40,6 +40,9 @@ function clearAllAuthStorage({ alsoClearDiagnostics = false } = {}) {
       chrome.storage.local.get(null).then(all => {
         const keys = Object.keys(all).filter(k =>
           k.startsWith('sb-') ||
+          // A3: drop the rehydrate watermark so the next sign-in re-pulls the
+          // cloud view (the account / profile may differ from this session).
+          k === '_dataRehydratedAt' ||
           (alsoClearDiagnostics && (k === '_syncDiagnostics' || k === '_lastSyncSuccess'))
         );
         if (keys.length > 0) chrome.storage.local.remove(keys);
