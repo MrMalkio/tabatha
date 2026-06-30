@@ -91,6 +91,8 @@ Already fully in Settings (`settings/index.jsx:524,685-760,1048-1050`). Gap = si
 **Deploy:** `supabase secrets set ASANA_PAT=… ASANA_PROJECT_GID=…`; deploy via `deploy_edge_function`. Pull the project GID + agent PAT via `anasa-context`/`asana-plugin` skills — do NOT hardcode.
 **Scheduled review task (IN SCOPE, agent-side, lowest priority):** after the feedback→Asana pipe works, register a scheduled task (via the `scheduled-tasks`/`schedule` mechanism) that lists new tasks in the feedback Asana project, drafts a fix plan into `docs/plans/`, and comments back on each. No extension code. If time runs short before R&P onboard, this is the one item that may slip to fast-follow — flag it explicitly, never silently drop it.
 
+> **B2 build-agent note (Claude-B, 2026-06-29):** SLIPPED to fast-follow. The scheduled-review task is agent-side only (no extension code) and depends on the live edge function + real Asana project GID being wired up at runtime, neither of which exists yet. It does NOT gate the R&P onboard — the feedback→Asana pipe itself (extension + edge fn) is complete. Orchestrator: register this scheduled task after `supabase secrets set ASANA_PROJECT_GID=…` + `deploy feedback-to-asana`.
+
 **B sequencing:** B1 (validator → handler → UI) and B2 (handler+register → UI; edge fn in parallel) are disjoint and parallelizable.
 
 ---
