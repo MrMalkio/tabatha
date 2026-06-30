@@ -71,6 +71,71 @@ test('time-edit handlers reject an unknown focus', async () => {
   assert.equal(r.error, 'Focus not found');
 });
 
+// ── Workstream B1: SET_FOCUS_START_TIME (backdating) ──
+
+test('SET_FOCUS_START_TIME backdates startedAt and credits the gap into elapsed', async () => {
+  // Focus started 60m ago, paused (no live portion), 10m stored.
+  seed(baseItem({ startedAt: minsAgo(60), elapsedMs: 10 * MIN, lastResumedAt: null }));
+  const newStart = minsAgo(90); // move 30m earlier
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: newStart });
+  const f1 = r.focusEngine.items.f1;
+  assert.equal(f1.startedAt, newStart);
+  // credited +30m → 40m, bounded by wall-clock (90m) so it stands
+  assert.ok(f1.elapsedMs >= 39.9 * MIN && f1.elapsedMs <= 40.1 * MIN, `elapsed was ${f1.elapsedMs}`);
+});
+
+test('SET_FOCUS_START_TIME credited elapsed never exceeds wall-clock since new start', async () => {
+  // Started 5m ago, only push back to 8m ago → credit 3m, but stored already 4m.
+  seed(baseItem({ startedAt: minsAgo(5), elapsedMs: 4 * MIN, lastResumedAt: null }));
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(8) });
+  const f1 = r.focusEngine.items.f1;
+  assert.ok(f1.elapsedMs <= 8 * MIN + 1000, `elapsed ${f1.elapsedMs} exceeded wall-clock`);
+});
+
+test('SET_FOCUS_START_TIME clamps a too-early start up to clock-in', async () => {
+  installChromeMock({
+    store: {
+      focusEngine: { activeFocusId: null, items: { f1: baseItem({ startedAt: minsAgo(30) }) }, history: [] },
+      clockSession: { active: true, clockedInAt: minsAgo(60) },
+    },
+  });
+  // Try to backdate to 120m ago — before clock-in (60m). Should clamp to clock-in.
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(120) });
+  const f1 = r.focusEngine.items.f1;
+  const clockIn = new Date(minsAgo(60)).getTime();
+  assert.equal(new Date(f1.startedAt).getTime(), clockIn);
+});
+
+test('SET_FOCUS_START_TIME rejects a future start (clamps to now)', async () => {
+  seed(baseItem({ startedAt: minsAgo(30) }));
+  const future = new Date(Date.now() + 30 * MIN).toISOString();
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: future });
+  const f1 = r.focusEngine.items.f1;
+  assert.ok(new Date(f1.startedAt).getTime() <= Date.now() + 1000);
+});
+
+test('SET_FOCUS_START_TIME rejects an unknown focus', async () => {
+  seed(baseItem());
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'nope', startedAt: minsAgo(30) });
+  assert.equal(r.error, 'Focus not found');
+});
+
+test('SET_FOCUS_START_TIME on a never-started focus bounds elapsed by now-newStart', async () => {
+  // startedAt null, wallClockMax would be MAX_SAFE_INTEGER without the new start.
+  seed(baseItem({ startedAt: null, elapsedMs: 0, lastResumedAt: null }));
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(20) });
+  const f1 = r.focusEngine.items.f1;
+  assert.equal(f1.startedAt, minsAgo(20));
+  assert.ok(f1.elapsedMs <= 20 * MIN + 1000, `elapsed ${f1.elapsedMs} exceeded new wall-clock`);
+});
+
+test('SET_FOCUS_START_TIME logs a backdated checkpoint', async () => {
+  seed(baseItem({ startedAt: minsAgo(30), elapsedMs: 5 * MIN, lastResumedAt: null }));
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(45) });
+  const f1 = r.focusEngine.items.f1;
+  assert.ok((f1.checkpoint || []).some(c => /backdated|start/i.test(c.text || '')), 'expected a start-edit checkpoint');
+});
+
 test('EDIT_CHECKPOINT updates note text and progress level', async () => {
   seed(baseItem({ checkpoint: [{ id: 'c1', text: 'old', progressLevel: 'none', progressValue: 0, triggeredBy: 'home' }] }));
   const r = await focus.handleMessage('EDIT_CHECKPOINT', { focusId: 'f1', checkpointId: 'c1', text: 'new text', progressLevel: 'lot' });

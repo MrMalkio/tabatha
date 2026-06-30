@@ -7,6 +7,7 @@ import { getStorage, setStorage, getSettings } from './storageService.js';
 import { archiveBeforeCap } from './archiveService.js';
 import { broadcastAll, broadcastToExtension } from './notificationService.js';
 import { logAudit } from './activityAuditService.js';
+import { validateStartTime } from '../../utils/focusTimeValidation.js';
 
 let injectedDeps = {};
 let focusAlarmsRegistered = false;
@@ -164,6 +165,9 @@ async function _handleMessage(type, message) {
       return setFocusElapsed(message.focusId, message.elapsedMs);
     case 'REMOVE_LAST_PAUSE':
       return removeLastPause(message.focusId);
+    // Workstream B1: backdate a focus's start time.
+    case 'SET_FOCUS_START_TIME':
+      return setFocusStartTime(message.focusId, message.startedAt, message.reason);
 
     // Plan 037 Phase 2: per-entry checkpoint editing.
     case 'EDIT_CHECKPOINT':
@@ -201,7 +205,8 @@ const AUDITABLE_ACTIONS = new Set([
   'EXTEND_FOCUS_TIMER', 'LET_ME_COOK', 'BACKBURNER_FOCUS', 'SNOOZE_BACKBURNER',
   'DISMISS_BACKBURNER', 'RESUME_BACKBURNER', 'SAVE_CHECKPOINT_NOTE',
   'IDLE_PROMPT_RESPONSE',
-  'ADJUST_FOCUS_TIME', 'SET_FOCUS_ELAPSED', 'REMOVE_LAST_PAUSE'
+  'ADJUST_FOCUS_TIME', 'SET_FOCUS_ELAPSED', 'REMOVE_LAST_PAUSE',
+  'SET_FOCUS_START_TIME'
 ]);
 
 async function emitAudit(type, message) {
@@ -947,6 +952,71 @@ async function removeLastPause(focusId) {
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return { focusEngine: engine };
+}
+
+// Workstream B1 — Backdate a focus's start time ("I was working before I
+// created this focus"). Moves item.startedAt earlier (validated/clamped) and
+// credits the newly-exposed gap into elapsedMs, bounded by the wall-clock
+// ceiling so elapsed can never exceed (now - newStart). Validation clamps the
+// proposed start to [clock-in, now] and away from other focuses' active
+// intervals (anti-double-count).
+async function setFocusStartTime(focusId, startedAt, reason) {
+  const engine = await getFocusEngine();
+  const item = focusId ? engine.items[focusId] : null;
+  if (!item) return { error: 'Focus not found', focusEngine: engine };
+
+  const now = Date.now();
+  const proposedStartMs = new Date(startedAt).getTime();
+  const currentStartMs = item.startedAt ? new Date(item.startedAt).getTime() : now;
+
+  // Clock-in lower bound (you can't have started before clocking in).
+  let clockInMs = null;
+  try {
+    const { clockSession } = await getStorage('clockSession');
+    if (clockSession?.active && clockSession?.clockedInAt) {
+      clockInMs = new Date(clockSession.clockedInAt).getTime();
+    }
+  } catch { /* no clock session → unbounded below */ }
+
+  // Active intervals of *other* focuses, to avoid double-counting the same
+  // wall-clock window. A focus's active span is [startedAt, now] while running,
+  // or [startedAt, pausedAt] when paused.
+  const otherIntervals = [];
+  for (const [id, other] of Object.entries(engine.items)) {
+    if (id === focusId || !other?.startedAt) continue;
+    const oStart = new Date(other.startedAt).getTime();
+    if (!Number.isFinite(oStart)) continue;
+    let oEnd;
+    if (other.focusState === 'active') oEnd = now;
+    else if (other.pausedAt) oEnd = new Date(other.pausedAt).getTime();
+    else if (other.endedAt) oEnd = new Date(other.endedAt).getTime();
+    else continue;
+    if (Number.isFinite(oEnd) && oEnd > oStart) otherIntervals.push({ startMs: oStart, endMs: oEnd });
+  }
+
+  const v = validateStartTime({ proposedStartMs, currentStartMs, now, clockInMs, otherIntervals });
+  if (!v.ok) return { error: v.error || 'Invalid start time', focusEngine: engine };
+
+  const newStartMs = v.startMs;
+  const oldStartMs = currentStartMs;
+  item.startedAt = new Date(newStartMs).toISOString();
+
+  // Credit the exposed gap (only when moving earlier), bounded by the wall-clock
+  // ceiling computed against the NEW start (reuses the elapsed/active math from
+  // adjustFocusTime: stored elapsed + live active portion must stay <= wall-clock).
+  const addedMs = Math.max(0, oldStartMs - newStartMs);
+  if (addedMs > 0) {
+    const wallMax = now - newStartMs; // never-started safety: bounded by now-newStart
+    const activePortion = item.lastResumedAt ? now - new Date(item.lastResumedAt).getTime() : 0;
+    const storedCeiling = Math.max(0, wallMax - activePortion);
+    item.elapsedMs = Math.max(0, Math.min((item.elapsedMs || 0) + addedMs, storedCeiling));
+  }
+
+  const mins = Math.round(addedMs / 60000);
+  autoCheckpoint(item, `🛠 Start backdated +${mins}m${reason ? ' — ' + reason : ''}`);
+  await setFocusEngine(engine);
+  broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+  return { focusEngine: engine, startedAt: item.startedAt, addedMs, clamped: v.clamped };
 }
 
 // Edit an existing checkpoint entry's text and/or progress level.
