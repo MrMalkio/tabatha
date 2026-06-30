@@ -10,6 +10,7 @@ import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
 import { FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { supabase, redeemInviteToken } from '../services/supabaseClient';
+import { applyInviteDefaults } from '../services/orgAttribution';
 import { useAuth } from '../hooks/useAuth';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
@@ -660,6 +661,10 @@ function Settings() {
       const res = await redeemInviteToken(inviteToken.trim());
       if (res.success) {
         setInviteToken('');
+        // A1 defense-in-depth: if the profile still has no org default (e.g.
+        // server function 018 not yet live), stamp it client-side so the next
+        // sync attributes rows to the org. No-ops once the default is set.
+        try { await applyInviteDefaults({ supabase, profile, result: res }); } catch { /* server is authoritative */ }
         await refreshProfile();
         setAuthError('✓ Successfully joined organization!');
       } else {
