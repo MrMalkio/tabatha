@@ -45,14 +45,27 @@ export function validateStartTime({ proposedStartMs, currentStartMs, now, clockI
   if (bounded !== start) clamped = true;
   start = bounded;
 
-  // (3) overlap: if the proposed start lands inside another focus's active
-  // interval, push it forward to that interval's end (then re-clamp to now).
+  // (3) overlap: the credited span is the WHOLE window [start, now], not just
+  // the start instant. Any other focus interval that overlaps that span would
+  // double-count the shared wall-clock time. Push `start` forward past every
+  // overlapping interval's end so the credited span no longer overlaps ANY of
+  // them. An interval [s,e] overlaps [start, now] iff e > start && s < now.
+  // We iterate to a fixed point because clamping forward past one interval can
+  // still leave (or expose) overlap with a later-ending one.
   if (Array.isArray(otherIntervals) && otherIntervals.length) {
-    for (const iv of otherIntervals) {
-      if (!iv || !Number.isFinite(iv.startMs) || !Number.isFinite(iv.endMs)) continue;
-      if (start >= iv.startMs && start < iv.endMs) {
-        start = iv.endMs;
-        clamped = true;
+    const intervals = otherIntervals.filter(
+      (iv) => iv && Number.isFinite(iv.startMs) && Number.isFinite(iv.endMs) && iv.endMs > iv.startMs,
+    );
+    let moved = true;
+    while (moved) {
+      moved = false;
+      for (const iv of intervals) {
+        // Overlap of the credited span [start, now] with [iv.startMs, iv.endMs].
+        if (iv.endMs > start && iv.startMs < nowMs && start < iv.endMs) {
+          start = iv.endMs;
+          clamped = true;
+          moved = true;
+        }
       }
     }
     // Re-apply the now ceiling after any forward push.
