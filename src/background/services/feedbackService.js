@@ -19,9 +19,14 @@
 // service worker does not pull the full supabase-js client just to fire a POST.
 const SUPABASE_URL = 'https://mtdgoahskcibjbhfvofx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_lPmWAzfBqbHkyGslkhohQA_8QgdBCu_';
+// supabase-js persists the session under this key in chrome.storage.local
+// (see src/services/supabaseClient.js chromeStorageAdapter). Project ref is the
+// subdomain of SUPABASE_URL.
+const SUPABASE_AUTH_STORAGE_KEY = 'sb-mtdgoahskcibjbhfvofx-auth-token';
 const FEEDBACK_FN_PATH = '/functions/v1/feedback-to-asana';
 const TIMEOUT_MS = 8000;
 const VALID_KINDS = new Set(['bug', 'idea']);
+const MAX_TEXT_LEN = 4000;
 
 let injected = {};
 
@@ -31,6 +36,24 @@ export function configureFeedbackService(deps = {}) {
 
 function getFetch() {
   return injected.fetchImpl || globalThis.fetch;
+}
+
+// The signed-in user's Supabase access token (NOT the world-readable anon key).
+// Read straight from the shared chrome.storage.local session so the background
+// service worker need not construct a full supabase-js client. Injectable for
+// tests via configureFeedbackService({ getAccessToken }).
+async function getAccessToken() {
+  if (injected.getAccessToken) return injected.getAccessToken();
+  try {
+    const res = await chrome.storage.local.get(SUPABASE_AUTH_STORAGE_KEY);
+    let session = res?.[SUPABASE_AUTH_STORAGE_KEY] ?? null;
+    if (typeof session === 'string') {
+      try { session = JSON.parse(session); } catch { /* not JSON */ }
+    }
+    return session?.access_token || session?.currentSession?.access_token || null;
+  } catch {
+    return null;
+  }
 }
 
 async function getIdentityContext() {
@@ -50,8 +73,10 @@ function getVersion() {
 
 // Build the payload contract:
 //   { kind, text, version, context:{surface,localId,machineId,url}, submittedAt }
+// Preserves the RAW kind (not normalized) so submitFeedback can reject an
+// invalid one rather than silently coercing it.
 async function buildPayload(message) {
-  const kind = VALID_KINDS.has(message?.kind) ? message.kind : 'idea';
+  const kind = message?.kind;
   const text = typeof message?.text === 'string' ? message.text.trim() : '';
   const ctxIn = message?.context || {};
   const identity = await getIdentityContext();
@@ -71,8 +96,21 @@ async function buildPayload(message) {
 
 async function submitFeedback(message) {
   const payload = await buildPayload(message);
+  // Input bounds (mirror the edge function so we fail fast, before any network).
   if (!payload.text) {
     return { ok: false, error: 'Feedback text is required' };
+  }
+  if (payload.text.length > MAX_TEXT_LEN) {
+    return { ok: false, error: `Feedback text must be ${MAX_TEXT_LEN} characters or fewer` };
+  }
+  if (!VALID_KINDS.has(payload.kind)) {
+    return { ok: false, error: 'Feedback kind must be "bug" or "idea"' };
+  }
+
+  // Authenticate as the signed-in user. No session → do not spam the endpoint.
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    return { ok: false, error: 'You must be signed in to send feedback' };
   }
 
   const fetchImpl = getFetch();
@@ -81,7 +119,9 @@ async function submitFeedback(message) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        // User's access token as Bearer (edge function verifies the user);
+        // anon key stays in `apikey` so the Supabase gateway routes the call.
+        'Authorization': `Bearer ${accessToken}`,
         'apikey': SUPABASE_ANON_KEY,
       },
       body: JSON.stringify(payload),

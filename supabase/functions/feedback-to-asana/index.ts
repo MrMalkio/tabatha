@@ -18,12 +18,48 @@
 
 const ASANA_API = "https://app.asana.com/api/1.0/tasks";
 
+// Tighten CORS to the pinned extension origin (A2 key pin) — not "*". Only the
+// real extension may invoke this from a browser context.
+const ALLOWED_ORIGIN =
+  "chrome-extension://hoknmoclnhccpgofpdihmiadmnmejjod";
+
 const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Vary": "Origin",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+// Input bounds — mirror feedbackService so the contract is enforced on BOTH
+// ends (the client can be bypassed; the function cannot).
+const MAX_TEXT_LEN = 4000;
+const VALID_KINDS = new Set(["bug", "idea"]);
+
+// Verify the caller is a signed-in Supabase user by exchanging their access
+// token at the auth endpoint. Returns the user id, or null if anonymous/invalid.
+async function verifyUser(authHeader: string | null): Promise<string | null> {
+  const token = (authHeader ?? "").replace(/^Bearer\s+/i, "").trim();
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+  // The anon key alone (no user JWT) must NOT count as authenticated.
+  if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY || token === SUPABASE_ANON_KEY) {
+    return null;
+  }
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "apikey": SUPABASE_ANON_KEY,
+      },
+    });
+    if (!resp.ok) return null;
+    const user = await resp.json().catch(() => null);
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -53,6 +89,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "Method not allowed" }, 405);
   }
 
+  // Reject anonymous callers: a valid signed-in user JWT is required. This stops
+  // anyone who extracts the bundled anon key from spamming Asana.
+  const userId = await verifyUser(req.headers.get("Authorization"));
+  if (!userId) {
+    return json({ error: "Authentication required" }, 401);
+  }
+
   const ASANA_PAT = Deno.env.get("ASANA_PAT");
   const ASANA_PROJECT_GID = Deno.env.get("ASANA_PROJECT_GID");
   if (!ASANA_PAT || !ASANA_PROJECT_GID) {
@@ -71,7 +114,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!text) {
     return json({ error: "Feedback text is required" }, 400);
   }
-  const kind = payload.kind === "bug" ? "bug" : "idea";
+  if (text.length > MAX_TEXT_LEN) {
+    return json({ error: `Feedback text must be ${MAX_TEXT_LEN} characters or fewer` }, 400);
+  }
+  if (!VALID_KINDS.has(payload.kind ?? "")) {
+    return json({ error: 'Feedback kind must be "bug" or "idea"' }, 400);
+  }
+  const kind = payload.kind as string;
   const ctx = payload.context ?? {};
 
   const emoji = kind === "bug" ? "🐛" : "💡";
@@ -86,6 +135,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     `url: ${ctx.url ?? "n/a"}`,
     `localId: ${ctx.localId ?? "n/a"}`,
     `machineId: ${ctx.machineId ?? "n/a"}`,
+    `userId: ${userId}`,
     `submittedAt: ${payload.submittedAt ?? new Date().toISOString()}`,
   ].join("\n");
 
