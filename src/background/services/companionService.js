@@ -12,6 +12,24 @@ import {
 } from '../constants.js';
 import { broadcastToExtension } from './notificationService.js';
 
+// Minimal dotted-numeric version comparison (manifest versions are MV3
+// dot-separated integers, e.g. "6.4.0"). Returns true iff `candidate` is
+// strictly greater than `current`. Non-numeric / malformed parts compare as 0
+// so a parse failure never triggers a spurious reload.
+export function isVersionNewer(current, candidate) {
+  if (!current || !candidate) return false;
+  const a = String(current).split('.').map((n) => parseInt(n, 10) || 0);
+  const b = String(candidate).split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const av = a[i] || 0;
+    const bv = b[i] || 0;
+    if (bv > av) return true;
+    if (bv < av) return false;
+  }
+  return false; // equal
+}
+
 class CompanionBridge {
   constructor() {
     this.ws = null;
@@ -191,9 +209,68 @@ class CompanionBridge {
         this._handleIdleState(msg);
         break;
 
+      case 'UPDATE_READY':
+        this._handleUpdateReady(msg);
+        break;
+
       default:
         console.debug('[CompanionBridge] Unknown message type:', msg.type);
     }
+  }
+
+  // Workstream D: the companion has atomically swapped the extension's code on
+  // disk and is telling us a new version is ready. If it's strictly newer than
+  // what we're running, leave a breadcrumb and reload so Chrome re-reads the
+  // updated unpacked files. If it's equal (or older) we ignore it — this is the
+  // loop guard that stops a reloaded worker from reloading again on reconnect.
+  _handleUpdateReady(msg) {
+    const targetVersion = msg && msg.version;
+    if (!targetVersion) {
+      console.warn('[CompanionBridge] UPDATE_READY missing version, ignoring');
+      return;
+    }
+
+    let currentVersion = null;
+    try {
+      currentVersion = chrome.runtime.getManifest().version;
+    } catch (e) {
+      console.warn('[CompanionBridge] Could not read manifest version:', e);
+    }
+
+    if (currentVersion && !isVersionNewer(currentVersion, targetVersion)) {
+      // Equal or older — already on (at least) this version. Loop guard.
+      console.log(
+        `[CompanionBridge] UPDATE_READY ${targetVersion} not newer than ${currentVersion}, ignoring`
+      );
+      return;
+    }
+
+    console.log(
+      `[CompanionBridge] UPDATE_READY: ${currentVersion} -> ${targetVersion}, reloading shortly`
+    );
+
+    // Breadcrumb so the post-reload bootstrap can log from->to and fire a sync.
+    const breadcrumb = {
+      from: currentVersion,
+      to: targetVersion,
+      notes: msg.notes || null,
+      at: Date.now()
+    };
+    try {
+      chrome.storage.local.set({ _pendingUpdate: breadcrumb });
+    } catch (e) {
+      console.warn('[CompanionBridge] Failed to write _pendingUpdate breadcrumb:', e);
+    }
+
+    // Defer briefly so the storage write (and any in-flight writes) flush
+    // before the worker is torn down.
+    setTimeout(() => {
+      try {
+        chrome.runtime.reload();
+      } catch (e) {
+        console.error('[CompanionBridge] chrome.runtime.reload() failed:', e);
+      }
+    }, 1500);
   }
 
   _handleAppSwitch(msg) {
