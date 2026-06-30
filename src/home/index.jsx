@@ -33,6 +33,23 @@ import { logger } from '../services/logger';
 import CompanionStatus from '../components/CompanionStatus';
 import UnifiedTimeline from '../components/UnifiedTimeline';
 
+// B1: format an ISO timestamp into a `datetime-local` input value (local TZ).
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+// B1: minutes a proposed start backdates the focus by (>=0 only).
+function backdatedMins(origIso, localInput) {
+  if (!localInput) return 0;
+  const orig = origIso ? new Date(origIso).getTime() : Date.now();
+  const next = new Date(localInput).getTime();
+  if (!Number.isFinite(next)) return 0;
+  return Math.max(0, Math.round((orig - next) / 60000));
+}
+
 function isIntentChangeEntry(entry) {
   return entry?.action === 'change'
     || entry?.oldIntent !== undefined
@@ -64,6 +81,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [editTimer, setEditTimer] = useState(15);
   const [editFunnel, setEditFunnel] = useState('unsorted');
   const [editTags, setEditTags] = useState({});
+  const [editStart, setEditStart] = useState(''); // B1: backdate start (datetime-local)
   // Plan 025: Checkpoint Progress Notes
   const [showCPN, setShowCPN] = useState(false);
   const [cpnText, setCpnText] = useState('');
@@ -106,6 +124,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     setEditTimer(activeFocus.timerMinutes || 15);
     setEditFunnel(activeFocus.funnelStage || 'unsorted');
     setEditTags(activeFocus.tags || {});
+    setEditStart(toLocalInput(activeFocus.startedAt));
     setEditing(true);
   };
 
@@ -127,6 +146,12 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         alert(`🚫 ${resp.error}`);
         return;
       }
+    }
+    // B1: backdate start time if it was moved earlier in the edit panel.
+    const origStart = activeFocus.startedAt ? new Date(activeFocus.startedAt).getTime() : null;
+    const newStart = editStart ? new Date(editStart).getTime() : null;
+    if (newStart != null && Number.isFinite(newStart) && newStart !== origStart) {
+      await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
     }
     setEditing(false);
   };
@@ -246,6 +271,13 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
                     <option key={key} value={key}>{val.icon} {val.label}</option>
                   ))}
                 </select>
+              </div>
+              <div style={{ flex: '1 1 150px' }}>
+                <label style={{ fontSize: '9px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: '2px' }}>Started at</label>
+                <input type="datetime-local" value={editStart} max={toLocalInput(new Date().toISOString())} onChange={e => setEditStart(e.target.value)} style={{ width: '100%', padding: '4px 8px', fontSize: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
+                {backdatedMins(activeFocus.startedAt, editStart) > 0 && (
+                  <div style={{ fontSize: '10px', color: 'var(--color-accent-primary)', marginTop: '2px' }}>backdated +{backdatedMins(activeFocus.startedAt, editStart)}m</div>
+                )}
               </div>
               <button onClick={saveEdit} style={btnStyle('#66bb6a')}>💾 Save</button>
               <button onClick={() => setEditing(false)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '12px', padding: '4px' }}>✕</button>

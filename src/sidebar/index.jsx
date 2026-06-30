@@ -24,6 +24,23 @@ const btn = (color) => ({
   cursor:'pointer', fontWeight:600, lineHeight:'16px',
 });
 
+// B1: format an ISO timestamp into a `datetime-local` input value (local TZ).
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+// B1: minutes a proposed start backdates the focus by (>=0 only).
+function backdatedMins(origIso, localInput) {
+  if (!localInput) return 0;
+  const orig = origIso ? new Date(origIso).getTime() : Date.now();
+  const next = new Date(localInput).getTime();
+  if (!Number.isFinite(next)) return 0;
+  return Math.max(0, Math.round((orig - next) / 60000));
+}
+
 // ═══════════════════════════════════════
 // GroupsList — compact groups for sidebar
 // ═══════════════════════════════════════
@@ -158,6 +175,7 @@ function Sidebar() {
   const [editTimer, setEditTimer] = useState(15);
   const [editFunnel, setEditFunnel] = useState('unsorted');
   const [editTags, setEditTags] = useState({});
+  const [editStart, setEditStart] = useState(''); // B1: backdate start (datetime-local)
   // Plan 025: Checkpoint Progress Notes
   const [showCheckpoint, setShowCheckpoint] = useState(false);
   const [cpnText, setCpnText] = useState('');
@@ -197,6 +215,7 @@ function Sidebar() {
     setEditTimer(activeFocus.timerMinutes || 15);
     setEditFunnel(activeFocus.funnelStage || 'unsorted');
     setEditTags(activeFocus.tags || {});
+    setEditStart(toLocalInput(activeFocus.startedAt));
     setEditing(true);
   };
 
@@ -210,6 +229,12 @@ function Sidebar() {
           await actions.updateFocus(activeFocus.id, { label: editLabel, timerMinutes: editTimer, funnelStage: editFunnel, tags: editTags, confirmed: true });
         } else return;
       } else { alert(`🚫 ${resp.error}`); return; }
+    }
+    // B1: backdate start time if it was moved earlier in the edit panel.
+    const origStart = activeFocus.startedAt ? new Date(activeFocus.startedAt).getTime() : null;
+    const newStart = editStart ? new Date(editStart).getTime() : null;
+    if (newStart != null && Number.isFinite(newStart) && newStart !== origStart) {
+      await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
     }
     setEditing(false);
   };
@@ -460,6 +485,13 @@ function Sidebar() {
                                 ))}
                               </select>
                             </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', display:'block', marginBottom:'1px' }}>Started at</label>
+                            <input type="datetime-local" value={editStart} max={toLocalInput(new Date().toISOString())} onChange={e => setEditStart(e.target.value)} style={{ width:'100%', padding:'3px 6px', fontSize:'11px', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', background:'var(--color-bg-base)', color:'var(--color-text-primary)', outline:'none', boxSizing:'border-box' }} />
+                            {backdatedMins(activeFocus.startedAt, editStart) > 0 && (
+                              <div style={{ fontSize:'9px', color:'var(--color-accent, #66bb6a)', marginTop:'2px' }}>backdated +{backdatedMins(activeFocus.startedAt, editStart)}m</div>
+                            )}
                           </div>
                           <div>
                             <label style={{ fontSize:'8px', color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', display:'block', marginBottom:'2px' }}>Project / Client</label>

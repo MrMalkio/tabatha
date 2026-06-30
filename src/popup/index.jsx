@@ -16,6 +16,73 @@ const CATEGORY_ICONS = {
 import { formatTime } from '../utils/formatTime';
 
 // ════════════════════════════════════════════
+// B2 — Compact in-app feedback → Asana (edge-function brokered)
+// ════════════════════════════════════════════
+function FeedbackForm() {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState('bug');
+  const [text, setText] = useState('');
+  const [status, setStatus] = useState(null); // null | 'sending' | 'sent' | 'error'
+
+  const submit = async () => {
+    if (!text.trim() || status === 'sending') return;
+    setStatus('sending');
+    let url = null;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      url = tab?.url || null;
+    } catch { /* no tab access */ }
+    const resp = await sendMessage('SUBMIT_FEEDBACK', {
+      kind, text: text.trim(), context: { surface: 'popup', url },
+    });
+    if (resp?.ok) {
+      setStatus('sent'); setText('');
+      setTimeout(() => { setStatus(null); setOpen(false); }, 1500);
+    } else {
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div style={{ borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)', padding: '8px 12px' }}>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '11px', padding: 0 }}
+        >💬 Send feedback</button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <select value={kind} onChange={e => setKind(e.target.value)} style={{ fontSize: '11px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }}>
+              <option value="bug">🐛 Bug</option>
+              <option value="idea">💡 Idea</option>
+            </select>
+            <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', flex: 1 }}>Goes to the Tabatha team</span>
+            <button onClick={() => { setOpen(false); setStatus(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+          </div>
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder={kind === 'bug' ? "What went wrong?" : "What's your idea?"}
+            rows={2}
+            style={{ width: '100%', padding: '5px 7px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none', resize: 'none', boxSizing: 'border-box' }}
+          />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={submit}
+              disabled={!text.trim() || status === 'sending'}
+              style={{ background: 'transparent', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', borderRadius: 'var(--radius-sm)', padding: '3px 10px', fontSize: '11px', cursor: text.trim() && status !== 'sending' ? 'pointer' : 'default', opacity: text.trim() && status !== 'sending' ? 1 : 0.5, fontWeight: 600 }}
+            >{status === 'sending' ? 'Sending…' : 'Send'}</button>
+            {status === 'sent' && <span style={{ fontSize: '11px', color: '#66bb6a' }}>✓ Thanks!</span>}
+            {status === 'error' && <span style={{ fontSize: '11px', color: '#ef5350' }}>Couldn't send — try later</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // Popup Component — Quick Search & Switch
 // ════════════════════════════════════════════
 function Popup() {
@@ -117,6 +184,9 @@ function Popup() {
           })
         )}
       </div>
+
+      {/* B2: compact feedback footer */}
+      <FeedbackForm />
     </div>
   );
 }

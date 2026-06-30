@@ -70,6 +70,7 @@ import {
 } from './services/autoFocusService.js';
 import * as domainHistoryService from './services/domainHistoryService.js';
 import { recordDomainVisit } from './services/domainHistoryService.js';
+import * as feedbackService from './services/feedbackService.js'; // B2: in-app feedback → Asana
 import * as awarenessService from './services/awarenessService.js';
 import {
   configureAwarenessService,
@@ -184,7 +185,8 @@ const services = [
   syncService,
   awarenessService,
   autoFocusService,
-  domainHistoryService
+  domainHistoryService,
+  feedbackService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
