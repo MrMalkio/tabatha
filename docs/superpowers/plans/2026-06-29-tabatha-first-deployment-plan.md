@@ -16,7 +16,7 @@
 - **Canonical install path:** `%APPDATA%\Tabatha Desktop\extension\` via one Rust `extension_dir()` helper. Do NOT change the Tauri identifier (`com.flux.tabatha-desktop`) — that would move/orphan the existing SQLite DB. Extension code and DB live in separate trees → an update swap can never touch data.
 - **Build order:** build the extension `dist/` from 6.4.0 FIRST, then the companion bundles it.
 - **Secrets never ship in the extension** (it loads unpacked, world-readable). Asana PAT lives only in a Supabase Edge Function.
-- **Manifest `key` (Task A2) is a hard prerequisite** for C/D reload-safety, OAuth redirect stability, and edge-function CORS. Land it first.
+- **Manifest `key` (Task A2)** is required for C/D reload-safety, OAuth redirect stability, and edge-function CORS. Land it EARLY — but **AFTER A1 + a forced full sync on any already-installed machine** (see A2 data-loss guard); pinning the key changes the extension ID once and would orphan existing `chrome.storage` if data isn't already in cloud.
 
 ## Cross-plan reconciliations (resolved)
 - Migrations: `018_redeem_sets_profile_defaults.sql` (A) and `019_owner_read_views.sql` (D). `CREATE OR REPLACE` for idempotency (matches migration 012).
@@ -54,10 +54,11 @@
 
 **Runtime verification (against live `mtdgoahskcibjbhfvofx`, project creds/dashboard):** confirm 005/010/012/015/016/017 applied; after a test member redeems, `profiles.default_org_id` non-null and `clock_sessions` rows for that profile have `org_id IS NOT NULL`.
 
-### A2. Pin stable extension `key` (PREREQUISITE)
+### A2. Pin stable extension `key`
 `public/manifest.json` has no `key` → unstable unpacked ID. Generate RSA key, derive base64 SPKI, add top-level `"key": "<base64>"` after `"version"`. Consequence: `chrome.identity.getRedirectURL()` becomes one stable `https://<id>.chromiumapp.org/` — **add it to the Supabase Auth redirect allowlist** (runtime config).
 - [ ] `test/manifestKey.test.js`: assert `manifest.key` is a string >100 chars, MV3.
 - [ ] Add key; load on two machines → identical ID; reload → `chrome.storage` survives.
+- [ ] **DATA-LOSS GUARD — migration for ALREADY-INSTALLED machines (the test bed PS×2 + OD×1, incl. Malkio's own data):** pinning the key changes the extension ID ONCE, which orphans the current `chrome.storage` bucket. So on any machine that already runs Tabatha: **A1 must be working AND a full sync must be forced (verify the data is in Supabase) BEFORE the key is pinned.** After pinning + reload/reinstall at the new ID, verify **A3 rehydrate** restores the local view from cloud. Fresh installs (Reggie/Po) are unaffected — they get the key from first install. **Therefore A1 + forced full sync precedes A2 on existing installs (see sequencing).**
 
 ### A3. Cloud rehydrate-on-sign-in
 **Gap:** `bootstrapPull.js` pulls only the org registry; `clock_sessions`/`desktop_activity`/`intent_history`/`focus_items` are push-only → a fresh/new-ID install shows empty until new local activity. Violates DEPLOYMENT.md §6.
@@ -83,12 +84,12 @@ Already fully in Settings (`settings/index.jsx:524,685-760,1048-1050`). Gap = si
 **Tests:** `test/focusTimeValidation.test.js` (clamp/reject/gap/no-session) + extend `test/focusTimeEdit.test.js` (backdates & credits; clamps to clock-in; rejects future; unknown focus; elapsed never exceeds wall-clock).
 
 ### B2. In-app feedback → Asana (edge-function brokered)
-**Architecture:** Extension form → `SUBMIT_FEEDBACK` → `src/background/services/feedbackService.js` (reuse `webhooks.js:38-74` fetch shape, `AbortSignal.timeout`, anon key as Bearer) → `supabase/functions/feedback-to-asana/index.ts` (holds `ASANA_PAT` + `ASANA_PROJECT_GID` as secrets) → `POST app.asana.com/api/1.0/tasks`. Register `feedbackService` in `background.js:168` services array.
+**Architecture:** Extension form → `SUBMIT_FEEDBACK` → `src/background/services/feedbackService.js` (NET-NEW file; model the `AbortSignal.timeout` + fire-and-forget error handling on `fireWebhook()` in **`src/background/webhooks.js`** — note: NO `services/` segment in that path. The Supabase anon-key `Bearer` + edge-function invoke is NET-NEW; webhooks.js itself uses a config URL + optional HMAC `X-Tabatha-Signature`, not Supabase auth) → `supabase/functions/feedback-to-asana/index.ts` (holds `ASANA_PAT` + `ASANA_PROJECT_GID` as secrets) → `POST app.asana.com/api/1.0/tasks`. Register `feedbackService` in the `const services = [...]` array in `src/background/background.js` (~:167-188).
 **UI:** compact form in `src/popup/index.jsx` (type select bug/idea + textarea + submit) and optional Settings card (reuse Asana card pattern `settings/index.jsx:1784-1819`).
 **Payload contract:** `{kind, text, version, context:{surface,localId,machineId,url}, submittedAt}`.
 **Tests** (`test/feedbackService.test.js`, mock `fetch`): well-formed POST to `/functions/v1/feedback-to-asana`; error on non-OK; rejects empty; includes version + identity context.
 **Deploy:** `supabase secrets set ASANA_PAT=… ASANA_PROJECT_GID=…`; deploy via `deploy_edge_function`. Pull the project GID + agent PAT via `anasa-context`/`asana-plugin` skills — do NOT hardcode.
-**Scheduled review task:** NOTED, not built today — a scheduled agent lists open feedback tasks, drafts fix plans into `docs/plans/`, comments back. Agent-side only; no extension code.
+**Scheduled review task (IN SCOPE, agent-side, lowest priority):** after the feedback→Asana pipe works, register a scheduled task (via the `scheduled-tasks`/`schedule` mechanism) that lists new tasks in the feedback Asana project, drafts a fix plan into `docs/plans/`, and comments back on each. No extension code. If time runs short before R&P onboard, this is the one item that may slip to fast-follow — flag it explicitly, never silently drop it.
 
 **B sequencing:** B1 (validator → handler → UI) and B2 (handler+register → UI; edge fn in parallel) are disjoint and parallelizable.
 
@@ -118,13 +119,13 @@ Already fully in Settings (`settings/index.jsx:524,685-760,1048-1050`). Gap = si
 ### D1. Companion update (code only) — `src-tauri/src/updater.rs`
 - Crates: `reqwest` (rustls-tls), `zip` (deflate), `semver`, `sha2`; `tempfile` dev-dep.
 - Path helpers reuse C's `extension_dir()`; staging/backup/tmp siblings under app-data; **assert none equals/contains the SQLite path**.
-- `fetch_latest()` → `latest.json` on Supabase Storage public bucket `extension-updates` (`{version,url,sha256,min_companion}`). Compare `semver` to the installed version read from `extension_dir/manifest.json` (NOT companion's own version). Stream zip → verify SHA-256 → extract to fresh staging → validate (`manifest.json`+`assets/background.js`) → atomic rename swap with rollback → delete backup/tmp.
+- `fetch_latest()` → `latest.json` on Supabase Storage public bucket `extension-updates` (`{version,url,sha256,min_companion}`). Compare `semver` to the installed version read from `extension_dir/manifest.json` (NOT companion's own version); require the new version be **strictly greater** (monotonic). Stream zip → verify SHA-256 → extract to fresh staging → validate (`manifest.json`+`assets/background.js`) **AND assert the staged `manifest.json` `key` equals the currently-installed `key`** (refuse the swap if the key is missing or changed — a different key = a different extension ID = orphaned data) → atomic rename swap with rollback → delete backup/tmp.
 - Trigger: `check_for_update` command + tray item + optional periodic `tokio` interval. On success → broadcast `UPDATE_READY`.
 - **Tests** (`tempfile`): swap leaves DB byte-identical; rollback on mid-swap failure; semver table; SHA mismatch refused.
 
 ### D2. Auto-reload (`UPDATE_READY` → `chrome.runtime.reload()`)
 - Companion: add `UpdateReady{version,notes}` to `OutboundMessage` (`ws_server.rs:23`); broadcast after swap (ordering: swap THEN broadcast).
-- Extension: `companionService.js` `_handleMessage` (`:169`) add `UPDATE_READY` → `_handleUpdateReady`: compare `msg.version` to `chrome.runtime.getManifest().version`; if newer, write `_pendingUpdate` breadcrumb, defer ~1.5s (flush writes), `chrome.runtime.reload()`; if equal, ignore (loop guard). Post-reload bootstrap logs from→to, clears breadcrumb, fires a sync.
+- Extension: `companionService.js` `_handleMessage` (`:166`) add `UPDATE_READY` → `_handleUpdateReady`: compare `msg.version` to `chrome.runtime.getManifest().version`; if newer, write `_pendingUpdate` breadcrumb, defer ~1.5s (flush writes), `chrome.runtime.reload()`; if equal, ignore (loop guard). Post-reload bootstrap logs from→to, clears breadcrumb, fires a sync.
 - **Tests:** serde round-trip for `UpdateReady`; `_handleUpdateReady` reloads only when newer, writes breadcrumb, ignores equal.
 
 ### D3. Owner read views — `supabase/migrations/019_owner_read_views.sql`
@@ -138,13 +139,18 @@ Already fully in Settings (`settings/index.jsx:524,685-760,1048-1050`). Gap = si
 ---
 
 ## Global sequencing
-1. **A2 (manifest key)** — unblocks stable-ID testing for everything.
-2. **A1 (attribution + migration 018)** + live runtime verification — the core correctness fix.
+0. **PRECONDITION — Phase 0 ✅ COMPLETE (2026-06-29):** PS == GitHub == OD at 6.4.0 (`staging` @ `723f022`, `main` = production); `.headbox` protocols on OD. Build agents branch off `origin/staging` from a clean 6.4.0 checkout — safe, because reconciliation is already done.
+1. **A1 (attribution + migration 018) + FORCE A FULL SYNC on every existing install** — the core correctness fix, AND it gets all current local data (incl. Malkio's + the test bed's) safely into Supabase before any extension-ID change. Run live runtime verification (`org_id` non-null after redeem).
+2. **A2 (manifest key)** — pin the stable `key`. This changes the unpacked ID **once** on existing installs; their data is already safe (step 1) and A3 rehydrates it after reload/reinstall. Fresh installs (Reggie/Po) get the key from the start. Add the stable OAuth redirect URL to the Supabase allowlist.
 3. **Build extension `dist/` from 6.4.0.**
 4. **C (companion install)** — bundles the dist, creates folder, detection states, guided UI.
 5. **A3 (rehydrate), A4 (indicator), B1, B2** — parallelizable.
 6. **D (update + migration 019 + owner views)** — after C; needs A2's pinned key.
 7. **End-to-end on the live test bed** (PS×2 + OD×1), then build companion `.msi`.
+
+## Known limitations (deferred — acknowledged, not built today)
+- **§5 cross-profile "divergence" flagging** — if a user runs Chrome in a profile without the extension, the companion can't attribute it cleanly; not silently merged but not specially flagged today. Deferred design item, not a blocker.
+- **Cross-install double-count protection** rests entirely on DB dedup (`UNIQUE(profile_id, client_id/activity_id)`) + sync watermarks, NOT new code. B1's validator only prevents intra-client focus overlap. Verify on the §8 test bed (PS×2 + OD×1).
 
 ## Open runtime/config items (owner or build agent)
 - Apply migrations 005/010/012/015/016/017 to live `mtdgoahskcibjbhfvofx` if missing; apply 018 + 019.
