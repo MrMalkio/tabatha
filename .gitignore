@@ -41,3 +41,9 @@ docs/features/mike-transcript-extraction.md
 
 # Packaged extension artifacts
 *.zip
+
+# Extension signing keypair — the PRIVATE key that derives the pinned
+# manifest "key" / extension ID. NEVER commit; the public SPKI lives in
+# public/manifest.json. Loss only means a new ID, not a security breach.
+*.pem
+scripts/.tabatha-extension-key.pem
