@@ -1001,16 +1001,16 @@ async function setFocusStartTime(focusId, startedAt, reason) {
   const oldStartMs = currentStartMs;
   item.startedAt = new Date(newStartMs).toISOString();
 
-  // Credit the exposed gap (only when moving earlier), bounded by the wall-clock
-  // ceiling computed against the NEW start (reuses the elapsed/active math from
-  // adjustFocusTime: stored elapsed + live active portion must stay <= wall-clock).
+  // Recompute the stored ceiling against the NEW start and ALWAYS clamp (reuses
+  // the elapsed/active math from adjustFocusTime :877-885: stored elapsed + live
+  // active portion must stay <= wall-clock since startedAt). Moving the start
+  // EARLIER credits the exposed gap; moving it LATER shrinks the wall-clock
+  // window, which can leave the stored elapsed impossibly large — clamp it down.
   const addedMs = Math.max(0, oldStartMs - newStartMs);
-  if (addedMs > 0) {
-    const wallMax = now - newStartMs; // never-started safety: bounded by now-newStart
-    const activePortion = item.lastResumedAt ? now - new Date(item.lastResumedAt).getTime() : 0;
-    const storedCeiling = Math.max(0, wallMax - activePortion);
-    item.elapsedMs = Math.max(0, Math.min((item.elapsedMs || 0) + addedMs, storedCeiling));
-  }
+  const wallMax = now - newStartMs; // never-started safety: bounded by now-newStart
+  const activePortion = item.lastResumedAt ? now - new Date(item.lastResumedAt).getTime() : 0;
+  const storedCeiling = Math.max(0, wallMax - activePortion);
+  item.elapsedMs = Math.max(0, Math.min((item.elapsedMs || 0) + addedMs, storedCeiling));
 
   const mins = Math.round(addedMs / 60000);
   autoCheckpoint(item, `🛠 Start backdated +${mins}m${reason ? ' — ' + reason : ''}`);

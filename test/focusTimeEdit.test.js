@@ -92,6 +92,26 @@ test('SET_FOCUS_START_TIME credited elapsed never exceeds wall-clock since new s
   assert.ok(f1.elapsedMs <= 8 * MIN + 1000, `elapsed ${f1.elapsedMs} exceeded wall-clock`);
 });
 
+test('P2: moving start LATER reclamps elapsed to wall-clock since the new start', async () => {
+  // Focus has 90m stored elapsed, started 120m ago (paused, no live portion).
+  // Move the start to 10m ago → elapsed is now impossible and must clamp to ~10m.
+  seed(baseItem({ startedAt: minsAgo(120), elapsedMs: 90 * MIN, lastResumedAt: null, focusState: 'paused' }));
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(10) });
+  const f1 = r.focusEngine.items.f1;
+  assert.equal(f1.startedAt, minsAgo(10));
+  assert.ok(f1.elapsedMs <= 10 * MIN + 1000, `elapsed ${f1.elapsedMs} should clamp to <= ~10m after moving start later`);
+});
+
+test('P2: moving start later on an ACTIVE focus clamps elapsed below the live wall-clock', async () => {
+  // 90m stored, live portion is small (resumed 2m ago). Move start to 10m ago.
+  // stored elapsed + 2m live portion must stay <= 10m wall clock.
+  seed(baseItem({ startedAt: minsAgo(120), elapsedMs: 90 * MIN, lastResumedAt: minsAgo(2), focusState: 'active' }));
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(10) });
+  const f1 = r.focusEngine.items.f1;
+  // stored ceiling = (now - newStart) - activePortion ≈ 10m - 2m = 8m
+  assert.ok(f1.elapsedMs <= 8 * MIN + 1000, `stored elapsed ${f1.elapsedMs} should clamp to <= ~8m`);
+});
+
 test('SET_FOCUS_START_TIME clamps a too-early start up to clock-in', async () => {
   installChromeMock({
     store: {
