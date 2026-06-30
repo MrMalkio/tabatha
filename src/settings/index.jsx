@@ -12,6 +12,7 @@ import { FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { supabase, redeemInviteToken } from '../services/supabaseClient';
 import { applyInviteDefaults } from '../services/orgAttribution';
 import { useAuth } from '../hooks/useAuth';
+import { useSyncStatus } from '../hooks/useSyncStatus';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
@@ -523,6 +524,8 @@ function Settings() {
   // Sync diagnostics — written by syncService and useAuth to chrome.storage.local
   const [syncDiagnostics] = useChromeStorage('_syncDiagnostics', []);
   const [lastSyncSuccess] = useChromeStorage('_lastSyncSuccess', null);
+  // Shared sync-state derivation (A4) — same logic the sidebar chip uses.
+  const syncStatus = useSyncStatus(isSignedIn);
 
   const handleSaveDisplayName = async () => {
     const next = displayNameDraft.trim();
@@ -688,22 +691,9 @@ function Settings() {
           <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Tabatha v{chrome.runtime.getManifest?.()?.version || '?'}-α</div>
           {/* Sync status pill + sync now + reload */}
           {(() => {
-            const recentEvent = syncDiagnostics?.[0];
-            const recentFailure = recentEvent && (recentEvent.kind?.includes('failed') || recentEvent.kind?.startsWith('no_'));
-            const lastSyncMs = lastSyncSuccess ? new Date(lastSyncSuccess).getTime() : 0;
-            const recentFailureNewer = recentEvent && new Date(recentEvent.at).getTime() > lastSyncMs;
-            const state = !isSignedIn ? 'signed_out'
-              : recentFailureNewer && recentFailure ? 'error'
-              : lastSyncSuccess && (Date.now() - lastSyncMs) < 10 * 60 * 1000 ? 'fresh'
-              : lastSyncSuccess ? 'stale'
-              : 'never';
-            const pill = {
-              signed_out: { color: '#888', bg: 'rgba(136,136,136,0.15)', label: '○ Offline', tip: 'Not signed in. Open the Sync & Account section to sign in.' },
-              error: { color: '#ff9800', bg: 'rgba(255,152,0,0.15)', label: '⚠ Sync error', tip: recentEvent?.detail || 'Most recent sync attempt reported an error. See Sync & Account.' },
-              fresh: { color: '#34A853', bg: 'rgba(52,168,83,0.15)', label: '● Synced', tip: 'Last synced ' + new Date(lastSyncSuccess).toLocaleTimeString() },
-              stale: { color: '#aaa', bg: 'rgba(170,170,170,0.15)', label: '◐ Stale', tip: 'Last synced ' + new Date(lastSyncSuccess).toLocaleString() + ' — may be over 10 min ago.' },
-              never: { color: '#ff9800', bg: 'rgba(255,152,0,0.15)', label: '⚠ Never', tip: 'No successful sync recorded yet. Click ↻ to try now.' }
-            }[state];
+            // A4: derive via the shared hook so Settings + sidebar agree.
+            const state = syncStatus.state;
+            const pill = { color: syncStatus.color, bg: syncStatus.bg, label: syncStatus.label, tip: syncStatus.tip };
             // Decide which icon should pulse to draw the user's eye:
             //   - Nothing pulses when sync is healthy.
             //   - If the user JUST clicked sync now and it didn't fix things in 6s, the
