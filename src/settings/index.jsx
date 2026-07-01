@@ -486,6 +486,7 @@ function Settings() {
   const [activeSection, setActiveSection] = useState('appearance');
   const [settings, setSettings] = useChromeStorage('settings', {});
   const [clockSettings, setClockSettings] = useChromeStorage('clockSettings', CLOCK_DEFAULTS);
+  const [companionConnected] = useChromeStorage('companionConnected', false);
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [skippedDomains, setSkippedDomains] = useChromeStorage('skippedDomains', []);
@@ -1842,10 +1843,10 @@ function Settings() {
                     </div>
                     <span style={{
                       fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
-                      background: settings.companionEnabled ? '#66bb6a22' : '#9e9e9e22',
-                      color: settings.companionEnabled ? '#66bb6a' : '#9e9e9e',
+                      background: companionConnected ? '#66bb6a22' : '#9e9e9e22',
+                      color: companionConnected ? '#66bb6a' : '#9e9e9e',
                     }}>
-                      {settings.companionEnabled ? '✓ Enabled' : '○ Not configured'}
+                      {companionConnected ? '✓ Connected' : '○ Not connected'}
                     </span>
                   </div>
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0', lineHeight: 1.5 }}>
