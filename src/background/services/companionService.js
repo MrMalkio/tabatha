@@ -12,24 +12,13 @@ import {
 } from '../constants.js';
 import { broadcastToExtension } from './notificationService.js';
 import { setSessionFromCompanion } from './clockService.js';
+import { isVersionNewer } from '../../utils/semver.js';
 
-// Minimal dotted-numeric version comparison (manifest versions are MV3
-// dot-separated integers, e.g. "6.4.0"). Returns true iff `candidate` is
-// strictly greater than `current`. Non-numeric / malformed parts compare as 0
-// so a parse failure never triggers a spurious reload.
-export function isVersionNewer(current, candidate) {
-  if (!current || !candidate) return false;
-  const a = String(current).split('.').map((n) => parseInt(n, 10) || 0);
-  const b = String(candidate).split('.').map((n) => parseInt(n, 10) || 0);
-  const len = Math.max(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    const av = a[i] || 0;
-    const bv = b[i] || 0;
-    if (bv > av) return true;
-    if (bv < av) return false;
-  }
-  return false; // equal
-}
+// Re-export the shared comparator so existing importers (and tests) that pull
+// `isVersionNewer` from companionService keep working unchanged. The single
+// source of truth now lives in src/utils/semver.js and is reused by the
+// "What's New" layer (FIX-11).
+export { isVersionNewer };
 
 class CompanionBridge {
   constructor() {

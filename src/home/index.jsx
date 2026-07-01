@@ -25,6 +25,8 @@ import { CommandPalette } from '../components/ui/CommandPalette';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { useKeyboardShortcuts, ShortcutsHelp } from '../components/ui/KeyboardShortcuts';
 import { VoiceInput } from '../components/ui/VoiceInput';
+import { WhatsNewModal } from '../components/ui/WhatsNewModal';
+import { useWhatsNew } from '../hooks/useWhatsNew';
 import { useOrgData } from '../hooks/useOrgData';
 
 import { formatTime } from '../utils/formatTime';
@@ -1473,6 +1475,8 @@ function Home() {
   const [welcomeBack, setWelcomeBack] = useState(null);
   const [collapsedSections, setCollapsedSections] = useState([]);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  // FIX-11: "What's New" — shows once when the extension version bumps.
+  const whatsNew = useWhatsNew();
 
   // Load collapsed state from storage
   useEffect(() => {
@@ -2234,6 +2238,14 @@ function Home() {
 
       {/* Keyboard Shortcuts Help — Ctrl+/ */}
       <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {/* FIX-11: "What's New" — one-shot on version bump */}
+      <WhatsNewModal
+        isOpen={whatsNew.visible}
+        version={whatsNew.version}
+        releases={whatsNew.releases}
+        onClose={whatsNew.dismiss}
+      />
     </div>
   );
 }
