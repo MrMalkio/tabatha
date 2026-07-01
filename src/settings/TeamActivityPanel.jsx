@@ -254,7 +254,20 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
     }
   };
 
-  if (!canSeeTeamActivity) return null;
+  if (!canSeeTeamActivity) {
+    // Non-owner / non-manager users can't mint invites or see team rosters.
+    // Rather than render nothing (which looks broken/greyed-out), show a
+    // short note so the surface reads as intentional.
+    return (
+      <div style={{ marginTop: '8px' }}>
+        <div style={sectionLabelStyle}>Team Activity</div>
+        <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.5, padding: '2px 8px 8px' }}>
+          Invite minting and team activity are available to organisation owners and team managers.
+          Ask an owner or manager to send you an invite, or redeem an invite token to join a team.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginTop: '8px' }}>
