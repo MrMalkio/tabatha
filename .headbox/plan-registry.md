@@ -197,4 +197,3 @@ Wave 0 (pre-prod gate)
 | B08       | Auto-pause false triggers             | **036**                      | draft         |
 
 > **Unassigned features** are tracked in `v0_legacy/docs/features.md` and will be assigned as new plans are created.
->>>>>>> Stashed changes
