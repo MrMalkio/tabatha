@@ -40,10 +40,23 @@ const HEARTBEAT_INTERVAL_MS = 60_000;
 const PUSH_DEBOUNCE_MS = 500;
 const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes since last heartbeat → offline
 const OTHER_PROFILES_KEY = '_otherProfiles';
+// FIX-10: cap how many queue items we surface per OTHER device so a busy
+// sibling can't flood the awareness strip. This is a BOUNDED READ path — a
+// lazy, on-demand pull (GET_OTHER_QUEUE), NOT another background sync.
+const OTHER_QUEUE_CAP_PER_DEVICE = 8;
+const NON_QUEUE_FOCUS_STATES = new Set(['completed']);
 const WATCHED_STORAGE_KEYS = new Set(['clockSession', 'focusEngine']);
 
 export function configureAwarenessService(injected = {}) {
   deps = { ...deps, ...injected };
+}
+
+// Test-only: seed the active identity that startAwareness would normally
+// resolve from the Supabase session, so message handlers can be exercised in
+// isolation without a full auth/identity mock. No-op semantics in production.
+export function __setActiveForTest({ profileId = null, browserProfileId = null } = {}) {
+  activeProfileId = profileId;
+  activeBrowserProfileId = browserProfileId;
 }
 
 // Public: read auth + identity, push current state, ensure realtime is
@@ -386,6 +399,77 @@ async function fetchInstalls(supabase, profileId, selfId) {
   });
 }
 
+// FIX-10 — pure shaper (exported for tests). Takes raw focus_items rows and
+// browser_profiles meta and produces a read-only, per-device grouped queue:
+//   [{ browser_profile_id, profile_name, browser, classification, machine_id,
+//      count, truncated, items: [{ client_id, label, funnel_stage, focus_state,
+//      priority, timer_minutes, created_at }] }]
+// Filters out this install's own rows and completed items, orders each device's
+// items by priority (nulls last) then recency, and caps to `cap` per device.
+export function shapeOtherQueues(focusRows, metaRows, selfBrowserProfileId, cap = OTHER_QUEUE_CAP_PER_DEVICE) {
+  const metaById = new Map((metaRows || []).map(m => [m.id, m]));
+  const byDevice = new Map();
+
+  for (const row of focusRows || []) {
+    const bpid = row?.browser_profile_id;
+    // Only OTHER installs, and only rows attributable to a device.
+    if (!bpid || bpid === selfBrowserProfileId) continue;
+    // Read-only intent QUEUE: exclude completed/resolved items.
+    if (NON_QUEUE_FOCUS_STATES.has(row.focus_state)) continue;
+    if (!byDevice.has(bpid)) byDevice.set(bpid, []);
+    byDevice.get(bpid).push(row);
+  }
+
+  const prio = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? Number.POSITIVE_INFINITY : Number(v));
+  const ts = v => { const t = v ? new Date(v).getTime() : 0; return Number.isFinite(t) ? t : 0; };
+
+  const devices = [];
+  for (const [bpid, rows] of byDevice) {
+    rows.sort((a, b) => (prio(a.priority) - prio(b.priority)) || (ts(b.created_at) - ts(a.created_at)));
+    const total = rows.length;
+    const capped = rows.slice(0, Math.max(0, cap));
+    const m = metaById.get(bpid) || {};
+    devices.push({
+      browser_profile_id: bpid,
+      profile_name: m.profile_name || null,
+      browser: m.browser || 'chrome',
+      classification: m.classification || null,
+      machine_id: m.machine_id || null,
+      count: total,
+      truncated: total > capped.length,
+      items: capped.map(r => ({
+        client_id: r.client_id,
+        label: r.label || 'Untitled focus',
+        funnel_stage: r.funnel_stage || null,
+        focus_state: r.focus_state || null,
+        priority: (r.priority == null || r.priority === '' || !Number.isFinite(Number(r.priority))) ? null : Number(r.priority),
+        timer_minutes: (r.timer_minutes == null || !Number.isFinite(Number(r.timer_minutes))) ? null : Number(r.timer_minutes),
+        created_at: r.created_at || null
+      }))
+    });
+  }
+  return devices;
+}
+
+// FIX-10 — bounded READ path (lazy, on demand). Pulls this user's own
+// focus_items (RLS scopes to own profile) plus browser_profiles meta, then
+// hands them to shapeOtherQueues to produce per-OTHER-device read-only queues.
+// This does NOT write anything and does NOT run on the heartbeat loop.
+async function fetchOtherQueues(supabase, profileId, selfBrowserProfileId) {
+  const { data: focusRows } = await supabase
+    .schema('tabatha')
+    .from('focus_items')
+    .select('client_id, label, funnel_stage, focus_state, priority, timer_minutes, created_at, browser_profile_id')
+    .eq('profile_id', profileId);
+  const { data: meta } = await supabase
+    .schema('tabatha')
+    .from('browser_profiles')
+    .select('id, browser, profile_name, classification, machine_id')
+    .eq('profile_id', profileId);
+
+  return shapeOtherQueues(focusRows || [], meta || [], selfBrowserProfileId);
+}
+
 async function getClockScope(supabase, profileId) {
   const { data } = await supabase
     .schema('tabatha')
@@ -521,6 +605,12 @@ export async function handleMessage(type, message) {
       if (!deps.supabase || !activeProfileId) return { installs: [] };
       const installs = await fetchInstalls(deps.supabase, activeProfileId, activeBrowserProfileId);
       return { installs, selfBrowserProfileId: activeBrowserProfileId };
+    }
+    case 'GET_OTHER_QUEUE': {
+      // FIX-10: read-only, bounded pull of OTHER devices' non-completed queue.
+      if (!deps.supabase || !activeProfileId) return { devices: [] };
+      const devices = await fetchOtherQueues(deps.supabase, activeProfileId, activeBrowserProfileId);
+      return { devices, selfBrowserProfileId: activeBrowserProfileId };
     }
     case 'CLOCK_OUT_INSTALL': {
       if (!deps.supabase || !activeProfileId) return { error: 'not_ready' };
