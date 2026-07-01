@@ -9,7 +9,7 @@ import { PopButton } from '../components/ui/PopButton';
 import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
 import { FUNNEL_STAGES } from '../hooks/useFocusEngine';
-import { supabase, redeemInviteToken } from '../services/supabaseClient';
+import { supabase, redeemInviteToken, createOrganization } from '../services/supabaseClient';
 import { applyInviteDefaults } from '../services/orgAttribution';
 import { useAuth } from '../hooks/useAuth';
 import { useSyncStatus } from '../hooks/useSyncStatus';
@@ -507,6 +507,9 @@ function Settings() {
   const [inviteToken, setInviteToken] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+  // Create-organization control state
+  const [newOrgName, setNewOrgName] = useState('');
+  const [creatingOrg, setCreatingOrg] = useState(false);
 
   // Display-name editor state
   const [editingDisplayName, setEditingDisplayName] = useState(false);
@@ -677,6 +680,27 @@ function Settings() {
       setAuthError(err.message);
     }
     setInviteLoading(false);
+  };
+
+  const handleCreateOrg = async (e) => {
+    e.preventDefault();
+    const name = newOrgName.trim();
+    if (!name) return;
+    setCreatingOrg(true);
+    setAuthError(null);
+    try {
+      const res = await createOrganization(name);
+      if (res?.success) {
+        setNewOrgName('');
+        await refreshProfile();
+        setAuthError('✓ Organization created!');
+      } else {
+        setAuthError('Failed: ' + (res?.error || 'Could not create organization'));
+      }
+    } catch (err) {
+      setAuthError(err.message);
+    }
+    setCreatingOrg(false);
   };
 
   const updateSetting = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
@@ -1103,8 +1127,19 @@ function Settings() {
                         ))}
                       </div>
                     ) : (
-                      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No organizations yet. Use an invite token to join one.</p>
+                      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No organizations yet. Create one below, or use an invite token to join an existing one.</p>
                     )}
+
+                    {/* ── Create Organization ── */}
+                    <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.5, marginTop: '2px', marginBottom: '8px' }}>
+                      Start a new organisation to invite teammates. You'll become its owner and can mint invite tokens from the "Team Activity" panel below.
+                    </p>
+                    <form onSubmit={handleCreateOrg} style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '16px' }}>
+                      <input type="text" placeholder="New organization name..." value={newOrgName} onChange={e => setNewOrgName(e.target.value)} style={{ ...inputStyle, flex: 1 }} required />
+                      <button type="submit" disabled={creatingOrg || !newOrgName.trim()} style={{ padding: '4px 12px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: creatingOrg ? 'default' : 'pointer', fontWeight: 600, fontSize: '12px', opacity: creatingOrg || !newOrgName.trim() ? 0.6 : 1 }}>
+                        {creatingOrg ? '...' : 'Create'}
+                      </button>
+                    </form>
 
                     {/* ── Teams ── */}
                     <div style={sectionLabel}>Teams</div>
