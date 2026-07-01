@@ -84,6 +84,7 @@ import {
 } from './services/companionInstallService.js';
 import { fireWebhook } from './webhooks.js';
 import { registerBootstrap, runRetentionCleanup } from './bootstrap.js';
+import { registerToolbarActionListeners } from './services/toolbarActionService.js';
 
 async function setTabData(tabs) {
   const result = await setStorage({ tabs });
@@ -229,6 +230,11 @@ registerSyncServiceAlarms();
 registerSyncStorageListener();
 registerAlarmServiceListener();
 registerBootstrap();
+
+// FIX-12: persistently configure the toolbar-icon click behavior (side panel
+// vs. tab-list popup) + the tab-list hotkey. Applies on startup + on any
+// settings change.
+registerToolbarActionListeners();
 
 // Plan 038: backfill domain history from tabs that were already open when the
 // extension loaded (recordDomainVisit only fires on new navigations, not
