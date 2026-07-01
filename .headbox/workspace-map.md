@@ -2,7 +2,7 @@
 
 > Auto-generated at headbox install. Agents update this when significant
 > structural changes occur (new directories, major file moves).
-> Last generated: 2026-04-27
+> Last generated: 2026-04-27 · Last touched: 2026-06-30 (v6.4.0 — migration count refreshed)
 
 ## Directory Structure
 
@@ -49,8 +49,8 @@ Tabatha/
 │   ├── App.jsx                 — Main application entry
 │   ├── index.css
 │   └── main.jsx                — React root mount
-├── supabase/                   (1 file)
-│   └── migrations/             — Schema migrations
+├── supabase/                   (migrations 001–019 + config)
+│   └── migrations/             — Schema migrations (001–019, all applied to live Flux)
 ├── v0_legacy/                  (26 files — pre-React legacy code)
 │   ├── components/
 │   ├── docs/

@@ -1,9 +1,18 @@
 # Sticky Note: Desktop Companion Status
 
-**Left by:** Antigravity (2026-05-10)
+**Left by:** Antigravity (2026-05-10) · **Updated:** Claude (2026-06-30, v6.4.0 deploy)
 **For:** Next agent working on Desktop Companion / Phase B
 
-## Status
+## Update 2026-06-30 — Companion v0.1.0 PACKAGED (Plan 019)
+
+The companion is now **built + packaged for distribution**:
+- Installers produced: **`.msi` + `setup.exe`** (`Tabatha-Desktop-Companion_0.1.0-setup.exe`, `Tabatha-Desktop-Companion_0.1.0.msi`).
+- Install-folder creation + **dummy-proof guided install**.
+- **Supabase-Storage auto-update** — key-guard + atomic swap.
+- **23 Rust tests** green. **Rust + VS Build Tools now installed on OD** (the other dev machine).
+- Tracked in `.headbox/plan-registry.md` under Plan 019 (distribution) — status `partial`.
+
+## Status (original, 2026-05-10)
 
 The Tabatha Desktop Companion (`c:\Users\mrmal\Le Dev\tabatha-desktop\`) is **built and verified**.
 

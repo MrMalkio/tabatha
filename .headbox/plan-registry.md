@@ -16,7 +16,7 @@
 | 015      | —                          | 2026-05-10 | Tabatha stabilization | completed |
 | 016      | —                          | 2026-05-10 | Tabatha stabilization | completed |
 | 018      | asana_integration           | 2026-05-11 | Asana Integration Module scaffold                                                                                                                                                                                                                                                       | partial (3/5) — backend code exists (widget server, taskUrlResolver, CPN auto-post, tab auto-intent). Gaps: frontend usage guide, e2e verification, Settings status indicator. Covered by Plan 031 Phase 5 |
-| 019      | distribution                | 2026-05-12 | Tabatha + Desktop Companion distribution & update strategy                                                                                                                                                                                                                              | draft                                                                                                                                                                                                       |
+| 019      | distribution                | 2026-05-12 | Tabatha + Desktop Companion distribution & update strategy                                                                                                                                                                                                                              | partial — Companion v0.1.0 packaged (.msi + setup.exe): install-folder creation, dummy-proof guided install, Supabase-Storage auto-update (key-guard + atomic swap), 23 Rust tests. Rust + VS Build Tools installed on OD. Remaining: Chrome Web Store listing/auto-update for the extension. |
 | 020      | activity_editor             | 2026-05-12 | Activity Editor + Timeline enhancements + InBar sync fix                                                                                                                                                                                                                                | partial (5/7) — gaps: range trim, break segments. Covered by Plan 031                                                                                                                                      |
 | 021      | intent_focus_pipeline       | 2026-05-12 | Intent→Focus pipeline + Browser Profile defaults                                                                                                                                                                                                                                       | partial (3/4) — gap: manual tab→focus in LinkMergeModal. Covered by Plan 031                                                                                                                              |
 | 022      | focus_timer_idle_tracking   | 2026-05-13 | Focus Timer Harmonization & Deep Activity Tracking                                                                                                                                                                                                                                      | partial (1/6) — gaps: let-me-cook, video call suppression, sub-intent ticking, P1-P5, category expansion, audit logging. Covered by Plan 031 (parallel focuses deferred to 033)                            |
@@ -43,6 +43,11 @@
 
 > **Note:** Plans 026 (auto_focus) and 029 (auto_pause_overhaul) are **absorbed by Plan 036** — credit their scope there; do not execute them independently.
 
+> **🚀 Production milestone — Tabatha v6.4.0 shipped to `main` 2026-06-30.**
+> Extension: 123 tests, Koda(Codex)-reviewed ×2 + Claude backstop. Fixes: org-attribution (`redeem_invite_token` sets `default_org_id`/`team_id`, migration 018 — Plan 028 follow-up), pinned manifest key, cloud rehydrate, sidebar sync indicator, intent backdating, in-app feedback→Asana (BD-12 first slice; edge-function deploy pending Asana creds).
+> Companion v0.1.0 packaged (.msi + setup.exe) — Plan 019, see row above. Migrations 018 + 019 applied + verified to live Flux; OAuth redirect allowlisted (sign-in works).
+> `MrMalkio/tabatha` is source of truth at 6.4.0; PS == OD == GitHub. Open: `flux_time_entries` RLS disabled (P0.5), feedback edge-fn deploy (P0.6), DB pre-create Reggie & Po (P0.7), physical rollout (P0.8).
+
 ---
 
 ## Execution Roadmap
@@ -55,9 +60,13 @@
 | Priority | Item                                         | Effort | Blocker For                           | Status                                                         |
 | -------- | -------------------------------------------- | ------ | ------------------------------------- | -------------------------------------------------------------- |
 | 🟡 P0.1  | Rotate Supabase DB password                  | 30min  | Best practice                         | ⏸️ Deferred by user decision                                 |
-| ✅ P0.2  | Apply migrations 008–014 to remote Supabase | 1hr    | Sync Batch 1, multi-profile, calendar | ✅ Complete — 008–013 already applied; 014 pushed 2026-05-28 |
+| ✅ P0.2  | Apply migrations 008–019 to remote Supabase | 1hr    | Sync Batch 1, multi-profile, calendar, org attribution | ✅ Complete — 001–019 all applied + verified to live Flux (2026-06-30) |
 | 🔴 P0.3  | Full v5.8.0 regression test                  | 2-3hr  | Production release                    | ✅ Complete — user confirmed                                  |
 | 🟡 P0.4  | Delete stale `origin/main` branch          | 5min   | Nothing                               | ⬜ Optional                                                    |
+| 🔴 P0.5  | `public.flux_time_entries` RLS is DISABLED   | —      | Team-live / public release            | ⚠️ OPEN — security risk flagged pre-team-live (see db-rls-audit-2026-06-02.md finding A) |
+| 🟡 P0.6  | Feedback edge-function deploy (Asana)        | —      | In-app feedback→Asana live pipeline   | ⏳ Pending Asana creds                                        |
+| 🟡 P0.7  | DB pre-create Reggie & Po (po@/reggie@duckandshark.com) | — | First team testers            | ⏳ Pending                                                    |
+| 🟡 P0.8  | Physical rollout to testers                  | —      | Team testing                          | ⏳ Pending                                                    |
 
 ### Wave 1 — Intelligent Focus Lifecycle (Plan 036)
 
@@ -99,7 +108,9 @@
 
 | Plan            | What                                                   | Depends On                                        | Parallel?                                      | Est. Effort |
 | --------------- | ------------------------------------------------------ | ------------------------------------------------- | ---------------------------------------------- | ----------- |
-| 🟡**019** | Chrome Web Store listing, auto-update, self-hosted CRX | All Waves 0-4 ideally, but can start after Wave 1 | ✅ Mostly config/admin, no code zone conflicts | ~1 week     |
+| 🟡**019** partial | Chrome Web Store listing, auto-update, self-hosted CRX | All Waves 0-4 ideally, but can start after Wave 1 | ✅ Mostly config/admin, no code zone conflicts | ~1 week     |
+
+> **019 progress (v6.4.0, 2026-06-30):** Companion side done — v0.1.0 packaged (.msi + setup.exe) with dummy-proof guided install + Supabase-Storage auto-update (key-guard + atomic swap), 23 Rust tests, Rust + VS Build Tools installed on OD. Remaining: the extension's CWS listing / auto-update path.
 
 > **Can start early:** CWS listing prep (icons, descriptions, screenshots) can happen any time. The actual submission should wait until the core experience is stable (after Wave 1 at minimum).
 
@@ -130,7 +141,7 @@ Wave 0 (pre-prod gate)
 
 ## Migration Status (Supabase Remote)
 
-> **Last verified:** 2026-05-28 — **All migrations applied. Remote DB is current.**
+> **Last verified:** 2026-06-30 — **All migrations 001–019 applied + verified to the live Flux project. Remote DB is current.**
 > **Project:** Flux (`mtdgoahskcibjbhfvofx`)
 
 | #        | File                                        | Status                      | Introduced By                    |
@@ -143,6 +154,11 @@ Wave 0 (pre-prod gate)
 | 012      | `012_manager_scoping_and_invite_mint.sql` | ✅ Applied (prior session)  | Plan 028 (Phase D)               |
 | 013      | `013_companion_install_uniqueness.sql`    | ✅ Applied (prior session)  | Plan 028 (Phase D₂)             |
 | 014      | `014_add_calendar_sync_tables.sql`        | ✅ Applied 2026-05-28       | Plan 035 (Phase 1)               |
+| 015      | `015_fix_rls_recursion.sql`               | ✅ Applied (2026-06-02)     | RLS recursion fix (SECURITY DEFINER helpers) — see db-rls-audit-2026-06-02.md |
+| 016      | `016_restore_browser_profiles_write_rls.sql` | ✅ Applied (2026-06-02)  | Restore browser_profiles INSERT/UPDATE/DELETE (regressed by 012) |
+| 017      | `017_browser_profile_identity.sql`        | ✅ Applied                  | Browser-profile identity                                     |
+| 018      | `018_redeem_sets_profile_defaults.sql`    | ✅ Applied + verified 2026-06-30 | v6.4.0 org attribution — `redeem_invite_token` sets `default_org_id`/`team_id` |
+| 019      | `019_owner_read_views.sql`                | ✅ Applied + verified 2026-06-30 | v6.4.0 owner read views (service-role only)                  |
 
 > **Push command:** `$env:SUPABASE_DB_PASSWORD = '<Flux_DB_Pass>'; npx supabase db push --linked`
 > **⚠️ NOTE:** DB password rotation (P0.1) still pending — deferred per user decision.
