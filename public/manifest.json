@@ -53,7 +53,6 @@
     "options_page": "settings.html",
     "action": {
         "default_title": "Tabatha — Quick Switch",
-        "default_popup": "popup.html",
         "default_icon": {
             "16": "icons/icon16.png",
             "48": "icons/icon48.png",
@@ -67,6 +66,13 @@
                 "mac": "Command+Shift+S"
             },
             "description": "Open Tabatha Sidebar"
+        },
+        "open_tab_list": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+E",
+                "mac": "Command+Shift+E"
+            },
+            "description": "Open Tabatha Tab List (popup)"
         }
     },
     "icons": {

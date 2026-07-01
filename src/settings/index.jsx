@@ -820,6 +820,20 @@ function Settings() {
                     </select>
                   </div>
                 </Tooltip>
+                <Tooltip text="When: You click the Tabatha toolbar icon. How: Choose whether it opens the side panel or the tab-list popup. The Ctrl+Shift+E hotkey always opens the tab-list popup (rebindable at chrome://extensions/shortcuts)." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Toolbar Icon Click</span>
+                    <select value={settings.toolbarClickAction || 'sidepanel'} onChange={e => updateSetting('toolbarClickAction', e.target.value)} style={selectStyle}>
+                      <option value="sidepanel">📑 Open Side Panel</option>
+                      <option value="popup">🗂 Open Tab List</option>
+                    </select>
+                  </div>
+                </Tooltip>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', padding: '6px 8px', marginTop: '4px', lineHeight: '1.5' }}>
+                  {(!settings.toolbarClickAction || settings.toolbarClickAction === 'sidepanel')
+                    ? '📑 Clicking the toolbar icon opens Tabatha’s side panel. Press Ctrl+Shift+E (⌘⇧E on Mac) to pop open the tab list.'
+                    : '🗂 Clicking the toolbar icon opens the tab-list popup. The same Ctrl+Shift+E (⌘⇧E on Mac) hotkey also opens it.'}
+                </div>
                 <div style={sectionLabel}>
                   This Browser Profile
                   {installIdentity?.saveState === 'saving' && <span style={{ marginLeft: 8, color: 'var(--color-text-muted)', fontWeight: 400 }}>· saving…</span>}
