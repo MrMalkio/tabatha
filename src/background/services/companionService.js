@@ -11,6 +11,7 @@ import {
   COMPANION_WS_URL
 } from '../constants.js';
 import { broadcastToExtension } from './notificationService.js';
+import { setSessionFromCompanion } from './clockService.js';
 
 // Minimal dotted-numeric version comparison (manifest versions are MV3
 // dot-separated integers, e.g. "6.4.0"). Returns true iff `candidate` is
@@ -331,6 +332,14 @@ class CompanionBridge {
   _handleClockState(msg) {
     this.desktopClock = msg.clock;
     chrome.storage.local.set({ companionClock: msg.clock });
+    // FIX-02 / FIX-05: mirror the companion clock into the canonical
+    // `clockSession` key that Home reads. setSessionFromCompanion is the
+    // companion-origin writer — it maps snake_case → camelCase and must NOT
+    // send anything back to the companion (no echo loop). Best-effort: a write
+    // failure must not break the rest of the message handling.
+    Promise.resolve(setSessionFromCompanion(msg.clock)).catch((e) => {
+      console.warn('[CompanionBridge] Failed to apply companion clock state:', e);
+    });
     this._emit('clockState', msg.clock);
   }
 

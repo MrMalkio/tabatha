@@ -143,6 +143,61 @@ export async function endBreakIfActive() {
 }
 
 /**
+ * FIX-02 / FIX-05: apply an inbound companion CLOCK_STATE to the `clockSession`
+ * key that Home (src/home/index.jsx) actually reads.
+ *
+ * The companion broadcasts a snake_case payload:
+ *   { active, on_break, clocked_in_at, break_started_at, total_break_ms }
+ * The extension's canonical session (see src/background/clock.js) is camelCase:
+ *   { active, clockedInAt, clockedOutAt, onBreak, breakStartedAt, breaks[] }
+ *
+ * This writer maps the former into the latter and persists it. It is the
+ * COMPANION-ORIGIN writer: it deliberately does NOT call sendClockIn/sendClockOut
+ * (or any companionBridge send*), because doing so would echo the state back to
+ * the companion and create an infinite clock-sync loop.
+ *
+ * The mapping is robust to missing fields: an empty/absent payload yields an
+ * inactive session rather than throwing. `total_break_ms` is preserved as a
+ * synthetic completed break so elapsed/work-time math downstream stays correct.
+ */
+export async function setSessionFromCompanion(companionClock) {
+  const c = companionClock || {};
+  const active = !!c.active;
+  const onBreak = !!c.on_break;
+
+  // Preserve the existing breaks[] shape used by clock.js so any consumer that
+  // sums break durations (getLastSession / getClockHistory) still works. We
+  // don't know individual break start/end times from the companion, so we model
+  // total_break_ms as a single synthetic completed break anchored to clock-in.
+  const clockedInAt = c.clocked_in_at || null;
+  const breaks = [];
+  const totalBreakMs = Number(c.total_break_ms) || 0;
+  if (totalBreakMs > 0 && clockedInAt) {
+    const start = new Date(clockedInAt).getTime();
+    if (Number.isFinite(start)) {
+      breaks.push({
+        start: new Date(start).toISOString(),
+        end: new Date(start + totalBreakMs).toISOString(),
+        synthetic: true
+      });
+    }
+  }
+
+  const session = {
+    active,
+    clockedInAt,
+    clockedOutAt: active ? null : (c.clocked_out_at || null),
+    onBreak,
+    breakStartedAt: onBreak ? (c.break_started_at || null) : null,
+    breaks
+  };
+
+  await setStorage({ clockSession: session });
+  broadcastToExtension({ type: 'CLOCK_SESSION_UPDATED' });
+  return session;
+}
+
+/**
  * Forward a clock event to the desktop companion.
  * Called by companionService (Phase 5).
  */
