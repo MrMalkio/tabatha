@@ -14,8 +14,10 @@
 --   3. stamps the caller's profile default_org_id (COALESCE — never clobbers
 --      an existing default) so syncService attributes rows to the new org.
 --
--- SECURITY DEFINER + search_path = public, mirroring create_invite_token
--- (012) and redeem_invite_token (018). Client calls it schema-qualified:
+-- SECURITY DEFINER + search_path = '' (hardened per Koda review — all objects
+-- in the body are fully schema-qualified and only pg_catalog built-ins are used,
+-- which resolve implicitly, so an empty search_path is safe and closes the
+-- search_path-injection surface). Client calls it schema-qualified:
 --   supabase.schema('tabatha').rpc('create_organization', { p_name })
 --
 -- Run order: after 001 (schema), 005 (profile default columns), 012/018.
@@ -43,7 +45,7 @@ CREATE OR REPLACE FUNCTION tabatha.create_organization(p_name TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_profile_id UUID;
