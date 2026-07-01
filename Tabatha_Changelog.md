@@ -5,6 +5,34 @@ file.
 
 ---
 
+## [v6.5.0] - Dogfood fix batch: clock sync, onboarding, crash-hardening + new features - _2026-07-01_
+
+### Added
+
+- **Create Organization** (Settings → Sync & Account): self-serve org creation via a new `tabatha.create_organization` SECURITY DEFINER RPC (migration 020) that atomically creates the org, an owner membership, and stamps the profile default — closing the chicken-and-egg gap where the very first user of an org had no way to bootstrap one. (FIX-09)
+- **Cross-device intent queue**: device chips in the awareness strip now expand to show each other signed-in machine/profile's **read-only** intent queue, with P-priority synced (migration 021 adds `focus_items.priority`). (FIX-10)
+- **"What's New" update popup + changelog**: a one-time-per-version modal summarizing changes on upgrade (generated from this changelog into `public/changelog.json`), plus a full Changelog view in Settings → About. (FIX-11)
+- **Configurable toolbar-icon click**: choose whether clicking the toolbar icon opens the side panel (new default) or the tab-list popup, plus a rebindable `open_tab_list` keyboard shortcut. (FIX-12)
+- **Companion (Tabby Desk):** file-based crash logging + global panic hook, and user-visible "Check for Updates" feedback via the tray. (FIX-04/06)
+
+### Fixed
+
+- **Companion → extension clock sync**: the companion's clock state was written to the wrong storage key and never reached the `clockSession` that Home reads (plus a snake/camel shape mismatch), so tray/Desk-panel clock in/out never showed on Home. Now mapped and persisted correctly. (FIX-02/05)
+- **Invite-join was silently broken**: the `redeem_invite_token` RPC call wasn't schema-qualified (`.schema('tabatha')`) → PGRST202. Redeeming an invite token now works. (FIX-09)
+- **Companion crashes / "vanishing"**: a poisoned-`Mutex` cascade (`.lock().unwrap()` everywhere) took the whole process down after any single panic. Replaced with poison-recovering locks, a `catch_unwind`-wrapped monitor loop, and panic-hook file logging. (FIX-06)
+- **Activity Log** opened a broken terminal (`cmd /c "type … & pause"`) and could take the companion down; now opens the report via the OS default handler from the app-data `logs/` folder. (FIX-03)
+- **Intent queue** no longer disappears when there is no active intent — it always renders, with a muted empty state. (FIX-08)
+- **External Integrations panel** now reflects the live Desktop Companion connection (`companionConnected`) instead of a never-written flag that always read "Not configured". (FIX-01)
+
+### Changed
+
+- **Toolbar default**: clicking the extension icon now opens the **side panel** by default (previously the popup); the popup is reachable via the setting or the new hotkey. (FIX-12)
+- **Companion UI copy**: "Debug Panel" → "Desk Panel", "Tabatha Desktop" → "Tabby Desk", "Tracking" → "Tabbing"; the version is now read from the build instead of hard-coded. (FIX-07)
+- **Companion release profile**: `panic = "abort"` → `"unwind"` so crash-containment (`catch_unwind` / poison recovery) is actually effective. (FIX-06)
+- **Migrations**: 020 (`create_organization` RPC + `org_members.role` CHECK reconciled to include `owner`, hardened `search_path = ''`), 021 (`focus_items.priority` column). Authored + Koda-reviewed; applied at deploy.
+
+---
+
 ## [v6.4.0] - Ghost-stint fix: durable install identity + Live Stints panel - _2026-06-04_
 
 ### Added
