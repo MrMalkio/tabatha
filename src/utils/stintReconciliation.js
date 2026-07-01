@@ -26,6 +26,37 @@ export function isLiveConcurrent(row, selfClassification) {
   return row.classification === selfClassification;
 }
 
+/**
+ * True when `row` is one of the USER'S OWN abandoned stints — an install that
+ * still holds an ACTIVE clock (clocked_in OR on_break) but has gone
+ * stale/offline without ever clocking out. This is the "ghost stint" that
+ * should be surfaced to the user at their NEXT clock-in so they can set its
+ * real end time or discard it.
+ *
+ * NB-05 (Koda): this is deliberately NOT the raw inverse of isLiveConcurrent.
+ * It mirrors the SAME clock-in-blocking scope isLiveConcurrent uses — same
+ * classification, personal excluded, not self — but flips the liveness axis:
+ *   isLiveConcurrent  → online AND not stale (a live conflict)
+ *   isOwnAbandonedStint → stale/offline (a dead, unresolved shift)
+ * The two sets are mutually exclusive by construction (a row cannot be both
+ * live and stale), so an install is at most one of "live conflict" or
+ * "abandoned" for a given self classification.
+ *
+ * @param {object|null} row             a sibling install status row
+ * @param {string} selfClassification   this install's classification
+ * @returns {boolean}
+ */
+export function isOwnAbandonedStint(row, selfClassification) {
+  if (!row) return false;
+  if (row.is_self) return false;
+  if (!ACTIVE_STATES.has(row.clock_state)) return false;
+  // Abandoned = went offline/stale without clocking out. A row that is still
+  // online and fresh is a LIVE install, handled by isLiveConcurrent — not here.
+  if (!row.stale && row.online) return false;
+  if (!row.classification || row.classification === 'personal') return false;
+  return row.classification === selfClassification;
+}
+
 function clampMs(value, lo, hi) {
   return Math.min(Math.max(value, lo), hi);
 }
