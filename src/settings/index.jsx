@@ -17,6 +17,47 @@ import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
+import { ChangelogView } from '../components/ui/ChangelogView';
+
+// FIX-11: Settings → About changelog view. Reads the same generated
+// changelog.json that the newtab "What's New" modal uses (Vite copies
+// public/ → dist/, so it resolves at the extension root).
+function AboutChangelog() {
+  const [releases, setReleases] = useState([]);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const url = chrome.runtime.getURL('changelog.json');
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!cancelled && Array.isArray(data?.releases)) setReleases(data.releases);
+      } catch { /* best-effort */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (releases.length === 0) return null;
+  const limit = expanded ? undefined : 3;
+
+  return (
+    <div style={{ marginTop: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>📜 Changelog</h3>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-accent-primary)', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
+        >
+          {expanded ? 'Show recent only' : `Show all (${releases.length})`}
+        </button>
+      </div>
+      <ChangelogView releases={releases} limit={limit} />
+    </div>
+  );
+}
 
 function getIntentContext(entry) {
   return entry?.context ?? entry?.newContext ?? '';
@@ -1811,6 +1852,7 @@ function Settings() {
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '16px', lineHeight: 1.5 }}>
                   Tabatha is a context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions. Part of the Flux ecosystem.
                 </p>
+                <AboutChangelog />
               </div>
             )}
 
