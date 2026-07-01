@@ -9,7 +9,7 @@ import { PopButton } from '../components/ui/PopButton';
 import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
 import { FUNNEL_STAGES } from '../hooks/useFocusEngine';
-import { supabase, redeemInviteToken } from '../services/supabaseClient';
+import { supabase, redeemInviteToken, createOrganization } from '../services/supabaseClient';
 import { applyInviteDefaults } from '../services/orgAttribution';
 import { useAuth } from '../hooks/useAuth';
 import { useSyncStatus } from '../hooks/useSyncStatus';
@@ -17,6 +17,47 @@ import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
+import { ChangelogView } from '../components/ui/ChangelogView';
+
+// FIX-11: Settings → About changelog view. Reads the same generated
+// changelog.json that the newtab "What's New" modal uses (Vite copies
+// public/ → dist/, so it resolves at the extension root).
+function AboutChangelog() {
+  const [releases, setReleases] = useState([]);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const url = chrome.runtime.getURL('changelog.json');
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!cancelled && Array.isArray(data?.releases)) setReleases(data.releases);
+      } catch { /* best-effort */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (releases.length === 0) return null;
+  const limit = expanded ? undefined : 3;
+
+  return (
+    <div style={{ marginTop: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>📜 Changelog</h3>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-accent-primary)', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
+        >
+          {expanded ? 'Show recent only' : `Show all (${releases.length})`}
+        </button>
+      </div>
+      <ChangelogView releases={releases} limit={limit} />
+    </div>
+  );
+}
 
 function getIntentContext(entry) {
   return entry?.context ?? entry?.newContext ?? '';
@@ -486,6 +527,7 @@ function Settings() {
   const [activeSection, setActiveSection] = useState('appearance');
   const [settings, setSettings] = useChromeStorage('settings', {});
   const [clockSettings, setClockSettings] = useChromeStorage('clockSettings', CLOCK_DEFAULTS);
+  const [companionConnected] = useChromeStorage('companionConnected', false);
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [skippedDomains, setSkippedDomains] = useChromeStorage('skippedDomains', []);
@@ -507,6 +549,9 @@ function Settings() {
   const [inviteToken, setInviteToken] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+  // Create-organization control state
+  const [newOrgName, setNewOrgName] = useState('');
+  const [creatingOrg, setCreatingOrg] = useState(false);
 
   // Display-name editor state
   const [editingDisplayName, setEditingDisplayName] = useState(false);
@@ -679,6 +724,27 @@ function Settings() {
     setInviteLoading(false);
   };
 
+  const handleCreateOrg = async (e) => {
+    e.preventDefault();
+    const name = newOrgName.trim();
+    if (!name) return;
+    setCreatingOrg(true);
+    setAuthError(null);
+    try {
+      const res = await createOrganization(name);
+      if (res?.success) {
+        setNewOrgName('');
+        await refreshProfile();
+        setAuthError('✓ Organization created!');
+      } else {
+        setAuthError('Failed: ' + (res?.error || 'Could not create organization'));
+      }
+    } catch (err) {
+      setAuthError(err.message);
+    }
+    setCreatingOrg(false);
+  };
+
   const updateSetting = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
   const updateClock = (key, val) => setClockSettings(prev => ({ ...prev, [key]: val }));
 
@@ -795,6 +861,20 @@ function Settings() {
                     </select>
                   </div>
                 </Tooltip>
+                <Tooltip text="When: You click the Tabatha toolbar icon. How: Choose whether it opens the side panel or the tab-list popup. The Ctrl+Shift+E hotkey always opens the tab-list popup (rebindable at chrome://extensions/shortcuts)." position="bottom">
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Toolbar Icon Click</span>
+                    <select value={settings.toolbarClickAction || 'sidepanel'} onChange={e => updateSetting('toolbarClickAction', e.target.value)} style={selectStyle}>
+                      <option value="sidepanel">📑 Open Side Panel</option>
+                      <option value="popup">🗂 Open Tab List</option>
+                    </select>
+                  </div>
+                </Tooltip>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', padding: '6px 8px', marginTop: '4px', lineHeight: '1.5' }}>
+                  {(!settings.toolbarClickAction || settings.toolbarClickAction === 'sidepanel')
+                    ? '📑 Clicking the toolbar icon opens Tabatha’s side panel. Press Ctrl+Shift+E (⌘⇧E on Mac) to pop open the tab list.'
+                    : '🗂 Clicking the toolbar icon opens the tab-list popup. The same Ctrl+Shift+E (⌘⇧E on Mac) hotkey also opens it.'}
+                </div>
                 <div style={sectionLabel}>
                   This Browser Profile
                   {installIdentity?.saveState === 'saving' && <span style={{ marginLeft: 8, color: 'var(--color-text-muted)', fontWeight: 400 }}>· saving…</span>}
@@ -1103,8 +1183,19 @@ function Settings() {
                         ))}
                       </div>
                     ) : (
-                      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No organizations yet. Use an invite token to join one.</p>
+                      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No organizations yet. Create one below, or use an invite token to join an existing one.</p>
                     )}
+
+                    {/* ── Create Organization ── */}
+                    <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.5, marginTop: '2px', marginBottom: '8px' }}>
+                      Start a new organisation to invite teammates. You'll become its owner and can mint invite tokens from the "Team Activity" panel below.
+                    </p>
+                    <form onSubmit={handleCreateOrg} style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '16px' }}>
+                      <input type="text" placeholder="New organization name..." value={newOrgName} onChange={e => setNewOrgName(e.target.value)} style={{ ...inputStyle, flex: 1 }} required />
+                      <button type="submit" disabled={creatingOrg || !newOrgName.trim()} style={{ padding: '4px 12px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: creatingOrg ? 'default' : 'pointer', fontWeight: 600, fontSize: '12px', opacity: creatingOrg || !newOrgName.trim() ? 0.6 : 1 }}>
+                        {creatingOrg ? '...' : 'Create'}
+                      </button>
+                    </form>
 
                     {/* ── Teams ── */}
                     <div style={sectionLabel}>Teams</div>
@@ -1761,6 +1852,7 @@ function Settings() {
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '16px', lineHeight: 1.5 }}>
                   Tabatha is a context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions. Part of the Flux ecosystem.
                 </p>
+                <AboutChangelog />
               </div>
             )}
 
@@ -1842,10 +1934,10 @@ function Settings() {
                     </div>
                     <span style={{
                       fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
-                      background: settings.companionEnabled ? '#66bb6a22' : '#9e9e9e22',
-                      color: settings.companionEnabled ? '#66bb6a' : '#9e9e9e',
+                      background: companionConnected ? '#66bb6a22' : '#9e9e9e22',
+                      color: companionConnected ? '#66bb6a' : '#9e9e9e',
                     }}>
-                      {settings.companionEnabled ? '✓ Enabled' : '○ Not configured'}
+                      {companionConnected ? '✓ Connected' : '○ Not connected'}
                     </span>
                   </div>
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0', lineHeight: 1.5 }}>

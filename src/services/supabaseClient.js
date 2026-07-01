@@ -225,10 +225,34 @@ export async function redeemInviteToken(token) {
   const session = await getSession();
   if (!session) throw new Error("Must be logged in to redeem a token.");
 
-  // Call the Supabase Postgres function to securely redeem the token
-  const { data, error } = await supabase.rpc('redeem_invite_token', {
-    p_token: token
-  });
+  // Call the Supabase Postgres function to securely redeem the token.
+  // Must be schema-qualified — the RPC lives in the `tabatha` schema, not
+  // `public`; without this PostgREST returns PGRST202 and invite-join breaks.
+  const { data, error } = await supabase
+    .schema('tabatha')
+    .rpc('redeem_invite_token', {
+      p_token: token
+    });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Create a new Organization (and become its owner).
+ *
+ * Calls the SECURITY DEFINER RPC tabatha.create_organization which, in one
+ * transaction, creates the org, an owner membership for the caller, and stamps
+ * the caller's profile default_org_id/default_team_id. Idempotent server-side.
+ * Must be schema-qualified — the RPC lives in the `tabatha` schema.
+ */
+export async function createOrganization(name) {
+  const session = await getSession();
+  if (!session) throw new Error("Must be logged in to create an organization.");
+  const { data, error } = await supabase
+    .schema('tabatha')
+    .rpc('create_organization', {
+      p_name: name
+    });
   if (error) throw error;
   return data;
 }

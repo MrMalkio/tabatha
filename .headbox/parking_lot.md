@@ -451,3 +451,19 @@
   1. Confirm `docs/plans/<NNN>-suffix.md` as the canonical home, referenced from plan-registry ← **suggested**
   2. Move plan docs into `.headbox/plans/`
   3. Keep plans as registry rows + features.md entries only (no separate plan doc)
+
+## 2026-06-30 — v6.4.0 shipped to production — loops closed + new open items
+- **Noticed while:** Deploying Tabatha v6.4.0 to `main` (GitHub source-of-truth `MrMalkio/tabatha`; PS == OD == GitHub) + packaging the Desktop Companion.
+- **Closed by v6.4.0** (recorded here; see `.headbox/plan-registry.md` for the tracked status):
+  - **Org attribution** — `redeem_invite_token` now sets `default_org_id`/`team_id` (migration 018, applied + verified to live Flux). Closes the "no default_org/team on redeem" gap flagged in the supabase-sync handoff (`default_org_id`/`default_team_id` had no writer).
+  - **Owner read views** — migration 019 (service-role only), applied + verified.
+  - Pinned manifest key, cloud rehydrate, sidebar sync indicator, intent backdating shipped.
+  - **In-app feedback → Asana (BD-12 first slice)** — submission path shipped in the extension; **edge-function deploy still pending Asana creds** (see open items).
+  - **Companion packaged** (.msi + setup.exe): install-folder creation, dummy-proof guided install, Supabase-Storage auto-update (key-guard + atomic swap), 23 Rust tests; Rust + VS Build Tools installed on OD. Advances Plan 019 to `partial`. (This is the "Companion Feature Sync" / distribution parking-lot cluster from 2026-05-28 / 2026-05-19 item 5.)
+  - Extension: 123 tests, Koda(Codex)-reviewed ×2 + Claude backstop; OAuth redirect allowlisted (sign-in works).
+- **Still OPEN (do before team-live / public):**
+  1. **`public.flux_time_entries` RLS is DISABLED** — security risk, flagged pre-team-live (already tracked in `db-rls-audit-2026-06-02.md` finding A; now also plan-registry Wave 0 P0.5).
+  2. **Feedback edge-function deploy** — pending Asana creds (P0.6).
+  3. **DB pre-create of Reggie & Po** (po@ / reggie@duckandshark.com) — pending (P0.7).
+  4. **Physical rollout** to testers — pending (P0.8).
+- **Why it matters:** Records the production milestone against the loose-thread items already in this lot so they don't get re-raised, and surfaces the remaining pre-team-live gates in one place.

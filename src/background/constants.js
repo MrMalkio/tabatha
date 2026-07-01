@@ -10,6 +10,11 @@ export const DEFAULT_SETTINGS = {
   exportPath: 'Tabatha',
   autoExportEnabled: false,
   autoExportIntervalMinutes: 60,
+  // ── Toolbar Click Behavior (FIX-12) ──
+  // What clicking the browser-toolbar icon does:
+  //   'sidepanel' (DEFAULT) → open Tabatha's side panel
+  //   'popup'               → open the tab-list popup (popup.html)
+  toolbarClickAction: 'sidepanel',
   // ── Follow-through Support (Plan 025) ──
   welcomeBackMinIdleMinutes: 5,
   welcomeBackShowAfterBreak: true,

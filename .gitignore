@@ -47,3 +47,9 @@ docs/features/mike-transcript-extraction.md
 # public/manifest.json. Loss only means a new ID, not a security breach.
 *.pem
 scripts/.tabatha-extension-key.pem
+
+# build artifacts (installers / packed crx / bundle zips)
+Tabatha-Desktop-Companion_*.msi
+Tabatha-Desktop-Companion_*-setup.exe
+*.crx
+tabatha-*.zip

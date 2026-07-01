@@ -1,0 +1,621 @@
+{
+  "generatedAt": null,
+  "releases": [
+    {
+      "version": "6.5.0",
+      "title": "Dogfood fix batch: clock sync, onboarding, crash-hardening + new features",
+      "date": "2026-07-01",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Create Organization** (Settings → Sync & Account): self-serve org creation via a new `tabatha.create_organization` SECURITY DEFINER RPC (migration 020) that atomically creates the org, an owner membership, and stamps the profile default — closing the chicken-and-egg gap where the very first user of an org had no way to bootstrap one. (FIX-09)\n- **Cross-device intent queue**: device chips in the awareness strip now expand to show each other signed-in machine/profile's **read-only** intent queue, with P-priority synced (migration 021 adds `focus_items.priority`). (FIX-10)\n- **\"What's New\" update popup + changelog**: a one-time-per-version modal summarizing changes on upgrade (generated from this changelog into `public/changelog.json`), plus a full Changelog view in Settings → About. (FIX-11)\n- **Configurable toolbar-icon click**: choose whether clicking the toolbar icon opens the side panel (new default) or the tab-list popup, plus a rebindable `open_tab_list` keyboard shortcut. (FIX-12)\n- **Companion (Tabby Desk):** file-based crash logging + global panic hook, and user-visible \"Check for Updates\" feedback via the tray. (FIX-04/06)"
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Companion → extension clock sync**: the companion's clock state was written to the wrong storage key and never reached the `clockSession` that Home reads (plus a snake/camel shape mismatch), so tray/Desk-panel clock in/out never showed on Home. Now mapped and persisted correctly. (FIX-02/05)\n- **Invite-join was silently broken**: the `redeem_invite_token` RPC call wasn't schema-qualified (`.schema('tabatha')`) → PGRST202. Redeeming an invite token now works. (FIX-09)\n- **Companion crashes / \"vanishing\"**: a poisoned-`Mutex` cascade (`.lock().unwrap()` everywhere) took the whole process down after any single panic. Replaced with poison-recovering locks, a `catch_unwind`-wrapped monitor loop, and panic-hook file logging. (FIX-06)\n- **Activity Log** opened a broken terminal (`cmd /c \"type … & pause\"`) and could take the companion down; now opens the report via the OS default handler from the app-data `logs/` folder. (FIX-03)\n- **Intent queue** no longer disappears when there is no active intent — it always renders, with a muted empty state. (FIX-08)\n- **External Integrations panel** now reflects the live Desktop Companion connection (`companionConnected`) instead of a never-written flag that always read \"Not configured\". (FIX-01)"
+        },
+        {
+          "label": "Changed",
+          "body": "- **Toolbar default**: clicking the extension icon now opens the **side panel** by default (previously the popup); the popup is reachable via the setting or the new hotkey. (FIX-12)\n- **Companion UI copy**: \"Debug Panel\" → \"Desk Panel\", \"Tabatha Desktop\" → \"Tabby Desk\", \"Tracking\" → \"Tabbing\"; the version is now read from the build instead of hard-coded. (FIX-07)\n- **Companion release profile**: `panic = \"abort\"` → `\"unwind\"` so crash-containment (`catch_unwind` / poison recovery) is actually effective. (FIX-06)\n- **Migrations**: 020 (`create_organization` RPC + `org_members.role` CHECK reconciled to include `owner`, hardened `search_path = ''`), 021 (`focus_items.priority` column). Authored + Koda-reviewed; applied at deploy."
+        }
+      ]
+    },
+    {
+      "version": "6.4.0",
+      "title": "Ghost-stint fix: durable install identity + Live Stints panel",
+      "date": "2026-06-04",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Live Stints panel** (Work Shifts → Live Stints view): lists all browser-profile installs currently clocked in — self, live siblings, and dead orphans — with per-install badges (live/stale/machine group), clock-in timestamp, last-seen heartbeat, and individual **Clock out** / **Dismiss** actions. Dead orphans show an end-time picker prefilled with `last_heartbeat_at`. Bulk **Clean up all offline** removes all stale presence rows in one step.\n- **`OtherProfilesStrip` stale-collapse**: the awareness strip now shows only live chips; stale orphans collapse into a single `🕘 N offline · clean up` chip that links to the Live Stints panel.\n- **Home clock indicator**: a compact chip near the home clock links to the Live Stints panel when sibling stints are present.\n- **New background handlers** in `awarenessService`: `LIST_LIVE_STINTS`, `CLOCK_OUT_INSTALL`, `DISMISS_INSTALL`, `CLEAR_ALL_OFFLINE`.\n- **Self-command listener** on the Supabase Realtime subscription: a live sibling install can be clocked out remotely by writing `metadata.clock_out_requested_at`; the target install runs its own local clock-out sequence.\n- **Pure reconciliation helpers** (`src/utils/stintReconciliation.js`): `isLiveConcurrent`, `reconstructStintFromStatus`, `resolveAttributionTarget`, `classifyInstallForCleanup`. 26 unit tests."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Concurrent-shift false warning**: the \"hours may stack and double-count\" popup now only fires for a genuinely live, same-classification install. Dead orphans (stale/offline) and installs with a different classification (personal vs professional) no longer trigger the warning."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Durable install identity** (migration 017): `browser_profiles` gains `local_id` (stable per-install UUID) and `machine_id` (companion browser-profile link). A unique index on `(profile_id, local_id)` makes `ensureBrowserProfileRow` idempotent — the same install always maps to one row, regardless of concurrent syncs or storage resets. Existing rows keep `local_id IS NULL` and are reconciled via the Live Stints panel."
+        }
+      ]
+    },
+    {
+      "version": "6.3.2",
+      "title": "QA regression fixes (idle overlay, sidebar parity, domain backfill)",
+      "date": "2026-05-29",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **D1 — Idle overlay was dismissed when user moved their mouse.** Chrome fires `idle→active` when mouse moves, which was broadcasting `IDLE_PROMPT_RESOLVED` and removing the overlay. Now only dismissed on `timeout` (the hard-pause fallback). The user can move their mouse and click a response button.\n- **G — Domain Groups tab was empty on first load.** `recordDomainVisit` only fires on new navigations; existing tracked tabs were never recorded. Background now scans `chrome.storage.local.tabs` on startup and backfills the domain history.\n- **B7 — Meeting-domain textarea couldn't start a new line.** `onChange` was calling `filter(Boolean)`, deleting empty lines immediately when Enter was pressed. Now uses local draft state, saved to settings on blur.\n- **Notification icons** — `icons/icon128.png` relative path fails in service worker; replaced with `chrome.runtime.getURL(...)`.\n- **Timeline note text** — multi-line notes now render with `white-space: pre-wrap` instead of collapsing to one paragraph."
+        },
+        {
+          "label": "Added",
+          "body": "- **Sidebar parity** — Sidebar active-focus card now has 📊 checkpoint timeline (full edit mode), 📱/📴 off-device toggle, and 📌 Sub-focus button.\n- **`CheckpointTimeline` shared component** (`src/components/CheckpointTimeline.jsx`) used by both home FocusBar and sidebar.\n- **Auto-focus chip** fade extended 8s → 20s (chip was disappearing before user could dismiss InPop)."
+        }
+      ]
+    },
+    {
+      "version": "6.3.1",
+      "title": "Self-review fix: stale meeting tab no longer disables idle",
+      "date": "2026-05-29",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Forgotten meeting tab permanently disabled idle detection.** `isUserInMeeting()` treated any meeting-domain tab open >2min as an active call, so a Zoom/Meet tab left open all day suppressed idle pausing indefinitely. The \"muted backgrounded meeting\" signal is now bounded to the meeting grace window (`meetingIdleGraceMinutes`, default 60m) and an explicit active-tab signal was added. Recently-joined muted meetings are still detected; stale tabs are not. (Found in a pre-PR self-review; guarded by new regression tests.)"
+        }
+      ]
+    },
+    {
+      "version": "6.3.0",
+      "title": "Plan 037 Phase 2 Checkpoint Timeline Editing",
+      "date": "2026-05-29",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Timeline edit mode**: the checkpoint timeline (📊) now has an **✏️ Edit / ✓ Done** toggle. In edit mode you can:\n  - Edit any note's text and progress level inline (✏️ per entry).\n  - Delete any entry (✕), including auto-generated system entries.\n  - Add a new checkpoint note (+ Add checkpoint note).\n  - Adjust tracked time with clearer UI — the total is shown prominently with an explanation, so the time controls are no longer cryptic.\n- New handlers `EDIT_CHECKPOINT` and `DELETE_CHECKPOINT` (focusService)."
+        },
+        {
+          "label": "Changed",
+          "body": "- The \"Adjust tracked time\" controls now live inside Edit mode with a labelled total and helper text (previously an unexplained button row)."
+        }
+      ]
+    },
+    {
+      "version": "6.2.0",
+      "title": "Plan 038 Phase 1 Persistent Domain Store",
+      "date": "2026-05-29",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Persistent domain history** (`domainHistoryService`): Tabatha now permanently remembers every domain (and its path variations, visit count, and observed intents) you visit — independent of whether the tab is still open. Capped at 2000 domains (configurable), LRU-evicted. This is the data backbone for building URL rules at any time, not just for currently-open sites.\n- **Settings → URL Rules → Domain Groups** rebuilt on the persistent store: search/filter, visit count, last-seen, live-open indicator, and per-domain **⭐ Target** (prompt me to make a rule next visit), **🚫 Dismiss** (hide + stop prompting), and **↩ Restore** actions. A \"Show dismissed\" toggle reveals hidden domains."
+        }
+      ]
+    },
+    {
+      "version": "6.1.0",
+      "title": "Plan 037 Focus Time Editing + Plan 036 QA fixes",
+      "date": "2026-05-29",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Focus time editing** (Plan 037): the checkpoint timeline (📊) gains a \"🛠 Adjust tracked time\" row — quick deltas (−5m/−1m/+1m/+5m), a set-exact-minutes input, and **Remove last pause** (restores the time a pause ate and reactivates the focus). New handlers `ADJUST_FOCUS_TIME`, `SET_FOCUS_ELAPSED`, `REMOVE_LAST_PAUSE`, all clamped to wall-clock time and audit-logged.\n- **Auto-pause master toggle** (`autoPauseEnabled`): Settings → Focus Lifecycle. When off, going idle never mutates any focus — not even a prompt."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Off-device focuses are no longer paused by idle.** Both `handleIdleStateChanged` and `hardPauseActiveFocus` now exempt `offDevice` focuses, fixing the time-data corruption where an off-device focus was silently paused while the user worked outside Chrome.\n- **Tooltips no longer clip off-screen.** Tooltip x-position is clamped to the viewport and long text wraps (max 280px) — fixes the cut-off tooltips in Settings and everywhere else.\n- **Meeting-domain editor**: the textarea now splits on newlines only (not commas), shows a format placeholder + Enter hint, and stops host-page keyboard shortcuts from intercepting input."
+        }
+      ]
+    },
+    {
+      "version": "6.0.0",
+      "title": "Plan 036 Intelligent Focus Lifecycle — Smart Idle + Auto-Focus + Drift",
+      "date": "2026-05-29",
+      "intro": "Absorbs Plans 026 (Auto Focus) and 029 (Auto-Pause Overhaul). Resolves bugs B05/B08 and addresses features #149–#152, #187. Incorporates the challenge-audit resolutions (multi-profile sync race, meeting detection, drift false-positives, prompt-storm mitigation).",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Smart Idle Engine** (`clockService`): before pausing the global focus, `collectIdleSuppressors()` consults (a) other browser profiles via the awareness cache, (b) desktop-companion activity within a configurable grace window, and (c) a hardened 3-layer `isUserInMeeting()` scan (all open tabs + companion app), so muted/backgrounded meetings and cross-profile activity no longer trigger false pauses. When idle is genuine, an `IDLE_PROMPT` is shown (\"Yes, on task\" / \"I diverged\" / \"Pause focus\") instead of a silent hard-pause; an unanswered prompt falls back to a hard pause after 5 minutes. Legacy hard-pause is still available via the \"Prompt before pausing\" toggle.\n- **Multi-profile idle state** (`awarenessService`): each profile now publishes its Chrome idle verdict in the `browser_profile_status.metadata` jsonb (no schema migration) and surfaces it in the `_otherProfiles` cache, fixing the multi-profile sync-override hazard where an unattended profile could pause an actively-worked focus account-wide.\n- **Auto-Focus heuristic engine** (`autoFocusService`): when no focus is active, tab activations/navigations are matched against URL rules (explicit auto-create), category/domain groups (high confidence), and the companion app category (medium), surfacing a non-blocking InBar chip that auto-fades after 8s. A per-domain exponential decay engine (30→60→120→240→480m) suppresses repeat prompts after dismissal.\n- **Context drift detection** (`autoFocusService`): a 5-layer association hierarchy (direct association, companion overrule, URL-rule intent, category/domain-group, hostname) plus a localhost/chrome:// whitelist decides whether a tab counts as drift. A wandering→drifted state machine (armed by the `auto-focus-drift` alarm at `driftThresholdMinutes`) raises `FOCUS_DRIFT_DETECTED` with \"Still working / Switching / Just checking\" options and emits a `context_drift` webhook.\n- **Auto clock-in (#187)**: optional, with a configurable trigger — \"When Chrome opens\" (default, via `runtime.onStartup`) or \"On OS unlock\" (via the desktop companion's idle→active transition).\n- **Companion bridge helpers** (`companionService`): `lastHeartbeat`, `getActiveApp`/`getActiveAppCategory`, and `isRecentlyActive(grace)` for the idle and drift engines.\n- **Settings → 🧠 Focus Lifecycle** panel: idle behaviour (prompt toggle, thresholds, companion grace, meeting-domain editor), auto-focus (enable, confidence, dismissal-history viewer/clear), drift detection (enable + thresholds), and auto clock-in (enable + trigger). URL Rules gain a per-rule **🎯 Auto-create focus** toggle."
+        },
+        {
+          "label": "Changed",
+          "body": "- Idle handling no longer mutates the global focus when the user is active on another profile, in another desktop app, or in a meeting — it only updates this profile's own status."
+        }
+      ]
+    },
+    {
+      "version": "5.8.0",
+      "title": "Plan 031 Gap Completion — Auto-Checkpoint + SectionNav + Sub-Focus + Backburner Fixes",
+      "date": "2026-05-28",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Auto-Checkpoint System** (`focusService.autoCheckpoint`): Lifecycle transitions (started, paused, resumed, completed, backburnered) now automatically generate system checkpoint entries. These appear in the Checkpoint Timeline with ⚙️ prefix at 60% opacity, distinguishable from manual user-submitted notes. System entries do not count toward the badge number or trigger stale-nudge timers.\n- **Sub-Focus Button** (FocusBar): `📌 Sub-focus` button in the FocusBar action row. Creates a child focus under the currently active parent. Queue items with a parent now display a purple `child` badge.\n- **SectionNav Sidebar Refactor**: Homepage navigation sidebar is now hover-expandable (44px icons → 160px icon+title on hover). Smart click logic: clicking an active section collapses it; clicking a different section navigates to it and auto-expands. Collapsed sections drop to the bottom of the sidebar with a divider and line-through styling. Collapsed section headers no longer render in the page body (zero-height anchor only), saving vertical real estate.\n- **Feature Spec #209** (`docs/features/209-focus-resolution-tab-cleanup.md`): Documented the Focus Resolution & Tab Cleanup feature for future implementation."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Backburner create-new-focus skeleton** (Critical): When backburnering a focus and choosing \"Create New\", the replacement focus object was missing 12 fields (`funnelStage`, `timerMinutes`, `createdAt`, `pausedAt`, `endedAt`, `overMs`, `parentFocusId`, `contextSwitchCount`, `priority`, `offDevice`, `lastCheckpointAt`, `checkpointSnoozedUntil`). These undefined values broke the priority dropdown, funnel stage picker, and timer display. Now uses the canonical field set matching `startFocus`.\n- **Backburner tab association inheritance**: Create-new-focus during backburner now inherits `associatedTabIds` from the backburnered focus and cross-links via `backburnerTransitionFocusId` for audit trail.\n- **`addFocus` missing priority**: The `addFocus` function (used when adding to queue) was missing the `priority` field, causing the priority selector in FocusQueue to render undefined. Now defaults to P5.\n- **Checkpoint badge count inflation**: The `📋 (N)` badge on the FocusBar was counting all checkpoint entries including system auto-entries, inflating the number. Badge now filters to user-only; timeline visibility uses total count.\n- **Video call idle suppression**: Idle detection now checks both audible meeting tabs (existing) AND the active tab's URL against meeting domain patterns (Meet, Zoom, Teams, WebEx). Prevents premature auto-pausing during muted calls or meeting waiting rooms.\n- **Regression RT-2**: LogsPanel type column added (replaces colored badge in details column).\n- **Regression RT-7**: Category override logic for domain-specific patterns (Meet → Communication, Scholar → Research)."
+        }
+      ]
+    },
+    {
+      "version": "5.3.0",
+      "title": "Plan 028 Phase D₂ — companion as a first-class install + clock-stacking warning + invite revocation",
+      "date": "2026-05-19",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Desktop companion proxy-registers as a `browser_profiles` row** (`browser='desktop_companion'`). On every WebSocket connect the extension SELECTs-or-INSERTs the companion's row and caches its id locally as `_companionBrowserProfileId`. Migration 013 adds a partial unique index `(profile_id, browser)` WHERE `browser IN ('desktop_companion', 'mobile_ios', 'mobile_android', 'tabatha_web')` so concurrent races resolve cleanly.\n- **`companionInstallService`** heartbeats the companion's `browser_profile_status` row every 60 seconds while WS is connected; pushes immediately on `CLOCK_STATE` messages from the companion; flips `online=false` on disconnect. The awareness chip strip and Team Activity panel now render the companion alongside browser profiles (💻 icon).\n- **Clock-stacking warning.** Home dashboard and sidebar `CLOCK_IN` paths consult the cached `_otherProfiles` awareness data; if any other non-personal install is currently `clocked_in` or `on_break`, a confirm dialog lists them before allowing a second concurrent shift to start. Personal installs are excluded from the check because they have no clock.\n- **Pending Invites list** in Settings → Sync & Account → Team Activity. Org owners and managers see all unredeemed, unexpired tokens for their orgs with a per-row Revoke button (direct `DELETE` against `invite_tokens` — RLS gates server-side). The Generate Invite flow auto-refreshes the pending list on mint."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Desktop activity attribution.** `syncService.buildDesktopRows` now stamps `desktop_activity` rows with the companion's `browser_profile_id` instead of the extension's whenever a companion install exists. Existing rows pre-D₂ remain attributed to the extension — that's acceptable; future companion activity is correctly scoped.\n- **Awareness chip icons** prefer `BROWSER_ICON[row.browser]` over `CLASSIFICATION_ICON[row.classification]` so the companion (💻), future mobile (📱), and web (🌐) installs are visually distinct from Chrome profiles."
+        },
+        {
+          "label": "Migration",
+          "body": "Run `supabase/migrations/013_companion_install_uniqueness.sql`. The unique index is partial — Chrome browser_profiles stay free-form so users with multiple Chrome profiles on one machine continue to work."
+        },
+        {
+          "label": "Out of scope (still parked for Phase D₃+)",
+          "body": "- Multi-machine companion support (today: one companion per user). A stable per-machine identifier on `profile_path` is the next step.\n- Mobile app(s) (iOS / Android) registering their own `browser_profiles` rows. The schema and unique index are already in place; the mobile clients need to do the upsert themselves.\n- Auto-update distribution via Chrome Web Store / signed CRX (Plan 019)."
+        }
+      ]
+    },
+    {
+      "version": "5.2.0",
+      "title": "Plan 028 first slice — Team Activity + Invite Mint + profile realtime",
+      "date": "2026-05-19",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Team Activity panel** (Settings → Sync & Account) for org owners and team managers. Lists each member you can see, with their browser-profile installs and live awareness chips. Refreshes via Supabase Realtime on every status change.\n- **Generate Invite Token** mint UI. Org owners and team managers/sub-managers can mint tokens directly from Settings — pick org, optionally a team, role, and expiry hours; copy the resulting token. Pairs with the existing redemption flow.\n- **Manager RLS scoping** (migration 012) for `tabatha.browser_profiles`, `tabatha.browser_profile_status`, and `tabatha.profiles`. Org owners can read all members in their orgs; team owners/managers/sub-managers can read their team members. Insert/update/delete remain own-row.\n- **`tabatha.profiles` realtime subscription** in `useAuth` — `display_name`, `avatar_url`, `default_realm` etc. update live across browsers without a page reload."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **`useChromeStorage.update` race condition.** The `valueRef`-based update path could be one render stale, letting rapid concurrent writes overwrite each other (the lingering \"Profile Name doesn't save on one of my browsers\" report). Replaced with functional `setValue(prev => …)` so `prev` is guaranteed to be the latest committed state. Universal fix — covers every callsite, not just the install identity."
+        },
+        {
+          "label": "Migration",
+          "body": "Run `supabase/migrations/011_add_profiles_to_realtime.sql` then `012_manager_scoping_and_invite_mint.sql` before relying on Team Activity or live profile updates."
+        },
+        {
+          "label": "Out of scope (still parked for Phase D₂+)",
+          "body": "- Desktop companion registers as a `browser_profiles` row (`browser='desktop_companion'`).\n- Mobile app(s) follow the same identity pattern.\n- Auto-update distribution via Chrome Web Store / signed CRX (Plan 019)."
+        }
+      ]
+    },
+    {
+      "version": "5.1.1",
+      "title": "Phase A race fix + classification explainer + invite-token note",
+      "date": "2026-05-19",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Classification picker stuck on Professional / wouldn't save.** The eager-init useEffect's storage write was racing the user's first edit — `valueRef.current` could still be the stale DEFAULT, and the second write clobbered `localId` back to null. New self-healing `writeIdentity` ensures `localId` + `createdAt` exist on every write, so the race is impossible. Same fix covers profile-name edits."
+        },
+        {
+          "label": "Added",
+          "body": "- **Per-classification explainer** beneath the Classification picker, updates live with the selection. Covers what each of Business / Professional / Work / Personal *means* in terms of clock visibility, default realm, and cross-profile presentation.\n- **Per-option tooltips** on each Classification dropdown option.\n- **Invite Token clarification.** Added a small explainer above the Team Invite Token input noting that redemption works end-to-end but token *creation* doesn't have UI yet — admins generate tokens directly in the cloud console. The mint UI ships with the manager dashboard."
+        }
+      ]
+    },
+    {
+      "version": "5.1.0",
+      "title": "Multi-Profile Awareness Sync Phase C + Phase A polish",
+      "date": "2026-05-19",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Cross-profile awareness substrate** (`tabatha.browser_profile_status`). Each install upserts its own row with clock state + active focus state on every transition; refreshes a `last_heartbeat_at` on a 60-second tick. Other installs subscribe via Supabase Realtime and render compact chips on the home dashboard (\"Personal 🏠 · 🎯 Slack · 6m\").\n- **`awarenessService.js`** — manages heartbeat, debounced state pushes, realtime subscription, and the `_otherProfiles` local cache.\n- **`OtherProfilesStrip` component** + **`useOtherProfiles` hook** — render the awareness chips with stale/offline dimming when no heartbeat in 5 minutes.\n- **Eager Install ID initialisation** in the `useInstallIdentity` React hook so the UI is responsive immediately, not blocked on the first sync.\n- **Save feedback** in Settings → Browser Profile: \"saving… / ✓ saved / save failed\" pill next to the section header.\n- **Immediate cloud push on Classification change** (no longer waiting for the next sync alarm)."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Verbiage:** \"Supabase\" replaced with \"cloud\" / \"Account\" / \"database\" in user-facing copy. The settings sidebar entry \"☁️ Sync & Supabase\" is now \"☁️ Sync & Account\"; the re-pull dialog says \"re-pull from the cloud\"; the workshifts export stub says \"Sync to Cloud\"."
+        },
+        {
+          "label": "Migration",
+          "body": "Run `supabase/migrations/010_add_browser_profile_status.sql` before the cross-profile awareness chips will populate. Adds the status table, RLS policies, and adds the table to the `supabase_realtime` publication."
+        },
+        {
+          "label": "Known limitations / out of scope",
+          "body": "- The desktop companion does not yet register a `browser_profiles` row (`browser = 'desktop_companion'`); awareness chips for the companion will arrive in Phase D.\n- Clock-stacking warnings (when multiple non-personal profiles clock in simultaneously) are visualised by the chips but not yet inline-blocked. Deliberate — we want to observe stacking patterns before deciding the UX.\n- Manager-scoped views over org_members' profiles still rely on a future RLS expansion."
+        }
+      ]
+    },
+    {
+      "version": "5.0.0",
+      "title": "Multi-Profile Awareness Sync Phase A+B",
+      "date": "2026-05-19",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Per-install browser-profile identity** stored locally in `_browserProfile` (chrome.storage.local). Each Chrome profile on each machine gets a stable `localId` on first run and a `supabaseId` on first sync.\n- **`tabatha.browser_profiles` is now active.** Every install upserts a row carrying its classification, profile name, and `last_seen_at`. The table has been present since migration 001; this release wires it up.\n- **Classification axis** (per-install): Business / Professional / Work / Personal. Distinct from the user-level `profiles.default_realm`. Picker lives in Settings → Appearance → \"This Browser Profile\".\n- **Bootstrap pull of org registry.** On first sync after sign-in, every `tabatha.{operations,initiatives,clients,projects,tasks_registry}` row for the user is fetched and merged into local `tabathaOrg` by name (case-insensitive). Prevents duplicate clients/projects/tasks when signing in on a second browser profile or machine.\n- **`↻ Re-pull registry`** button in Settings → Sync — clears the bootstrap watermark and re-runs the merge on demand.\n- **Stamp `browser_profile_id`** on every push: `focus_items`, `intent_history`, `clock_sessions`, `desktop_activity`, `operations`, `initiatives`, `clients`, `projects`, `tasks_registry`. The server can now attribute every row to the install that produced it.\n- **`useInstallIdentity()` React hook** exposes `{ identity, isPersonal, isReady, setClassification, setProfileName }` to UI surfaces."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Personal-classified profiles hide clock-in / clock-out / break controls** in the home dashboard's Shift Controls section, the sidebar header, and the Command Palette. Time-and-attention breakdowns (UnifiedTimeline, AnalyticsDashboard, workshifts) remain visible everywhere.\n- **`applyDefaultRealm` (focusService)** now reads `_browserProfile.classification` first, falling back to the legacy `tabathaSettings.defaultRealm`. New focuses created on a Personal profile default to `realm=personal` independent of the user-level default.\n- Settings → Appearance → Browser Profile rebuilt into a \"This Browser Profile\" card: Install ID (last-12 of supabaseId), editable Profile Name, Classification picker."
+        },
+        {
+          "label": "Migration",
+          "body": "Run `supabase/migrations/009_add_browser_profile_stamp.sql` before relying on the new stamping behaviour. Until 009 is applied, push diagnostics will report column-missing errors for `browser_profile_id`."
+        },
+        {
+          "label": "Required next steps after install",
+          "body": "1. Set the **Classification** for this browser profile in Settings → Appearance.\n2. Hit **↻ Sync now** in Settings → Sync to register the install in `tabatha.browser_profiles`.\n3. When signing in on a second browser profile or machine, the bootstrap pull runs automatically on the first sync. Use **↻ Re-pull registry** to re-run it manually."
+        },
+        {
+          "label": "Out of scope (deferred to next plan)",
+          "body": "- Realtime awareness pings (cross-profile focus/clock chips).\n- Clock-stacking warnings when multiple non-personal profiles are clocked in.\n- Personal-profile \"see-all-my-activity\" aggregated dashboard.\n- Manager-scoped views over employees' browser profiles."
+        }
+      ]
+    },
+    {
+      "version": "4.7.6",
+      "title": "Supabase sync Batch 1 durable data coverage",
+      "date": "2026-05-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- Added Supabase migration 008 for durable local data: operations, initiatives, clients, projects, task registry, clock sessions, and desktop activity.\n- Extended `syncService` to push `tabathaOrg`, completed focus history, `clockHistory`, `companionRecentSessions`, and `desktopActivity`.\n- Added watermarks for clock and desktop activity sync (`lastClockSync`, `lastDesktopActivitySync`) and storage-change sync triggers for direct page writes."
+        },
+        {
+          "label": "Changed",
+          "body": "- Focus sync now includes `focusEngine.history` as completed rows in `tabatha.focus_items`, not only active/queued items.\n- Clock-out now explicitly queues a Supabase sync in addition to the regular storage-change/alarm paths."
+        },
+        {
+          "label": "Required Supabase migration",
+          "body": "Run `supabase/migrations/008_add_batch1_sync_tables.sql` before relying on Batch 1 sync tables. Until migration 008 is applied, the Sync Status panel will report table-specific upsert failures."
+        }
+      ]
+    },
+    {
+      "version": "4.3.0",
+      "title": "Plan 025: Popup Harmony + Checkpoint Progress Notes + Context-Link",
+      "date": "2026-05-17",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Singleton Popup Coordination** (#185): FTE/WBP overlays no longer stack across tabs. A `_activePopup` storage key tracks the active overlay; all other tabs skip rendering. Actions taken on any surface (home, sidebar, InBar) broadcast `POPUP_DISMISSED` to auto-clear stale overlays everywhere.\n- **Enhanced FTE CTAs**: Focus Timer Expired card expanded from 2 buttons to 6: ⏱️ Extend 5m, 🔄 Switch Focus (inline picker), ⏸ Pause, ☕ Step Away (break), ✅ Complete, 📝 Add Note.\n- **Combo Popup** (FTE + WBP): When the focus timer expires while the user is away, a single merged `FOCUS_RETURN_COMBO` card shows idle duration (with seconds) + all FTE CTAs + Resume. Replaces the previous two-popup stack.\n- **Configurable WBP Thresholds**: `welcomeBackMinIdleMinutes` (default 5) and `welcomeBackShowAfterBreak` (default true) in Settings → Follow-through Support.\n- **Off-Device Tag**: Boolean on focus items — when true, suppresses FTE/WBP/nudge popups and Chrome notifications. Toggle in home FocusBar and sidebar.\n- **Checkpoint Progress Notes** (#184): Timed auto-prompts at configurable intervals (`checkpointIntervalFraction`, default ⅓ of focus timer). Progress levels: `stuck` (0), `none` (0), `little` (1), `lot` (3), `almost_done` (4). Each CPN stored with `progressValue` for future scoring.\n- **CPN Snooze**: \"Remind me in 5 min\" on checkpoint prompt defers re-prompt.\n- **CPN Smart Suppression**: Auto-prompt skipped when a subtask/linked task was recently completed (only checked when subtasks exist).\n- **InBar Manual Checkpoint** (📋): Amber-highlighted button when no checkpoint logged in 30+ minutes. Opens inline CPN overlay with progress-level buttons.\n- **InBar Staleness Signal**: Pulsing amber dot on the checkpoint button when `lastCheckpointAt` exceeds `checkpointStaleMinutes` (default 30).\n- **Sidebar Checkpoint**: 📋 button in sidebar focus panel with inline textarea + progress-level buttons.\n- **Home CPN Timeline**: Collapsible checkpoint history in the FocusBar with timestamped entries.\n- **Follow-through Support Settings**: New settings section with toggles for checkpoint prompts, interval fraction slider, staleness threshold, WBP min idle, and Asana auto-post.\n- **Context-Link Indicator** (#186): InBar center label shows 🔗 (linked) or ⚡ (unlinked) icon based on whether the current tab is in `activeFocus.associatedTabIds`.\n- **Window Counts** (#186): Home FocusBar and sidebar focus card now display unique window count alongside tab count (e.g. \"3 tabs · 2 windows\").\n- **CPN → Follow-Through Heatmap**: ActivityHeatmap's \"Follow-Through\" view now counts both focus completions and checkpoint note submissions per day."
+        },
+        {
+          "label": "Changed",
+          "body": "- **`GET_INBAR_DATA` response** expanded with `isTabLinked` (boolean) and `windowCount` (computed via `chrome.tabs.get` across associated tabs).\n- **`focusService` alarm routing**: `checkpoint-prompt-{focusId}` alarm created on `startFocus()`, cleared on complete/pause/switch."
+        },
+        {
+          "label": "Feature Docs",
+          "body": "- `docs/features/184-checkpoint-progress-notes.md` — CPN data model, behavior spec, settings\n- `docs/features/185-popup-harmony.md` — Singleton coordination, combo popup, WBP thresholds\n- `docs/features/186-context-link-indicator.md` — Link indicator, window counts"
+        }
+      ]
+    },
+    {
+      "version": "4.0.0",
+      "title": "Cumulative release: v3.0 → v4.0 + Plan 023 service decomposition",
+      "date": "2026-05-14",
+      "intro": "This is the first cumulative release going to `staging` since `v3.0.0`. It carries\n**~35 intermediate development versions** (v3.12.4-α → v3.34.5) that lived on the\nintegration branch but never landed on `staging`, plus the Plan-023 background\nservice decomposition (v3.34.5 → v4.0.0). The version was bumped to MAJOR as a\nmarker for the magnitude of the drop, not because of any individual breaking\nchange in the ledger sense.\n\n> **Action required after install:** apply [`supabase/migrations/005_add_profile_defaults.sql`](supabase/migrations/005_add_profile_defaults.sql) in the Supabase SQL Editor. Without it, your profile select fails silently and Supabase sync never pushes any data. See **Required Supabase migration** below.",
+      "sections": [
+        {
+          "label": "🚀 Added — Major features delivered in this window",
+          "body": "- **Intent-to-Focus Bridge** (v3.34.5): typing an intent on a tab can auto-queue/auto-create a matching focus item, configurable via `intentBridgeMode` (`manual` / `smart_dedup` / `always`).\n- **Create Focus from Tab** + **Browser Profile Identity** (v3.34.5): each browser profile gets a stable ID stored in `chrome.storage.local.browserProfileId` for cross-device routing.\n- **Sidebar edit parity + InBar create focus** (v3.31.5): edit dropdown, refresh button, focus queue mutations from sidebar match home parity.\n- **Project / Client tag editing** (v3.30.5): live edit of focus tags (`realm`, `client`, `project`, `task`) on the active focus.\n- **Activity Editor + Timeline breaks + Webhook intervals** (v3.29.5): per-entry trim/split/merge, manual break insertion on the timeline, configurable webhook firing cadence.\n- **Desktop Activity editor** (v3.25.2): trim/clear tools for desktop activity captured via companion bridge.\n- **Sidebar intent creation with timer parity** (v3.24.2): new-focus input now lives in sidebar too.\n- **Timeline today-filter** (v3.23.2): desktop activity timeline scoped to current day by default.\n- **InBar layout overhaul + URL pause matching** (v3.21.0): paused-intent state survives URL changes when the new URL still matches the pattern.\n- **Task storage migration + funnel stage state machine** (v3.20.0): legacy `tasks[]` array → structured `tabathaOrg.tasks` registry. Funnel stages canonicalized: `unsorted → todo → focus → addressing → resolved → roadblocked`. One-time, flag-gated migration runs once per profile.\n- **Multi-task picker + auto-fill cascade + business attribution + task CRUD** (Tier-3): hierarchy-aware task selection, parent → child tag inheritance.\n- **Org hierarchy + stage editing + resolution tracking** (Tier-3): full org-tree view with stage editor.\n- **Initiatives panel** (Tier-3): roll-up of focuses by initiative across the org tree.\n- **AnalyticsDashboard** (post-3.12.4): 5 stat cards (focuses today, focus time, completion rate, streak, open tasks), top-focuses bar chart, category-time breakdown, context distribution.\n- **ActivityHeatmap** ×3 (v3.12.4-α): GitHub-style 365-day contribution graph with three views — Browser, Overall, Follow-Through.\n- **ProjectsClientsPanel + InitiativesPanel** (v3.12.4-α): full client/project view.\n- **KeyboardShortcuts + VoiceInput** (v3.12.4-α): expanded keyboard chords and voice intent capture.\n- **InBar Edit Dropdown** (v3.12.4-α): ✏️ inline panel for intent edit, focus assignment, new focus creation.\n- **InBar Intent/Focus Split** (v3.12.4-α): tab intent and central focus shown separately with divider.\n- **Focus Pause/Resume + Focus Edit + Side-Quest Auto-Pause** (v3.12.4-α): paused focuses move to queue with amber styling; resume reactivates timer.\n- **Auto-Park paused tabs on close** (v3.12.4-α): paused tabs auto-park with their sticky-note preserved.\n- **Tab label editing + Link Tab to Intent** (v3.12.4-α): inline rename, tab-picker dropdown for intent linking.\n- **Collapsible homepage sections** (v3.12.4-α): persisted collapse state for every section.\n- **Data Retention Alarm** (v3.12.4-α): daily prune of companion/desktop activity older than configurable threshold (default 90d).\n- **LogsPanel overhaul** (v3.12.4-α): 8 log types with toggleable filter chips and pagination (50/load)."
+        },
+        {
+          "label": "🆕 Added — v4.0.0 quality-of-life",
+          "body": "- **Editable display name** in Settings → Account: click your name to edit. Writes through to `tabatha.profiles.display_name`.\n- **Manual `Export Markdown` button** in Settings → Export & Agents: downloads a snapshot of active tabs, contexts, closed sessions, and time tracking on demand. The auto-export alarm continues to work as before.\n- **Sync Status panel** in Settings → Account: shows last successful sync time and a recent-events log of any sync diagnostics (no profile row, missing columns, upsert errors, etc.). Surfaces failures without needing the Service Worker DevTools console."
+        },
+        {
+          "label": "🔧 Internal — Plan 023 service decomposition",
+          "body": "- **Background service decomposition**: `background.js` collapsed from 2,920 lines (staging) → 169 lines (orchestrator only). Runtime message routing, listener registration, and alarm dispatch now live in dedicated services: `tabService`, `focusService`, `taskService`, `clockService`, `clockTickService`, `tabTrackingService`, `categoryService`, `sessionService`, `notificationService`, `settingsService`, `groupService`, `blockgateService`, `companionService`, `alarmService`, `syncService`.\n- **Alarm consolidation**: three `chrome.alarms.onAlarm` listeners merged into a single dispatcher in `alarmService`; `supabase-sync` is auth-guarded before dispatch (skipped when no Supabase session, no longer enters `syncToSupabase` and bails inside).\n- **Storage caps**: `intentHistory`, `closedContexts`, `sessions`, `sugarBox`, and `focusEngine.history` archived through `archiveBeforeCap` instead of being silently truncated.\n- **Settings → Storage** block: `settings.storage.*` with additive migration. New tunables: `sugarBoxCap`, `snapshotIntervalMinutes`, `archivedTasksColdAfterDays`, `parkedTabsWarnAt`, `pendingTimeLogsWarnAt`, `focusHistoryCap`, `closedContextsCap`, `intentHistoryCap`.\n- **Companion reconnect** is now exponential-backoff capped at 30s instead of constant fast retry.\n- **`COMPANION_IDLE_STATE`**: transitional broadcast — companion-detected idle is now mirrored to all extension pages.\n- **`clockTickService`**: shared 1Hz tick broadcaster (`TICK_SUBSCRIBE`, `TICK_UNSUBSCRIBE`, `GET_TICK_STATUS`) so extension pages can stop running per-component intervals.\n- **`PARKED_TABS_WARNING` broadcast**: one-shot when parked tabs hit `settings.storage.parkedTabsWarnAt`.\n- **`STORAGE_CAP_WARNING` broadcast**: emitted when sugarBox entries fall off the cap."
+        },
+        {
+          "label": "🐛 Fixed — Critical pre-Plan-023 fixes",
+          "body": "- **Critical: data loss + break/focus sync + funnel reorder**: prior to v3.13 a race in clock+focus state machines could discard active-focus state on break end.\n- **Critical: TDZ + API consistency**: temporal dead-zone errors during boot caused unpredictable startup state.\n- **InBar `SET_INTENT` was silently dropped** (v3.22.1): handler was missing entirely from the background router until this fix.\n- **Drifted-focus timer extension preserved elapsed time** (v3.22.1): previously reset to zero on extend.\n- **Duplicate notification listeners** (v0.2.5-α): merged into single handler; eliminated service-worker unpredictability.\n- **`activeTabId` ReferenceError** in welcome-back notification — replaced with `WINDOW_ID_CURRENT`.\n- **`triggerSync` excessive firing** (v0.2.5-α): auth-session guard added.\n- **`useChromeStorage` stale closure** (v0.2.5-α): `update` callback now uses `useRef` to avoid capturing stale `value`.\n- **`patternToRegex` double-escape** (v0.2.5-α): rewrote to split on `*` first, escape segments individually.\n- **Status normalization** (v3.17.24): inconsistent display of `complete` vs `completed` across UI surfaces.\n- Stage pills, palette nav, task delete, InPop nesting, stage-state sync, paused→resolved transitions, T2.1/T2.3/T4.2 surface fixes (v3.17.13 → v3.17.24): cluster of post-merge user-testing fixes.\n- **`logEvent` was used before it was defined** in background.js — defined.\n- **Timeline tooltip clipping** (v3.0.0-α): portal'd to `document.body` to escape backdrop-filter containing block; max z-index applied.\n- **Corner radius / InBar label fallback / responsive FlipClock / task delete confirm**: UI polish."
+        },
+        {
+          "label": "🐛 Fixed — v4.0.0 cleanup pass (this release)",
+          "body": "- **Completed-focus counter never incremented**: AnalyticsDashboard read `intentHistory` for resolved counts, but `completeFocus()` moves items into `engine.history`. Two storage keys, never crossed. The dashboard now sources resolved focuses from `focusHistory` directly. ([src/home/AnalyticsDashboard.jsx](src/home/AnalyticsDashboard.jsx))\n- **Streak counted only queue items**: extended to include `engine.history` and the currently-active focus, so a day where you only completed focuses still counts in the streak. ([src/home/AnalyticsDashboard.jsx](src/home/AnalyticsDashboard.jsx))\n- **Supabase sync silently bailed forever**: `tabatha.profiles` was missing the `default_org_id` and `default_team_id` columns that both `useAuth.fetchProfile` and `syncService.syncToSupabase` were selecting. The error was thrown away, sync logged \"No profile found for user\" misleadingly, and nothing ever made it to Supabase. Fixed by:\n  - New [`supabase/migrations/005_add_profile_defaults.sql`](supabase/migrations/005_add_profile_defaults.sql) adds both columns (nullable, FK to organizations/teams).\n  - `syncService` and `useAuth` now use `maybeSingle()`, capture the error, and fall back to a minimal `SELECT id` so the rest of the flow still works pre-migration.\n  - Every silent bail now writes a row to `chrome.storage.local._syncDiagnostics`, surfaced in Settings → Account.\n- **Display name stuck at \"Tabatha User\"**: until now there was no UI to change it. Profile rows auto-provisioned without an OAuth `full_name` (e.g. from magic-link or password sign-up) had no way to be fixed. Added inline editor in Settings → Account.\n- **No on-demand markdown export**: the `EXPORT_MARKDOWN` handler existed in `sessionService` but nothing in the UI called it. Auto-export still worked. Added a button in Settings → Export & Agents.\n- **Transitional `serviceFlags.focus.ready` stub removed** from `tabService`: PR #11 left a dormant feature flag and dead fallback bodies for `autoQueueFromIntent` / `linkTabToFocus`. Both call sites now delegate directly through the injected `focusService` deps."
+        },
+        {
+          "label": "⚠️ Schema notes",
+          "body": "- **`intentChangeLog` removed** — merged into `intentHistory` with a union shape (one-time, flag-gated migration via `_intentLogMigrated`). External readers must read `intentHistory`.\n- **Legacy `tasks[]` migrated** to `tabathaOrg.tasks` registry (one-time, flag-gated via `_tasksMigrated`). The legacy `tasks` key is set to `[]` after migration; a snapshot is briefly stored in `_legacyTasksBackup` then removed by tabService's one-shot cleanup.\n- **Archived tasks** older than `settings.storage.archivedTasksColdAfterDays` (default 90d) move from `tabathaOrg.tasks` to `_archivedTasks` (internal cold-store key).\n- **`settings.storage` block** added with additive migration — user-tuned values preserved, missing fields back-filled from `DEFAULT_SETTINGS.storage`."
+        },
+        {
+          "label": "🛠 Required Supabase migration",
+          "body": "Run [`supabase/migrations/005_add_profile_defaults.sql`](supabase/migrations/005_add_profile_defaults.sql) in the Supabase SQL Editor:\n\n```sql\nALTER TABLE tabatha.profiles\n  ADD COLUMN IF NOT EXISTS default_org_id UUID REFERENCES tabatha.organizations(id) ON DELETE SET NULL;\nALTER TABLE tabatha.profiles\n  ADD COLUMN IF NOT EXISTS default_team_id UUID REFERENCES tabatha.teams(id) ON DELETE SET NULL;\nCREATE INDEX IF NOT EXISTS profiles_default_org_idx ON tabatha.profiles(default_org_id);\nCREATE INDEX IF NOT EXISTS profiles_default_team_idx ON tabatha.profiles(default_team_id);\n```\n\nThe extension boots and operates without this migration (sync falls back to a minimal profile select that omits org/team scoping), but no rows reach `focus_items` / `intent_history` until the columns exist."
+        },
+        {
+          "label": "📦 Upgrade procedure (existing v3.34.5 unpacked install)",
+          "body": "Data is preserved by chrome.storage migrations — `intentChangeLog`, legacy tasks, and additive settings backfill all run flag-gated and idempotently. The key thing is to upgrade **in-place** so Chrome keeps the same extension ID:\n\n1. Back up your data first (open any Tabatha page DevTools console → `chrome.storage.local.get(null, d => copy(JSON.stringify(d)))` → paste to a `.json` file).\n2. Apply the Supabase migration above.\n3. Overwrite the contents of your existing `dist/` directory with the new v4.0.0 build (do NOT load v4.0.0 from a new path — that creates a second extension ID with empty storage).\n4. In `chrome://extensions`, hit \"Reload\" on the same Tabatha extension card.\n5. Open the Service Worker (or any Tabatha page) once so bootstrap migrations fire.\n6. Settings → Account → confirm `Sync Status` shows a recent successful sync."
+        },
+        {
+          "label": "🔁 Known limitations (not blockers, planned follow-up)",
+          "body": "- Supabase sync is currently one-directional (local → cloud). Tabs/focuses created on Browser A don't auto-pull to Browser B.\n- `tabathaOrg` (clients/projects/tasks/operations/initiatives) is local-only; not synced to Supabase yet.\n- Tab groups created via Chrome's built-in UI are tracked by Tabatha's `groupService` but not surfaced in any Tabatha panel — no per-group view yet.\n- Companion bridge has no profile scoping; running Tabatha in two browser profiles simultaneously will cause both to share companion events. Stop the companion app before regression-testing in a second profile."
+        }
+      ]
+    },
+    {
+      "version": "3.34.5",
+      "title": "Intent-to-Focus Bridge + Browser Profile Identity",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Intent-to-Focus Bridge**: typing an intent on a tab can auto-queue/auto-create a matching focus item, configurable via `intentBridgeMode` (`manual` / `smart_dedup` / `always`).\n- **Create Focus from Tab**: new-focus flow accessible directly from tab cards, pre-filled with the tab's URL and title.\n- **Browser Profile Identity**: each Chrome profile gets a stable `browserProfileId` stored in `chrome.storage.local` for future cross-device routing.\n\n`fc9882c`"
+        }
+      ]
+    },
+    {
+      "version": "3.31.5",
+      "title": "Sidebar Edit Parity + InBar Create Focus",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Sidebar edit dropdown**: full intent/focus editing from sidebar matches home parity.\n- **InBar create focus**: create a new focus item directly from the content bar.\n- **Refresh button**: manual data refresh in sidebar header.\n\n`8cd185e`"
+        }
+      ]
+    },
+    {
+      "version": "3.30.5",
+      "title": "Focus Tag Editing",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Project/Client tag editing** on active focus: live edit of `realm`, `client`, `project`, and `task` tags from the FocusBar edit panel.\n\n`6a70047`"
+        }
+      ]
+    },
+    {
+      "version": "3.29.5",
+      "title": "Activity Editor + Webhooks",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Activity Editor**: per-entry trim/split/merge on timeline entries.\n- **Timeline break insertion**: manual break markers on the activity timeline.\n- **InBar sync indicator**: visual feedback when InBar data is stale.\n- **Webhook intervals**: configurable firing cadence for webhook integrations.\n\n`481f0fb`"
+        }
+      ]
+    },
+    {
+      "version": "3.25.2",
+      "title": "Desktop Activity Editor",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Desktop Activity editor** in Settings: trim and clear tools for desktop activity captured via companion bridge.\n\n`f4dd6b3`"
+        }
+      ]
+    },
+    {
+      "version": "3.24.2",
+      "title": "Sidebar Intent Creation",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Sidebar intent creation** with full timer parity — new-focus input now lives in the sidebar alongside home.\n\n`942524e`"
+        }
+      ]
+    },
+    {
+      "version": "3.23.2",
+      "title": "Timeline Today Filter",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Desktop activity timeline scoped to current day** by default."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **InBar `SET_INTENT` was silently dropped** — handler was missing entirely from the background router. (`a91f361`)\n\n`a0370d1`"
+        }
+      ]
+    },
+    {
+      "version": "3.22.1",
+      "title": "Timer Fix + Version Sync",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Drifted-focus timer extension** now preserves elapsed time instead of resetting to zero on extend. (`9f7fbf8`)\n\n`9b09fcc`"
+        }
+      ]
+    },
+    {
+      "version": "3.21.0",
+      "title": "InBar Layout Overhaul",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **InBar layout overhaul**: restructured content bar with intent lifecycle display.\n- **URL pause matching**: paused-intent state survives URL changes when the new URL still matches the pattern.\n\n`34f0371`"
+        }
+      ]
+    },
+    {
+      "version": "3.20.0",
+      "title": "Task Migration + Funnel State Machine",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Task storage migration**: legacy `tasks[]` array → structured `tabathaOrg.tasks` registry. One-time, flag-gated migration runs once per profile.\n- **Funnel stage state machine**: stages canonicalized as `unsorted → todo → focus → addressing → resolved → roadblocked` with transition rules.\n- **Task stage management** in sidebar with stage picker.\n- **Sidebar pause** for active focuses."
+        },
+        {
+          "label": "Schema",
+          "body": "- New storage key: `tabathaOrg.tasks` (migrated from `tasks[]`)\n- Migration flag: `_tasksMigrated`\n- Backup key: `_legacyTasksBackup` (removed after one-shot cleanup)\n\n`0c40b1c`, `185ef9e`"
+        }
+      ]
+    },
+    {
+      "version": "3.17.24",
+      "title": "Status Normalization",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Status normalization**: inconsistent display of `complete` vs `completed` across UI surfaces resolved with canonical status mapping.\n- Display precedence fixes for funnel stage vs focus state.\n\n`2f7147e`"
+        }
+      ]
+    },
+    {
+      "version": "3.17.22",
+      "title": "Palette + InPop Fixes",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Palette navigation** edge cases.\n- **Task delete** confirmation missing for some paths.\n- **InPop nesting** — nested overlays no longer stack incorrectly.\n- **Stage-state sync** between sidebar and home views.\n\n`b00de1d`"
+        }
+      ]
+    },
+    {
+      "version": "3.17.18",
+      "title": "Stage Pills + Paused State",
+      "date": "2026-05-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Stage pills** rendering consistency.\n- **Task-per-char** input regression (character-by-character task creation).\n- **Palette break** handling edge case.\n- **Paused → Resolved** transition now requires confirmation.\n\n`d2cecac`"
+        }
+      ]
+    },
+    {
+      "version": "3.17.14",
+      "title": "Tier 2/4 Surface Fixes",
+      "date": "2026-05-11",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **T2.1** stage pills alignment and color mapping.\n- **T2.3** task status not reflecting actual completion state.\n- **T4.2** Command Palette selection not applying.\n\n`8cc6649`"
+        }
+      ]
+    },
+    {
+      "version": "3.17.13",
+      "title": "Post-Merge Bug Fix Sweep",
+      "date": "2026-05-11",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- 8 bug fixes from live user testing feedback covering focus resolution, timer display, intent association, and sidebar rendering.\n\n`eae1e86`"
+        }
+      ]
+    },
+    {
+      "version": "3.12.4-alpha",
+      "title": "InBar, Focus Controls, Heatmap, Logs & Activity Overhaul",
+      "date": "2026-05-11",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **InBar Edit Dropdown**: ✏️ button opens inline panel for intent editing, focus assignment, and new focus creation — all from the content bar.\n- **InBar Intent/Focus Split**: Bar now shows tab intent and central focus separately with a visual divider.\n- **Focus Pause/Resume**: ⏸ button on FocusBar freezes timer, moves focus to queue with amber styling. FocusInput reappears for new focus.\n- **Focus Edit**: ✏️ button on FocusBar for inline rename, timer adjust, and funnel stage changes.\n- **Side-Quest Auto-Pause**: Starting a side quest automatically pauses the current active focus and resumes it when the side quest ends.\n- **Auto-Park on Close**: Paused tabs auto-park with their sticky note preserved when closed.\n- **Tab Label Editing**: ✏️ rename button on each tab card in the Tabs panel. Custom titles persist with original shown on hover.\n- **Link Tab to Intent**: 📄 Link Tab button in IntentsPanel with inline open-tab picker dropdown.\n- **Collapsible Sections**: All homepage sections collapsible with persisted state (Shift Controls, Now Bar, Focus Engine, Activity, Nav Tabs).\n- **Activity Heatmaps (×3)**: GitHub-style contribution graph with 3 views — Browser, Overall, Follow-Through. Theme-aware colors, hover tooltips, 365-day range.\n- **Context Activity Bar**: Renamed from \"Desktop Activity\" to include browser + desktop + mobile (future) segments.\n- **Data Retention Alarm**: Daily chrome.alarm prunes companion/desktop activity older than configurable threshold (default 90 days).\n- **Data Retention Setting**: Configurable in Settings → Time Tracking with description text.\n- **Parked Tab Notes**: Parked tabs display context badge, auto-park source indicator, and preserved sticky notes."
+        },
+        {
+          "label": "Changed",
+          "body": "- **LogsPanel Overhaul**: Now supports 8 log types (Tab Activity, Intent Change, Focus Session, Clock Stint, Break, Context Set, Blocked Site, Task Update) with toggleable filter chips and pagination (50 per load). Desktop activity excluded — reserved for Context Activity Bar.\n- **Header Spacing**: Reduced padding above/below header. Clock wrapper fixed-height prevents layout shift at different scales.\n- **Version**: Bumped to 3.12.4-alpha across manifest.json, settings, and homepage."
+        }
+      ]
+    },
+    {
+      "version": "0.2.5-alpha",
+      "title": "Diagnostic Fix Sweep",
+      "date": "2026-05-09",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Critical: Duplicate notification listeners** merged into single handler; eliminated service worker unpredictability.\n- **Critical: `activeTabId` ReferenceError** in welcome-back notification handler — replaced with `WINDOW_ID_CURRENT`.\n- **Critical: `export` keyword on `triggerSync()`** removed — prevented potential service worker module loading failure.\n- **Clock-In/Out race condition** — eliminated double-writes to `clockSession` storage key; UI now relies on reactive `useChromeStorage` listener.\n- **Focus actions fragility** — `completeFocus()` and `extendTimer()` now receive explicit `focusId` in home and sidebar.\n- **Time tracking shows 0s** — added `updateTimeTrackingAggregates()` to bridge `pendingTimeLogs` and the `timeTracking.byTab` storage key the UI reads.\n- **Gatekeeper Sugar Box/Park/Later** — buttons now close overlay and tab as tooltips promised.\n- **`useChromeStorage` stale closure** — `update` callback uses `useRef` to avoid capturing stale `value`.\n- **Popup `new URL()` crash** — wrapped in try/catch for `chrome://` and malformed URLs.\n- **`triggerSync` excessive firing** — added auth session guard to skip Supabase calls when unauthenticated.\n- **`patternToRegex` double-escape** — rewrote to split on `*` first, escape segments individually."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Shared `formatTime` utility** — extracted from 3 duplicate definitions into `src/utils/formatTime.js`."
+        }
+      ]
+    },
+    {
+      "version": "0.2.4-alpha",
+      "title": "Phase 3/4 Refinements",
+      "date": "2026-04-28",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Logs Panel**: Replaced simple Time view with deep filtering (Date, Intent, Category, Duration) for historical activity tracking.\n- **Link/Merge Modal**: Universal modal to link Tabs to Intents, or merge Intents into Tasks.\n- **Settings Walkthrough**: In-app educational tooltips describing \"When\", \"How\", and \"Affects\" for all configuration options.\n- **Theme Expansion**: High contrast corporate theme, plus 5 new distinct themes (Neo-Brutalism, Glass Ocean, Retro Pixel, Solarized Warm, High Contrast Dark).\n- **Background Handlers**: Automated logic for `CLOCK_IN`, `CLOCK_OUT`, and `TOGGLE_BREAK`."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Gatekeeper Parked Tabs**: Automatically restores session context for parked tabs, preventing redundant Gatekeeper prompts.\n- **Dashboard Refinement**: Renamed \"Contexts\" to \"Sessions\" and added \"Link/Close\" actions to tab listings."
+        }
+      ]
+    },
+    {
+      "version": "0.1.5",
+      "title": "Phase 1.5 (User Enhancements)",
+      "date": "2026-02-12",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Gatekeeper Overlay**: A new interception mechanism for empty tabs. Instead\n  of a redirect or modal, a dark, immersive overlay appears on new tabs asking\n  for context/intent.\n  - Options: \"Continue\" (set context), \"Side Quest\" (5m timer), \"Sugar Box\"\n    (save for later), \"Park\" (save for later).\n- **Quick Access**: \"Speed Dial\" on the Welcome Page. Clicking a top site\n  immediately launches it with the context typed in the \"New Session Intent\"\n  box, bypassing the Gatekeeper.\n- **Welcome Page Parity**: The \"New Tab\" page (`home.html`) is now a\n  full-featured dashboard mirroring the Sidebar.\n  - Features: Tab list, Context view, Groups management, Time tracking, Restore\n    Session.\n  - Design: \"Mission Control\" desktop layout with wider UI elements.\n- **Time Tracking Logic**:\n  - Added \"Active Time\" tracking per tab (persists across sessions).\n  - Added \"Open Duration\" display.\n  - Added Pomodoro timer constraints.\n- **Sugar Box & Parked Tabs**: Stub storage implementations for saving\n  distractions (Sugar Box) and keeping tabs for later (Parked)."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Welcome Page UI**: Completely overhauled `home.html` and `home.css` to use a\n  glassmorphism \"Mission Control\" aesthetic, sharing styles with the Sidebar.\n- **Tab Restore**: Improved \"Return to Flow\" logic to better handle session\n  restoration with priorities.\n- **Manifest**: Added `topSites` permission for Quick Access feature."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Empty Sidebar Bug**: Fixed an issue where the sidebar would be empty on\n  extension reload because existing tabs weren't re-synced to storage.\n- **Layout Issues**: fixed CSS conflicts between `sidebar.css` and `home.css`."
+        }
+      ]
+    },
+    {
+      "version": "0.1.0",
+      "title": "Phase 1 (Core Foundation)",
+      "date": "2026-02-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Extension Scaffold**: MV3 Manifest, Service Worker (`background.js`), Side\n  Panel, Content Scripts.\n- **Context Engine**:\n  - Data structure for Tabs, Contexts, Intents, and Priorities.\n  - Logic for inheriting context from parent tabs.\n- **Sidebar UI**: Rich, interactive sidebar replacing the native vertical tabs.\n  - Sections: Intent Dashboard, Tab List, Batch Updates, Groups, Time Tracking.\n- **Tab Analysis**:\n  - **Categories**: Auto-detection of \"Work\", \"Media\", \"Social\", etc. based on\n    URL.\n  - **Priority System**: Critical (Red), High (Orange), Medium (Yellow), Low\n    (Green).\n- **Tab Groups**:\n  - Integration with native Chrome Tab Groups.\n  - **Sub-Groups**: \"Project\" layer above Chrome groups.\n- **Tab Locking**:\n  - **Lock**: Prevent accidental close.\n  - **URL Lock**: Prevent navigation away from a specific domain (e.g., lock a\n    tab to Asana).\n- **Markdown Export**: Auto-generates `Tabatha/context.md` for AI agents to\n  understand user context.\n- **Idle Detection**: Detects when user leaves Chrome and asks for off-screen\n  context upon return."
+        },
+        {
+          "label": "Core Philosophy Implementation",
+          "body": "- Established the \"Context-First\" data model where every tab must have a purpose\n  or inherit one."
+        }
+      ]
+    }
+  ]
+}

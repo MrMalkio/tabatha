@@ -96,9 +96,10 @@ test('P2: moving start LATER reclamps elapsed to wall-clock since the new start'
   // Focus has 90m stored elapsed, started 120m ago (paused, no live portion).
   // Move the start to 10m ago → elapsed is now impossible and must clamp to ~10m.
   seed(baseItem({ startedAt: minsAgo(120), elapsedMs: 90 * MIN, lastResumedAt: null, focusState: 'paused' }));
-  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(10) });
+  const newStart = minsAgo(10);
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: newStart });
   const f1 = r.focusEngine.items.f1;
-  assert.equal(f1.startedAt, minsAgo(10));
+  assert.equal(f1.startedAt, newStart);
   assert.ok(f1.elapsedMs <= 10 * MIN + 1000, `elapsed ${f1.elapsedMs} should clamp to <= ~10m after moving start later`);
 });
 
@@ -113,16 +114,17 @@ test('P2: moving start later on an ACTIVE focus clamps elapsed below the live wa
 });
 
 test('SET_FOCUS_START_TIME clamps a too-early start up to clock-in', async () => {
+  const clockInIso = minsAgo(60);
   installChromeMock({
     store: {
       focusEngine: { activeFocusId: null, items: { f1: baseItem({ startedAt: minsAgo(30) }) }, history: [] },
-      clockSession: { active: true, clockedInAt: minsAgo(60) },
+      clockSession: { active: true, clockedInAt: clockInIso },
     },
   });
   // Try to backdate to 120m ago — before clock-in (60m). Should clamp to clock-in.
   const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(120) });
   const f1 = r.focusEngine.items.f1;
-  const clockIn = new Date(minsAgo(60)).getTime();
+  const clockIn = new Date(clockInIso).getTime();
   assert.equal(new Date(f1.startedAt).getTime(), clockIn);
 });
 
@@ -143,9 +145,10 @@ test('SET_FOCUS_START_TIME rejects an unknown focus', async () => {
 test('SET_FOCUS_START_TIME on a never-started focus bounds elapsed by now-newStart', async () => {
   // startedAt null, wallClockMax would be MAX_SAFE_INTEGER without the new start.
   seed(baseItem({ startedAt: null, elapsedMs: 0, lastResumedAt: null }));
-  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(20) });
+  const newStart = minsAgo(20);
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: newStart });
   const f1 = r.focusEngine.items.f1;
-  assert.equal(f1.startedAt, minsAgo(20));
+  assert.equal(f1.startedAt, newStart);
   assert.ok(f1.elapsedMs <= 20 * MIN + 1000, `elapsed ${f1.elapsedMs} exceeded new wall-clock`);
 });
 

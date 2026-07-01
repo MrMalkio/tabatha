@@ -61,6 +61,7 @@ export function installChromeMock({ tabs = {}, store = {} } = {}) {
     runtime: {
       onMessage: noopListener(),
       onStartup: noopListener(),
+      onInstalled: noopListener(),
       async sendMessage() { return undefined; },
       getManifest() { return { version: '6.0.0' }; },
       getURL(p) { return p; }
@@ -69,7 +70,26 @@ export function installChromeMock({ tabs = {}, store = {} } = {}) {
     webNavigation: { onBeforeNavigate: noopListener() },
     tabGroups: { TAB_GROUP_ID_NONE: -1, update() {} },
     scripting: { async executeScript() {} },
-    windows: { update() {} }
+    // FIX-12: toolbar action / side panel / commands surfaces. Record the last
+    // call so tests can assert what the service configured.
+    action: {
+      _lastPopup: undefined,
+      async setPopup({ popup } = {}) { this._lastPopup = popup; },
+      onClicked: noopListener()
+    },
+    sidePanel: {
+      _lastBehavior: undefined,
+      async setPanelBehavior(behavior = {}) { this._lastBehavior = behavior; },
+      async setOptions() {},
+      async open() {}
+    },
+    commands: { onCommand: noopListener() },
+    windows: {
+      WINDOW_ID_CURRENT: -2,
+      _created: [],
+      update() {},
+      async create(opts) { this._created.push(opts); return { id: this._created.length }; }
+    }
   };
 
   globalThis.chrome = chrome;

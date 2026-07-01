@@ -246,6 +246,9 @@ function buildFocusRows(engine, scope) {
     funnel_stage: item.funnelStage || (item.focusState === 'completed' ? 'resolved' : 'unsorted'),
     focus_state: item.focusState || (item.endedAt || item.completedAt ? 'completed' : 'paused'),
     timer_minutes: Number.isFinite(Number(item.timerMinutes)) ? Number(item.timerMinutes) : 15,
+    // FIX-10: persist the engine's numeric priority (1=critical..10=low) so
+    // cross-device readers can show a P-priority. Null when unset/out of range.
+    priority: (item.priority == null || !Number.isFinite(Number(item.priority))) ? null : Number(item.priority),
     tags: item.tags || {},
     created_at: isoOrNow(item.createdAt || item.startedAt),
     completed_at: isoOrNull(item.completedAt || item.endedAt),

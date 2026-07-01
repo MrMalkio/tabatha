@@ -1,7 +1,9 @@
 # Handoff — Plans 036 / 037 / 038 (Focus Lifecycle + Time Editing + URL Rules)
 
+> **⚠️ SUPERSEDED 2026-06-30 — this branch SHIPPED.** Plans 036 + 037 are `completed` and merged (PR #21 + #22 → staging), rode through v6.3.x, and are now live in **Tabatha v6.4.0 (production, `main`)**. Plan 038 remains `partial (1/4)` — Phase 1 only; Phases 2-4 still open (see plan-registry + the "Remaining" list below). Everything below is retained for the Plan 038 continuation context; version/branch notes are historical (branch was at v6.2.0 when written).
+>
 > **From:** Claude (Opus 4.8), 2026-05-29
-> **Branch:** `feat/plan-036-focus-lifecycle` (off `staging`, in a dedicated worktree). **NOT yet pushed or PR'd.**
+> **Branch:** `feat/plan-036-focus-lifecycle` (off `staging`, in a dedicated worktree). ~~NOT yet pushed or PR'd.~~ **Merged via PR #21 + #22.**
 > **Live build:** `dist-v…` convention — the user loads `C:\Users\mrmal\Le Dev\Tabatha\dist` (their original path-derived extension ID). I update that folder in place each release. Versioned `dist-vX.X.X` folders are archives only — do NOT tell the user to load them (new folder = new extension ID = empty storage; this confused them once already).
 
 ---

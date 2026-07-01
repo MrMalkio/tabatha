@@ -572,10 +572,12 @@ function Sidebar() {
               </GlassCard>
 
               {/* Queue */}
-              {allItems && allItems.length > 0 && (
-                <div style={{ marginBottom:'6px' }}>
-                  <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Queue ({allItems.length})</div>
-                  {allItems.slice(0,5).map(item => {
+              <div style={{ marginBottom:'6px' }}>
+                <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Queue ({(allItems || []).length})</div>
+                {(!allItems || allItems.length === 0) ? (
+                  <div style={{ fontSize:'10px', color:'var(--color-text-muted)', fontStyle:'italic', padding:'4px 6px' }}>Nothing queued</div>
+                ) : (
+                  allItems.slice(0,5).map(item => {
                     const f = FUNNEL_STAGES[item.funnelStage] || FUNNEL_STAGES.unsorted;
                     const hasCheckpoints = (item.checkpoint || []).length > 0;
                     return (
@@ -619,9 +621,9 @@ function Sidebar() {
                       </AnimatePresence>
                       </div>
                     );
-                  })}
-                </div>
-              )}
+                  })
+                )}
+              </div>
 
               {/* Backburner Dock */}
               {(() => {

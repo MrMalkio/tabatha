@@ -1,7 +1,7 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "6.4.0",
+  "version": "6.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "version:sync": "node scripts/sync-version.mjs",
     "version:check": "node scripts/sync-version.mjs --check",
-    "prebuild": "node scripts/sync-version.mjs"
+    "changelog:build": "node scripts/build-changelog.mjs",
+    "changelog:check": "node scripts/build-changelog.mjs --check",
+    "prebuild": "node scripts/sync-version.mjs && node scripts/build-changelog.mjs --check"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
