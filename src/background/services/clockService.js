@@ -10,6 +10,7 @@
 
 import { getStorage, setStorage } from './storageService.js';
 import { broadcastToExtension, broadcastAll } from './notificationService.js';
+import { getOwnAbandonedStints } from './awarenessService.js';
 import { createClockService } from '../clock.js';
 import * as timeTracker from '../../services/timeTracking.js';
 
@@ -72,6 +73,26 @@ export async function maybeAutoClockIn(trigger) {
 
     const { clockSession } = await getStorage('clockSession');
     if (clockSession?.active) return; // already clocked in
+
+    // NB-05: never SILENTLY auto-clock-in over an unresolved abandoned shift.
+    // The visible clock-in paths surface the AbandonedStintsModal, but this
+    // headless trigger bypasses the UI — so if any of the user's OWN same-class
+    // stints are abandoned, suppress the silent clock-in and notify instead, so
+    // they resolve it on their next visible interaction.
+    const abandoned = await getOwnAbandonedStints();
+    if (abandoned.length > 0) {
+      try {
+        chrome.notifications.create('abandoned-stint-blocked-autoclockin', {
+          type: 'basic',
+          iconUrl: 'icons/icon128.png',
+          title: 'Tabatha — unfinished shift',
+          message: `Auto clock-in paused: ${abandoned.length} abandoned shift${abandoned.length === 1 ? '' : 's'} need${abandoned.length === 1 ? 's' : ''} resolving. Open Tabatha to fix the end time or discard, then clock in.`,
+          requireInteraction: true
+        });
+      } catch { /* notifications best-effort */ }
+      broadcastToExtension({ type: 'AUTO_CLOCK_IN_SUPPRESSED', reason: 'abandoned_stints', count: abandoned.length });
+      return;
+    }
 
     const result = await clock.clockIn();
     if (deps.companionBridge?.isConnected) deps.companionBridge.sendClockIn();

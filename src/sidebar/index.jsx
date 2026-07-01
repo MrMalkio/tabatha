@@ -15,6 +15,7 @@ import { useSyncStatus } from '../hooks/useSyncStatus';
 import { formatTime } from '../utils/formatTime';
 import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
+import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -144,6 +145,10 @@ function Sidebar() {
   // A4: compact sync-health chip (shares deriveSyncState with Settings).
   const syncStatus = useSyncStatus();
 
+  // NB-05: gate CLOCK-IN behind the abandoned-stint modal.
+  const [abandonedOpen, setAbandonedOpen] = useState(false);
+  const selfClassification = identity?.classification || 'professional';
+
   const guardedClockToggle = () => {
     if (clockSession?.active) {
       sendMessage('CLOCK_OUT');
@@ -151,14 +156,15 @@ function Sidebar() {
     }
     // Only a genuinely live install of the same classification stacks hours;
     // stale/abandoned or different-classification installs don't warn.
-    const selfClassification = identity?.classification || 'professional';
     const stacking = otherProfiles.filter(p => isLiveConcurrent(p, selfClassification));
     if (stacking.length > 0) {
       const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
       const ok = window.confirm(`You're clocked in on another live install of the same type:\n${lines}\n\nClocking in here too runs concurrent shifts that can double-count hours. Continue?\n\n(Clear abandoned shifts in Work Shifts → Live Stints.)`);
       if (!ok) return;
     }
-    sendMessage('CLOCK_IN');
+    // NB-05: surface the user's OWN abandoned stints before dispatching CLOCK_IN.
+    // The modal re-checks freshness and self-resolves if nothing is abandoned.
+    setAbandonedOpen(true);
   };
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
@@ -749,6 +755,14 @@ function Sidebar() {
 
         </AnimatePresence>
       </div>
+
+      {/* NB-05: abandoned-stint surfacing at clock-in */}
+      <AbandonedStintsModal
+        isOpen={abandonedOpen}
+        selfClassification={selfClassification}
+        onResolved={() => { setAbandonedOpen(false); sendMessage('CLOCK_IN'); }}
+        onClose={() => setAbandonedOpen(false)}
+      />
     </div>
   );
 }
