@@ -335,9 +335,10 @@ function Sidebar() {
             <Tooltip text={`${tabCount} tabs · ${formatTime(totalTime)} active`}>
               <span style={{ fontSize:'9px', color:'var(--color-text-muted)' }}>{tabCount}t · {formatTime(totalTime)}</span>
             </Tooltip>
-            <Tooltip text={syncStatus.tip}>
+            <Tooltip text={`${syncStatus.tip} — click to open Sync & Account`}>
               <button
-                onClick={() => sendMessage('SYNC_NOW')}
+                onClick={() => chrome?.tabs?.create?.({ url: chrome.runtime.getURL('settings.html#sync') })}
+                title="Open Sync & Account settings"
                 style={{ fontSize:'8px', fontWeight:700, padding:'1px 5px', borderRadius:'6px', border:'none', cursor:'pointer', color:syncStatus.color, background:syncStatus.bg, letterSpacing:'0.02em', lineHeight:1.6 }}
               >
                 {syncStatus.label}
