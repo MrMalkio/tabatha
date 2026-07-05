@@ -39,6 +39,10 @@ export function createSupabaseFake({
   const selectScripts = { ...selects };
 
   // Optional error injection keyed by `${op}:${table}` (e.g. 'select:profiles').
+  // A value is either an error object (always fails) or a function
+  // (state) => errorOrNull for conditional / one-shot failures — return null
+  // to let that particular call succeed. `state` exposes { op, rows, payload,
+  // filters } for the call being evaluated.
   const errors = {};
 
   function resolveSelectRows(table, filters, kind) {
@@ -62,8 +66,14 @@ export function createSupabaseFake({
 
     function envelope() {
       const errKey = `${state.op}:${table}`;
-      if (errors[errKey]) {
-        return { data: null, error: errors[errKey] };
+      const scriptedError = errors[errKey];
+      const err = typeof scriptedError === 'function' ? scriptedError(state) : scriptedError;
+      if (err) {
+        // Record failed write attempts too, flagged with the error, so tests
+        // can assert on retry payloads (e.g. missing-column degradation).
+        if (state.op === 'upsert') recorded.upserts.push({ table, rows: state.rows, options: state.options, error: err });
+        if (state.op === 'insert') recorded.inserts.push({ table, rows: state.rows, error: err });
+        return { data: null, error: err };
       }
 
       if (state.op === 'select') {
