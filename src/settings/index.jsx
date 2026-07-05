@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion } from 'framer-motion';
 import '../styles/global.css';
@@ -18,6 +18,7 @@ import UrlRulesSection from './UrlRulesSection';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
 import { ChangelogView } from '../components/ui/ChangelogView';
+import { SettingsSearch } from './SettingsSearch';
 
 // FIX-11: Settings → About changelog view. Reads the same generated
 // changelog.json that the newtab "What's New" modal uses (Vite copies
@@ -44,7 +45,7 @@ function AboutChangelog() {
   const limit = expanded ? undefined : 3;
 
   return (
-    <div style={{ marginTop: '24px' }}>
+    <div style={{ marginTop: '24px' }} data-search-id="about-changelog">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>📜 Changelog</h3>
         <button
@@ -208,7 +209,7 @@ function DesktopActivityPanel({ settings, updateSetting }) {
       {/* ── Timeline Display ── */}
       <div style={sectionLabel}>Timeline Display</div>
       <Tooltip text="Filter the homepage activity bar to only show activity starting at or after this hour. Useful to hide overnight noise." position="bottom">
-        <div style={fieldRow}>
+        <div style={fieldRow} data-search-id="desktop-day-start">
           <span style={fieldLabel}>Day start time</span>
           <input type="time" value={settings.activityDayStartTime || '00:00'} onChange={e => updateSetting('activityDayStartTime', e.target.value)} style={inputStyle} />
         </div>
@@ -219,7 +220,7 @@ function DesktopActivityPanel({ settings, updateSetting }) {
 
       {/* ── Min Duration Filter ── */}
       <div style={sectionLabel}>Minimum Switch Duration</div>
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="desktop-min-duration">
         <span style={fieldLabel}>Ignore switches under (seconds)</span>
         <input type="number" min="0" max="60" step="1"
           value={settings.activityMinDurationSec ?? 0}
@@ -232,7 +233,7 @@ function DesktopActivityPanel({ settings, updateSetting }) {
       </p>
 
       {/* ── Today's Data ── */}
-      <div style={sectionLabel}>Today's Data ({todaySessions.length} switches)</div>
+      <div style={sectionLabel} data-search-id="desktop-today-data">Today's Data ({todaySessions.length} switches)</div>
       <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '-6px 0 10px', lineHeight: 1.5 }}>
         Today: {todayStr}. Total stored: {(companionSessions || []).length} switches. Use the tools below to clean up false or overnight activity.
       </p>
@@ -308,7 +309,7 @@ function DeveloperPanel({ settings, updateSetting }) {
     <div>
       <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>🛠 Developer</h2>
 
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="developer-debug-mode">
         <span style={fieldLabel}>Debug Mode</span>
         <Toggle value={!!settings.debugMode} onChange={v => updateSetting('debugMode', v)} />
       </div>
@@ -316,7 +317,7 @@ function DeveloperPanel({ settings, updateSetting }) {
         Shows a diagnostic bar on the Dashboard with raw state and message responses. Useful for debugging service worker communication.
       </p>
 
-      <div style={{ ...sectionLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ ...sectionLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-search-id="developer-event-log">
         <span>Event Log ({logs.length})</span>
         <div style={{ display: 'flex', gap: '6px' }}>
           <select value={logFilter} onChange={e => setLogFilter(e.target.value)} style={{ ...inputStyle, width: '90px', fontSize: '10px', padding: '2px 4px' }}>
@@ -400,7 +401,7 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
       {/* ── Idle Behaviour ── */}
       <div style={sectionLabel}>Idle Behaviour</div>
       <Tooltip text="Master switch. When OFF, going idle never pauses or prompts about any focus — including off-device focuses. Turn off if you prefer to manage focus state manually." position="bottom">
-        <div style={fieldRow}>
+        <div style={fieldRow} data-search-id="lifecycle-auto-pause">
           <span style={fieldLabel}>Auto-pause on idle</span>
           <Toggle value={settings.autoPauseEnabled !== false} onChange={v => updateSetting('autoPauseEnabled', v)} />
         </div>
@@ -415,25 +416,25 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
           </Tooltip>
         </>
       )}
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="lifecycle-idle-threshold">
         <span style={fieldLabel}>Idle threshold (minutes)</span>
         <input type="number" min="1" max="30" value={settings.idleThresholdMinutes ?? 5} onChange={e => updateSetting('idleThresholdMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
       </div>
       <Tooltip text="How recently the desktop companion must have seen activity (e.g. typing in another app) for Tabatha to suppress a Chrome idle pause." position="bottom">
-        <div style={fieldRow}>
+        <div style={fieldRow} data-search-id="lifecycle-companion-grace">
           <span style={fieldLabel}>Companion grace (minutes)</span>
           <input type="number" min="1" max="30" value={settings.companionIdleGraceMinutes ?? 5} onChange={e => updateSetting('companionIdleGraceMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
         </div>
       </Tooltip>
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="lifecycle-auto-resume">
         <span style={fieldLabel}>Auto-resume on return</span>
         <Toggle value={settings.autoResumeOnReturn !== false} onChange={v => updateSetting('autoResumeOnReturn', v)} />
       </div>
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="lifecycle-meeting-grace">
         <span style={fieldLabel}>Meeting grace (minutes)</span>
         <input type="number" min="5" max="180" value={settings.meetingIdleGraceMinutes ?? 60} onChange={e => updateSetting('meetingIdleGraceMinutes', parseInt(e.target.value) || 60)} style={inputStyle} />
       </div>
-      <div style={{ padding: '6px 0' }}>
+      <div style={{ padding: '6px 0' }} data-search-id="lifecycle-meeting-domains">
         <div style={{ ...fieldLabel, marginBottom: '4px' }}>Meeting domains</div>
         <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
           One domain per line. Press <kbd style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '0 4px', fontSize: '10px' }}>Enter</kbd> after each. Tabs on these domains suppress idle/auto-pause even when muted or backgrounded.
@@ -451,12 +452,12 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
 
       {/* ── Auto-Focus ── */}
       <div style={sectionLabel}>Auto-Focus</div>
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="lifecycle-auto-focus">
         <span style={fieldLabel}>Enable auto-focus suggestions</span>
         <Toggle value={settings.autoFocusEnabled !== false} onChange={v => updateSetting('autoFocusEnabled', v)} />
       </div>
       <Tooltip text="Minimum confidence before a suggestion chip is shown. 'High' = category/domain-group matches; 'Medium' also surfaces desktop-app matches; 'Explicit only' shows nothing and relies on URL-rule auto-create." position="bottom">
-        <div style={fieldRow}>
+        <div style={fieldRow} data-search-id="lifecycle-suggestion-confidence">
           <span style={fieldLabel}>Suggestion confidence</span>
           <select value={settings.autoFocusConfidence || 'high'} onChange={e => updateSetting('autoFocusConfidence', e.target.value)} style={selectStyle}>
             <option value="explicit">Explicit only</option>
@@ -490,7 +491,7 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
 
       {/* ── Drift Detection ── */}
       <div style={sectionLabel}>Drift Detection</div>
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="lifecycle-drift-detection">
         <span style={fieldLabel}>Enable drift detection</span>
         <Toggle value={settings.driftDetectionEnabled !== false} onChange={v => updateSetting('driftDetectionEnabled', v)} />
       </div>
@@ -505,7 +506,7 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
 
       {/* ── Auto Clock-In ── */}
       <div style={sectionLabel}>Auto Clock-In</div>
-      <div style={fieldRow}>
+      <div style={fieldRow} data-search-id="lifecycle-auto-clock-in">
         <span style={fieldLabel}>Enable auto clock-in</span>
         <Toggle value={!!settings.autoClockInEnabled} onChange={v => updateSetting('autoClockInEnabled', v)} />
       </div>
@@ -524,7 +525,13 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
 
 function Settings() {
   const [theme, setTheme] = useTheme();
-  const [activeSection, setActiveSection] = useState('appearance');
+  // NB-08: honor settings.html#<section> deep links (e.g. sidebar sync chip
+  // opens settings.html#sync). Read in the lazy initializer — same pattern as
+  // workshifts' #live hash — so the first render already shows the target.
+  const [activeSection, setActiveSection] = useState(() => {
+    const hash = (typeof window !== 'undefined' ? window.location.hash : '').replace(/^#/, '');
+    return SECTIONS.some(s => s.id === hash) ? hash : 'appearance';
+  });
   const [settings, setSettings] = useChromeStorage('settings', {});
   const [clockSettings, setClockSettings] = useChromeStorage('clockSettings', CLOCK_DEFAULTS);
   const [companionConnected] = useChromeStorage('companionConnected', false);
@@ -748,6 +755,23 @@ function Settings() {
   const updateSetting = (key, val) => setSettings(prev => ({ ...prev, [key]: val }));
   const updateClock = (key, val) => setClockSettings(prev => ({ ...prev, [key]: val }));
 
+  // NB-08: stable jump callback for <SettingsSearch> (which owns its own
+  // query state). Switch section, then — after the section's 150ms mount
+  // animation — scroll the data-search-id anchor into view and pulse it
+  // (~2s, tabathaSearchPulse keyframes live in SettingsSearch).
+  const handleSearchJump = useCallback((entry) => {
+    setActiveSection(entry.section);
+    setTimeout(() => {
+      const el = document.querySelector(`[data-search-id="${entry.id}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.style.animation = 'none';
+      void el.offsetWidth; // reflush so back-to-back jumps re-trigger the pulse
+      el.style.animation = 'tabathaSearchPulse 1s ease-in-out 2';
+      setTimeout(() => { el.style.animation = ''; }, 2100);
+    }, 220);
+  }, []);
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', fontFamily: "'Inter', system-ui, sans-serif", display: 'flex' }}>
       {/* Left Nav */}
@@ -786,11 +810,17 @@ function Settings() {
                   100% { box-shadow: 0 0 0 0 ${pulseColor}00; transform: scale(1); }
                 }`}</style>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
-                  <span title={pill.tip} style={{ flex: 1, padding: '3px 8px', fontSize: '10px', fontWeight: 600, color: pill.color, background: pill.bg, borderRadius: '10px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pill.label}</span>
+                  <span
+                    title={`${pill.tip} — click to open Sync & Account`}
+                    onClick={() => setActiveSection('sync')}
+                    style={{ flex: 1, padding: '3px 8px', fontSize: '10px', fontWeight: 600, color: pill.color, background: pill.bg, borderRadius: '10px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                  >{pill.label}</span>
                   <button
                     onClick={async () => {
                       if (syncingNow) return;
-                      if (!isSignedIn) { setAuthError('Sign in first (Sync & Account section)'); return; }
+                      // NB-08: the "Sign in first" message names the Sync &
+                      // Account section — clicking now also takes you there.
+                      if (!isSignedIn) { setAuthError('Sign in first (Sync & Account section)'); setActiveSection('sync'); return; }
                       setSyncingNow(true);
                       setLastSyncNowAt(Date.now());
                       const backstop = setTimeout(() => setSyncingNow(false), 15000);
@@ -819,6 +849,8 @@ function Settings() {
               </>
             );
           })()}
+          {/* NB-08: fuzzy settings search — owns its query state locally */}
+          <SettingsSearch onJump={handleSearchJump} />
         </div>
         {SECTIONS.map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
@@ -840,10 +872,10 @@ function Settings() {
           <motion.div key={activeSection} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
 
             {activeSection === 'appearance' && (
-              <div>
+              <div data-search-id="section-appearance">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Appearance</h2>
                 <Tooltip text="When: You want to change the visual vibe of Tabatha. How: Select a theme from the dropdown. Affects: Dashboard, sidebar, and all extension windows." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="appearance-theme">
                     <span style={fieldLabel}>Theme</span>
                     <select value={theme} onChange={e => setTheme(e.target.value)} style={selectStyle}>
                       <option value="pop-art">🎨 Pop Art (Dark/Neon)</option>
@@ -862,7 +894,7 @@ function Settings() {
                   </div>
                 </Tooltip>
                 <Tooltip text="When: You click the Tabatha toolbar icon. How: Choose whether it opens the side panel or the tab-list popup. The Ctrl+Shift+E hotkey always opens the tab-list popup (rebindable at chrome://extensions/shortcuts)." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="appearance-toolbar-click">
                     <span style={fieldLabel}>Toolbar Icon Click</span>
                     <select value={settings.toolbarClickAction || 'sidepanel'} onChange={e => updateSetting('toolbarClickAction', e.target.value)} style={selectStyle}>
                       <option value="sidepanel">📑 Open Side Panel</option>
@@ -885,7 +917,7 @@ function Settings() {
                   Identifies this Chrome profile on this machine. Each browser profile gets its own classification — Personal hides the clock controls; Business / Professional / Work expose them.
                 </div>
                 <Tooltip text="A unique ID generated on first run. Stays the same across sign-ins on this browser profile. Surfaced for support / debugging." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="appearance-install-id">
                     <span style={fieldLabel}>Install ID</span>
                     <span style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '11px', color: 'var(--color-text-muted)', cursor: 'text', userSelect: 'all' }}>
                       {installIdentity?.identity?.supabaseId
@@ -897,7 +929,7 @@ function Settings() {
                   </div>
                 </Tooltip>
                 <Tooltip text="How you recognise this install in cross-profile views. Examples: 'Work MacBook', 'Personal PC'. Press Enter or click away to save." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="appearance-profile-name">
                     <span style={fieldLabel}>Profile Name</span>
                     <input
                       type="text"
@@ -911,7 +943,7 @@ function Settings() {
                   </div>
                 </Tooltip>
                 <Tooltip text="Per-install category. Personal hides clock-in/out and shift controls. Business / Professional / Work expose them. Changes save to the cloud immediately." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="appearance-classification">
                     <span style={fieldLabel}>Classification</span>
                     <select
                       value={installIdentity?.identity?.classification || 'professional'}
@@ -946,7 +978,7 @@ function Settings() {
 
                 <div style={sectionLabel}>User</div>
                 <Tooltip text="When: First setting up. How: Type your name. Affects: The dashboard greeting message." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="appearance-user-name">
                     <span style={fieldLabel}>Your Name</span>
                     <input type="text" placeholder="e.g. Marcus" value={settings.userName || ''} onChange={e => updateSetting('userName', e.target.value)} style={inputStyle} />
                   </div>
@@ -954,7 +986,7 @@ function Settings() {
 
                 <div style={sectionLabel}>Intent → Focus Bridge</div>
                 <Tooltip text="When: A tab intent is set via InBar. How: Controls whether a focus queue item is auto-created. Smart Dedup = auto-create only if no matching focus exists." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="appearance-intent-bridge">
                     <span style={fieldLabel}>Auto-Queue Mode</span>
                     <select value={settings.intentBridgeMode || 'smart_dedup'} onChange={e => updateSetting('intentBridgeMode', e.target.value)} style={selectStyle}>
                       <option value="smart_dedup">🧠 Smart Dedup</option>
@@ -972,7 +1004,7 @@ function Settings() {
             )}
 
             {activeSection === 'sync' && (
-              <div>
+              <div data-search-id="section-sync">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Sync & Account</h2>
 
                 {/* Inline feedback banner */}
@@ -1042,7 +1074,7 @@ function Settings() {
                       </div>
                       
                       {/* Sync status */}
-                      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
+                      <div data-search-id="sync-status" style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px' }}>
                           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sync Status</div>
                           <div style={{ display: 'flex', gap: '6px' }}>
@@ -1172,7 +1204,7 @@ function Settings() {
                     </div>
 
                     {/* ── Organizations ── */}
-                    <div style={sectionLabel}>Organizations</div>
+                    <div style={sectionLabel} data-search-id="sync-organizations">Organizations</div>
                     {orgs.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                         {orgs.map(o => (
@@ -1198,7 +1230,7 @@ function Settings() {
                     </form>
 
                     {/* ── Teams ── */}
-                    <div style={sectionLabel}>Teams</div>
+                    <div style={sectionLabel} data-search-id="sync-teams">Teams</div>
                     {teams.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                         {teams.map(t => (
@@ -1224,7 +1256,7 @@ function Settings() {
                     />
 
                     {/* ── Invite Token ── */}
-                    <div style={sectionLabel}>Join via Invite Token</div>
+                    <div style={sectionLabel} data-search-id="sync-invite-token">Join via Invite Token</div>
                     <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.5, marginTop: '2px', marginBottom: '8px' }}>
                       Paste a token a manager shared with you to join their organisation or team. Both ends of this flow are now wired — managers can mint tokens from the "Generate Invite Token" panel above.
                     </p>
@@ -1242,6 +1274,7 @@ function Settings() {
                     </p>
 
                     <button
+                      data-search-id="sync-signout"
                       onClick={async () => {
                         if (signingOut) return;
                         setSigningOut(true);
@@ -1293,7 +1326,7 @@ function Settings() {
                   </div>
                 ) : (
                   /* ── Login Form (not signed in) ── */
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                  <div data-search-id="sync-signin" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                     <button onClick={handleGoogleSignIn} disabled={authLoading} style={{ padding: '10px', background: '#fff', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -1332,17 +1365,17 @@ function Settings() {
             )}
 
             {activeSection === 'clock' && (
-              <div>
+              <div data-search-id="section-clock">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>FlipClock</h2>
                 <div style={sectionLabel}>Display Mode</div>
                 <Tooltip text="When: Choosing what to display on the homepage. How: Toggle the clock on/off. Affects: Whether the real-time clock is visible." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="clock-show-clock">
                     <span style={fieldLabel}>Show Clock</span>
                     <Toggle value={clockSettings.showClock !== false} onChange={v => updateClock('showClock', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Choosing what to display on the homepage. How: Toggle the countdown on/off. Affects: Whether the countdown timer is visible." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="clock-show-countdown">
                     <span style={fieldLabel}>Show Countdown</span>
                     <Toggle value={!!clockSettings.showCountdown} onChange={v => updateClock('showCountdown', v)} />
                   </div>
@@ -1352,7 +1385,7 @@ function Settings() {
                 </p>
                 <div style={sectionLabel}>Clock Options</div>
                 <Tooltip text="When: Customizing clock display. How: Toggle 12h or 24h format. Affects: The main FlipClock component." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="clock-time-format">
                     <span style={fieldLabel}>Time Format</span>
                     <select value={clockSettings.is24Hour ? '24' : '12'} onChange={e => updateClock('is24Hour', e.target.value === '24')} style={selectStyle}>
                       <option value="12">12 Hour</option>
@@ -1361,26 +1394,26 @@ function Settings() {
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Customizing clock details. How: Toggle seconds visibility. Affects: Main FlipClock component." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="clock-show-seconds">
                     <span style={fieldLabel}>Show Seconds</span>
                     <Toggle value={clockSettings.showClockSeconds !== false} onChange={v => updateClock('showClockSeconds', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Adjusting clock size. How: Drag the slider. Affects: The scale of the FlipClock in the settings preview." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="clock-scale">
                     <span style={fieldLabel}>Scale</span>
                     <input type="range" min="0.3" max="1.5" step="0.1" value={clockSettings.scale || 1.0} onChange={e => updateClock('scale', parseFloat(e.target.value))} style={{ width: '120px' }} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Customizing clock colors. How: Pick a color. Affects: Font color of the clock digits." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="clock-text-color">
                     <span style={fieldLabel}>Text Color</span>
                     <input type="color" value={clockSettings.textColor || '#e0e0e0'} onChange={e => updateClock('textColor', e.target.value)} style={{ width: '40px', height: '24px', border: 'none', cursor: 'pointer' }} />
                   </div>
                 </Tooltip>
                 <div style={sectionLabel}>Countdown Options</div>
                 <Tooltip text="When: Customizing countdown target. How: Choose End of Day or Custom. Affects: The target time for the countdown." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="clock-countdown-mode">
                     <span style={fieldLabel}>Mode</span>
                     <select value={clockSettings.countdownMode || 'daily'} onChange={e => updateClock('countdownMode', e.target.value)} style={selectStyle}>
                       <option value="daily">End of Day</option>
@@ -1398,22 +1431,22 @@ function Settings() {
             )}
 
             {activeSection === 'focus' && (
-              <div>
+              <div data-search-id="section-focus">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Focus Engine</h2>
                 <Tooltip text="When: Setting the default duration for a new Focus. How: Change the number of minutes. Affects: The initial countdown timer when a Focus is started." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="focus-default-timer">
                     <span style={fieldLabel}>Default Timer (minutes)</span>
                     <input type="number" min="1" max="120" value={settings.focusTimerMinutes || 15} onChange={e => updateSetting('focusTimerMinutes', parseInt(e.target.value))} style={inputStyle} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Tab behavior when opening a new tab. How: Toggle auto-associate. Affects: New tabs opened from an intent context are automatically assigned to that intent." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="focus-auto-associate">
                     <span style={fieldLabel}>Auto-associate tabs</span>
                     <Toggle value={settings.autoAssociateTabs !== false} onChange={v => updateSetting('autoAssociateTabs', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Focus drifts and tab is not active. How: Toggle notification. Affects: A notification is shown when you stray from the intended tab." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="focus-drift-notification">
                     <span style={fieldLabel}>Drift notification</span>
                     <Toggle value={settings.driftNotification !== false} onChange={v => updateSetting('driftNotification', v)} />
                   </div>
@@ -1429,38 +1462,40 @@ function Settings() {
             )}
 
             {activeSection === 'lifecycle' && (
-              <FocusLifecyclePanel settings={settings} updateSetting={updateSetting} />
+              <div data-search-id="section-lifecycle">
+                <FocusLifecyclePanel settings={settings} updateSetting={updateSetting} />
+              </div>
             )}
 
             {activeSection === 'intent' && (
-              <div>
+              <div data-search-id="section-intent">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Intent-Popup (Gatekeeper)</h2>
                 <Tooltip text="When: Enabling the Intent-Popup on new sites. How: Toggle the overlay. Affects: The Gatekeeper popup asking for intent." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-gatekeeper-enabled">
                     <span style={fieldLabel}>Enable overlay</span>
                     <Toggle value={settings.gatekeeperEnabled !== false} onChange={v => updateSetting('gatekeeperEnabled', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Setting a quick side quest duration. How: Change the minutes. Affects: The default duration when selecting 'Side Quest' in the Gatekeeper." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-side-quest">
                     <span style={fieldLabel}>Side Quest default (min)</span>
                     <input type="number" min="1" max="30" value={settings.sideQuestMinutes || 5} onChange={e => updateSetting('sideQuestMinutes', parseInt(e.target.value))} style={inputStyle} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Inheriting focus from another tab. How: Change count. Affects: The number of recently used intents shown in Gatekeeper." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-inherit-count">
                     <span style={fieldLabel}>Inherit items shown</span>
                     <input type="number" min="0" max="10" value={settings.inheritItemCount || 3} onChange={e => updateSetting('inheritItemCount', parseInt(e.target.value))} style={inputStyle} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Enforcing intent capture. How: Toggle strict mode. Affects: Whether the page is completely blurred out until an intent is chosen." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-strict-mode">
                     <span style={fieldLabel}>Strict mode (blocks page until intent set)</span>
                     <Toggle value={settings.inpopStrictMode !== false} onChange={v => updateSetting('inpopStrictMode', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Customizing Gatekeeper background. How: Slide to adjust. Affects: The blur intensity behind the Gatekeeper modal." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-blur-strength">
                     <span style={fieldLabel}>Background blur strength</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <input type="range" min="0" max="30" value={settings.inpopBlurStrength ?? 10} onChange={e => updateSetting('inpopBlurStrength', parseInt(e.target.value))} style={{ flex: 1 }} />
@@ -1501,13 +1536,13 @@ function Settings() {
                   </div>
                 </div>
                 <Tooltip text="When: Seeing current intent on standard pages. How: Toggle the Intent Bar. Affects: Renders a sticky status bar across active tabs." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-inbar-enabled">
                     <span style={fieldLabel}>Show Intent Bar on pages</span>
                     <Toggle value={settings.inbarEnabled !== false} onChange={v => updateSetting('inbarEnabled', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: Adjusting the Intent Bar's location. How: Select Top or Bottom. Affects: Where the Intent Bar is fixed on the screen." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-inbar-position">
                     <span style={fieldLabel}>Position</span>
                     <select value={settings.inbarPosition || 'bottom'} onChange={e => updateSetting('inbarPosition', e.target.value)} style={inputStyle}>
                       <option value="bottom">Bottom</option>
@@ -1515,7 +1550,7 @@ function Settings() {
                     </select>
                   </div>
                 </Tooltip>
-                <div style={sectionLabel}>Skipped Domains</div>
+                <div style={sectionLabel} data-search-id="intent-skipped-domains">Skipped Domains</div>
                 {skippedDomains.length === 0 ? (
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>No domains skipped yet.</p>
                 ) : (
@@ -1526,7 +1561,7 @@ function Settings() {
                     </div>
                   ))
                 )}
-                <div style={sectionLabel}>Persistent Presets</div>
+                <div style={sectionLabel} data-search-id="intent-presets">Persistent Presets</div>
                 <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '0 0 6px' }}>Pinned intents that always appear in InPop under "Common"</p>
                 {(intentPresets.persistent || []).map((p, i) => (
                   <div key={i} style={{ ...fieldRow, padding: '4px 0' }}>
@@ -1544,7 +1579,7 @@ function Settings() {
                     style={{ background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>Add</button>
                 </div>
                 <Tooltip text="When: Selecting an intent from recent history. How: Change count. Affects: Number of recent intents to show as shortcuts." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="intent-recent-count">
                     <span style={fieldLabel}>Recent intents shown</span>
                     <input type="number" min="1" max="10" value={settings.recentIntentCount || 5} onChange={e => updateSetting('recentIntentCount', parseInt(e.target.value))} style={inputStyle} />
                   </div>
@@ -1553,29 +1588,31 @@ function Settings() {
             )}
 
             {activeSection === 'urlrules' && (
-              <UrlRulesSection
-                urlRules={urlRules}
-                setUrlRules={setUrlRules}
-                intentChangeLog={intentChangeLog}
-                skippedDomains={skippedDomains}
-              />
+              <div data-search-id="section-urlrules">
+                <UrlRulesSection
+                  urlRules={urlRules}
+                  setUrlRules={setUrlRules}
+                  intentChangeLog={intentChangeLog}
+                  skippedDomains={skippedDomains}
+                />
+              </div>
             )}
 
             {activeSection === 'blocked' && (
-              <div>
+              <div data-search-id="section-blocked">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Blocked Sites</h2>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
                   Blocked sites show a gate requiring a 50+ character justification and timer before access. Supports wildcards like <code>*.reddit.com</code>.
                 </p>
                 <Tooltip text="When: Adding a new blocked domain. How: Type domain and press Block. Affects: Sites that trigger the BlockGate screen." position="bottom">
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }} data-search-id="blocked-add-site">
                     <input type="text" id="new-blocked" placeholder="e.g. reddit.com or *.tiktok.com" style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
                       onKeyDown={async e => { if (e.key === 'Enter' && e.target.value.trim()) { await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: e.target.value.trim() }); e.target.value = ''; setBlockedSites(prev => [...prev, e.target.value]); }}} />
                     <button onClick={async () => { const el = document.getElementById('new-blocked'); if (el && el.value.trim()) { const d = el.value.trim(); await sendMessage('MANAGE_BLOCKED_SITES', { action: 'add', domain: d }); setBlockedSites(prev => [...prev, d]); el.value = ''; } }}
                       style={{ background: '#ff6b6b', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>Block</button>
                   </div>
                 </Tooltip>
-                <div style={sectionLabel}>Currently Blocked</div>
+                <div style={sectionLabel} data-search-id="blocked-list">Currently Blocked</div>
                 {blockedSites.length === 0 ? (
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>No sites blocked yet.</p>
                 ) : (
@@ -1590,19 +1627,19 @@ function Settings() {
             )}
 
             {activeSection === 'time' && (
-              <div>
+              <div data-search-id="section-time">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Time Tracking</h2>
-                <div style={fieldRow}>
+                <div style={fieldRow} data-search-id="time-idle-threshold">
                   <span style={fieldLabel}>Idle threshold (minutes)</span>
                   <input type="number" min="1" max="60" value={settings.idleThresholdMinutes || 5} onChange={e => updateSetting('idleThresholdMinutes', parseInt(e.target.value))} style={inputStyle} />
                 </div>
-                <div style={fieldRow}>
+                <div style={fieldRow} data-search-id="time-context-timer">
                   <span style={fieldLabel}>Context timer (minutes)</span>
                   <input type="number" min="1" max="120" value={settings.globalTimerMinutes || 15} onChange={e => updateSetting('globalTimerMinutes', parseInt(e.target.value))} style={inputStyle} />
                 </div>
                 <div style={sectionLabel}>Data Retention</div>
                 <Tooltip text="When: You want desktop activity data to auto-delete after a period. How: Set days (0 = keep forever). Affects: Companion/desktop activity entries older than this will be pruned daily." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="time-retention">
                     <span style={fieldLabel}>Desktop data retention (days)</span>
                     <input type="number" min="0" max="365" value={settings.desktopRetentionDays || 90} onChange={e => updateSetting('desktopRetentionDays', parseInt(e.target.value))} style={inputStyle} />
                   </div>
@@ -1614,25 +1651,25 @@ function Settings() {
             )}
 
             {activeSection === 'workclock' && (
-              <div>
+              <div data-search-id="section-workclock">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Work Clock</h2>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
                   The Work Clock tracks your total working time via Clock In/Out. Available on the Dashboard and Sidebar.
                 </p>
                 <Tooltip text="When: You want Tabatha to auto-clock you in. How: Toggle on. Affects: Automatically clocks you in when you start browsing." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="workclock-auto-clockin">
                     <span style={fieldLabel}>Auto clock-in on launch</span>
                     <Toggle value={!!settings.autoClockIn} onChange={v => updateSetting('autoClockIn', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: You want break reminders. How: Set minutes (0 = disabled). Affects: Notification after continuous work without a break." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="workclock-break-reminder">
                     <span style={fieldLabel}>Break reminder (min)</span>
                     <input type="number" min="0" max="120" value={settings.breakReminderMinutes || 0} onChange={e => updateSetting('breakReminderMinutes', parseInt(e.target.value))} style={inputStyle} />
                   </div>
                 </Tooltip>
                 <Tooltip text="When: You want to log completed sessions. How: Toggle on. Affects: Stores clock history in local storage for review." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="workclock-history">
                     <span style={fieldLabel}>Save clock history</span>
                     <Toggle value={settings.saveClockHistory !== false} onChange={v => updateSetting('saveClockHistory', v)} />
                   </div>
@@ -1641,7 +1678,7 @@ function Settings() {
             )}
 
             {activeSection === 'followthrough' && (
-              <div>
+              <div data-search-id="section-followthrough">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Follow-through Support</h2>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
                   Configure popup behavior, checkpoint progress notes, and follow-through tracking preferences.
@@ -1649,13 +1686,13 @@ function Settings() {
 
                 <div style={sectionLabel}>Welcome Back Popup</div>
                 <Tooltip text="Minimum time you must be idle before the Welcome Back popup appears. Lower = more frequent." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="followthrough-welcomeback-idle">
                     <span style={fieldLabel}>Min idle time (minutes)</span>
                     <input type="number" min="1" max="60" value={settings.welcomeBackMinIdleMinutes ?? 5} onChange={e => updateSetting('welcomeBackMinIdleMinutes', parseInt(e.target.value) || 5)} style={inputStyle} />
                   </div>
                 </Tooltip>
                 <Tooltip text="Show the Welcome Back popup when returning from an auto-break. Disable to reduce interruptions." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="followthrough-welcomeback-break">
                     <span style={fieldLabel}>Show after auto-break</span>
                     <Toggle value={settings.welcomeBackShowAfterBreak !== false} onChange={v => updateSetting('welcomeBackShowAfterBreak', v)} />
                   </div>
@@ -1663,19 +1700,19 @@ function Settings() {
 
                 <div style={sectionLabel}>Checkpoint Progress Notes</div>
                 <Tooltip text="Periodically prompt you to record what you've accomplished during a focus session." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="followthrough-checkpoint-enabled">
                     <span style={fieldLabel}>Enable checkpoint prompts</span>
                     <Toggle value={settings.checkpointNotesEnabled !== false} onChange={v => updateSetting('checkpointNotesEnabled', v)} />
                   </div>
                 </Tooltip>
                 <Tooltip text="How often to prompt relative to your focus timer. 0.33 = every third of the timer." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="followthrough-checkpoint-interval">
                     <span style={fieldLabel}>Prompt interval (fraction)</span>
                     <input type="number" min="0.1" max="0.5" step="0.05" value={settings.checkpointIntervalFraction ?? 0.33} onChange={e => updateSetting('checkpointIntervalFraction', parseFloat(e.target.value) || 0.33)} style={inputStyle} />
                   </div>
                 </Tooltip>
                 <Tooltip text="After this many minutes without a checkpoint, the InBar shows a staleness indicator." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="followthrough-checkpoint-stale">
                     <span style={fieldLabel}>Staleness threshold (min)</span>
                     <input type="number" min="5" max="120" value={settings.checkpointStaleMinutes ?? 30} onChange={e => updateSetting('checkpointStaleMinutes', parseInt(e.target.value) || 30)} style={inputStyle} />
                   </div>
@@ -1683,7 +1720,7 @@ function Settings() {
 
                 <div style={sectionLabel}>Integrations</div>
                 <Tooltip text="Automatically post checkpoint notes as comments on linked Asana tasks. Requires Asana widget server." position="bottom">
-                  <div style={fieldRow}>
+                  <div style={fieldRow} data-search-id="followthrough-asana-cpn">
                     <span style={fieldLabel}>Auto-post CPNs to Asana</span>
                     <Toggle value={!!settings.checkpointAutoPostAsana} onChange={v => updateSetting('checkpointAutoPostAsana', v)} />
                   </div>
@@ -1692,10 +1729,10 @@ function Settings() {
             )}
 
             {activeSection === 'export' && (
-              <div>
+              <div data-search-id="section-export">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Export & Agents</h2>
                 <div style={sectionLabel}>Manual Export</div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }} data-search-id="export-manual">
                   <button
                     onClick={handleManualExport}
                     style={{ padding: '8px 14px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
@@ -1703,6 +1740,7 @@ function Settings() {
                     📥 Export markdown now
                   </button>
                   <button
+                    data-search-id="export-backup"
                     onClick={handleBackupData}
                     style={{ padding: '8px 14px', background: 'transparent', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
                   >
@@ -1714,15 +1752,15 @@ function Settings() {
                   <strong>Backup JSON</strong>: full <code>chrome.storage.local</code> snapshot. Use this before extension upgrades. Restore in any Tabatha page DevTools console with <code>chrome.storage.local.set(JSON.parse(...))</code>.
                 </div>
                 <div style={sectionLabel}>Auto Export</div>
-                <div style={fieldRow}>
+                <div style={fieldRow} data-search-id="export-auto">
                   <span style={fieldLabel}>Auto-export</span>
                   <Toggle value={!!settings.autoExportEnabled} onChange={v => updateSetting('autoExportEnabled', v)} />
                 </div>
-                <div style={fieldRow}>
+                <div style={fieldRow} data-search-id="export-interval">
                   <span style={fieldLabel}>Export interval (min)</span>
                   <input type="number" min="5" max="1440" value={settings.autoExportIntervalMinutes || 60} onChange={e => updateSetting('autoExportIntervalMinutes', parseInt(e.target.value))} style={inputStyle} />
                 </div>
-                <div style={fieldRow}>
+                <div style={fieldRow} data-search-id="export-path">
                   <span style={fieldLabel}>Export path</span>
                   <input type="text" value={settings.exportPath || 'Tabatha'} onChange={e => updateSetting('exportPath', e.target.value)} style={inputStyle} />
                 </div>
@@ -1730,7 +1768,7 @@ function Settings() {
             )}
 
             {activeSection === 'tags' && (
-              <div>
+              <div data-search-id="section-tags">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Tags & Associations</h2>
                 <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>
                   Tags help you drill down on what each focus item relates to.
@@ -1741,7 +1779,7 @@ function Settings() {
             )}
 
             {activeSection === 'parked' && (
-              <div>
+              <div data-search-id="section-parked">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Parked Tabs</h2>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>Tabs you saved for later from the Intent-Popup. Click to reopen.</p>
                 {parkedTabs.length === 0 ? (
@@ -1761,7 +1799,7 @@ function Settings() {
             )}
 
             {activeSection === 'sugarbox' && (
-              <div>
+              <div data-search-id="section-sugarbox">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Sugar Box</h2>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>Distractions saved for later as rewards. Enjoy responsibly.</p>
                 {sugarBox.length === 0 ? (
@@ -1781,7 +1819,7 @@ function Settings() {
             )}
 
             {activeSection === 'stats' && (
-              <div>
+              <div data-search-id="section-stats">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Stats & History</h2>
                 <div style={sectionLabel}>Intent-Popup Stats</div>
                 {(() => {
@@ -1825,14 +1863,14 @@ function Settings() {
             )}
 
             {activeSection === 'privacy' && (
-              <div>
+              <div data-search-id="section-privacy">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Privacy & Capture</h2>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>All capture features are OFF by default. Incognito tabs are never captured.</p>
-                <div style={fieldRow}>
+                <div style={fieldRow} data-search-id="privacy-screenshot">
                   <span style={fieldLabel}>Screenshot capture</span>
                   <Toggle value={!!settings.screenshotCapture} onChange={v => updateSetting('screenshotCapture', v)} />
                 </div>
-                <div style={fieldRow}>
+                <div style={fieldRow} data-search-id="privacy-keystrokes">
                   <span style={fieldLabel}>Keystroke analytics</span>
                   <Toggle value={!!settings.keystrokeAnalytics} onChange={v => updateSetting('keystrokeAnalytics', v)} />
                 </div>
@@ -1840,13 +1878,15 @@ function Settings() {
             )}
 
             {activeSection === 'webhooks' && (
-              <WebhookSettings />
+              <div data-search-id="section-webhooks">
+                <WebhookSettings />
+              </div>
             )}
 
             {activeSection === 'about' && (
-              <div>
+              <div data-search-id="section-about">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>About Tabatha</h2>
-                <div style={fieldRow}><span style={fieldLabel}>Version</span><span>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span></div>
+                <div style={fieldRow} data-search-id="about-version"><span style={fieldLabel}>Version</span><span>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span></div>
                 <div style={fieldRow}><span style={fieldLabel}>Codename</span><span>Attention Operating System</span></div>
                 <div style={fieldRow}><span style={fieldLabel}>Ecosystem</span><span>Flux Family</span></div>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '16px', lineHeight: 1.5 }}>
@@ -1858,11 +1898,13 @@ function Settings() {
 
 
             {activeSection === 'desktop' && (
-              <DesktopActivityPanel settings={settings} updateSetting={updateSetting} />
+              <div data-search-id="section-desktop">
+                <DesktopActivityPanel settings={settings} updateSetting={updateSetting} />
+              </div>
             )}
 
             {activeSection === 'integrations' && (
-              <div>
+              <div data-search-id="section-integrations">
                 <div style={sectionLabel}>🔌 External Integrations</div>
                 <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
                   Connect Tabatha to external services for enhanced time tracking and project management.
@@ -1870,7 +1912,7 @@ function Settings() {
 
                 {/* Asana */}
                 <GlassCard style={{ padding: '16px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }} data-search-id="integrations-asana">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '16px' }}>📋</span>
                       <span style={{ fontWeight: 600, fontSize: '13px' }}>Asana</span>
@@ -1907,16 +1949,20 @@ function Settings() {
 
                 {/* Supabase */}
                 <GlassCard style={{ padding: '16px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }} data-search-id="integrations-supabase">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '16px' }}>☁️</span>
                       <span style={{ fontWeight: 600, fontSize: '13px' }}>Supabase Cloud Sync</span>
                     </div>
-                    <span style={{
-                      fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
-                      background: isSignedIn ? '#66bb6a22' : '#9e9e9e22',
-                      color: isSignedIn ? '#66bb6a' : '#9e9e9e',
-                    }}>
+                    <span
+                      onClick={() => setActiveSection('sync')}
+                      title="Open Sync & Account"
+                      style={{
+                        fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
+                        background: isSignedIn ? '#66bb6a22' : '#9e9e9e22',
+                        color: isSignedIn ? '#66bb6a' : '#9e9e9e',
+                        cursor: 'pointer',
+                      }}>
                       {isSignedIn ? '✓ Connected' : '○ Not signed in'}
                     </span>
                   </div>
@@ -1927,16 +1973,20 @@ function Settings() {
 
                 {/* Desktop Companion */}
                 <GlassCard style={{ padding: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }} data-search-id="integrations-companion">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '16px' }}>🖥️</span>
                       <span style={{ fontWeight: 600, fontSize: '13px' }}>Desktop Companion</span>
                     </div>
-                    <span style={{
-                      fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
-                      background: companionConnected ? '#66bb6a22' : '#9e9e9e22',
-                      color: companionConnected ? '#66bb6a' : '#9e9e9e',
-                    }}>
+                    <span
+                      onClick={() => setActiveSection('sync')}
+                      title="Open Sync & Account"
+                      style={{
+                        fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
+                        background: companionConnected ? '#66bb6a22' : '#9e9e9e22',
+                        color: companionConnected ? '#66bb6a' : '#9e9e9e',
+                        cursor: 'pointer',
+                      }}>
                       {companionConnected ? '✓ Connected' : '○ Not connected'}
                     </span>
                   </div>
@@ -1948,7 +1998,9 @@ function Settings() {
             )}
 
             {activeSection === 'developer' && (
-              <DeveloperPanel settings={settings} updateSetting={updateSetting} />
+              <div data-search-id="section-developer">
+                <DeveloperPanel settings={settings} updateSetting={updateSetting} />
+              </div>
             )}
           </motion.div>
         </div>
@@ -2125,12 +2177,12 @@ function WebhookSettings() {
         Send real-time or scheduled event notifications to external services (Zapier, Make, custom endpoints).
       </p>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }} data-search-id="webhooks-enabled">
         <span style={{ fontSize: '13px', fontWeight: 500 }}>Enable Webhooks</span>
         <Toggle value={config.enabled} onChange={v => setConfig(prev => ({ ...prev, enabled: v }))} />
       </div>
 
-      <div style={{ marginBottom: '10px' }}>
+      <div style={{ marginBottom: '10px' }} data-search-id="webhooks-url">
         <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Webhook URL</label>
         <input type="url" value={config.url} onChange={e => setConfig(prev => ({ ...prev, url: e.target.value }))}
           placeholder="https://hooks.example.com/tabatha"
@@ -2138,7 +2190,7 @@ function WebhookSettings() {
         />
       </div>
 
-      <div style={{ marginBottom: '10px' }}>
+      <div style={{ marginBottom: '10px' }} data-search-id="webhooks-secret">
         <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Secret (optional, for signature verification)</label>
         <input type="password" value={config.secret} onChange={e => setConfig(prev => ({ ...prev, secret: e.target.value }))}
           placeholder="your-webhook-secret"
@@ -2146,7 +2198,7 @@ function WebhookSettings() {
         />
       </div>
 
-      <div style={{ marginBottom: '12px' }}>
+      <div style={{ marginBottom: '12px' }} data-search-id="webhooks-events">
         <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px' }}>Events to send (empty = all)</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
           {WEBHOOK_EVENTS.map(ev => (
