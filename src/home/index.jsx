@@ -248,11 +248,10 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         <Tooltip text={`Checkpoint note${isStale ? ' (overdue!)' : ''}`}>
           <button onClick={() => setShowCPN(!showCPN)} style={btnStyle(isStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isStale ? '🟠' : ''}{cpnCount > 0 ? ` (${cpnCount})` : ''}</button>
         </Tooltip>
-        {cpnTotalCount > 0 && (
-          <Tooltip text="View checkpoint timeline">
-            <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
-          </Tooltip>
-        )}
+        {/* NB-09: always reachable — the panel hosts time editing even with zero checkpoints */}
+        <Tooltip text="View timeline / edit tracked time">
+          <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
+        </Tooltip>
       </div>
       {/* Inline edit panel */}
       <AnimatePresence>
@@ -340,7 +339,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       </AnimatePresence>
       {/* Plan 025/037: Checkpoint Timeline — shared component */}
       <AnimatePresence>
-        {showTimeline && cpnTotalCount > 0 && (
+        {showTimeline && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
             <CheckpointTimeline
               activeFocus={activeFocus}

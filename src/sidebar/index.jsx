@@ -455,9 +455,8 @@ function Sidebar() {
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                     <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
                     <Tooltip text="Checkpoint note"><button onClick={() => setShowCheckpoint(p => !p)} style={btn(isCheckpointStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isCheckpointStale ? '🟠' : ''}</button></Tooltip>
-                    {(activeFocus.checkpoint || []).length > 0 && (
-                      <Tooltip text="View/edit checkpoint timeline"><button onClick={() => setShowTimeline(p => !p)} style={btn(showTimeline ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
-                    )}
+                    {/* NB-09: always reachable — the panel hosts time editing even with zero checkpoints */}
+                    <Tooltip text="View timeline / edit tracked time"><button onClick={() => setShowTimeline(p => !p)} style={btn(showTimeline ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
                     <Tooltip text={activeFocus.offDevice ? 'Off-device ON — idle suppressed' : 'Mark as off-device — idle won\'t pause this focus'}>
                       <button onClick={() => sendMessage('UPDATE_FOCUS', { focusId: activeFocus.id, offDevice: !activeFocus.offDevice })} style={btn(activeFocus.offDevice ? '#ef5350' : 'var(--color-text-muted)')}>{activeFocus.offDevice ? '📴' : '📱'}</button>
                     </Tooltip>

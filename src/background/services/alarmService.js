@@ -15,7 +15,7 @@ import {
 } from './focusService.js';
 import { handleContextTimerExpired } from './tabService.js';
 import { handlePomodoroComplete } from './notificationService.js';
-import { handleIdleAutoBreak } from './clockService.js';
+import { handleIdleAutoBreak, handleAliveHeartbeat, ALIVE_HEARTBEAT_ALARM } from './clockService.js';
 import { handleDriftCheck } from './autoFocusService.js';
 import { saveSessionSnapshot, exportMarkdown } from './sessionService.js';
 
@@ -78,6 +78,9 @@ async function handleAlarm(alarm) {
         return handleUnfocusedNudge();
       case 'idle-auto-break':
         return handleIdleAutoBreak();
+      // NB-09: alive heartbeat — persists _lastAliveAt + detects offline gaps.
+      case ALIVE_HEARTBEAT_ALARM:
+        return handleAliveHeartbeat();
       case 'auto-focus-drift':
         return handleDriftCheck();
       default:

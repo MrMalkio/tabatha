@@ -33,6 +33,8 @@ export const DEFAULT_SETTINGS = {
   ],
   meetingIdleGraceMinutes: 60,            // max meeting duration suppressed before idle can fire anyway
   autoResumeOnReturn: true,               // auto-resume the paused focus when the user returns from idle
+  // ── Offline-gap detector (NB-09) ──
+  offlineGapThresholdMinutes: 10,         // min heartbeat gap (sleep / browser closed) before retro-pausing a running focus
   // Phase 1 — Auto clock-in (#187)
   autoClockInEnabled: false,              // master toggle for auto clock-in
   autoClockInTrigger: 'chrome_open',      // 'chrome_open' | 'os_unlock'
