@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 6.5.0
+- **Current version:** 6.6.0
 - **Current focus:** Ghost-stint / concurrent-shift fix (Plan 036 follow-up). Migration 017 applied. Live Stints panel shipped. Build/load constraint documented in agent file.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`

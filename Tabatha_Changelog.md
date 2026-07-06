@@ -5,6 +5,25 @@ file.
 
 ---
 
+## [v6.6.0] - Org management foundation, real analytics, time-editing overhaul + critical storage fix - _2026-07-06_
+
+### Fixed
+
+- **CRITICAL — pause/resume (and all state changes) silently failing**: the extension's `chrome.storage.local` hit Chrome's 10 MB quota, so every state-changing write was rejected while reads kept working — the UI looked alive but nothing persisted. Added the `unlimitedStorage` permission, and storage write failures now surface loudly (console + notification) instead of being swallowed. (Requires the one-time extension reload that delivers this version.)
+- **Sync survives schema drift**: if the client is ever ahead of the database (a missing column), sync now retries that block without the column and reports a named diagnostic instead of failing outright.
+
+### Added
+
+- **Work Shifts → Analytics is real** (for everyone, including personal installs): daily hours, weekly comparison, peak productivity hours, break patterns, time-per-focus during shifts, context-switching frequency, and CSV export — all computed from your own data. Org/cross-member analytics ships next (org admins only).
+- **Work Schedule + work profiles (foundation)**: 3-mode Schedule page (your schedule / manage members / approval inbox), dedicated-hours vs self-managed work profiles, multi-cadence required-hours minimums (daily/weekly/monthly), shift/make-up change requests, and shortfall accounting at clock-out. (UI ships enabled once the backing database migrations are applied.)
+- **Org roles foundation**: owner/admin are org-wide; managers are scoped to their own teams. New permission helpers gate every org-management surface.
+- **Time editing that actually works**: type durations like "500m" or "8h20m" (set total / add / subtract), live preview incl. clamp warnings, Enter-to-apply, edit panel available even with no checkpoints, and honest feedback when a limit clamps your edit.
+- **Offline-gap detection**: if the machine was off/asleep while an intent was running, Tabatha now detects the gap on wake, retro-pauses at the gap start, and asks you to confirm/credit/adjust — no more phantom hours.
+- **Abandoned-stint prompt at clock-in**: your own orphaned stints surface when you clock in, with an end-time picker to correct them on the spot.
+- **Settings search**: press "/" in Settings and fuzzy-find any option; sync/companion status chips now click through to Sync & Account.
+
+---
+
 ## [v6.5.0] - Dogfood fix batch: clock sync, onboarding, crash-hardening + new features - _2026-07-01_
 
 ### Added
