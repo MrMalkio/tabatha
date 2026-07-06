@@ -467,3 +467,12 @@
   3. **DB pre-create of Reggie & Po** (po@ / reggie@duckandshark.com) — pending (P0.7).
   4. **Physical rollout** to testers — pending (P0.8).
 - **Why it matters:** Records the production milestone against the loose-thread items already in this lot so they don't get re-raised, and surfaces the remaining pre-team-live gates in one place.
+
+## 2026-07-06 — Unbounded chrome.storage growth (post quota outage)
+- **Noticed while:** Root-causing the live pause/resume outage (storage pinned at the 10MB QUOTA_BYTES cap; fixed with `unlimitedStorage` on `fix/pause-resume-regression`).
+- **What:** Several storage keys grow without bound and drove the install to the cap: `_archive_*` rolling month-buckets (archiveService.writeLocalArchive never prunes), focusEngine items/checkpoints accumulate indefinitely (history is capped but `items` is not), domain history, and per-action audit/log writes. `unlimitedStorage` removes the hard failure but the underlying growth remains (slower UI payloads, bigger syncs, slower storage.get on hot paths).
+- **Why it matters:** GET_FOCUS_ENGINE ships the whole engine to every page on every FOCUS_ENGINE_UPDATED; multi-MB engines make every click sluggish and every Supabase sync heavier. A second install (PS machine) will hit the same wall if it ever runs an older manifest.
+- **Options:**
+  1. Cap `_archive_*` to N months + surface a Settings → Storage panel with per-key byte usage and a "clear archives" action
+  2. Move archives/audit to IndexedDB (already hinted in archiveService comment) and keep chrome.storage for hot state only
+  3. Prune completed focusEngine items older than the retention window into the archive during the existing retention alarm ← **suggested (pairs with 1)**
