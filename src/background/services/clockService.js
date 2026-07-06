@@ -14,6 +14,7 @@ import { getOwnAbandonedStints } from './awarenessService.js';
 import { createClockService } from '../clock.js';
 import * as timeTracker from '../../services/timeTracking.js';
 import { detectGap } from '../../utils/gapDetection.js';
+import { shortfallsToPrompt, shortfallKey, fmtMinutes } from '../../utils/scheduleModel.js';
 
 // ── NB-09: offline-gap detector constants ──
 export const ALIVE_HEARTBEAT_ALARM = 'alive-heartbeat';
@@ -724,6 +725,114 @@ export async function handleIdleStateChanged(newState) {
   userIdleSince = null;
 }
 
+// ════════════════════════════════════════════
+// NB-01/NB-02 — Required-hours shortfall detection.
+//
+// Evaluated at clock-out (the moment a cadence window's tally can change).
+// Pure math lives in src/utils/scheduleModel.js: for each of the member's
+// active required-hours floors (daily/weekly/monthly are INDEPENDENT — the
+// anti-back-loading rule), the just-closed window is checked for a final
+// miss, and the current window for a miss that is already mathematically
+// certain. Detected shortfalls are:
+//   1. written to tabatha.shortfall_ledger (resolution 'unresolved') via the
+//      injected scheduleApi wrapper — idempotent per member/cadence/period;
+//   2. surfaced with a SHORTFALL_PROMPT broadcast + a Chrome notification so
+//      the user can account for the time (make-up / shift / reason) from the
+//      Work Shifts → Schedule view.
+// Deliberately NOT a hard block on clock-in/out (Koda): this is the minimal
+// detection + prompt + ledger slice; the full adherence engine phases later.
+// Fail-open: signed-out / offline / no-requirements users are unaffected.
+// ════════════════════════════════════════════
+export async function checkShortfallAtClockOut(now = Date.now()) {
+  try {
+    const api = deps.scheduleApi;
+    const supabase = deps.supabase;
+    if (!api || !supabase) return null;
+
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    if (!session?.user?.id) return null;
+
+    const { data: prof } = await supabase
+      .schema('tabatha')
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', session.user.id)
+      .maybeSingle();
+    if (!prof?.id) return null;
+
+    // Open floors across all of the member's orgs (RLS returns own rows).
+    const requirements = await api.getWorkRequirements({ profileId: prof.id });
+    if (!requirements?.length) return null;
+
+    const { clockHistory } = await getStorage('clockHistory');
+    const sessions = clockHistory || [];
+
+    // Group per org — floors and ledgers are org-scoped.
+    const byOrg = new Map();
+    for (const r of requirements) {
+      if (!byOrg.has(r.org_id)) byOrg.set(r.org_id, []);
+      byOrg.get(r.org_id).push(r);
+    }
+
+    // Prompt dedupe (persisted): one prompt per member/org/cadence/period.
+    const { _shortfallPrompted } = await getStorage('_shortfallPrompted');
+    const prompted = _shortfallPrompted || {};
+    const results = [];
+
+    for (const [orgId, reqs] of byOrg) {
+      const detected = shortfallsToPrompt(reqs, sessions, now);
+      const fresh = detected.filter(s => !prompted[`${orgId}:${shortfallKey(s)}`]);
+      if (fresh.length === 0) continue;
+
+      // Ledger rows are created ON PROMPT (never pre-materialized); the
+      // unique index makes re-runs harmless.
+      try {
+        await api.logShortfalls({ orgId, profileId: prof.id, shortfalls: fresh });
+      } catch { /* ledger write is best-effort; the prompt still shows */ }
+
+      for (const s of fresh) {
+        prompted[`${orgId}:${shortfallKey(s)}`] = now;
+        results.push({ ...s, orgId });
+      }
+    }
+
+    if (results.length === 0) return null;
+
+    // Cap the dedupe map so it can't grow unbounded.
+    const keys = Object.keys(prompted);
+    if (keys.length > 200) {
+      keys.sort((a, b) => prompted[a] - prompted[b]);
+      for (const k of keys.slice(0, keys.length - 200)) delete prompted[k];
+    }
+    await setStorage({ _shortfallPrompted: prompted });
+
+    broadcastToExtension({ type: 'SHORTFALL_PROMPT', shortfalls: results });
+    try {
+      const first = results[0];
+      chrome.notifications.create(`shortfall-${now}`, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Tabatha — required hours',
+        message: results.length === 1
+          ? `You're ${fmtMinutes(first.missingMinutes)} short of your ${first.cadence} minimum${first.final ? '' : ' (current period can no longer be met)'}. Open Work Shifts → Schedule to make it up, shift it, or log a reason.`
+          : `${results.length} required-hours shortfalls need accounting. Open Work Shifts → Schedule to resolve them.`,
+        requireInteraction: true,
+      });
+    } catch { /* notifications best-effort */ }
+
+    try {
+      const { tabathaLogs } = await getStorage('tabathaLogs');
+      const logs = tabathaLogs || [];
+      logs.push({ type: 'shortfall_detected', shortfalls: results, ts: new Date().toISOString() });
+      await setStorage({ tabathaLogs: logs.slice(-500) });
+    } catch { /* non-critical */ }
+
+    return results;
+  } catch {
+    return null; // shortfall detection is always fail-open
+  }
+}
+
 async function getTabData() {
   if (deps.getTabData) return deps.getTabData();
   const { tabs } = await getStorage('tabs');
@@ -756,7 +865,12 @@ export async function handleMessage(type, message, _sender) {
         deps.companionBridge.sendClockOut();
       }
       if (deps.fireWebhook) deps.fireWebhook('clock_out', {});
-      if (!result.error) deps.triggerSync?.();
+      if (!result.error) {
+        deps.triggerSync?.();
+        // NB-01/NB-02: fire-and-forget required-hours check — never delays
+        // or blocks the clock-out itself (Koda: no hard blocks by profile type).
+        checkShortfallAtClockOut().catch(() => {});
+      }
       deps.notifyAwarenessStateChange?.();
       return result;
     }
