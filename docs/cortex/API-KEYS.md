@@ -36,11 +36,36 @@ Legend — **Have** = already provisioned somewhere in Flux · **Need** = must p
 | K10 | Premium TTS (optional, if OpenAI TTS insufficient) | ElevenLabs | C9 · Phase 3 | ❌ optional net-new | — |
 | K11 | Asana (checkpoints, feedback→task) | Asana PAT / OAuth app | cross-cutting | ✅ **Have** (widget uses `ASANA_CLIENT_SECRET`) | `flux-asana-widget/.env` |
 
-## Net-new to procure (the actual "get" list), priority order
-1. **Anthropic API key (K5/K6)** — the one thing that unblocks non-harness AI (backend-proxy inference + programmatic vision). Highest value. *(Phase 1 can proceed on the harness alone, but we want this staged for Phase 2.)*
-2. **Vercel AI Gateway key (K7)** — only if we commit to Gateway routing; gives multi-provider fallback with one key. Decide before Phase 2.
-3. **Microsoft Graph app (K8)** — OneDrive archival; deferrable to Phase 2+.
-4. **ElevenLabs (K10)** — only if OpenAI TTS quality is insufficient for Tabby's voice; evaluate in Phase 3.
+## ✅ VERDICT — what development actually needs
+
+- **Now (Phase 1 + Fable's overnight scaffolding): NO net-new keys.** Covered by OpenAI + Supabase + the user's harness (all already provisioned). Do NOT block on procurement; do NOT mint keys.
+- **Requires Malkio (procure only when he's available — each needs his billing/account):**
+
+| When needed | Key | Why | Blocker |
+|---|---|---|---|
+| Phase 2 (backend-proxy tier) | **Anthropic (Fable/Claude)** | run the optimization loop + screenshot vision on Fable/Claude quality instead of OpenAI-only | paid Anthropic **Console** account + payment method (separate from claude.ai sub) |
+| Phase 2 (routing tier) | **Vercel AI Gateway** (`AI_GATEWAY_API_KEY`) | one key → multi-provider fallback + observability | free-tier key on Malkio's Vercel account |
+| Phase 2+ (C3 external archive) | **Microsoft Graph** (`MS_GRAPH_CLIENT_ID/SECRET`) | OneDrive archival target | Azure app registration under Malkio's MS account |
+| Phase 3 (C9 voice, optional) | **ElevenLabs** | premium TTS if OpenAI TTS isn't good enough for Tabby's voice | evaluate first; likely skip |
+| Phase 3 (C9, optional) | **AssemblyAI** | transcription IF preferred over OpenAI Whisper (Flux slot is blank) | free tier; only if Whisper falls short |
+| Phase 2 backend (if service-role needed) | **Supabase service_role** (Flux proj) | server-side privileged DB writes for the proxy | NOT on disk — pull from Supabase dashboard when needed |
+
+None of the above blocks current work. Blank slots for all are pre-created in `.env.cortex.local`.
+
+## 🔑 Key file references (for later dev / Fable — where the EXISTING keys live)
+
+All reusable keys are consolidated into **`C:\Users\mrmal\le dev\Tabatha\.env.cortex.local`** (gitignored, this machine). Canonical upstream sources:
+
+| Key | Canonical source file (gitignored) |
+|---|---|
+| `OPENAI_API_KEY` (real `sk-proj-…`) | `C:\Users\mrmal\le dev\Flux\.claude\worktrees\infallible-margulis-7393e0\.env` |
+| `ASSEMBLYAI_API_KEY` (**blank** — not yet procured) | same Flux worktree `.env` |
+| `GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` | same Flux worktree `.env` |
+| `ASANA_PAT` (Malkio) | Flux `.env` (also Caspera/Mojo/SteadyStars per-agent PATs) |
+| `SUPABASE_ACCESS_TOKEN` (mgmt, `sbp_…`) | Flux `.env` |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` (Flux proj `mtdgoahskcibjbhfvofx`, shared w/ Tabatha) | `C:\Users\mrmal\le dev\Tabatha\.env` (as `VITE_*`) |
+
+**For later dev:** read `.env.cortex.local` — do not re-hunt the ecosystem, and do not copy these into any tracked or `VITE_`-prefixed file.
 
 ## Phase 1 reality check
 Phase 1 (local-first + cron-in-harness) needs **no net-new paid key**: Supabase (have) + the user's harness auth (Claude Code/Codex) cover it. The procurement above is to **unblock Phase 2/3 ahead of time** so dev never stalls waiting on credentials.
