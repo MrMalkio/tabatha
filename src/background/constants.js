@@ -45,7 +45,20 @@ export const DEFAULT_SETTINGS = {
   driftSnoozeMinutes: 5,                  // "just checking" snooze duration
   // ── URL Rules Intelligence (Plan 038) ──
   domainHistoryMaxDomains: 2000,          // LRU cap on the persistent domain store
+  // ── Cortex — AI Observation & Optimization Layer (Plan 039/040) ──
+  screenshotCapture: false,               // MASTER enable for adaptive capture (opt-in; previously inert)
+  keystrokeAnalytics: false,              // (reserved) keystroke-derived signals
+  captureDwellSeconds: 10,                // dwell-interval fallback while staying in one context
+  captureMinGapSeconds: 2,                // min gap between captures (anti-thrash)
+  captureOnContextChange: true,           // capture on tab/window/app/focus/intent change
+  captureStoragePath: 'Tabatha/Cortex/captures', // local-first store (configurable path)
+  sensitiveRules: [],                     // C2 per-site/app suppression + redaction rules
+  captureRetention: {                     // C3 retention — personal vs org, by time (space added in T4)
+    personal: { maxAgeDays: 30 },
+    org: { maxAgeDays: 90 }
+  },
   storage: {
+    cortexLedgerCap: 5000,
     snapshotIntervalMinutes: 30,
     snapshotCap: 20,
     logsCap: 500,
