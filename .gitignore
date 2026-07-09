@@ -53,3 +53,9 @@ Tabatha-Desktop-Companion_*.msi
 Tabatha-Desktop-Companion_*-setup.exe
 *.crx
 tabatha-*.zip
+
+# Local secret stores (Cortex + dev) — never commit real keys
+.env.local
+.env.*.local
+.env.cortex
+.env.cortex.local
