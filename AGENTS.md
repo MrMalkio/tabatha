@@ -96,6 +96,7 @@ See `.headbox/workspace-map.md` for the full project file tree.
   2. `public/manifest.json` is the version source of truth — `npm run build`'s prebuild runs `scripts/sync-version.mjs` from it. Building in the main dir stamps **staging's** version into the dist, which looks like a downgrade.
   3. If you built in a worktree, **copy** `<worktree>\dist\*` into the main dist path (clean mirror — remove old dist first so stale assets don't linger).
   4. Worktrees don't share `node_modules`. Create a directory junction (`New-Item -ItemType Junction`) from the worktree's `node_modules` to the main dir's to build without a full install. Remove the junction with `cmd /c rmdir` — **never** `Remove-Item -Recurse`, which would delete the target.
+  5. **After replacing/rebuilding `dist`, the unpacked extension MUST be reloaded at `chrome://extensions` (↻).** A stale MV3 service worker running against swapped assets makes every `sendMessage` hang — symptoms: dead home-page buttons, "⏳ Setting…" stuck forever. (Root-caused via real-browser regression 2026-07-10; the code was healthy.) Note for automated tests: Chrome 137+ ignores `--load-extension` — load via CDP `Extensions.loadUnpacked` with `--enable-unsafe-extension-debugging`.
 
 ---
 

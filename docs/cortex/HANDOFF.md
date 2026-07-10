@@ -1,5 +1,9 @@
 # Cortex Overnight Handoff — Fable, 2026-07-09 → 2026-07-10
 
+## ⚡ UPDATE — your smoke-test failures: root-caused, not a code bug
+Your report (dead clock-out/unpause buttons, intent stuck on "⏳ Setting…") was reproduced-against and **cleared by a full real-browser regression** (Playwright + real Chrome v150, fresh profile, current dist): clock in/out via the actual buttons PASS, pause→resume PASS, Set Focus PASS, SET_INTENT PASS, capture on/off PASS, ledger export PASS — 11/11.
+**Cause: a stale MV3 service worker.** I rebuilt `dist` several times overnight underneath your loaded unpacked extension; until you hit **Reload (↻) on `chrome://extensions`**, the old SW runs against swapped assets and every `sendMessage` hangs (exactly your symptoms). → **Hit Reload, then re-run your smoke test.** The rule is now codified in AGENTS.md (Build→Load constraint #5). One real hardening landed from your report: `RESUME_FOCUS` now falls back to the active/most-recently-paused focus when called without an id (symmetry with pause). The "audio transcription" that worked = the existing webspeech `VoiceInput` (feature #211 Phase A) — unrelated to Cortex.
+
 For Malkio. Everything below happened autonomously on branch `claude/tabatha-ai-integration-layer-91903b`. Nothing was pushed; nothing touched `staging`/`main` or the pinned Chrome load path. No secrets were printed or written to tracked files.
 
 ## TL;DR

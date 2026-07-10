@@ -803,7 +803,17 @@ async function pauseFocus(focusId) {
 
 async function resumeFocus(focusId) {
   const engine = await getFocusEngine();
-  const item = focusId ? engine.items[focusId] : null;
+  // Symmetry with pauseFocus: no id → fall back to the active focus (or, if
+  // nothing is active, the most recently paused one) instead of erroring.
+  let item = focusId ? engine.items[focusId] : null;
+  if (!item && !focusId) {
+    item = engine.items[engine.activeFocusId]
+      || Object.values(engine.items)
+        .filter((i) => i.focusState === 'paused' && i.pausedAt)
+        .sort((a, b) => new Date(b.pausedAt) - new Date(a.pausedAt))[0]
+      || null;
+    focusId = item?.id;
+  }
   if (!item) return { error: 'Focus not found', focusEngine: engine };
 
   if (engine.activeFocusId && engine.activeFocusId !== focusId) {
