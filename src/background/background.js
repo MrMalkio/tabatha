@@ -73,6 +73,7 @@ import { recordDomainVisit } from './services/domainHistoryService.js';
 import * as captureService from './services/captureService.js';
 import { registerCaptureListeners } from './services/captureService.js';
 import * as cortexService from './services/cortexService.js';
+import * as selfCorrectionService from './services/selfCorrectionService.js';
 import * as feedbackService from './services/feedbackService.js'; // B2: in-app feedback → Asana
 import * as awarenessService from './services/awarenessService.js';
 import {
@@ -192,7 +193,8 @@ const services = [
   domainHistoryService,
   feedbackService,
   captureService,
-  cortexService
+  cortexService,
+  selfCorrectionService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -237,6 +239,9 @@ registerAlarmServiceListener();
 // Cortex Plan 040 T4: adaptive-capture event listeners + dwell/export alarms.
 // All handlers gate on the opt-in screenshotCapture master toggle internally.
 registerCaptureListeners();
+// Cortex Plan 042 T7: C10 passive self-correction daily 04:00 pass. Gates on
+// the opt-in selfCorrectionEnabled setting internally.
+selfCorrectionService.registerSelfCorrectionAlarm();
 registerBootstrap();
 
 // FIX-12: persistently configure the toolbar-icon click behavior (side panel

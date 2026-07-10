@@ -59,6 +59,9 @@ export const DEFAULT_SETTINGS = {
     personal: { maxAgeDays: 30 },
     org: { maxAgeDays: 90 }
   },
+  // C10 — Passive Self-Correction (Plan 042 T7)
+  selfCorrectionEnabled: false,           // MASTER enable for passive self-correction (opt-in; nightly + on-demand)
+  selfCorrectionConfidence: 'high',       // min confidence to auto-apply: 'explicit' | 'high' | 'medium' | 'low' (below → queued suggestion)
   storage: {
     cortexLedgerCap: 5000,
     snapshotIntervalMinutes: 30,

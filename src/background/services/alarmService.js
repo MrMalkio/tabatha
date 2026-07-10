@@ -24,6 +24,10 @@ import {
   DWELL_ALARM,
   NIGHTLY_EXPORT_ALARM
 } from './captureService.js';
+import {
+  runNightlySelfCorrection,
+  SELF_CORRECTION_ALARM
+} from './selfCorrectionService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
 // local constant avoids the circular import.
@@ -91,6 +95,9 @@ async function handleAlarm(alarm) {
         return handleDwellTick();
       case NIGHTLY_EXPORT_ALARM:
         return runNightlyExport();
+      // Cortex Plan 042 T7: C10 passive self-correction nightly pass
+      case SELF_CORRECTION_ALARM:
+        return runNightlySelfCorrection();
       default:
         return;
     }
