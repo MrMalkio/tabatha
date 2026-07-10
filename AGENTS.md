@@ -94,9 +94,10 @@ See `.headbox/workspace-map.md` for the full project file tree.
   Before editing or building:
   1. Run `git worktree list` and check `public/manifest.json` in each worktree to find the active line. Ask the user which branch to target if unsure.
   2. `public/manifest.json` is the version source of truth — `npm run build`'s prebuild runs `scripts/sync-version.mjs` from it. Building in the main dir stamps **staging's** version into the dist, which looks like a downgrade.
-  3. If you built in a worktree, **copy** `<worktree>\dist\*` into the main dist path (clean mirror — remove old dist first so stale assets don't linger).
+  3. If you built in a worktree, mirror **atomically**: stage the new dist beside the target, then swap via rename (`scripts/swap-dist.mjs` pattern) — NEVER remove-then-copy. Chrome drops unpacked extensions whose dir is invalid at startup (root-caused 2026-07-10).
   4. Worktrees don't share `node_modules`. Create a directory junction (`New-Item -ItemType Junction`) from the worktree's `node_modules` to the main dir's to build without a full install. Remove the junction with `cmd /c rmdir` — **never** `Remove-Item -Recurse`, which would delete the target.
   5. **After replacing/rebuilding `dist`, the unpacked extension MUST be reloaded at `chrome://extensions` (↻).** A stale MV3 service worker running against swapped assets makes every `sendMessage` hang — symptoms: dead home-page buttons, "⏳ Setting…" stuck forever. (Root-caused via real-browser regression 2026-07-10; the code was healthy.) Note for automated tests: Chrome 137+ ignores `--load-extension` — load via CDP `Extensions.loadUnpacked` with `--enable-unsafe-extension-debugging`.
+  6. **Never force-kill Chrome** (`taskkill /F`) in scripts — a 'Crashed' exit triggers Chrome's startup extension-GC pass, which can DELETE the unpacked extension entry (today's trigger). Close gracefully. Also: only ONE unpacked entry may point at the dist path — remove ghost/duplicate Tabatha cards at chrome://extensions.
 
 ---
 
