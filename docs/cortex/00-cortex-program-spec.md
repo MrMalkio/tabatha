@@ -69,6 +69,7 @@ This is a **program, not a feature** — ~15 capability clusters across 5 archit
 | Settings defaults / persistence | `src/background/constants.js` (`DEFAULT_SETTINGS`), `settingsService.js` | All config |
 | Supabase migrations (latest **021**) | `supabase/migrations/` | Next = **022** for ledger + capture refs |
 | Related feature specs already drafted | `docs/features/190,197,178,198,166,167,169,207,208,210-214` | Cortex absorbs/relates (see per-feature files) |
+| **Mobile repos (existing, separate)** | `C:\Users\mrmal\le dev\tabatha-mobile` (Expo/RN scaffold + planning docs — scaffold only, no source tree yet per DATA-MAP verification) + `tabatha-mobile-2` (Android variant, unverified) | C13 mobile parity + C11 call-log signals — extend these repos, do NOT start a third *(gap closed by Fable 2026-07-10; was missing from this map)* |
 
 **Gap:** zero AI/LLM code, zero prompt infra, zero API-key storage, no screenshot/audio capture today. Cortex builds all of that.
 
@@ -143,6 +144,7 @@ Each cluster → its own `docs/cortex/features/CXX-*.md` (expanded by Fable). Su
 - **Output:** Tabatha has a *voice*. Where a modal would interrupt, Tabby may instead **wake and speak** — short, soft, contextual, not pre-recorded — preceded by an **audible tone**; the mic opens so the user can say "hold off" → "ok, I'll come back later." If no response / user absent → fall back to a modal. Configurable.
 - **Input — three hotkeys:** (1) **Transcription** into a field (cheap/local model), (2) **Speak to Tabby** (transcribe + think; real-time convo ↔ process-then-reply ↔ silent context/Flux update), (3) **Voice note** stored to Flux context. Different models per hotkey for cost control.
 - **Dictation engine:** WhisperFlow-style — either integrate/extend an open-source dictation tool or build our own wrapper; **everything dictated also feeds the Cortex ledger/context.**
+- **Universal audio-input replacement** *(gap closed by Fable 2026-07-10 — Dump 2)*: beyond the three hotkeys, the user can replace **virtually every button/input in Tabatha with an audio button** — speak what's going on and Tabby decides what to do — while manual controls remain available for working styles that want them. The C15 interaction-density dial governs how far this goes per user/org.
 
 ### C10 — Passive Self-Correction  *(user)*
 - Tabatha continuously **repairs its own records** from observation: fixes tab↔intent links, corrects what an intent *really* is, recomputes how long something was *actually* worked on — assuming the human is always behind on manual upkeep. Reuses `activityAuditService` + ledger.

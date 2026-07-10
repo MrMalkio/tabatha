@@ -40,6 +40,10 @@ test('selectObservationsForDay: empty ledger / no matches → []', () => {
   assert.deepEqual(selectObservationsForDay(LEDGER, '2020-01-01'), []);
 });
 
+test('selectObservationsForDay: partial day string does not prefix-over-match', () => {
+  assert.deepEqual(selectObservationsForDay(LEDGER, '2026-07-1'), []);
+});
+
 // ── buildLedgerExport ──────────────────────────────────────
 
 test('buildLedgerExport: envelope has schema, day, generatedAt, counts, records', () => {
@@ -120,4 +124,10 @@ test('pruneLedgerByAge: missing/zero policy for a partition keeps its records', 
   const ledger = [obs('2020-01-01T00:00:00.000Z')];
   assert.equal(pruneLedgerByAge(ledger, {}, now).length, 1);
   assert.equal(pruneLedgerByAge(ledger, { personal: { maxAgeDays: 0 } }, now).length, 1);
+});
+
+test('pruneLedgerByAge: unparseable ts is kept, never silently dropped', () => {
+  const now = Date.parse('2026-07-10T00:00:00.000Z');
+  const ledger = [obs('not-a-timestamp')];
+  assert.equal(pruneLedgerByAge(ledger, { personal: { maxAgeDays: 1 } }, now).length, 1);
 });

@@ -118,3 +118,8 @@ test('normalizeRecommendations: bare array is accepted as a lenient fallback', (
   const { accepted } = normalizeRecommendations([GOOD_REC], { now: 0 });
   assert.equal(accepted.length, 1);
 });
+
+test('normalizeRecommendations: null / non-object payload throws cleanly', () => {
+  assert.throws(() => normalizeRecommendations(null, { now: 0 }), /schema/i);
+  assert.throws(() => normalizeRecommendations('garbage', { now: 0 }), /schema/i);
+});

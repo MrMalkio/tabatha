@@ -21,6 +21,7 @@
 // ════════════════════════════════════════════
 
 import { getStorage, setStorage, getSettings } from './storageService.js';
+import * as settingsService from './settingsService.js';
 import { decideCapture, captureSurface } from '../../utils/captureDecision.js';
 import { evaluateCapture } from '../../utils/sensitiveDataGuard.js';
 import { normalizeObservation, partitionOf } from '../../utils/observationLedger.js';
@@ -41,6 +42,17 @@ const DEFAULT_LEDGER_CAP = 5000;
 
 export const DWELL_ALARM = 'cortex-dwell-tick';
 export const NIGHTLY_EXPORT_ALARM = 'cortex-nightly-export';
+
+// Serialize every ledger/capture-state mutation. Multiple chrome events fire
+// near-simultaneously (onActivated + onUpdated on one navigation, dwell ticks,
+// the nightly export) and unserialized read-modify-writes would drop ledger
+// appends and defeat the min-gap guarantee.
+let opChain = Promise.resolve();
+function serialized(fn) {
+  const run = opChain.then(fn, fn);
+  opChain = run.then(() => undefined, () => undefined);
+  return run;
+}
 
 function captureConfig(settings) {
   return {
@@ -67,7 +79,13 @@ async function currentClockState() {
 // Append one normalized observation to the local ledger (capped, FIFO).
 // `extra` lets the caller stamp shell-level flags the pure normalizer doesn't
 // own (e.g. suppressed: true — migration 022 has a column for it).
-export async function recordObservation(raw, clockState = 'clocked_out', extra = {}) {
+// Public entrypoint is serialized; flows already inside `serialized` call the
+// inner variant directly (re-entering the queue would deadlock).
+export function recordObservation(raw, clockState = 'clocked_out', extra = {}) {
+  return serialized(() => recordObservationInner(raw, clockState, extra));
+}
+
+async function recordObservationInner(raw, clockState = 'clocked_out', extra = {}) {
   const rec = { ...normalizeObservation(raw), ...extra };
   rec.partition = partitionOf(rec, clockState);
 
@@ -95,8 +113,11 @@ async function getCaptureState() {
 }
 
 async function setEnabled(enabled) {
-  const settings = await getSettings();
-  await setStorage({ settings: { ...settings, screenshotCapture: !!enabled } });
+  // Route through settingsService so the merge/validation conventions (and
+  // any settings-change side effects) stay in one place.
+  await settingsService.handleMessage('UPDATE_SETTINGS', {
+    settings: { screenshotCapture: !!enabled }
+  });
   return { ok: true, enabled: !!enabled };
 }
 
@@ -133,6 +154,11 @@ async function applyRedactions(dataUrl, redactions, style = 'blackout') {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(bitmap, 0, 0);
   const rects = computeRedactionRects(redactions, { width: bitmap.width, height: bitmap.height });
+  if (rects.length === 0) {
+    // Fail CLOSED: a redact rule that yields no drawable region (typo'd
+    // region name, 0%) must not persist an unredacted frame.
+    throw new Error('redaction rules produced no regions — refusing unredacted persist');
+  }
   for (const r of rects) {
     if (style === 'blur' && typeof ctx.filter === 'string') {
       ctx.save();
@@ -148,22 +174,21 @@ async function applyRedactions(dataUrl, redactions, style = 'blackout') {
 }
 
 // Erase our frame downloads from the shelf/history once complete (file stays
-// on disk). Best-effort: capture must never break on shelf cosmetics.
+// on disk). Best-effort: capture must never break on shelf cosmetics. One
+// module-level listener (registered in registerCaptureListeners) watches the
+// pendingErase set rather than stacking a listener per download.
 const pendingErase = new Set();
 function eraseWhenComplete(downloadId) {
   pendingErase.add(downloadId);
-  try {
-    chrome.downloads.onChanged.addListener(function onChanged(delta) {
-      if (!pendingErase.has(delta.id)) return;
-      if (delta.state?.current === 'complete' || delta.state?.current === 'interrupted') {
-        pendingErase.delete(delta.id);
-        chrome.downloads.onChanged.removeListener(onChanged);
-        if (delta.state.current === 'complete') {
-          try { chrome.downloads.erase({ id: delta.id }); } catch { /* cosmetic */ }
-        }
-      }
-    });
-  } catch { /* cosmetic */ }
+}
+function handleDownloadChanged(delta) {
+  if (!pendingErase.has(delta.id)) return;
+  if (delta.state?.current === 'complete' || delta.state?.current === 'interrupted') {
+    pendingErase.delete(delta.id);
+    if (delta.state.current === 'complete') {
+      try { chrome.downloads.erase({ id: delta.id }); } catch { /* cosmetic */ }
+    }
+  }
 }
 
 // Write one frame under Downloads/<captureStoragePath>/<partition>/<YYYY-MM>/.
@@ -184,6 +209,9 @@ async function activeTabTarget() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (!tab) return null;
+    // Fail closed: the Privacy panel promises incognito tabs are NEVER
+    // captured — no frame, no observation.
+    if (tab.incognito) return null;
     let host = null;
     try { host = new URL(tab.url).hostname; } catch { /* chrome:// etc. */ }
     return {
@@ -200,7 +228,12 @@ async function activeTabTarget() {
 // writes the frame, and records the observation with its captureRef.
 // Suppressed frames still record a context-only observation (suppressed: true)
 // so the ledger keeps "was in a sensitive context" without any pixels.
-async function captureNow({ target = {}, event, clockState } = {}) {
+// Serialized: see the opChain note above.
+function captureNow(args) {
+  return serialized(() => captureNowInner(args));
+}
+
+async function captureNowInner({ target = {}, event, clockState } = {}) {
   const settings = await getSettings();
   if (!(await isEnabled(settings))) return { captured: false, reason: 'disabled' };
 
@@ -228,17 +261,19 @@ async function captureNow({ target = {}, event, clockState } = {}) {
   };
 
   if (guard.suppress) {
-    await recordObservation({ ...baseRaw, kind: 'context' }, clock, { suppressed: true });
+    await recordObservationInner({ ...baseRaw, kind: 'context' }, clock, { suppressed: true });
     return { captured: false, reason: 'suppressed' };
   }
 
   // Pixel grab — browser surface only in Phase 1 (companion OS capture is the
   // Phase 2 handoff). Protected pages (chrome://, Web Store) throw: degrade to
-  // a context-only observation rather than failing the event.
+  // a context-only observation rather than failing the event. Capture the
+  // guarded tab's OWN window so the frame can never come from a different
+  // window than the one the guard evaluated.
   let captureRef = null;
   if ((target.surface || 'browser') === 'browser') {
     try {
-      let dataUrl = await chrome.tabs.captureVisibleTab(null, {
+      let dataUrl = await chrome.tabs.captureVisibleTab(target.windowId ?? null, {
         format: 'jpeg',
         quality: settings.captureQuality ?? 60
       });
@@ -256,10 +291,10 @@ async function captureNow({ target = {}, event, clockState } = {}) {
     }
   }
 
-  const rec = await recordObservation(
+  const rec = await recordObservationInner(
     { ...baseRaw, captureRef, kind: captureRef ? 'capture' : 'context' },
     clock,
-    guard.redactions.length ? { redacted: true } : {}
+    captureRef && guard.redactions.length ? { redacted: true } : {}
   );
   await setStorage({
     [STATE_KEY]: {
@@ -295,7 +330,12 @@ export async function handleDwellTick() {
 
 // Nightly export (C4 → C6): write yesterday's ledger slice as a plain JSON
 // file the harness cron reads, then apply C3 age retention to the ledger.
-export async function runNightlyExport(dayOverride) {
+// Serialized so observations recorded mid-export aren't lost by the prune write.
+export function runNightlyExport(dayOverride) {
+  return serialized(() => runNightlyExportInner(dayOverride));
+}
+
+async function runNightlyExportInner(dayOverride) {
   const settings = await getSettings();
   const { [LEDGER_KEY]: ledger } = await getStorage(LEDGER_KEY);
   const arr = Array.isArray(ledger) ? ledger : [];
@@ -326,6 +366,8 @@ let listenersRegistered = false;
 export function registerCaptureListeners() {
   if (listenersRegistered) return;
   listenersRegistered = true;
+
+  try { chrome.downloads.onChanged.addListener(handleDownloadChanged); } catch { /* cosmetic */ }
 
   chrome.tabs.onActivated.addListener((activeInfo) => {
     onContextEvent('tab-activated', `tab:${activeInfo.tabId}`);

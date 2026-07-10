@@ -20,7 +20,11 @@ const DEFAULT_EXPORT_ROOT = 'Tabatha/Cortex';
  * consuming prompt reasons about the day as a whole, not clock edges.
  */
 export function selectObservationsForDay(observations, day) {
-  return (observations || []).filter((r) => typeof r?.ts === 'string' && r.ts.startsWith(day));
+  // Exact 10-char date compare — a partial day string must not over-match
+  // (e.g. '2026-07-1' matching the 10th through 19th).
+  return (observations || []).filter(
+    (r) => typeof r?.ts === 'string' && r.ts.slice(0, 10) === day
+  );
 }
 
 /**
