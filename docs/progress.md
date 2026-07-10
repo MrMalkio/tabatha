@@ -891,3 +891,23 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 **Tests/build:** 256/256 node --test green; npm run build green. Commits d228dc1, 85d8100 (+ final wrap-up commit) on claude/tabatha-ai-integration-layer-91903b. Nothing pushed.
 
 **Next steps:** Malkio manual regression of Phase 1 (see HANDOFF.md smoke-test) → v7.0.0 bump; re-sync program-spec Google Doc (2 local additions); decide migration 022 apply; companion deploy gates Plan 041; reconcile C9↔#211 before voice work.
+
+---
+
+## 2026-07-10 (continuation) — Cortex: regression cleared + Phases 2–5 advanced
+
+**Goal:** Verify Malkio's smoke-test failures, then continue autonomously through the remaining Cortex phases.
+
+**Regression verdict:** Real-browser regression (Playwright + Chrome 150, fresh profile; Chrome 137+ requires CDP Extensions.loadUnpacked) — 11/11 PASS on the current dist including the exact reported failures (clock-out, unpause, "Setting…"). Root cause: stale MV3 service worker after overnight dist rebuilds; reload rule codified in AGENTS.md (Build→Load #5). Hardening: RESUME_FOCUS id-fallback.
+
+**Shipped (extension, commits c98e459→wrap-up; 332/332 tests, build green):**
+- Phase 2: morning digest + approved-actions export (cortex-actions.v1) + C15 config surface v1 (routing/proactivity); cortex-proxy edge fn code (tier-②, deploy pending secret); routing-ladder resolver; companion handoff wiring (CAPTURE_TAKEN → ledger, config mirroring, host-only rules never travel).
+- Phase 3: T0 voice-schema decision (C9↔#211, Drive-mirrored); voice v0 — Tabby speaks instead of FTE/drift overlays (tone → hold-off mic window → varied generated line → modal fallback; no new permissions), home voice-note button → ledger; C10 self-correction v1 (detectors + confidence-laddered apply/revert via activityAudit, nightly 04:00, opt-in).
+- Phase 4: proactivity gate, overnight EXECUTE bundle builder (review-first hard rules), migration 023 org_capture_policy (not applied).
+- Phase 5: controller-attribution decision core.
+
+**Shipped (companion, tabatha-desktop feat/cortex-capture @ 006c3aa; 68/68 cargo tests):** screen_capture.rs + settings.rs — GDI window/per-monitor-same-timestamp/virtual capture, browser-focused handoff rule, guard parity (fail-closed redaction), age+bytes retention, CAPTURE_CONFIG/GET_CAPTURE_STATE/CAPTURE_TAKEN WS contract, tray toggle.
+
+**Quality loop:** Opus review over the Phase 2/3 diff → 1 confirmed finding fixed (self-correction storage race narrowed to single-round-trip targeted mutations); InBar voice interception verified safe (modal can never be swallowed; voice-off path byte-identical; no ESM leak into the content script).
+
+**Next steps:** Malkio: extension reload + re-smoke-test → v7.0.0; merge/deploy companion branch (closes the deploy gate); deploy cortex-proxy (set secret); later: migrations 022/023, gateway/ElevenLabs keys, .pem before manifest-permission phases. Remaining phase work: routed STT/TTS + realtime voice + dictation engine (042), multi-cadence + SOP mode + Headbox placement (043), signals/analytics/camera/mobile/Mac (044).

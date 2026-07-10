@@ -87,3 +87,13 @@ Columns (frozen schema):
 6. **`tabatha-mobile` claim correction.** See §5 above — flagged explicitly so whoever next touches Cortex/mobile scoping doesn't inherit C14's "substantially built" characterization uncritically.
 
 These are handed to whoever picks up T4 (real cloud-batch push for the Cortex ledger) and any later mobile-integration task — not blocking for Phase 1 sign-off, but real enough that C14's "living contract" principle says they belong in the map now rather than being rediscovered later.
+
+## Second-pass additions (Fable overnight continuation, 2026-07-10)
+
+| Signal | Source | Storage (local/cloud) | Partition (personal/org) | Retention | Redaction | Agent access |
+|--------|--------|-----------------------|--------------------------|-----------|-----------|--------------|
+| OS capture frames (companion) | `tabatha-desktop` `screen_capture.rs` (feat/cortex-capture; captures only while browser is blurred) | local `%APPDATA%\Tabatha Desktop\captures\<partition>\YYYY-MM\` (configurable via companion settings.json) | both (separate subtrees) | per-partition maxAgeDays (30/90 default) + optional maxBytes, pruned daily by the companion | capture-time blackout per mirrored C2 rules; fail-closed; suppressed frames report context-only | any local agent may READ; refs fold into cortexLedger via WS `CAPTURE_TAKEN` |
+| Companion capture config | extension settings → WS `CAPTURE_CONFIG` → `%APPDATA%\Tabatha Desktop\settings.json` | local | n/a (config) | persistent | only OS-evaluable sensitive rules travel (host-only rules never leave the extension) | companion + extension |
+| Voice observations (`kind:'voice'`) | `RECORD_VOICE_OBSERVATION` (home voice-note button; future hotkeys) | chrome.storage `cortexLedger` (same cap/pruning) | clock-state partitioned like all observations | cortexLedgerCap 5000 FIFO + age pruning | transcript stored as `title`; no audio is ever persisted | same contract as cortexLedger |
+| Self-correction suggestions + audit | `selfCorrectionService` (opt-in, nightly 04:00) | chrome.storage `cortexCorrections` (cap 100) + activityAudit entries | personal | cap FIFO | none (references existing records) | applied corrections are auditable + reversible via `REVERT_CORRECTION` |
+| Approved-action exports | `EXPORT_APPROVED_ACTIONS` | Downloads `…/exports/cortex-actions-<day>.json` | n/a (derived from approved recommendations) | user-managed files | inherits recommendation privacy rules (no suppressed-context content) | overnight EXECUTE harness task reads; writes review artifacts only |

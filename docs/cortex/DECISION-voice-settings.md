@@ -1,5 +1,7 @@
 # Decision — Unified voice settings schema (C9 ⇄ feature #211)
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1jgB5Y8mh7ojqPMQmiuNUqWhRhXRoW_NVBmItJWKOuBg/edit?usp=drivesdk&ouid=104108780460431833741
+
 - **Status:** decided (Fable, 2026-07-10) — implements Plan 042 T0. Revisit only if Malkio objects.
 - **Collision:** `docs/features/211-audio-input-voice-control.md` §"Settings" defines `voice.{hotkey: 'Alt+Shift+V', sttProvider: 'webspeech'|'service'}` (one hotkey, webspeech default). C9 (`docs/cortex/features/C9-voice-audio.md`) defines three hotkeys with per-hotkey model tiers and OpenAI Whisper defaults.
 

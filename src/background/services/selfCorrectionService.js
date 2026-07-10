@@ -118,36 +118,57 @@ function stampIntentByWindow(observations, sessions) {
 // uses. `to`/`from` are intent labels; we resolve them to focus item ids.
 // Returns the captured previousState (for the audit trail / revert) or null
 // if the target focus can't be resolved.
+// Atomic-ish targeted mutation: read the key and write it back within one
+// await gap, with a SYNCHRONOUS mutator in between. focusEngine/tabs are
+// owned by focusService/tabService, which do their own read-modify-writes —
+// we can't share their queue, so the best available discipline is to keep
+// our read→write window to a single storage round-trip per key and mutate
+// only the fields this correction owns (review finding 2026-07-10).
+async function mutateKey(key, fallback, mutator) {
+  const { [key]: raw } = await getStorage(key);
+  const value = raw || fallback;
+  const result = mutator(value);
+  if (result === null) return null; // mutator declined — nothing written
+  await setStorage({ [key]: value });
+  return result;
+}
+
 async function applyTabLink(correction) {
-  const { focusEngine: engineRaw } = await getStorage('focusEngine');
-  const engine = engineRaw || { activeFocusId: null, items: {}, history: [] };
-  const { tabs } = await getStorage('tabs');
-  const tabMap = tabs || {};
   const tabId = correction.tabId;
 
-  const items = Object.values(engine.items || {});
-  const toItem = items.find(it => it.label === correction.to);
-  if (!toItem) return null; // can't link to a focus that doesn't exist
+  const engineResult = await mutateKey(
+    'focusEngine',
+    { activeFocusId: null, items: {}, history: [] },
+    (engine) => {
+      const items = Object.values(engine.items || {});
+      const toItem = items.find(it => it.label === correction.to);
+      if (!toItem) return null; // can't link to a focus that doesn't exist
 
-  const prevIntent = tabMap[tabId]?.intent ?? null;
-  const prevFocusIds = items.filter(it => (it.associatedTabIds || []).includes(tabId)).map(it => it.id);
+      const prevFocusIds = items
+        .filter(it => (it.associatedTabIds || []).includes(tabId))
+        .map(it => it.id);
 
-  // Detach from every focus, then attach to the target (one home per tab).
-  for (const it of items) {
-    it.associatedTabIds = (it.associatedTabIds || []).filter(id => id !== tabId);
-  }
-  if (!toItem.associatedTabIds) toItem.associatedTabIds = [];
-  toItem.associatedTabIds.push(tabId);
-  await setStorage({ focusEngine: engine });
+      // Detach from every focus, then attach to the target (one home per tab).
+      for (const it of items) {
+        it.associatedTabIds = (it.associatedTabIds || []).filter(id => id !== tabId);
+      }
+      if (!toItem.associatedTabIds) toItem.associatedTabIds = [];
+      toItem.associatedTabIds.push(tabId);
+      return { prevFocusIds, toLabel: toItem.label, toId: toItem.id };
+    }
+  );
+  if (!engineResult) return null;
 
-  if (tabMap[tabId]) {
-    tabMap[tabId].intent = toItem.label;
-    await setStorage({ tabs: tabMap });
-  }
+  const tabResult = await mutateKey('tabs', {}, (tabMap) => {
+    if (!tabMap[tabId]) return { prevIntent: null, updated: false };
+    const prevIntent = tabMap[tabId].intent ?? null;
+    tabMap[tabId].intent = engineResult.toLabel;
+    return { prevIntent, updated: true };
+  });
 
   return {
-    previousState: { tabId, prevIntent, prevFocusIds },
-    newState: { tabId, intent: toItem.label, focusId: toItem.id }
+    previousState: { tabId, prevIntent: tabResult?.prevIntent ?? null, prevFocusIds: engineResult.prevFocusIds },
+    newState: { tabId, intent: engineResult.toLabel, focusId: engineResult.toId }
   };
 }
 
@@ -156,28 +177,29 @@ async function applyTabLink(correction) {
 // focus is still advancing (elapsedMs + live portion), so rewriting it would
 // double-count. Frozen/completed records are the intended target (spec §1).
 async function applyDuration(correction) {
-  const { focusEngine: engineRaw } = await getStorage('focusEngine');
-  const engine = engineRaw || { activeFocusId: null, items: {}, history: [] };
-
   const id = correction.focusId;
-  let holder = null;
-  let bucket = null;
-  if (engine.items && engine.items[id]) { holder = engine.items[id]; bucket = 'items'; }
-  else if (Array.isArray(engine.history)) {
-    const h = engine.history.find(e => e.id === id);
-    if (h) { holder = h; bucket = 'history'; }
-  }
-  if (!holder) return null;
-  if (bucket === 'items' && holder.focusState === 'active') return null; // still live
+  return mutateKey(
+    'focusEngine',
+    { activeFocusId: null, items: {}, history: [] },
+    (engine) => {
+      let holder = null;
+      let bucket = null;
+      if (engine.items && engine.items[id]) { holder = engine.items[id]; bucket = 'items'; }
+      else if (Array.isArray(engine.history)) {
+        const h = engine.history.find(e => e.id === id);
+        if (h) { holder = h; bucket = 'history'; }
+      }
+      if (!holder) return null;
+      if (bucket === 'items' && holder.focusState === 'active') return null; // still live
 
-  const prevElapsedMs = holder.elapsedMs || 0;
-  holder.elapsedMs = correction.observedMs;
-  await setStorage({ focusEngine: engine });
-
-  return {
-    previousState: { focusId: id, bucket, prevElapsedMs },
-    newState: { focusId: id, bucket, elapsedMs: correction.observedMs }
-  };
+      const prevElapsedMs = holder.elapsedMs || 0;
+      holder.elapsedMs = correction.observedMs;
+      return {
+        previousState: { focusId: id, bucket, prevElapsedMs },
+        newState: { focusId: id, bucket, elapsedMs: correction.observedMs }
+      };
+    }
+  );
 }
 
 async function applyCorrection(correction) {
@@ -343,37 +365,35 @@ async function revertCorrection(correctionId) {
 
 async function revertTabLink(prev) {
   const { tabId, prevIntent, prevFocusIds = [] } = prev;
-  const { focusEngine: engineRaw } = await getStorage('focusEngine');
-  const engine = engineRaw || { activeFocusId: null, items: {}, history: [] };
-  const items = Object.values(engine.items || {});
-  for (const it of items) {
-    it.associatedTabIds = (it.associatedTabIds || []).filter(id => id !== tabId);
-  }
-  for (const it of items) {
-    if (prevFocusIds.includes(it.id) && !(it.associatedTabIds || []).includes(tabId)) {
-      (it.associatedTabIds = it.associatedTabIds || []).push(tabId);
+  await mutateKey('focusEngine', { activeFocusId: null, items: {}, history: [] }, (engine) => {
+    const items = Object.values(engine.items || {});
+    for (const it of items) {
+      it.associatedTabIds = (it.associatedTabIds || []).filter(id => id !== tabId);
     }
-  }
-  await setStorage({ focusEngine: engine });
-
-  const { tabs } = await getStorage('tabs');
-  const tabMap = tabs || {};
-  if (tabMap[tabId]) {
+    for (const it of items) {
+      if (prevFocusIds.includes(it.id) && !(it.associatedTabIds || []).includes(tabId)) {
+        (it.associatedTabIds = it.associatedTabIds || []).push(tabId);
+      }
+    }
+    return {};
+  });
+  await mutateKey('tabs', {}, (tabMap) => {
+    if (!tabMap[tabId]) return null;
     tabMap[tabId].intent = prevIntent;
-    await setStorage({ tabs: tabMap });
-  }
+    return {};
+  });
 }
 
 async function revertDuration(prev) {
   const { focusId, bucket, prevElapsedMs } = prev;
-  const { focusEngine: engineRaw } = await getStorage('focusEngine');
-  const engine = engineRaw || { activeFocusId: null, items: {}, history: [] };
-  let holder = null;
-  if (bucket === 'items') holder = engine.items?.[focusId] || null;
-  else if (bucket === 'history') holder = (engine.history || []).find(e => e.id === focusId) || null;
-  if (!holder) return;
-  holder.elapsedMs = prevElapsedMs;
-  await setStorage({ focusEngine: engine });
+  await mutateKey('focusEngine', { activeFocusId: null, items: {}, history: [] }, (engine) => {
+    let holder = null;
+    if (bucket === 'items') holder = engine.items?.[focusId] || null;
+    else if (bucket === 'history') holder = (engine.history || []).find(e => e.id === focusId) || null;
+    if (!holder) return null;
+    holder.elapsedMs = prevElapsedMs;
+    return {};
+  });
 }
 
 // ── Alarm registration ──────────────────────────────────────────
