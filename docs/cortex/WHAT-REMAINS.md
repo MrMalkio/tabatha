@@ -24,14 +24,19 @@ repo git logs (`Tabatha` @ `claude/tabatha-ai-integration-layer-91903b`, `tabath
 - **Companion desk-panel + clock-sync + WS write path fixed** (`b94f7d0`, 79 cargo tests, release build) — "localhost refused to connect" fixed (`default = ["custom-protocol"]` now loads the embedded frontend, not the dev server); version bumped to **v0.2.0**, shown as "Tabby Desk v0.2.0 (release)" in title + tray; clock-sync root cause was non-idempotent `clock_in` (duplicate open sessions) — fixed (`clock_in` reuses the open session, `clock_out` closes all); new `CAPTURE_FRAME`/`WRITE_EXPORT`/`FILE_WRITTEN` WS handlers with path-safety guards; OS-capture filenames now carry a window-title slug; confirmed OS desktop capture was already firing correctly (62 personal + 45 org frames on disk) — the earlier "only saw the Chrome tab" report was a surfacing artifact of the extension's old `chrome.downloads` path, not a capture failure.
 
 ## Waiting on Malkio RIGHT NOW
-1. **Re-sign-in to Supabase** (Settings → Sync & Account → sign out → sign in) — auth token is wiped. Still the sync blocker; migrations are **no longer** the blocker (018–024 confirmed live).
-2. **Remove the ghost extension card** at `chrome://extensions` (pre-key path-derived duplicate entry) — keep a single unpacked entry per the AGENTS.md build/load constraint.
-3. **Confirm the companion relaunch landed** — title/tray should read "Tabby Desk v0.2.0 (release)" (`b94f7d0`); a Sonnet agent was swapping the staged exe as of this writing — verify before trusting it. Then test clock sync (non-idempotent `clock_in` fix) and capture-with-no-dialog (frames should land via `CAPTURE_FRAME`/OPFS, no Save-As popup).
-4. **Companion branch merge/deploy decision** — review + merge `feat/cortex-capture` (now @ `b94f7d0`, carries the 006c3aa OS-capture work plus today's desk-panel/clock/WS fixes) in `tabatha-desktop`, then cut a deploy. Gates: closes Plan 041's deploy board item, unblocks Phase 2 companion capture in production. Note: worktree previously carried one uncommitted change (`src-tauri/Cargo.toml`) — recheck before merging.
-5. **Run the Phase 1 manual regression checklist** (`HANDOFF.md` "Phase 1 smoke test" section, includes Voice v0 steps) → then bump `public/manifest.json` to **v7.0.0** + `npm run version:sync`. Gates shipping Phase 1 / flipping registry 040 to `completed`.
-6. **Deploy `cortex-proxy`** (tier-② routing): `supabase secrets set OPENAI_API_KEY=… --project-ref mtdgoahskcibjbhfvofx` then `supabase functions deploy cortex-proxy`. Gates Phase 2 T3.
-7. **Program-spec Google Doc re-sync** — `00-cortex-program-spec.md` has 2 local additions not yet mirrored back to the Drive doc (source of truth per `docs/cortex/README.md`'s sync convention). Low urgency, but flagged to avoid divergence.
-8. **Check Work Shifts → Live Stints panel for a stale/ghost install card** left over from the auth-wipe/reconnect cycle overnight; Dismiss it (`DISMISS_INSTALL`, migration 017 pattern) before trusting concurrent-shift state. Distinct from the extensions-page ghost card in #2.
+1. **RELOAD the extension** (`chrome://extensions` → ↻) — the on-disk dist is verified to contain the silent-capture + live-status fixes (15/16 real-browser PASS); your running service worker is just stale. After reload: no Save-As, title-slug filenames, live status card.
+2. **Re-sign-in to Supabase** (Settings → Sync & Account → **⚠ Force reset auth** if no Sign Out, then sign in) — auth token wiped; sole remaining sync blocker (migrations 018–025 all live).
+3. **Remove the ghost extension card** — CONFIRMED still present in Secure Preferences: `dphebjboopafmehmmcclgmhbgfahchde` (disabled, `disable_reasons:[4]`, pre-key path-derived) alongside the live `hoknmocl…`. It may render greyed/errored not as a normal card. Fix: toggle Developer-mode off/on to force a re-render, OR Remove Tabatha entirely + Load-unpacked once (collapses both path-entries into the keyed one).
+4. **Run the Phase 1 manual regression checklist** (`HANDOFF.md` "Phase 1 smoke test", incl. Voice v0) → bump `public/manifest.json` to **v7.0.0** + `npm run version:sync`. Gates flipping registry 040 to `completed`.
+5. **Program-spec Google Doc re-sync** — `00-cortex-program-spec.md` has 2 local additions not mirrored to the Drive doc. Low urgency.
+6. **Live Stints ghost card** — Work Shifts → Live Stints may show a stale install from the overnight reconnect cycle; Dismiss it (`DISMISS_INSTALL`). Distinct from #3.
+
+### Handled by Fable/agents (2026-07-10 PM) — no longer on you
+- ✅ **Companion v0.2.0 relaunched** clean (`Tabby Desk v0.2.0 (release)`, WS listening, extension reconnected); its **corrupted SQLite activity DB rebuilt** via raw b-tree salvage (372 sessions + 1 clock recovered), integrity ok.
+- ✅ **cortex-proxy deployed** (tier-② routing live; 401-protected; OpenAI secret set server-side).
+- ✅ **Migration 025 applied** — adds the `surface` CHECK (`browser/os/desktop/voice/mobile`) the docs wrongly assumed 022 had; voice cloud-sync unblocked. Local==remote at 025.
+- ⏳ **Companion merge/deploy** (`feat/cortex-capture` → master, tag v0.2.0, Asana board close) — in progress by an Opus operator (Malkio delegated).
+- ⏳ **Phase 042 C10a reconciliation core + Phase 043 multi-cadence** — in progress (Malkio: "jump to 042/043").
 
 ## Remaining engineering by plan
 - **040 Phase 1** — code-complete 6/6. Nothing left to build; gate is Malkio's manual regression → v7.0.0 (see waiting-on #5).
