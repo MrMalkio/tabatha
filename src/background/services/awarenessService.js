@@ -400,17 +400,42 @@ async function fetchInstalls(supabase, profileId, selfId) {
   });
 }
 
+// Resolve the current profile ID and browser-profile ID without depending on
+// startAwareness() having completed. Falls back to a direct auth query so
+// LIST_LIVE_STINTS (and friends) work even when supabaseId is null (fresh
+// install, storage reset) or when the SW restarted before startAwareness()
+// finished.
+async function resolveActiveIdentity() {
+  if (activeProfileId) return { profileId: activeProfileId, selfId: activeBrowserProfileId };
+  if (!deps.supabase) return { profileId: null, selfId: null };
+  try {
+    const { data: { session } } = await deps.supabase.auth.getSession();
+    if (!session) return { profileId: null, selfId: null };
+    const { data: profile } = await deps.supabase
+      .schema('tabatha').from('profiles')
+      .select('id').eq('auth_user_id', session.user.id).maybeSingle();
+    const identity = await getInstallIdentity();
+    return { profileId: profile?.id || null, selfId: identity?.supabaseId || null };
+  } catch {
+    return { profileId: null, selfId: null };
+  }
+}
+
 // NB-05: return the ACTIVE install's OWN abandoned same-class stints — installs
 // left clocked in/on-break that have gone stale without a proper clock-out.
 // Used by the headless auto-clock-in path (clockService.maybeAutoClockIn) to
 // decide whether to suppress silent clock-in and notify instead. Returns [] when
 // awareness isn't ready (no supabase / not signed in), so callers stay safe.
+// Falls back to resolveActiveIdentity() so cold-start / SW-restart races
+// (activeProfileId not yet populated) don't silently miss abandoned stints.
 export async function getOwnAbandonedStints() {
-  if (!deps.supabase || !activeProfileId) return [];
+  if (!deps.supabase) return [];
+  const { profileId, selfId } = await resolveActiveIdentity();
+  if (!profileId) return [];
   try {
     const identity = await getInstallIdentity();
     const selfClassification = identity?.classification || 'professional';
-    const installs = await fetchInstalls(deps.supabase, activeProfileId, activeBrowserProfileId);
+    const installs = await fetchInstalls(deps.supabase, profileId, selfId);
     return installs.filter(i => isOwnAbandonedStint(i, selfClassification));
   } catch {
     return [];
@@ -620,27 +645,37 @@ export async function handleMessage(type, message) {
       await stopAwareness({ markOffline: true });
       return { success: true };
     case 'LIST_LIVE_STINTS': {
-      if (!deps.supabase || !activeProfileId) return { installs: [] };
-      const installs = await fetchInstalls(deps.supabase, activeProfileId, activeBrowserProfileId);
-      return { installs, selfBrowserProfileId: activeBrowserProfileId };
+      if (!deps.supabase) return { installs: [] };
+      const { profileId: lsProfileId, selfId: lsSelfId } = await resolveActiveIdentity();
+      if (!lsProfileId) return { installs: [] };
+      const installs = await fetchInstalls(deps.supabase, lsProfileId, lsSelfId);
+      return { installs, selfBrowserProfileId: lsSelfId };
     }
     case 'GET_OTHER_QUEUE': {
       // FIX-10: read-only, bounded pull of OTHER devices' non-completed queue.
-      if (!deps.supabase || !activeProfileId) return { devices: [] };
-      const devices = await fetchOtherQueues(deps.supabase, activeProfileId, activeBrowserProfileId);
-      return { devices, selfBrowserProfileId: activeBrowserProfileId };
+      if (!deps.supabase) return { devices: [] };
+      const { profileId: oqProfileId, selfId: oqSelfId } = await resolveActiveIdentity();
+      if (!oqProfileId) return { devices: [] };
+      const devices = await fetchOtherQueues(deps.supabase, oqProfileId, oqSelfId);
+      return { devices, selfBrowserProfileId: oqSelfId };
     }
     case 'CLOCK_OUT_INSTALL': {
-      if (!deps.supabase || !activeProfileId) return { error: 'not_ready' };
-      return await clockOutInstall(deps.supabase, activeProfileId, message?.browser_profile_id, message?.end_time);
+      if (!deps.supabase) return { error: 'not_ready' };
+      const { profileId: coProfileId } = await resolveActiveIdentity();
+      if (!coProfileId) return { error: 'not_ready' };
+      return await clockOutInstall(deps.supabase, coProfileId, message?.browser_profile_id, message?.end_time);
     }
     case 'DISMISS_INSTALL': {
-      if (!deps.supabase || !activeProfileId) return { error: 'not_ready' };
-      return await dismissInstall(deps.supabase, activeProfileId, message?.browser_profile_id);
+      if (!deps.supabase) return { error: 'not_ready' };
+      const { profileId: diProfileId } = await resolveActiveIdentity();
+      if (!diProfileId) return { error: 'not_ready' };
+      return await dismissInstall(deps.supabase, diProfileId, message?.browser_profile_id);
     }
     case 'CLEAR_ALL_OFFLINE': {
-      if (!deps.supabase || !activeProfileId) return { error: 'not_ready' };
-      return await clearAllOffline(deps.supabase, activeProfileId);
+      if (!deps.supabase) return { error: 'not_ready' };
+      const { profileId: caProfileId } = await resolveActiveIdentity();
+      if (!caProfileId) return { error: 'not_ready' };
+      return await clearAllOffline(deps.supabase, caProfileId);
     }
     default:
       return undefined;
