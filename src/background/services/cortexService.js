@@ -15,12 +15,13 @@
 // ════════════════════════════════════════════
 
 import { getStorage, setStorage, getSettings } from './storageService.js';
-import { recordObservation } from './captureService.js';
+import { recordObservation, runIntradayExport } from './captureService.js';
 import {
   buildHarnessCronBundle,
   normalizeRecommendations,
   RECOMMENDATION_STATUSES
 } from '../../utils/harnessCron.js';
+import { decideCadenceRun } from '../../utils/optimizationCadence.js';
 import { PROMPT_VERSION, PROMPT_TEXT } from '../cortexPrompt.js';
 import { sanitizeRelPath } from '../../utils/captureArtifacts.js';
 import { buildActionSpec, buildMorningDigest } from '../../utils/cortexActions.js';
@@ -29,6 +30,11 @@ import { resolveRoute } from '../../utils/cortexRouting.js';
 
 const RECS_KEY = 'cortexRecommendations';
 const RECS_CAP = 200;
+
+// Cortex Plan 043 T3 (C6 multi-cadence): the intraday alarm + its runtime
+// cadence state (last low/high run timestamps the pure decider reads).
+export const INTRADAY_OPTIMIZE_ALARM = 'cortex-intraday-optimize';
+const CADENCE_STATE_KEY = 'cortexCadenceState';
 
 async function listRecommendations() {
   const { [RECS_KEY]: recs } = await getStorage(RECS_KEY);
@@ -167,9 +173,56 @@ async function exportApprovedActions() {
   return { exported: true, actions: specs.length, path: relPath };
 }
 
+// ── Plan 043 T3: C6 multi-cadence (intraday LOW pass) ───────
+
+// Register (or clear) the intraday optimization alarm from settings. Opt-in:
+// the alarm only exists while cortexIntradayEnabled is true. Called at startup
+// (background.js) and idempotent — safe to call again after a settings change.
+export async function registerCortexCadenceAlarm() {
+  try {
+    const settings = await getSettings();
+    if (settings?.cortexIntradayEnabled) {
+      // chrome.alarms enforces a 1-min floor; clamp to a sane minimum.
+      const mins = Math.max(15, Number(settings.cortexIntradayEveryMins) || 120);
+      chrome.alarms.create(INTRADAY_OPTIMIZE_ALARM, { periodInMinutes: mins });
+    } else {
+      await chrome.alarms.clear(INTRADAY_OPTIMIZE_ALARM);
+    }
+  } catch (err) {
+    console.warn('[cortexService] intraday alarm registration failed:', err?.message);
+  }
+}
+
+// The intraday alarm handler (dispatched by alarmService). Consults the pure
+// cadence decider — the alarm fires on a fixed interval, but the decider
+// suppresses passes outside active hours and inside the EOD guard window — then,
+// in v1, just WRITES the recent-window ledger slice for the harness to pick up.
+// (The EOD/HIGH pass is the existing nightly ledger export.) No model call here.
+export async function runIntradayCadence(nowOverride) {
+  const settings = await getSettings();
+  if (!settings?.cortexIntradayEnabled) return { skipped: true, reason: 'disabled' };
+
+  const now = nowOverride || Date.now();
+  const { [CADENCE_STATE_KEY]: st } = await getStorage(CADENCE_STATE_KEY);
+  const state = st || {};
+  const windowMins = Math.max(15, Number(settings.cortexIntradayEveryMins) || 120);
+
+  const decision = decideCadenceRun(now, state, {
+    intradayEveryMins: windowMins,
+    eodHour: Number(settings.cortexEodHour) || 22
+  });
+  // v1 owns only the LOW cadence; HIGH is the nightly export path.
+  if (decision.run !== 'low') return { skipped: true, reason: decision.reason };
+
+  const res = await runIntradayExport({ windowMins, now });
+  await setStorage({ [CADENCE_STATE_KEY]: { ...state, lastLowRunAt: now } });
+  return { ran: true, cadence: 'low', reason: decision.reason, ...res };
+}
+
 export async function handleMessage(type, message) {
   switch (type) {
     case 'LIST_RECOMMENDATIONS': return listRecommendations();
+    case 'RUN_INTRADAY_CADENCE': return runIntradayCadence(message?.now);
     case 'SET_RECOMMENDATION_STATUS': return setRecommendationStatus(message?.id, message?.status);
     case 'IMPORT_RECOMMENDATIONS': return importRecommendations(message?.payload);
     case 'DOWNLOAD_HARNESS_CRON': return downloadHarnessCronBundle(message?.harness);

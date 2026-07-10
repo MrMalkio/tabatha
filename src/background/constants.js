@@ -59,6 +59,10 @@ export const DEFAULT_SETTINGS = {
     personal: { maxAgeDays: 30 },
     org: { maxAgeDays: 90 }
   },
+  // C6 — Multi-cadence optimization (Plan 043 T3)
+  cortexIntradayEnabled: false,           // opt-in: LOW/intraday optimization passes (EOD high pass is the nightly export)
+  cortexIntradayEveryMins: 120,           // LOW cadence period (also the intraday ledger-slice window)
+  cortexEodHour: 22,                      // HIGH/EOD pass fires at/after this local hour (guards the last intraday pass)
   // C10 — Passive Self-Correction (Plan 042 T7)
   selfCorrectionEnabled: false,           // MASTER enable for passive self-correction (opt-in; nightly + on-demand)
   selfCorrectionConfidence: 'high',       // min confidence to auto-apply: 'explicit' | 'high' | 'medium' | 'low' (below → queued suggestion)

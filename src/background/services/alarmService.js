@@ -28,6 +28,10 @@ import {
   runNightlySelfCorrection,
   SELF_CORRECTION_ALARM
 } from './selfCorrectionService.js';
+import {
+  runIntradayCadence,
+  INTRADAY_OPTIMIZE_ALARM
+} from './cortexService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
 // local constant avoids the circular import.
@@ -98,6 +102,9 @@ async function handleAlarm(alarm) {
       // Cortex Plan 042 T7: C10 passive self-correction nightly pass
       case SELF_CORRECTION_ALARM:
         return runNightlySelfCorrection();
+      // Cortex Plan 043 T3: C6 LOW/intraday optimization cadence (opt-in)
+      case INTRADAY_OPTIMIZE_ALARM:
+        return runIntradayCadence();
       default:
         return;
     }

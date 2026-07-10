@@ -252,6 +252,9 @@ registerCompanionCaptureBridge(companionBridge);
 // Cortex Plan 042 T7: C10 passive self-correction daily 04:00 pass. Gates on
 // the opt-in selfCorrectionEnabled setting internally.
 selfCorrectionService.registerSelfCorrectionAlarm();
+// Cortex Plan 043 T3: C6 LOW/intraday optimization cadence alarm. Gates on the
+// opt-in cortexIntradayEnabled setting internally (created only when enabled).
+cortexService.registerCortexCadenceAlarm?.();
 registerBootstrap();
 
 // FIX-12: persistently configure the toolbar-icon click behavior (side panel

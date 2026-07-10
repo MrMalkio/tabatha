@@ -43,6 +43,7 @@ import {
 } from '../../utils/captureArtifacts.js';
 import {
   buildLedgerExport,
+  buildIntradayExport,
   pruneLedgerByAge
 } from '../../utils/ledgerExport.js';
 
@@ -463,6 +464,31 @@ async function runNightlyExportInner(dayOverride) {
   await setStorage(updates);
 
   return { exported, buffered, day, records: content.counts.total, prunedCount: arr.length - pruned.length };
+}
+
+// Cortex Plan 043 T3 (C6 LOW cadence): write the recent-window ledger slice as
+// a `cortex-ledger-intraday-*.json` file the harness cron picks up on the
+// intraday schedule. Mirrors runNightlyExport but scoped to the last
+// `windowMins` and tagged intraday — no pruning (retention stays with the
+// nightly pass). Serialized so a mid-write append isn't lost.
+export function runIntradayExport(opts) {
+  return serialized(() => runIntradayExportInner(opts));
+}
+
+async function runIntradayExportInner({ windowMins = 120, now = Date.now() } = {}) {
+  const { [LEDGER_KEY]: ledger } = await getStorage(LEDGER_KEY);
+  const arr = Array.isArray(ledger) ? ledger : [];
+  const sinceMs = now - windowMins * 60000;
+  const { filename, content } = buildIntradayExport(arr, { sinceMs, now });
+
+  let exported = false;
+  let buffered = false;
+  if (content.counts.total > 0) {
+    const res = await writeExport(filename, JSON.stringify(content, null, 1));
+    exported = !!res.sent;
+    buffered = !!res.buffered;
+  }
+  return { exported, buffered, records: content.counts.total, windowMins, filename };
 }
 
 // ── Plan 041 T1: companion handoff wiring ───────────────────
