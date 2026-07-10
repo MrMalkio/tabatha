@@ -30,9 +30,19 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
   const [digest, setDigest] = useState(null);
   const fileRef = useRef(null);
 
+  // C10a — context reconciliation panel state.
+  const [pendingChanges, setPendingChanges] = useState([]);
+  const [reconcileSummary, setReconcileSummary] = useState(null);
+  const [contextNote, setContextNote] = useState('');
+  const [reconcileBusy, setReconcileBusy] = useState(false);
+
   const refresh = useCallback(() => {
     sendMessage('GET_CAPTURE_STATE').then(setState).catch(() => {});
     sendMessage('LIST_RECOMMENDATIONS').then((r) => setRecs(r?.recommendations || [])).catch(() => {});
+    sendMessage('LIST_PENDING_CHANGES').then((r) => {
+      setPendingChanges(r?.proposals || []);
+      setReconcileSummary(r?.summary || null);
+    }).catch(() => {});
   }, []);
 
   // Live status: re-fetch when the master toggle flips (prop) and whenever
@@ -44,7 +54,8 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
   useEffect(() => {
     const onStorage = (changes, area) => {
       if (area !== 'local') return;
-      if (changes.cortexCaptureState || changes.cortexLedger || changes.cortexRecommendations || changes.settings) {
+      if (changes.cortexCaptureState || changes.cortexLedger || changes.cortexRecommendations ||
+          changes.cortexPendingChanges || changes.settings) {
         refresh();
       }
     };
@@ -94,6 +105,41 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
   const loadDigest = async () => {
     const d = await sendMessage('GET_MORNING_DIGEST').catch(() => null);
     setDigest(d?.schema ? d : { sections: [] });
+  };
+
+  // ── C10a: context reconciliation ────────────────────────────────
+  const runReconcile = async () => {
+    setReconcileBusy(true);
+    const res = await sendMessage('RUN_RECONCILE', {}).catch(() => null);
+    setReconcileBusy(false);
+    if (res?.ok) {
+      setPendingChanges(res.proposals || []);
+      setReconcileSummary(res.summary || null);
+      setNotice(`Reconciled — ${res.summary?.total ?? 0} proposal(s) pending.`);
+    } else {
+      setNotice('Reconcile failed.');
+    }
+  };
+
+  const decideReconcile = async (id, apply) => {
+    await sendMessage(apply ? 'APPLY_RECONCILE' : 'SKIP_RECONCILE', { id }).catch(() => {});
+    refresh();
+  };
+
+  const submitContext = async () => {
+    const text = contextNote.trim();
+    if (!text) return;
+    setReconcileBusy(true);
+    const res = await sendMessage('ADD_RECONCILE_CONTEXT', { text }).catch(() => null);
+    setReconcileBusy(false);
+    if (res?.ok) {
+      setContextNote('');
+      setPendingChanges(res.proposals || []);
+      setReconcileSummary(res.summary || null);
+      setNotice('Context added — re-reconciled.');
+    } else {
+      setNotice('Could not add context.');
+    }
   };
 
   const pending = recs.filter((r) => r.status === 'pending');
@@ -273,6 +319,104 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
           nothing leaves this machine and no new permissions are used.
         </p>
       </GlassCard>
+
+      {/* ════ C10a — Context Reconciliation (Plan 042) ══════════════════════
+          The active, holistic pass. "Reconcile now" sweeps the day's joined
+          state (tabs, groups, focuses, ledger) and proposes a coherent SET of
+          changes — re-links, retroactive time edits, regroups, orphan adoption
+          (#213). Everything is confirm-first: nothing applies without a ✓.
+          v1 reasoning is local + deterministic; routed reasoning + audio input
+          on the note box are v2. */}
+      <div style={{ fontSize: '13px', fontWeight: 700, margin: '20px 0 8px' }}>🔧 Context Reconciliation</div>
+      <p style={{ ...muted, margin: '0 0 10px', lineHeight: 1.5 }}>
+        Sweeps today's tabs, groups, focuses and observations and proposes a set of fixes for you to
+        confirm — re-linking tabs to the right intent, retroactively correcting time, regrouping
+        misfiled tabs, and adopting parentless focuses. Nothing changes until you approve each row.
+      </p>
+
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+        <button style={btnSmall} disabled={reconcileBusy} onClick={runReconcile}>
+          {reconcileBusy ? 'Reconciling…' : 'Reconcile now'}
+        </button>
+        {reconcileSummary && reconcileSummary.total > 0 && (
+          <span style={muted}>
+            {[
+              ['🔗', reconcileSummary.counts?.byKind?.['tab-intent-link']],
+              ['🕐', reconcileSummary.counts?.byKind?.['focus-time']],
+              ['📂', reconcileSummary.counts?.byKind?.['tab-group']],
+              ['🌱', reconcileSummary.counts?.byKind?.['orphan-adopt']]
+            ].filter(([, n]) => n > 0).map(([icon, n]) => `${icon} ${n}`).join(' · ')}
+          </span>
+        )}
+      </div>
+
+      {(() => {
+        const RECONCILE_ICONS = { 'tab-intent-link': '🔗', 'focus-time': '🕐', 'tab-group': '📂', 'orphan-adopt': '🌱' };
+        const pendingRows = pendingChanges.filter((p) => p.status === 'pending' || !p.status);
+        const resolvedRows = pendingChanges.filter((p) => p.status === 'applied' || p.status === 'skipped');
+        return (
+          <>
+            {pendingRows.length === 0 && (
+              <p style={{ ...muted, lineHeight: 1.5, marginBottom: '10px' }}>
+                No pending changes. Enable capture, use Tabatha for a bit, then hit “Reconcile now”.
+              </p>
+            )}
+            {pendingRows.map((p) => (
+              <GlassCard key={p.id} style={{ padding: '10px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600 }}>{RECONCILE_ICONS[p.kind] || '💡'} {p.why}</div>
+                    <div style={{ ...muted, marginTop: '3px' }}>confidence: {p.confidence}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    <button style={btnSmall} onClick={() => decideReconcile(p.id, true)}>✓</button>
+                    <button style={btnDanger} onClick={() => decideReconcile(p.id, false)}>✗</button>
+                  </div>
+                </div>
+              </GlassCard>
+            ))}
+            {resolvedRows.length > 0 && (
+              <>
+                <div style={{ ...muted, fontWeight: 600, margin: '8px 0 4px' }}>Resolved</div>
+                {resolvedRows.slice(-8).map((p) => (
+                  <div key={p.id} style={{ ...fieldRow, opacity: 0.7 }}>
+                    <span style={{ fontSize: '11px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {RECONCILE_ICONS[p.kind] || '💡'} {p.why}
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: 700, flexShrink: 0, color: p.status === 'applied' ? '#66bb6a' : '#ef5350' }}>
+                      {p.status}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        );
+      })()}
+
+      {/* Free-text context box. Submitting mirrors the note to the ledger and
+          re-runs the reconciliation folding it in. TODO(v2): audio input on this
+          box via the C9 voice substrate (VoiceInput / routed STT) — no mic in v1. */}
+      <div style={{ marginTop: '10px' }}>
+        <label style={{ ...fieldLabel, display: 'block', marginBottom: '4px' }}>Anything I should know?</label>
+        <textarea
+          value={contextNote}
+          onChange={(e) => setContextNote(e.target.value)}
+          rows={3}
+          placeholder="e.g. that hour on QuickBooks was actually for Client X…"
+          style={{
+            width: '100%', boxSizing: 'border-box', resize: 'vertical',
+            background: 'var(--color-bg-base)', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-sm)', color: 'var(--color-text-primary)',
+            padding: '8px', fontSize: '12px', fontFamily: 'inherit'
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+          <button style={btnSmall} disabled={reconcileBusy || !contextNote.trim()} onClick={submitContext}>
+            Add context &amp; re-reconcile
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

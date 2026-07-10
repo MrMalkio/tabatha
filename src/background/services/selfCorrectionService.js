@@ -124,7 +124,7 @@ function stampIntentByWindow(observations, sessions) {
 // we can't share their queue, so the best available discipline is to keep
 // our read→write window to a single storage round-trip per key and mutate
 // only the fields this correction owns (review finding 2026-07-10).
-async function mutateKey(key, fallback, mutator) {
+export async function mutateKey(key, fallback, mutator) {
   const { [key]: raw } = await getStorage(key);
   const value = raw || fallback;
   const result = mutator(value);
@@ -202,7 +202,10 @@ async function applyDuration(correction) {
   );
 }
 
-async function applyCorrection(correction) {
+// Exported for the C10a reconciliation service, which translates its confirmed
+// proposals into the same {type, tabId|focusId, to|observedMs} correction shape
+// and reuses this apply/revert machinery verbatim.
+export async function applyCorrection(correction) {
   if (correction.type === 'tab-intent-link') return applyTabLink(correction);
   if (correction.type === 'focus-time') return applyDuration(correction);
   return null;
