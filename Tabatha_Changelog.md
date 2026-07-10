@@ -5,6 +5,41 @@ file.
 
 ---
 
+## [v6.7.3] - Cortex capture-config reconnect-flap guard - _2026-07-10_
+
+### Fixed
+
+- **A settings read racing an MV3 SW-restart storm could silently flap desktop capture off** for as long as ~90 seconds. `pushCaptureConfig()` ran unconditionally on every companion-bridge reconnect; since `getSettings()` always merges onto `DEFAULT_SETTINGS` (`screenshotCapture: false`), a read before the raw `settings` key was confirmed loaded resolved to "off" and pushed that guess to the companion. Added `isSettingsLoaded()` — a pure guard that distinguishes "genuinely not configured yet" from "confirmed loaded" — so the push is skipped rather than asserting a false negative.
+
+---
+
+## [v6.7.2] - Cortex panel: surface the real capture folder - _2026-07-10_
+
+### Added
+
+- **"Where are my captures?"** — the Cortex panel now shows the desktop companion's actual on-disk frames directory and a live "last frame written" timestamp, instead of only the extension's own observation-ledger count. The companion's `GET_CAPTURE_STATE` reply is now persisted (`companionCaptureState`) and re-requested on every bridge reconnect via a new `GET_COMPANION_CAPTURE_STATE` handler.
+
+---
+
+## [v6.7.1] - Awareness identity-race fix (Live Stints ghost cards) - _2026-07-10_
+
+### Fixed
+
+- **Live Stints ghost cards / silent no-ops on cold start.** `LIST_LIVE_STINTS`, `GET_OTHER_QUEUE`, `CLOCK_OUT_INSTALL`, `DISMISS_INSTALL`, `CLEAR_ALL_OFFLINE`, and the auto-clock-in abandoned-stint check all hard-guarded on the module-level identity `startAwareness()` sets — before that resolves (fresh service-worker spin-up, or a restart mid-startup), they silently returned empty. Added `resolveActiveIdentity()`, a fallback that re-derives the profile/install identity directly from the Supabase session when module state isn't populated yet, and wired it into all five call sites plus `getOwnAbandonedStints()`.
+
+---
+
+## [v6.7.0] - Work Schedule Profiles (NB-01/NB-02) - _2026-07-10_
+
+### Added
+
+- **Work Schedule Profiles**: per-member `dedicated_hours` / `self_managed` work profiles, required-hours floors at daily/weekly/monthly cadences (independent, anti-back-loading), a fixed weekly schedule editor, and a schedule-change-request flow (slot change / shift hours / make-up) with a manager approval inbox.
+- **Shortfall tracking**: a `shortfall_ledger` records under-hours periods at clock-out (fire-and-forget, fail-open when signed out/offline) with resolutions (`unresolved` / `made_up` / `shifted` / `excused`) and a `SHORTFALL_PROMPT` notification.
+- **Work Shifts → Schedule view**: three modes — **Self** (own schedule, floors, shortfall accounting, change requests), **Manage** (roster, profile type, slots, floors — gated by org role/permissions), and **Requests** (approval inbox). The legacy local `workSchedule` key is kept as an offline cache and signed-out editor.
+- **Migration 027** (renumbered from the branch's original 023; applied): `org_members.work_profile_type`, `work_requirements`, `work_schedule_slots`, `schedule_change_requests`, `shortfall_ledger`, plus 4 hardened `SECURITY DEFINER` RPCs (`set_member_schedule`, `set_work_requirements`, `set_member_work_profile`, `decide_change_request`) — `search_path=''`, schema-qualified, `REVOKE PUBLIC/anon`, `GRANT authenticated`.
+
+---
+
 ## [v6.6.0] - Org management foundation, real analytics, time-editing overhaul + critical storage fix - _2026-07-06_
 
 ### Fixed
