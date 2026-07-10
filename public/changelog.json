@@ -2,6 +2,30 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.6",
+      "title": "UI: hide backend vendor name in Cloud Sync label",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Changed",
+          "body": "- **UI:** renamed the \"Supabase Cloud Sync\" integration label to \"Cloud Sync\" (hide backend vendor name from end users)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.5",
+      "title": "Session-log housekeeping",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Changed",
+          "body": "- Docs/session-log housekeeping; version discipline reconciliation."
+        }
+      ]
+    },
+    {
       "version": "6.7.3",
       "title": "Cortex capture-config reconnect-flap guard",
       "date": "2026-07-10",

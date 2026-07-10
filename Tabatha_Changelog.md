@@ -5,6 +5,22 @@ file.
 
 ---
 
+## [v6.7.6] - UI: hide backend vendor name in Cloud Sync label - _2026-07-10_
+
+### Changed
+
+- **UI:** renamed the "Supabase Cloud Sync" integration label to "Cloud Sync" (hide backend vendor name from end users).
+
+---
+
+## [v6.7.5] - Session-log housekeeping - _2026-07-10_
+
+### Changed
+
+- Docs/session-log housekeeping; version discipline reconciliation.
+
+---
+
 ## [v6.7.3] - Cortex capture-config reconnect-flap guard - _2026-07-10_
 
 ### Fixed

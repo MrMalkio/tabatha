@@ -1963,7 +1963,7 @@ function Settings() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }} data-search-id="integrations-supabase">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '16px' }}>☁️</span>
-                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Supabase Cloud Sync</span>
+                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Cloud Sync</span>
                     </div>
                     <span
                       onClick={() => setActiveSection('sync')}
