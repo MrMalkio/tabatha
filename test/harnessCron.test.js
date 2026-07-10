@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildHarnessCronBundle,
+  buildExecuteBundle,
   validateRecommendation,
   normalizeRecommendations
 } from '../src/utils/harnessCron.js';
@@ -122,4 +123,33 @@ test('normalizeRecommendations: bare array is accepted as a lenient fallback', (
 test('normalizeRecommendations: null / non-object payload throws cleanly', () => {
   assert.throws(() => normalizeRecommendations(null, { now: 0 }), /schema/i);
   assert.throws(() => normalizeRecommendations('garbage', { now: 0 }), /schema/i);
+});
+
+// ── buildExecuteBundle (Phase 4 — proactive overnight executor) ─────────
+
+const EXEC_OPTS = {
+  harness: 'claude-code',
+  actionsDir: 'C:\\Users\\me\\Downloads\\Tabatha\\Cortex\\exports',
+  reviewDir: 'C:\\Users\\me\\Downloads\\Tabatha\\Cortex\\review',
+  scheduleHint: '04:30 local'
+};
+
+test('buildExecuteBundle: claude-code layout with EXECUTE task file', () => {
+  const bundle = buildExecuteBundle(EXEC_OPTS);
+  assert.equal(bundle.harness, 'claude-code');
+  const task = bundle.files.find((f) => f.relPath === 'scheduled-tasks/tabatha-cortex-execute/SKILL.md');
+  assert.ok(task, 'EXECUTE SKILL.md present');
+  assert.ok(task.content.includes(EXEC_OPTS.actionsDir));
+  assert.ok(task.content.includes(EXEC_OPTS.reviewDir));
+});
+
+test('buildExecuteBundle: task file encodes the hard guardrails', () => {
+  const task = buildExecuteBundle(EXEC_OPTS).files[0];
+  assert.match(task.content, /proactive.*true/i);        // only proactive-flagged actions run
+  assert.match(task.content, /never install/i);          // review-first invariant
+  assert.match(task.content, /cortex-actions\.v1/);      // input schema pinned
+});
+
+test('buildExecuteBundle: unknown harness throws', () => {
+  assert.throws(() => buildExecuteBundle({ ...EXEC_OPTS, harness: 'mystery' }), /harness/i);
 });
