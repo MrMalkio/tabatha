@@ -15,6 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
+import CortexPanel from './CortexPanel';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
 import { ChangelogView } from '../components/ui/ChangelogView';
@@ -1836,6 +1837,8 @@ function Settings() {
                   <span style={fieldLabel}>Keystroke analytics</span>
                   <Toggle value={!!settings.keystrokeAnalytics} onChange={v => updateSetting('keystrokeAnalytics', v)} />
                 </div>
+                {/* Cortex Plan 040 T5: capture status + recommendation dashboard (C7 v1) */}
+                <CortexPanel />
               </div>
             )}
 

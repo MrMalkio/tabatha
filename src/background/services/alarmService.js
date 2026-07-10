@@ -18,6 +18,12 @@ import { handlePomodoroComplete } from './notificationService.js';
 import { handleIdleAutoBreak } from './clockService.js';
 import { handleDriftCheck } from './autoFocusService.js';
 import { saveSessionSnapshot, exportMarkdown } from './sessionService.js';
+import {
+  handleDwellTick,
+  runNightlyExport,
+  DWELL_ALARM,
+  NIGHTLY_EXPORT_ALARM
+} from './captureService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
 // local constant avoids the circular import.
@@ -80,6 +86,11 @@ async function handleAlarm(alarm) {
         return handleIdleAutoBreak();
       case 'auto-focus-drift':
         return handleDriftCheck();
+      // Cortex Plan 040 T4: dwell heartbeat + nightly ledger export
+      case DWELL_ALARM:
+        return handleDwellTick();
+      case NIGHTLY_EXPORT_ALARM:
+        return runNightlyExport();
       default:
         return;
     }

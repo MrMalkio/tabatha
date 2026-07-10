@@ -51,7 +51,9 @@ export const DEFAULT_SETTINGS = {
   captureDwellSeconds: 10,                // dwell-interval fallback while staying in one context
   captureMinGapSeconds: 2,                // min gap between captures (anti-thrash)
   captureOnContextChange: true,           // capture on tab/window/app/focus/intent change
-  captureStoragePath: 'Tabatha/Cortex/captures', // local-first store (configurable path)
+  captureStoragePath: 'Tabatha/Cortex/captures', // local-first store (Downloads-relative; MV3 can't write arbitrary paths)
+  captureQuality: 60,                     // JPEG quality for captured frames
+  captureRedactionStyle: 'blackout',      // C2 redaction render: 'blackout' (safest) | 'blur'
   sensitiveRules: [],                     // C2 per-site/app suppression + redaction rules
   captureRetention: {                     // C3 retention — personal vs org, by time (space added in T4)
     personal: { maxAgeDays: 30 },

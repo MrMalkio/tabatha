@@ -71,6 +71,8 @@ import {
 import * as domainHistoryService from './services/domainHistoryService.js';
 import { recordDomainVisit } from './services/domainHistoryService.js';
 import * as captureService from './services/captureService.js';
+import { registerCaptureListeners } from './services/captureService.js';
+import * as cortexService from './services/cortexService.js';
 import * as feedbackService from './services/feedbackService.js'; // B2: in-app feedback → Asana
 import * as awarenessService from './services/awarenessService.js';
 import {
@@ -189,7 +191,8 @@ const services = [
   autoFocusService,
   domainHistoryService,
   feedbackService,
-  captureService
+  captureService,
+  cortexService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -231,6 +234,9 @@ registerAutoFocusListeners();
 registerSyncServiceAlarms();
 registerSyncStorageListener();
 registerAlarmServiceListener();
+// Cortex Plan 040 T4: adaptive-capture event listeners + dwell/export alarms.
+// All handlers gate on the opt-in screenshotCapture master toggle internally.
+registerCaptureListeners();
 registerBootstrap();
 
 // FIX-12: persistently configure the toolbar-icon click behavior (side panel
