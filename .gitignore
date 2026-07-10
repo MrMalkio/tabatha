@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 dist-v*/
+# Atomic-build staging + rollback dirs (scripts/swap-dist.mjs)
+.dist-build/
+dist.old-*/
 *.local
 
 # Editor directories and files

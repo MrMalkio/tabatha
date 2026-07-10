@@ -7,7 +7,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '',
   build: {
-    outDir: 'dist',
+    // Build into a staging dir, not the live `dist/` that Chrome loads.
+    // scripts/swap-dist.mjs (run after build) atomically renames this into
+    // `dist/`, so Chrome never sees an empty/half-written extension directory
+    // during a rebuild (which makes it silently drop the unpacked extension).
+    outDir: '.dist-build',
+    emptyOutDir: true,
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'popup.html'),
