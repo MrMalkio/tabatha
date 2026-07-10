@@ -22,6 +22,9 @@ import {
 } from '../../utils/harnessCron.js';
 import { PROMPT_VERSION, PROMPT_TEXT } from '../cortexPrompt.js';
 import { sanitizeRelPath } from '../../utils/captureArtifacts.js';
+import { buildActionSpec, buildMorningDigest } from '../../utils/cortexActions.js';
+import { gateProactiveExecution } from '../../utils/proactivityGate.js';
+import { resolveRoute } from '../../utils/cortexRouting.js';
 
 const RECS_KEY = 'cortexRecommendations';
 const RECS_CAP = 200;
@@ -111,12 +114,66 @@ async function downloadHarnessCronBundle(harness = 'claude-code') {
   return { ok: true, harness, written, instructions: bundle.instructions };
 }
 
+// ── Phase 2/4 (Plans 041 T5 / 043 T1-T2) ────────────────────
+
+// C7 morning digest: assembled from yesterday's ledger + approved digest
+// recommendations. Read-only; the home page renders it as a card.
+async function getMorningDigest(dayOverride) {
+  const now = Date.now();
+  const day = dayOverride || new Date(now - 86400000).toISOString().slice(0, 10);
+  const { cortexLedger } = await getStorage('cortexLedger');
+  const { [RECS_KEY]: recs } = await getStorage(RECS_KEY);
+  const approved = (Array.isArray(recs) ? recs : []).filter((r) => r.status === 'approved');
+  return buildMorningDigest({
+    observations: Array.isArray(cortexLedger) ? cortexLedger : [],
+    approved,
+    day,
+    now
+  });
+}
+
+// C7→C8 execution handoff: turn every approved recommendation into an action
+// spec (with the proactivity gate's verdict stamped) and write the bundle
+// beside the ledger exports so the overnight harness agent can pick it up.
+async function exportApprovedActions() {
+  const settings = await getSettings();
+  const { [RECS_KEY]: recs } = await getStorage(RECS_KEY);
+  const approved = (Array.isArray(recs) ? recs : []).filter((r) => r.status === 'approved');
+
+  const specs = [];
+  for (const rec of approved) {
+    try {
+      const spec = buildActionSpec(rec);
+      const gate = gateProactiveExecution(spec, settings);
+      specs.push({ ...spec, proactive: gate.allowed, reviewRequired: gate.reviewRequired });
+    } catch { /* skip malformed rows rather than failing the export */ }
+  }
+  if (!specs.length) return { exported: false, reason: 'no-approved-recommendations' };
+
+  const day = new Date().toISOString().slice(0, 10);
+  const route = resolveRoute(settings, { signedIn: false }); // informational for the file
+  const content = {
+    schema: 'cortex-actions.v1',
+    day,
+    routingTier: route.tier,
+    actions: specs
+  };
+  const storeRoot = sanitizeRelPath(settings.captureStoragePath) || 'Tabatha/Cortex/captures';
+  const baseRoot = storeRoot.endsWith('/captures') ? storeRoot.slice(0, -'/captures'.length) : storeRoot;
+  const relPath = `${baseRoot}/exports/cortex-actions-${day}.json`;
+  const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(content, null, 1))}`;
+  await chrome.downloads.download({ url: dataUrl, filename: relPath, conflictAction: 'overwrite', saveAs: false });
+  return { exported: true, actions: specs.length, path: relPath };
+}
+
 export async function handleMessage(type, message) {
   switch (type) {
     case 'LIST_RECOMMENDATIONS': return listRecommendations();
     case 'SET_RECOMMENDATION_STATUS': return setRecommendationStatus(message?.id, message?.status);
     case 'IMPORT_RECOMMENDATIONS': return importRecommendations(message?.payload);
     case 'DOWNLOAD_HARNESS_CRON': return downloadHarnessCronBundle(message?.harness);
+    case 'GET_MORNING_DIGEST': return getMorningDigest(message?.day);
+    case 'EXPORT_APPROVED_ACTIONS': return exportApprovedActions();
     default: return undefined;
   }
 }

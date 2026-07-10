@@ -1837,8 +1837,8 @@ function Settings() {
                   <span style={fieldLabel}>Keystroke analytics</span>
                   <Toggle value={!!settings.keystrokeAnalytics} onChange={v => updateSetting('keystrokeAnalytics', v)} />
                 </div>
-                {/* Cortex Plan 040 T5: capture status + recommendation dashboard (C7 v1) */}
-                <CortexPanel />
+                {/* Cortex Plan 040 T5 / 041 T6: capture status, recommendation dashboard, config surface */}
+                <CortexPanel settings={settings} updateSetting={updateSetting} />
               </div>
             )}
 

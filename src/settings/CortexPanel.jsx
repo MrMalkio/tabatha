@@ -21,10 +21,13 @@ const TYPE_ICONS = {
   hotkey: '⌨️', 'tool-replacement': '🔁', 'custom-code': '🧩', digest: '📰', other: '💡'
 };
 
-export default function CortexPanel() {
+const selectStyle = { background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-primary)', padding: '4px 8px', fontSize: '11px' };
+
+export default function CortexPanel({ settings = {}, updateSetting = () => {} }) {
   const [state, setState] = useState(null);
   const [recs, setRecs] = useState([]);
   const [notice, setNotice] = useState('');
+  const [digest, setDigest] = useState(null);
   const fileRef = useRef(null);
 
   const refresh = useCallback(() => {
@@ -66,8 +69,21 @@ export default function CortexPanel() {
     refresh();
   };
 
+  const exportActions = async () => {
+    const res = await sendMessage('EXPORT_APPROVED_ACTIONS').catch(() => null);
+    setNotice(res?.exported
+      ? `Exported ${res.actions} approved action(s) to ${res.path}.`
+      : `Nothing to export (${res?.reason || 'error'}).`);
+  };
+
+  const loadDigest = async () => {
+    const d = await sendMessage('GET_MORNING_DIGEST').catch(() => null);
+    setDigest(d?.schema ? d : { sections: [] });
+  };
+
   const pending = recs.filter((r) => r.status === 'pending');
   const decided = recs.filter((r) => r.status !== 'pending');
+  const approvedCount = recs.filter((r) => r.status === 'approved').length;
 
   return (
     <div style={{ marginTop: '20px' }}>
@@ -100,17 +116,69 @@ export default function CortexPanel() {
         </div>
       </GlassCard>
 
+      {/* C15 config surface v1 (Plan 041 T6): routing tier + proactivity */}
+      <GlassCard style={{ padding: '12px', marginBottom: '12px' }}>
+        <div style={fieldRow}>
+          <span style={fieldLabel}>AI routing tier (C8 ladder)</span>
+          <select
+            style={selectStyle}
+            value={settings.cortexRouting || 'harness'}
+            onChange={(e) => updateSetting('cortexRouting', e.target.value)}
+          >
+            <option value="harness">① Harness cron (local files, no key)</option>
+            <option value="proxy">② Backend proxy (sign-in required)</option>
+            <option value="gateway" disabled>③ Vercel AI Gateway (key pending)</option>
+            <option value="byok" disabled>④ Bring your own key (Phase 2+)</option>
+          </select>
+        </div>
+        <div style={{ ...fieldRow, borderBottom: 'none' }}>
+          <span style={fieldLabel}>Proactivity</span>
+          <select
+            style={selectStyle}
+            value={settings.cortexProactivity || 'reactive'}
+            onChange={(e) => updateSetting('cortexProactivity', e.target.value)}
+          >
+            <option value="reactive">Reactive — I approve everything</option>
+            <option value="proactive">Proactive — act overnight on approved kinds</option>
+          </select>
+        </div>
+        {settings.cortexProactivity === 'proactive' && (
+          <p style={{ ...muted, margin: '6px 0 0' }}>
+            Overnight agents may generate digests and instructions for approved items.
+            Generated code is always review-first — never auto-installed.
+          </p>
+        )}
+      </GlassCard>
+
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
         <button style={btnGhost} onClick={runExport}>Export today's ledger now</button>
         <button style={btnGhost} onClick={() => downloadCron('claude-code')}>Set up nightly agent (Claude Code)</button>
         <button style={btnGhost} onClick={() => downloadCron('codex')}>Set up nightly agent (Codex)</button>
         <button style={btnGhost} onClick={() => fileRef.current?.click()}>Import recommendations…</button>
+        {approvedCount > 0 && (
+          <button style={btnGhost} onClick={exportActions}>Export approved actions ({approvedCount})</button>
+        )}
+        <button style={btnGhost} onClick={loadDigest}>Preview morning digest</button>
         <input
           ref={fileRef} type="file" accept=".json,application/json" style={{ display: 'none' }}
           onChange={(e) => { if (e.target.files?.[0]) importFile(e.target.files[0]); e.target.value = ''; }}
         />
       </div>
       {notice && <p style={{ ...muted, color: 'var(--color-accent-primary)', margin: '0 0 12px' }}>{notice}</p>}
+
+      {digest && (
+        <GlassCard style={{ padding: '12px', marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>📰 Morning digest — {digest.day}</div>
+          {digest.sections?.length ? digest.sections.map((s) => (
+            <div key={s.source} style={fieldRow}>
+              <span style={{ fontSize: '11px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {s.source}{s.titles?.length ? ` — ${s.titles[0]}` : ''}
+              </span>
+              <span style={{ fontSize: '10px', flexShrink: 0 }}>{s.visits} visit{s.visits === 1 ? '' : 's'}</span>
+            </div>
+          )) : <p style={muted}>No digest sections — approve a “digest” recommendation first.</p>}
+        </GlassCard>
+      )}
 
       <div style={{ fontSize: '12px', fontWeight: 700, margin: '0 0 6px' }}>
         Recommendations {pending.length ? `(${pending.length} pending)` : ''}
