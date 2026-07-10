@@ -50,6 +50,7 @@ import {
 const LEDGER_KEY = 'cortexLedger';
 const STATE_KEY = 'cortexCaptureState';
 const PENDING_EXPORTS_KEY = 'pendingCortexExports';
+const COMPANION_STATE_KEY = 'companionCaptureState';
 const DEFAULT_LEDGER_CAP = 5000;
 
 // C1 browser⇄OS handoff: is Chrome the focused application right now? Updated by
@@ -159,6 +160,26 @@ async function getCaptureState() {
     lastCaptureAt: state?.lastCaptureAt ?? null,
     lastExportDay: state?.lastExportDay ?? null,
     observationCount: Array.isArray(ledger) ? ledger.length : 0
+  };
+}
+
+// Malkio 2026-07-10: "where are my captures?" — the extension's own
+// GET_CAPTURE_STATE only reflects cortexLedger (the extension's own
+// observation count), never the desktop companion's real frames directory.
+// The companion answers GET_CAPTURE_STATE over the WS bridge with
+// { enabled, mode, last_capture_at, frames_dir } — companionService stores
+// that reply under COMPANION_STATE_KEY (see registerCompanionCaptureBridge
+// below) whenever it arrives. This reads that last-known snapshot back so
+// the Cortex panel can show the actual on-disk folder, not just a ledger count.
+async function getCompanionCaptureState() {
+  const { [COMPANION_STATE_KEY]: state } = await getStorage(COMPANION_STATE_KEY);
+  return {
+    connected: !!companionBridge?.isConnected,
+    enabled: state?.enabled ?? null,
+    mode: state?.mode ?? null,
+    framesDir: state?.framesDir ?? null,
+    lastCaptureAt: state?.lastCaptureAt ?? null,
+    receivedAt: state?.receivedAt ?? null
   };
 }
 
@@ -548,11 +569,29 @@ export function registerCompanionCaptureBridge(bridge) {
   bridge.on('chromeFocused', () => { chromeFocused = true; });
   bridge.on('chromeBlurred', () => { chromeFocused = false; });
 
-  // Mirror config on connect, flush any exports buffered while offline, and
-  // re-push config whenever the relevant settings change.
+  // Malkio 2026-07-10: capture-visibility fix — persist the companion's
+  // GET_CAPTURE_STATE reply (frames_dir + last_capture_at + enabled) so the
+  // Cortex panel can show the real on-disk folder instead of just the
+  // extension's own ledger count.
+  bridge.on('captureState', (msg) => {
+    setStorage({
+      [COMPANION_STATE_KEY]: {
+        enabled: !!msg?.enabled,
+        mode: msg?.mode ?? null,
+        framesDir: msg?.frames_dir ?? null,
+        lastCaptureAt: msg?.last_capture_at ?? null,
+        receivedAt: Date.now()
+      }
+    }).catch(() => {});
+  });
+
+  // Mirror config on connect, flush any exports buffered while offline, pull
+  // the companion's current capture-state snapshot, and re-push config
+  // whenever the relevant settings change.
   bridge.on('connected', () => {
     pushCaptureConfig(bridge).catch(() => {});
     flushPendingCortexExports().catch(() => {});
+    bridge.requestCaptureState();
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.settings) return;
@@ -631,6 +670,7 @@ export function registerCaptureListeners() {
 export async function handleMessage(type, message) {
   switch (type) {
     case 'GET_CAPTURE_STATE': return getCaptureState();
+    case 'GET_COMPANION_CAPTURE_STATE': return getCompanionCaptureState();
     case 'SET_CAPTURE_ENABLED': return setEnabled(message?.enabled);
     case 'LIST_OBSERVATIONS': return listObservations(message?.limit);
     case 'CAPTURE_NOW': return captureNow(message);

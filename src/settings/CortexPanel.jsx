@@ -23,8 +23,14 @@ const TYPE_ICONS = {
 
 const selectStyle = { background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-primary)', padding: '4px 8px', fontSize: '11px' };
 
+// Malkio 2026-07-10: default install path for the desktop companion's frames
+// directory — shown as a fallback note when the companion hasn't reported its
+// actual (possibly custom-configured) frames_dir yet, e.g. companion offline.
+const DEFAULT_CAPTURE_DIR = '%APPDATA%\\Tabatha Desktop\\captures\\';
+
 export default function CortexPanel({ settings = {}, updateSetting = () => {} }) {
   const [state, setState] = useState(null);
+  const [companionCapture, setCompanionCapture] = useState(null);
   const [recs, setRecs] = useState([]);
   const [notice, setNotice] = useState('');
   const [digest, setDigest] = useState(null);
@@ -38,6 +44,7 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
 
   const refresh = useCallback(() => {
     sendMessage('GET_CAPTURE_STATE').then(setState).catch(() => {});
+    sendMessage('GET_COMPANION_CAPTURE_STATE').then(setCompanionCapture).catch(() => {});
     sendMessage('LIST_RECOMMENDATIONS').then((r) => setRecs(r?.recommendations || [])).catch(() => {});
     sendMessage('LIST_PENDING_CHANGES').then((r) => {
       setPendingChanges(r?.proposals || []);
@@ -55,7 +62,7 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
     const onStorage = (changes, area) => {
       if (area !== 'local') return;
       if (changes.cortexCaptureState || changes.cortexLedger || changes.cortexRecommendations ||
-          changes.cortexPendingChanges || changes.settings) {
+          changes.cortexPendingChanges || changes.companionCaptureState || changes.settings) {
         refresh();
       }
     };
@@ -171,10 +178,32 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
           <span style={fieldLabel}>Last capture</span>
           <span style={{ fontSize: '12px' }}>{state?.lastCaptureAt ? new Date(state.lastCaptureAt).toLocaleString() : 'never'}</span>
         </div>
-        <div style={{ ...fieldRow, borderBottom: 'none' }}>
+        <div style={fieldRow}>
           <span style={fieldLabel}>Last nightly export</span>
           <span style={{ fontSize: '12px' }}>{state?.lastExportDay || 'never'}</span>
         </div>
+        <div style={fieldRow}>
+          <span style={fieldLabel}>Capture folder (this machine)</span>
+          <span style={{ fontSize: '11px', textAlign: 'right', maxWidth: '60%', wordBreak: 'break-all' }}>
+            {companionCapture?.framesDir || DEFAULT_CAPTURE_DIR}
+            {!companionCapture?.framesDir && (
+              <span style={{ ...muted, display: 'block', fontSize: '10px' }}>
+                default shown — desktop companion not connected to confirm the real path
+              </span>
+            )}
+          </span>
+        </div>
+        <div style={{ ...fieldRow, borderBottom: 'none' }}>
+          <span style={fieldLabel}>Last frame written (companion)</span>
+          <span style={{ fontSize: '12px' }}>
+            {companionCapture?.lastCaptureAt ? new Date(companionCapture.lastCaptureAt).toLocaleString() : 'never'}
+          </span>
+        </div>
+        <p style={{ ...muted, margin: '8px 0 0', lineHeight: 1.5 }}>
+          Frames land under this folder, partitioned by <code>personal</code>/<code>org</code>
+          {' '}(based on clock state) and by browser + OS surface. The desktop companion owns the
+          real write while it's connected — Tabatha never uses a Save-As dialog.
+        </p>
       </GlassCard>
 
       {/* C15 config surface v1 (Plan 041 T6): routing tier + proactivity */}
