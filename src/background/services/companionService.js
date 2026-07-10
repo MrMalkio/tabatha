@@ -171,6 +171,16 @@ class CompanionBridge {
     return this.send({ type: 'GET_CLOCK_STATE' });
   }
 
+  // Cortex Plan 041 T1: push capture config to the companion (C1 handoff —
+  // the companion captures only while the browser is blurred).
+  sendCaptureConfig(config) {
+    return this.send({ type: 'CAPTURE_CONFIG', ...config });
+  }
+
+  requestCaptureState() {
+    return this.send({ type: 'GET_CAPTURE_STATE' });
+  }
+
   _handleMessage(msg) {
     // Plan 036: any inbound message proves the companion is alive.
     this.lastMessageAt = Date.now();
@@ -201,6 +211,17 @@ class CompanionBridge {
 
       case 'UPDATE_READY':
         this._handleUpdateReady(msg);
+        break;
+
+      // Cortex Plan 041 T1: OS-side capture events (companion owns capture
+      // while the browser is blurred). captureService folds these into the
+      // observations ledger via the listener registered in background.js.
+      case 'CAPTURE_TAKEN':
+        this._emit('captureTaken', msg);
+        break;
+
+      case 'CAPTURE_STATE':
+        this._emit('captureState', msg);
         break;
 
       default:

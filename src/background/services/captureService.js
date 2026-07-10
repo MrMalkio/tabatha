@@ -362,6 +362,75 @@ async function runNightlyExportInner(dayOverride) {
   return { exported, day, records: content.counts.total, prunedCount: arr.length - pruned.length };
 }
 
+// ── Plan 041 T1: companion handoff wiring ───────────────────
+// The companion owns OS capture while the browser is blurred. We (a) fold its
+// CAPTURE_TAKEN events into the observations ledger and (b) keep its config
+// (enable + guard rules + retention) mirrored from extension settings.
+
+// Only rules the OS surface can evaluate travel over the bridge — a host-only
+// rule must not reach the companion (it could degenerate to match-nothing or,
+// worse, match-everything depending on matcher semantics).
+function companionRules(sensitiveRules) {
+  return (sensitiveRules || []).filter(
+    (r) => r?.when && ('appName' in r.when || 'appNameContains' in r.when || 'titleContains' in r.when)
+  );
+}
+
+async function pushCaptureConfig(bridge) {
+  const settings = await getSettings();
+  const retention = settings.captureRetention || {};
+  bridge.sendCaptureConfig({
+    enabled: !!settings.screenshotCapture,
+    interval_secs: settings.captureDwellSeconds ?? 10,
+    min_gap_secs: settings.captureMinGapSeconds ?? 2,
+    quality: settings.captureQuality ?? 60,
+    sensitive_rules: companionRules(settings.sensitiveRules),
+    retention: {
+      personal: { maxAgeDays: retention.personal?.maxAgeDays ?? 30 },
+      org: { maxAgeDays: retention.org?.maxAgeDays ?? 90 }
+    }
+  });
+}
+
+export function registerCompanionCaptureBridge(bridge) {
+  bridge.on('captureTaken', (msg) => {
+    const at = Date.parse(msg?.ts);
+    if (!Number.isFinite(at)) return;
+    const clockState = msg.partition === 'org' ? 'clocked_in' : 'clocked_out';
+    const extra = {};
+    if (msg.suppressed) extra.suppressed = true;
+    if (msg.redacted) extra.redacted = true;
+    recordObservation(
+      {
+        at,
+        surface: 'os',
+        appName: msg.app_name,
+        title: msg.window_title,
+        captureRef: msg.capture_ref || null,
+        kind: msg.capture_ref ? 'capture' : 'context'
+      },
+      clockState,
+      extra
+    ).catch((err) => console.warn('[captureService] companion observation failed:', err?.message));
+  });
+
+  // Mirror config on connect and whenever the relevant settings change.
+  bridge.on('connected', () => { pushCaptureConfig(bridge).catch(() => {}); });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.settings) return;
+    const prev = changes.settings.oldValue || {};
+    const next = changes.settings.newValue || {};
+    if (
+      prev.screenshotCapture !== next.screenshotCapture ||
+      JSON.stringify(prev.sensitiveRules) !== JSON.stringify(next.sensitiveRules) ||
+      prev.captureDwellSeconds !== next.captureDwellSeconds ||
+      prev.captureQuality !== next.captureQuality
+    ) {
+      pushCaptureConfig(bridge).catch(() => {});
+    }
+  });
+}
+
 let listenersRegistered = false;
 export function registerCaptureListeners() {
   if (listenersRegistered) return;
