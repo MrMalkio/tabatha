@@ -526,7 +526,28 @@ function companionRules(sensitiveRules) {
   );
 }
 
+// Reconnect-flap guard (Malkio 2026-07-10: a real ~90s capture-off gap).
+// pushCaptureConfig used to call getSettings() unconditionally on every
+// bridge 'connected' event — and getSettings() ALWAYS merges onto
+// DEFAULT_SETTINGS (screenshotCapture: false), so a settings read that races
+// an MV3 SW-restart storm before the raw `settings` key has ever been
+// persisted (or is momentarily unreadable) silently resolved to "off" and
+// pushed enabled:false to the companion — flapping real capture off even
+// though the user had it on. This pure predicate distinguishes "genuinely
+// not configured yet" (raw storage key literally absent) from "confirmed
+// loaded" (any object, including one the user set screenshotCapture:false
+// on) so the caller can skip the push instead of asserting a guess.
+export function isSettingsLoaded(rawSettings) {
+  return rawSettings !== undefined && rawSettings !== null && typeof rawSettings === 'object';
+}
+
 async function pushCaptureConfig(bridge) {
+  const { settings: rawSettings } = await getStorage('settings');
+  if (!isSettingsLoaded(rawSettings)) {
+    console.debug('[captureService] settings not confirmed loaded yet — skipping capture-config push (avoiding a false enabled:false flap)');
+    return;
+  }
+
   const settings = await getSettings();
   const retention = settings.captureRetention || {};
   bridge.sendCaptureConfig({
