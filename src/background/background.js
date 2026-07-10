@@ -76,6 +76,7 @@ import {
   registerCompanionCaptureBridge
 } from './services/captureService.js';
 import * as cortexService from './services/cortexService.js';
+import * as agentSessionService from './services/agentSessionService.js';
 import * as selfCorrectionService from './services/selfCorrectionService.js';
 import * as feedbackService from './services/feedbackService.js'; // B2: in-app feedback → Asana
 import * as awarenessService from './services/awarenessService.js';
@@ -197,6 +198,7 @@ const services = [
   feedbackService,
   captureService,
   cortexService,
+  agentSessionService,
   selfCorrectionService
 ];
 

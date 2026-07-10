@@ -85,6 +85,21 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
     }
   } catch (e) { /* no stored pause state */ }
 
+  // C11a: agent-driven session state. The 🤖 toggle controls a machine-scoped
+  // controller span; while any machine/window span is open the bar shows a
+  // violet "🤖 AGENT" badge so the human always knows an agent is driving.
+  let agentActive = false;
+  let agentSessionId = null;
+  try {
+    const ar = await chrome.runtime.sendMessage({ type: 'LIST_AGENT_SESSIONS' });
+    const openSpans = (ar?.open || []).filter(s => s.scope === 'machine' || s.scope === 'window');
+    if (openSpans.length) {
+      agentActive = true;
+      agentSessionId = (openSpans.find(s => s.scope === 'machine') || openSpans[openSpans.length - 1]).id;
+    }
+  } catch (e) { /* no agent session service / not signed in */ }
+  const barClass = () => `bar${isPaused ? ' paused' : ''}${agentActive ? ' agent-mode' : ''}`;
+
   // 3. Create host container — uses position:fixed but pushes page via margin
   const host = document.createElement('div');
   host.id = 'tabatha-inbar-host';
@@ -169,6 +184,14 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
     .badge-focus { background: #00e5ff18; color: #00e5ff; border: 1px solid #00e5ff33; }
     .badge-no-intent { background: #ff6b6b12; color: #ff6b6b; border: 1px solid #ff6b6b33; cursor: pointer; padding: 2px 8px; font-size: 9px; }
     .badge-no-intent:hover { background: #ff6b6b22; }
+    /* C11a agent-mode (violet — distinct from cyan focus / red no-intent / amber pause) */
+    .badge-agent { background: #7c4dff1f; color: #b388ff; border: 1px solid #7c4dff55; padding: 2px 8px; font-size: 9px; }
+    .bar.agent-mode { border-color: rgba(124,77,255,0.4); box-shadow: inset 0 0 0 1px rgba(124,77,255,0.14); }
+    .bar-btn.agent-btn { color: #888; }
+    .bar-btn.agent-btn:hover { color: #b388ff; background: rgba(124,77,255,0.12); }
+    .bar-btn.agent-btn.is-agent { color: #b388ff; }
+    .nub.is-agent { color: #b388ff; border-color: #7c4dff66; }
+    .nub.is-agent:hover { box-shadow: 0 0 8px rgba(124,77,255,0.35); }
 
     .bar-btn {
       background: none; border: none; color: #555; font-size: 11px;
@@ -455,7 +478,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
 
   // 6. Build bar content
   const bar = document.createElement('div');
-  bar.className = isPaused ? 'bar paused' : 'bar';
+  bar.className = barClass();
 
   let intentStartTime = tabContext?.startedAt ? new Date(tabContext.startedAt).getTime() : Date.now();
   let focusEndTime = activeFocus?.timerEndAt ? new Date(activeFocus.timerEndAt).getTime() : null;
@@ -494,6 +517,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
         }
       </div>
       <div class="center">
+        ${agentActive ? `<span class="badge badge-agent" title="An agent is driving — not you">🤖 AGENT</span>` : ''}
         ${tabIntent
           ? `${hasFocus ? `<span class="link-icon" title="${isTabLinked ? 'Tab linked to active focus' : 'Tab NOT linked to active focus'}" style="font-size:10px;margin-right:3px;opacity:${isTabLinked ? '1' : '0.5'};">${isTabLinked ? '🔗' : '⚡'}</span>` : ''}<span class="intent-label" id="intent-label-click" title="Click to mark complete: ${tabIntent}">${tabIntent}</span>`
           : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent">No intent set</span>`
@@ -502,6 +526,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
       <div class="right">
         ${activeFocus?.letMeCook ? `<span style="font-size:12px;margin-right:6px;" title="Let Me Cook Mode is active">🍳</span>` : ''}
         ${focusEndTime ? `<span class="timer timer-down" id="focus-countdown" title="Focus countdown">--:--</span>` : ''}
+        <button class="bar-btn agent-btn${agentActive ? ' is-agent' : ''}" id="agent-btn" title="${agentActive ? 'Agent is driving — click to hand control back to you' : 'Mark this session as agent-driven'}">🤖</button>
         <button class="bar-btn" id="edit-btn" title="Edit intent / Assign to focus">✏️</button>
         <button class="bar-btn" id="checkpoint-btn" title="Checkpoint — log progress note" style="${activeFocus?.lastCheckpointAt && (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000 ? 'color:#ffa726;' : ''}">📋</button>
         <button class="bar-btn" id="refresh-btn" title="Refresh InBar state">🔄</button>
@@ -572,7 +597,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
 
   // 8. Nub (collapsed toggle)
   const nub = document.createElement('div');
-  nub.className = `nub${currentNote ? ' has-note' : ''}${isPaused ? ' is-paused' : ''}`;
+  nub.className = `nub${currentNote ? ' has-note' : ''}${isPaused ? ' is-paused' : ''}${agentActive ? ' is-agent' : ''}`;
   nub.innerHTML = isPaused ? '⏸' : '◉';
   nub.title = isPaused ? 'Paused — click to expand InBar' : 'Show Tabatha InBar';
   shadow.appendChild(nub);
@@ -737,8 +762,8 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
   // Re-render bar and rebind events after pause/resume
   const refreshBar = () => {
     bar.innerHTML = buildBarHTML();
-    bar.className = isPaused ? 'bar paused' : 'bar';
-    nub.className = `nub${currentNote ? ' has-note' : ''}${isPaused ? ' is-paused' : ''}`;
+    bar.className = barClass();
+    nub.className = `nub${currentNote ? ' has-note' : ''}${isPaused ? ' is-paused' : ''}${agentActive ? ' is-agent' : ''}`;
     nub.innerHTML = isPaused ? '⏸' : '◉';
     nub.title = isPaused ? 'Paused — click to expand InBar' : 'Show Tabatha InBar';
     stickyOverlay.classList.toggle('hidden', !isPaused);
@@ -818,6 +843,32 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
             if (input) input.focus();
           }
         }
+      };
+    }
+
+    // C11a — Agent-driven toggle (machine-scoped controller span)
+    const agentBtn = shadow.getElementById('agent-btn');
+    if (agentBtn) {
+      agentBtn.onclick = async () => {
+        try {
+          if (agentActive) {
+            await chrome.runtime.sendMessage({ type: 'END_AGENT_SESSION', id: agentSessionId, scope: 'machine' });
+            agentActive = false;
+            agentSessionId = null;
+          } else {
+            const res = await chrome.runtime.sendMessage({ type: 'START_AGENT_SESSION', scope: 'machine', agentName: 'manual', source: 'manual' });
+            if (res?.session) { agentActive = true; agentSessionId = res.session.id; }
+          }
+          if (!isPaused) {
+            bar.innerHTML = buildBarHTML();
+            intentTimerEl = shadow.getElementById('intent-timer');
+            taskTimerEl = shadow.getElementById('task-timer');
+            countdownEl = shadow.getElementById('focus-countdown');
+          }
+          bar.className = barClass();
+          nub.className = `nub${currentNote ? ' has-note' : ''}${isPaused ? ' is-paused' : ''}${agentActive ? ' is-agent' : ''}`;
+          bindBarEvents();
+        } catch (e) { /* send failed */ }
       };
     }
 

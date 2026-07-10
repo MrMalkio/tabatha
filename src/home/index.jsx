@@ -1461,6 +1461,51 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
 // change, which is out of scope for this slice. Renders nothing unless voice
 // is enabled in settings AND the browser supports SpeechRecognition.
 // ════════════════════════════════════════════
+// C11a — Agent-driven session chip. Visible ONLY while a machine/window-scoped
+// controller span is open anywhere in this install; clicking it ends the span.
+// Self-contained (mirrors VoiceNoteButton) — reads via LIST_AGENT_SESSIONS and
+// re-reads whenever the agentSessions storage key changes.
+function AgentSessionChip() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const r = await sendMessage('LIST_AGENT_SESSIONS', {});
+        const open = (r?.open || []).filter((s) => s.scope === 'machine' || s.scope === 'window');
+        if (mounted) setSession(open.length ? open[open.length - 1] : null);
+      } catch { /* service unavailable */ }
+    };
+    load();
+    const listener = (changes) => { if (changes.agentSessions) load(); };
+    chrome.storage.local.onChanged.addListener(listener);
+    return () => { mounted = false; chrome.storage.local.onChanged.removeListener(listener); };
+  }, []);
+
+  if (!session) return null;
+
+  const end = async () => {
+    try { await sendMessage('END_AGENT_SESSION', { id: session.id }); setSession(null); } catch { /* noop */ }
+  };
+
+  return (
+    <Tooltip text="An agent is marked as driving this session — click to end it">
+      <button
+        onClick={end}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '5px',
+          background: '#7c4dff1f', border: '1px solid #7c4dff66', borderRadius: 'var(--radius-md)',
+          color: '#b388ff', padding: '3px 9px', fontSize: '11px', fontWeight: 600,
+          cursor: 'pointer', backdropFilter: 'var(--surface-blur)', whiteSpace: 'nowrap'
+        }}
+      >
+        🤖 Agent session · end
+      </button>
+    </Tooltip>
+  );
+}
+
 function VoiceNoteButton({ enabled }) {
   const [listening, setListening] = useState(false);
   const [confirm, setConfirm] = useState('');
@@ -1786,6 +1831,7 @@ function Home() {
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
+            <AgentSessionChip />
             <CompanionStatus compact />
             <VoiceNoteButton enabled={!!settings.voice?.enabled} />
             <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span>

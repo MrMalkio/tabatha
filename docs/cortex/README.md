@@ -26,8 +26,10 @@ Each cluster below has its own independent, expandable feature file so it can be
 | C7 | Recommendation & Action Layer | Phase 1 (read-only) / Phase 2 (execution) | [C7-recommendation-action-layer.md](./features/C7-recommendation-action-layer.md) |
 | C8 | Agent Orchestration & Routing (Autonomy Ladder) | Phase 1 (cron-in-harness) / Phase 2+ | [C8-agent-orchestration-routing.md](./features/C8-agent-orchestration-routing.md) |
 | C9 | Voice & Audio (two-way + 3 hotkeys + dictation) | Phase 3 | [C9-voice-audio.md](./features/C9-voice-audio.md) |
-| C10 | Passive Self-Correction | Phase 3 | [C10-passive-self-correction.md](./features/C10-passive-self-correction.md) |
+| C10 | Passive Self-Correction | Phase 3 (v1 shipped 2026-07-10) | [C10-passive-self-correction.md](./features/C10-passive-self-correction.md) |
+| C10a | AI Context Reconciliation & Confirmation Panel | Phase 3–4 | [C10a-context-reconciliation-panel.md](./features/C10a-context-reconciliation-panel.md) |
 | C11 | Cross-Signal Attention Accounting | Phase 5 | [C11-cross-signal-attention-accounting.md](./features/C11-cross-signal-attention-accounting.md) |
+| C11a | Agent-vs-Human Attribution Surfaces | v1 shipped 2026-07-10 | [C11a-agent-interaction-surfaces.md](./features/C11a-agent-interaction-surfaces.md) |
 | C12 | Team / Onboarding SOP Mode | Phase 4 | [C12-team-onboarding-sop-mode.md](./features/C12-team-onboarding-sop-mode.md) |
 | C13 | Environment & Mobile | Phase 5 | [C13-environment-mobile.md](./features/C13-environment-mobile.md) |
 | C14 | Agent Data Map & Governance | Phase 1 | [C14-agent-data-map-governance.md](./features/C14-agent-data-map-governance.md) |

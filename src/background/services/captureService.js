@@ -25,6 +25,7 @@ import * as settingsService from './settingsService.js';
 import { decideCapture, captureSurface } from '../../utils/captureDecision.js';
 import { evaluateCapture } from '../../utils/sensitiveDataGuard.js';
 import { normalizeObservation, partitionOf } from '../../utils/observationLedger.js';
+import { findActiveSession } from '../../utils/agentSessionStore.js';
 import {
   computeRedactionRects,
   buildCaptureFilename,
@@ -85,9 +86,39 @@ export function recordObservation(raw, clockState = 'clocked_out', extra = {}) {
   return serialized(() => recordObservationInner(raw, clockState, extra));
 }
 
+// C11a: is an agent-controller span (agentSessions key) currently covering the
+// target this observation is about? Cheap single storage read; returns the
+// { controller, source } to stamp, or null. Never throws — attribution is
+// additive best-effort, it must never break capture.
+async function resolveController(raw) {
+  try {
+    const { agentSessions } = await getStorage('agentSessions');
+    if (!Array.isArray(agentSessions) || !agentSessions.length) return null;
+    const span = findActiveSession(agentSessions, {
+      tabId: raw?.tabId ?? null,
+      windowId: raw?.windowId ?? null,
+      now: raw?.at ?? Date.now()
+    });
+    return span ? { controller: 'ai-agent', source: span.source } : null;
+  } catch {
+    return null;
+  }
+}
+
 async function recordObservationInner(raw, clockState = 'clocked_out', extra = {}) {
   const rec = { ...normalizeObservation(raw), ...extra };
   rec.partition = partitionOf(rec, clockState);
+
+  // Stamp controller attribution when an agent span covers this tab/window/
+  // machine — unless the caller already stamped it explicitly (e.g. the
+  // agent-session start/end signals stamp their own controller).
+  if (rec.controller === undefined) {
+    const ctrl = await resolveController(raw);
+    if (ctrl) {
+      rec.controller = ctrl.controller;
+      rec.controllerSource = ctrl.source;
+    }
+  }
 
   const { [LEDGER_KEY]: prev } = await getStorage(LEDGER_KEY);
   const settings = await getSettings();
@@ -257,7 +288,10 @@ async function captureNowInner({ target = {}, event, clockState } = {}) {
   const guard = evaluateCapture(target, settings.sensitiveRules || []);
   const baseRaw = {
     at: Date.now(), surface: target.surface || 'browser', host: target.host,
-    appName: target.appName, title: target.title
+    appName: target.appName, title: target.title,
+    // Carried only for C11a controller resolution (normalizeObservation drops
+    // them — they never land on the stored record).
+    tabId: target.tabId ?? null, windowId: target.windowId ?? null
   };
 
   if (guard.suppress) {
