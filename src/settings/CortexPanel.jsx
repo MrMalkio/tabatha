@@ -35,7 +35,22 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
     sendMessage('LIST_RECOMMENDATIONS').then((r) => setRecs(r?.recommendations || [])).catch(() => {});
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  // Live status: re-fetch when the master toggle flips (prop) and whenever
+  // capture state / ledger / recommendations change in storage — the panel
+  // previously fetched once on mount and went stale (Malkio 2026-07-10:
+  // toggle ON but status card stuck on OFF).
+  useEffect(() => { refresh(); }, [refresh, settings.screenshotCapture]);
+
+  useEffect(() => {
+    const onStorage = (changes, area) => {
+      if (area !== 'local') return;
+      if (changes.cortexCaptureState || changes.cortexLedger || changes.cortexRecommendations || changes.settings) {
+        refresh();
+      }
+    };
+    try { chrome.storage.onChanged.addListener(onStorage); } catch { /* dev env */ }
+    return () => { try { chrome.storage.onChanged.removeListener(onStorage); } catch { /* dev env */ } };
+  }, [refresh]);
 
   const decide = async (id, status) => {
     await sendMessage('SET_RECOMMENDATION_STATUS', { id, status }).catch(() => {});
