@@ -15,6 +15,7 @@ import { useSyncStatus } from '../hooks/useSyncStatus';
 import { formatTime } from '../utils/formatTime';
 import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
+import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -144,6 +145,10 @@ function Sidebar() {
   // A4: compact sync-health chip (shares deriveSyncState with Settings).
   const syncStatus = useSyncStatus();
 
+  // NB-05: gate CLOCK-IN behind the abandoned-stint modal.
+  const [abandonedOpen, setAbandonedOpen] = useState(false);
+  const selfClassification = identity?.classification || 'professional';
+
   const guardedClockToggle = () => {
     if (clockSession?.active) {
       sendMessage('CLOCK_OUT');
@@ -151,14 +156,15 @@ function Sidebar() {
     }
     // Only a genuinely live install of the same classification stacks hours;
     // stale/abandoned or different-classification installs don't warn.
-    const selfClassification = identity?.classification || 'professional';
     const stacking = otherProfiles.filter(p => isLiveConcurrent(p, selfClassification));
     if (stacking.length > 0) {
       const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
       const ok = window.confirm(`You're clocked in on another live install of the same type:\n${lines}\n\nClocking in here too runs concurrent shifts that can double-count hours. Continue?\n\n(Clear abandoned shifts in Work Shifts → Live Stints.)`);
       if (!ok) return;
     }
-    sendMessage('CLOCK_IN');
+    // NB-05: surface the user's OWN abandoned stints before dispatching CLOCK_IN.
+    // The modal re-checks freshness and self-resolves if nothing is abandoned.
+    setAbandonedOpen(true);
   };
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
@@ -329,9 +335,10 @@ function Sidebar() {
             <Tooltip text={`${tabCount} tabs · ${formatTime(totalTime)} active`}>
               <span style={{ fontSize:'9px', color:'var(--color-text-muted)' }}>{tabCount}t · {formatTime(totalTime)}</span>
             </Tooltip>
-            <Tooltip text={syncStatus.tip}>
+            <Tooltip text={`${syncStatus.tip} — click to open Sync & Account`}>
               <button
-                onClick={() => sendMessage('SYNC_NOW')}
+                onClick={() => chrome?.tabs?.create?.({ url: chrome.runtime.getURL('settings.html#sync') })}
+                title="Open Sync & Account settings"
                 style={{ fontSize:'8px', fontWeight:700, padding:'1px 5px', borderRadius:'6px', border:'none', cursor:'pointer', color:syncStatus.color, background:syncStatus.bg, letterSpacing:'0.02em', lineHeight:1.6 }}
               >
                 {syncStatus.label}
@@ -449,9 +456,8 @@ function Sidebar() {
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                     <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
                     <Tooltip text="Checkpoint note"><button onClick={() => setShowCheckpoint(p => !p)} style={btn(isCheckpointStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isCheckpointStale ? '🟠' : ''}</button></Tooltip>
-                    {(activeFocus.checkpoint || []).length > 0 && (
-                      <Tooltip text="View/edit checkpoint timeline"><button onClick={() => setShowTimeline(p => !p)} style={btn(showTimeline ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
-                    )}
+                    {/* NB-09: always reachable — the panel hosts time editing even with zero checkpoints */}
+                    <Tooltip text="View timeline / edit tracked time"><button onClick={() => setShowTimeline(p => !p)} style={btn(showTimeline ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
                     <Tooltip text={activeFocus.offDevice ? 'Off-device ON — idle suppressed' : 'Mark as off-device — idle won\'t pause this focus'}>
                       <button onClick={() => sendMessage('UPDATE_FOCUS', { focusId: activeFocus.id, offDevice: !activeFocus.offDevice })} style={btn(activeFocus.offDevice ? '#ef5350' : 'var(--color-text-muted)')}>{activeFocus.offDevice ? '📴' : '📱'}</button>
                     </Tooltip>
@@ -749,6 +755,14 @@ function Sidebar() {
 
         </AnimatePresence>
       </div>
+
+      {/* NB-05: abandoned-stint surfacing at clock-in */}
+      <AbandonedStintsModal
+        isOpen={abandonedOpen}
+        selfClassification={selfClassification}
+        onResolved={() => { setAbandonedOpen(false); sendMessage('CLOCK_IN'); }}
+        onClose={() => setAbandonedOpen(false)}
+      />
     </div>
   );
 }

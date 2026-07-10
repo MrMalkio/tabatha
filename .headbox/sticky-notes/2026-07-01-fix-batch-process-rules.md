@@ -26,3 +26,16 @@ Governs the batch parent `[Caspera] Tabatha v6.4.x Fix Batch — dogfood finding
   (a version-seen flag in storage), and the full changelog is always reachable from Settings.
 - **No silent deploys:** if it shipped, it has a changelog line. This is what makes the
   popup trustworthy — it can't drift from what actually changed.
+
+## Migration / deploy ordering (added 2026-07-01 after the `focus_items.priority` sync bug)
+
+- **Never merge or ship a client change that reads/writes a NEW DB column or RPC before
+  that migration is applied to the live database.** The v6.5.0 sync failure
+  (`focus_items_upsert_failed: Could not find the 'priority' column`) happened because
+  FIX-10's client write shipped while migration 021 sat unapplied (parked on the Supabase token).
+- Order for any migration-bearing change: (1) apply the migration to prod (or gate the client
+  path behind it), (2) THEN merge/deploy the client that depends on it. If they must ship
+  together, the client must **degrade gracefully** when the column/RPC is absent
+  (feature-detect / omit) and never hard-fail the whole sync block.
+- The changelog entry for a migration-bearing change should call out the apply step so the
+  deploy step can't forget it.

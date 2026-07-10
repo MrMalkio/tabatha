@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isLiveConcurrent,
+  isOwnAbandonedStint,
   reconstructStintFromStatus,
   resolveAttributionTarget,
   classifyInstallForCleanup
@@ -58,6 +59,71 @@ test('isLiveConcurrent: different business classes are legitimate', () => {
 test('isLiveConcurrent: missing fields → false', () => {
   assert.equal(isLiveConcurrent({}, 'professional'), false);
   assert.equal(isLiveConcurrent(null, 'professional'), false);
+});
+
+// ── isOwnAbandonedStint ──────────────────────────────────────────
+test('isOwnAbandonedStint: stale same-class clocked_in is abandoned', () => {
+  const row = { stale: true, online: false, clock_state: 'clocked_in', classification: 'professional' };
+  assert.equal(isOwnAbandonedStint(row, 'professional'), true);
+});
+
+test('isOwnAbandonedStint: stale same-class on_break is abandoned', () => {
+  const row = { stale: true, online: false, clock_state: 'on_break', classification: 'professional' };
+  assert.equal(isOwnAbandonedStint(row, 'professional'), true);
+});
+
+test('isOwnAbandonedStint: live (online, not stale) install is NOT abandoned', () => {
+  const row = { stale: false, online: true, clock_state: 'clocked_in', classification: 'professional' };
+  assert.equal(isOwnAbandonedStint(row, 'professional'), false);
+});
+
+test('isOwnAbandonedStint: clocked_out stale row is NOT abandoned (no open shift)', () => {
+  const row = { stale: true, online: false, clock_state: 'clocked_out', classification: 'professional' };
+  assert.equal(isOwnAbandonedStint(row, 'professional'), false);
+});
+
+test('isOwnAbandonedStint: self row is never abandoned (surfaced elsewhere)', () => {
+  const row = { is_self: true, stale: true, online: false, clock_state: 'clocked_in', classification: 'professional' };
+  assert.equal(isOwnAbandonedStint(row, 'professional'), false);
+});
+
+test('isOwnAbandonedStint: different classification is not abandoned-for-me', () => {
+  const row = { stale: true, online: false, clock_state: 'clocked_in', classification: 'business' };
+  assert.equal(isOwnAbandonedStint(row, 'professional'), false);
+});
+
+test('isOwnAbandonedStint: personal classification never abandoned (not billable)', () => {
+  const row = { stale: true, online: false, clock_state: 'clocked_in', classification: 'personal' };
+  assert.equal(isOwnAbandonedStint(row, 'personal'), false);
+});
+
+test('isOwnAbandonedStint: missing fields → false', () => {
+  assert.equal(isOwnAbandonedStint({}, 'professional'), false);
+  assert.equal(isOwnAbandonedStint(null, 'professional'), false);
+});
+
+// The abandoned set and the live-concurrent set must NEVER overlap: a single
+// install is at most one of "live conflict" or "abandoned" for a given self
+// classification. This is the invariant Koda flagged (not a raw inverse).
+test('isOwnAbandonedStint ∩ isLiveConcurrent = ∅ across a representative sample', () => {
+  const states = ['clocked_in', 'on_break', 'clocked_out', null];
+  const classes = ['professional', 'business', 'personal', null];
+  const bools = [true, false];
+  const selfClasses = ['professional', 'personal'];
+  for (const clock_state of states)
+    for (const classification of classes)
+      for (const online of bools)
+        for (const stale of bools)
+          for (const is_self of bools)
+            for (const selfClassification of selfClasses) {
+              const row = { clock_state, classification, online, stale, is_self };
+              const abandoned = isOwnAbandonedStint(row, selfClassification);
+              const live = isLiveConcurrent(row, selfClassification);
+              assert.ok(
+                !(abandoned && live),
+                `overlap for ${JSON.stringify({ row, selfClassification })}`
+              );
+            }
 });
 
 // ── reconstructStintFromStatus ───────────────────────────────────

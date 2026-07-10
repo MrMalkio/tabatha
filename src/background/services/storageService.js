@@ -19,8 +19,41 @@ export async function getStorage(keys) {
   return chrome.storage.local.get(keys);
 }
 
+// 2026-07-05 pause/resume outage: chrome.storage.local hit its 10MB
+// QUOTA_BYTES cap (manifest lacked "unlimitedStorage"), so EVERY write —
+// PAUSE_FOCUS, RESUME_FOCUS, clock, edits — rejected with
+// "Resource::kQuotaBytes quota exceeded" while reads kept working. The UI
+// swallowed the {error} responses, so the extension looked alive but no
+// state change persisted. "unlimitedStorage" now removes the cap; this
+// guard makes any future write failure LOUD instead of silent.
+let _lastWriteFailureNoticeAt = 0;
+const WRITE_FAILURE_NOTICE_INTERVAL_MS = 10 * 60000;
+
+// Test seam: reset the notice throttle (node --test runs share module state).
+export function _resetWriteFailureNotice() {
+  _lastWriteFailureNoticeAt = 0;
+}
+
 export async function setStorage(data) {
-  return chrome.storage.local.set(data);
+  try {
+    return await chrome.storage.local.set(data);
+  } catch (err) {
+    const now = Date.now();
+    if (now - _lastWriteFailureNoticeAt > WRITE_FAILURE_NOTICE_INTERVAL_MS) {
+      _lastWriteFailureNoticeAt = now;
+      console.error('[Tabatha:storage] WRITE FAILED — state changes are NOT persisting:', err?.message || err);
+      try {
+        chrome.notifications?.create?.('tabatha-storage-write-failure', {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+          title: 'Tabatha — storage write failed',
+          message: `Changes are not saving (${err?.message || 'unknown error'}). Reload the extension; if it persists, clear old logs/archives in Settings.`,
+          requireInteraction: true
+        });
+      } catch { /* notifications best-effort */ }
+    }
+    throw err;
+  }
 }
 
 export async function getSettings() {

@@ -99,6 +99,126 @@ test('collectIdleSuppressors suppresses on recent companion activity', async () 
   assert.ok(sup.some(s => s.type === 'companion' && s.app === 'VS Code'));
 });
 
+// ── NB-09: offline-gap detector ──
+
+const MIN = 60000;
+
+function gapEngine(over = {}) {
+  return {
+    activeFocusId: 'f1',
+    items: {
+      f1: {
+        id: 'f1', label: 'Deep work', focusState: 'active',
+        elapsedMs: 10 * MIN, lastResumedAt: minsAgo(45), startedAt: minsAgo(60),
+        checkpoint: [], funnelStage: 'addressing', ...over
+      }
+    }
+  };
+}
+
+test('NB-09: checkOfflineGap retro-pauses at the gap start and routes through the idle-prompt machinery exactly once', async () => {
+  const engine = gapEngine();
+  const lastAlive = Date.now() - 40 * MIN; // resumed 45m ago, heartbeat died 40m ago
+  const chrome = configure({
+    engine,
+    store: { _lastAliveAt: lastAlive, settings: { offlineGapThresholdMinutes: 10 } }
+  });
+  const sent = [];
+  chrome.runtime.sendMessage = async (m) => { sent.push(m); };
+
+  const r1 = await clock.checkOfflineGap('test');
+  assert.ok(r1, 'expected a gap verdict');
+  assert.equal(r1.trimmed, true);
+
+  const f1 = engine.items.f1;
+  assert.equal(f1.focusState, 'paused');
+  assert.equal(f1.pausedReason, 'offline_gap');
+  assert.equal(f1.lastResumedAt, null);
+  // Credited ONLY up to the last heartbeat: 45m resumed − 40m gap = ~5m credit → ~15m stored.
+  assert.ok(f1.elapsedMs >= 14.8 * MIN && f1.elapsedMs <= 15.2 * MIN, `elapsed was ${f1.elapsedMs}`);
+  // Retro-paused AT the gap start, not at now.
+  assert.ok(Math.abs(new Date(f1.pausedAt).getTime() - lastAlive) < 1000, `pausedAt was ${f1.pausedAt}`);
+  // System checkpoint starts with "Paused" so remove-last-pause can splice it.
+  assert.ok(f1.checkpoint.some(c => c.triggeredBy === 'system' && /^Paused \(offline gap/.test(c.text)), 'expected a Paused checkpoint');
+
+  // Routed through the EXISTING _idlePrompt machinery, exactly once.
+  const prompts = sent.filter(m => m?.type === 'IDLE_PROMPT');
+  assert.equal(prompts.length, 1);
+  assert.equal(prompts[0].source, 'gap');
+  assert.ok(prompts[0].gapMs >= 39.8 * MIN, `gapMs was ${prompts[0].gapMs}`);
+  assert.equal(chrome._storage._idlePrompt?.source, 'gap');
+
+  // Heartbeat refreshed — an immediate re-check must not re-detect the gap.
+  const r2 = await clock.checkOfflineGap('test');
+  assert.equal(r2, null);
+  assert.equal(sent.filter(m => m?.type === 'IDLE_PROMPT').length, 1, 'a second prompt must never stack');
+});
+
+test('NB-09: checkOfflineGap under threshold or with a paused focus does nothing', async () => {
+  // Under threshold.
+  let engine = gapEngine();
+  configure({ engine, store: { _lastAliveAt: Date.now() - 3 * MIN, settings: { offlineGapThresholdMinutes: 10 } } });
+  assert.equal(await clock.checkOfflineGap('test'), null);
+  assert.equal(engine.items.f1.focusState, 'active');
+
+  // Paused focus — nothing accruing, nothing to trim.
+  engine = gapEngine({ focusState: 'paused', lastResumedAt: null });
+  configure({ engine, store: { _lastAliveAt: Date.now() - 40 * MIN, settings: {} } });
+  assert.equal(await clock.checkOfflineGap('test'), null);
+  assert.equal(engine.items.f1.focusState, 'paused');
+});
+
+test('NB-09: active companion during the gap suppresses the auto-trim but still surfaces the prompt as info', async () => {
+  const engine = gapEngine();
+  const chrome = configure({
+    engine,
+    store: { _lastAliveAt: Date.now() - 40 * MIN, settings: { offlineGapThresholdMinutes: 10 } },
+    companion: { isRecentlyActive: () => true, getActiveApp: () => ({ name: 'VS Code' }) }
+  });
+  const sent = [];
+  chrome.runtime.sendMessage = async (m) => { sent.push(m); };
+
+  const r = await clock.checkOfflineGap('test');
+  assert.ok(r, 'expected a gap verdict');
+  assert.equal(r.trimmed, false);
+  // Focus keeps running — the accrued time is probably legitimate off-Chrome work.
+  assert.equal(engine.items.f1.focusState, 'active');
+  assert.ok(engine.items.f1.lastResumedAt, 'lastResumedAt must survive a suppressed trim');
+
+  const prompts = sent.filter(m => m?.type === 'IDLE_PROMPT');
+  assert.equal(prompts.length, 1);
+  assert.equal(prompts[0].source, 'gap');
+  assert.equal(prompts[0].trimmed, false);
+  assert.ok(prompts[0].suppressors.some(s => s.type === 'companion'));
+});
+
+test('NB-09: a fresh pending _idlePrompt blocks a second gap prompt (single-flight guard)', async () => {
+  const engine = gapEngine();
+  const chrome = configure({
+    engine,
+    store: {
+      _lastAliveAt: Date.now() - 40 * MIN,
+      settings: { offlineGapThresholdMinutes: 10 },
+      _idlePrompt: { id: 'idle_x', focusId: 'f1', ts: Date.now() - 2 * MIN }
+    }
+  });
+  const sent = [];
+  chrome.runtime.sendMessage = async (m) => { sent.push(m); };
+
+  const r = await clock.checkOfflineGap('test');
+  assert.equal(r, null);
+  assert.equal(sent.filter(m => m?.type === 'IDLE_PROMPT').length, 0);
+  assert.equal(engine.items.f1.focusState, 'active', 'focus untouched while another prompt is pending');
+  assert.equal(chrome._storage._idlePrompt.id, 'idle_x', 'pending prompt must not be clobbered');
+});
+
+test('NB-09: off-device focuses are exempt from gap retro-pausing', async () => {
+  const engine = gapEngine({ offDevice: true });
+  configure({ engine, store: { _lastAliveAt: Date.now() - 40 * MIN, settings: {} } });
+  assert.equal(await clock.checkOfflineGap('test'), null);
+  assert.equal(engine.items.f1.focusState, 'active');
+});
+
 test('hardPauseActiveFocus pauses the active focus and accrues elapsed', async () => {
   const engine = {
     activeFocusId: 'f1',

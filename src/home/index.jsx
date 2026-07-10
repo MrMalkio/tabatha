@@ -26,6 +26,7 @@ import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { useKeyboardShortcuts, ShortcutsHelp } from '../components/ui/KeyboardShortcuts';
 import { VoiceInput } from '../components/ui/VoiceInput';
 import { WhatsNewModal } from '../components/ui/WhatsNewModal';
+import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 import { useWhatsNew } from '../hooks/useWhatsNew';
 import { useOrgData } from '../hooks/useOrgData';
 
@@ -247,11 +248,10 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         <Tooltip text={`Checkpoint note${isStale ? ' (overdue!)' : ''}`}>
           <button onClick={() => setShowCPN(!showCPN)} style={btnStyle(isStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isStale ? '🟠' : ''}{cpnCount > 0 ? ` (${cpnCount})` : ''}</button>
         </Tooltip>
-        {cpnTotalCount > 0 && (
-          <Tooltip text="View checkpoint timeline">
-            <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
-          </Tooltip>
-        )}
+        {/* NB-09: always reachable — the panel hosts time editing even with zero checkpoints */}
+        <Tooltip text="View timeline / edit tracked time">
+          <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
+        </Tooltip>
       </div>
       {/* Inline edit panel */}
       <AnimatePresence>
@@ -339,7 +339,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       </AnimatePresence>
       {/* Plan 025/037: Checkpoint Timeline — shared component */}
       <AnimatePresence>
-        {showTimeline && cpnTotalCount > 0 && (
+        {showTimeline && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
             <CheckpointTimeline
               activeFocus={activeFocus}
@@ -1715,22 +1715,32 @@ function Home() {
 
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
+  // NB-05: gate CLOCK-IN behind the abandoned-stint modal.
+  const [abandonedOpen, setAbandonedOpen] = useState(false);
+  const selfClassification = identity?.classification || 'professional';
+
+  const dispatchClockIn = useCallback(async () => {
+    setClockDebug('Sending CLOCK_IN...');
+    const res = await sendMessage('CLOCK_IN');
+    setClockDebug('CLOCK_IN → ' + JSON.stringify(res));
+    if (res?.error) logger.error('CLOCK', 'Clock-in failed', res);
+  }, []);
+
   const handleClockIn = async () => {
     // Stacking warning: only a *genuinely live* install of the SAME
     // classification stacks hours. Stale/abandoned installs and installs of a
     // different classification (personal, another business) are legitimate
     // and don't warn — that conflation was the old false-alarm bug.
-    const selfClassification = identity?.classification || 'professional';
     const stacking = otherProfiles.filter(p => isLiveConcurrent(p, selfClassification));
     if (stacking.length > 0) {
       const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
       const ok = window.confirm(`You're clocked in on another live install of the same type:\n${lines}\n\nClocking in here too runs concurrent shifts that can double-count hours. Continue?\n\n(To clear abandoned shifts, use Work Shifts → Live Stints.)`);
       if (!ok) return;
     }
-    setClockDebug('Sending CLOCK_IN...');
-    const res = await sendMessage('CLOCK_IN');
-    setClockDebug('CLOCK_IN → ' + JSON.stringify(res));
-    if (res?.error) logger.error('CLOCK', 'Clock-in failed', res);
+    // NB-05: surface the user's OWN abandoned stints (between the live-concurrent
+    // warning and the CLOCK_IN dispatch). The modal re-checks freshness and, if
+    // nothing is abandoned, resolves immediately → clock-in proceeds.
+    setAbandonedOpen(true);
   };
   const handleClockOut = async () => {
     setClockDebug('Sending CLOCK_OUT...');
@@ -2361,6 +2371,14 @@ function Home() {
         version={whatsNew.version}
         releases={whatsNew.releases}
         onClose={whatsNew.dismiss}
+      />
+
+      {/* NB-05: abandoned-stint surfacing at clock-in */}
+      <AbandonedStintsModal
+        isOpen={abandonedOpen}
+        selfClassification={selfClassification}
+        onResolved={() => { setAbandonedOpen(false); dispatchClockIn(); }}
+        onClose={() => setAbandonedOpen(false)}
       />
     </div>
   );

@@ -1547,18 +1547,25 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
     }
 
     // ── Plan 036: Smart Idle Prompt (singleton) ──
+    // NB-09: also carries offline-gap prompts (source:'gap') — same response
+    // machinery (IDLE_PROMPT_RESPONSE), welcome-back copy + credit option.
     if (msg.type === 'IDLE_PROMPT') {
       if (document.getElementById('tabatha-popup-overlay')) return; // singleton
       const overlay = _createOverlay();
       const card = _createCard();
+      const isGap = msg.source === 'gap';
+      const gapMins = Math.round((msg.gapMs || 0) / 60000);
+      const gapBody = msg.trimmed
+        ? `Tabatha was offline for ~${gapMins}m while <strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong> was running.<br>Its timer was paused back at the gap start — were you still working?`
+        : `Tabatha was offline for ~${gapMins}m while <strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong> was running.<br>You looked active off-Chrome, so the timer kept running — sound right?`;
       card.innerHTML = `
-        <div style="font-size:30px;margin-bottom:8px;">💤</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Still on task?</div>
-        <div style="font-size:13px;color:#aaa;margin-bottom:14px;">Chrome's been quiet, but you might still be working on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong></div>
+        <div style="font-size:30px;margin-bottom:8px;">${isGap ? '👋' : '💤'}</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">${isGap ? 'Welcome back!' : 'Still on task?'}</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:14px;">${isGap ? gapBody : `Chrome's been quiet, but you might still be working on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong>`}</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
-          <button id="idle-ontask" style="${_popupBtnStyle('#66bb6a')}">✅ Yes, on task</button>
+          <button id="idle-ontask" style="${_popupBtnStyle('#66bb6a')}">${isGap ? (msg.trimmed ? '✅ I kept working — credit it' : '✅ Yes, keep the time') : '✅ Yes, on task'}</button>
           <button id="idle-diverged" style="${_popupBtnStyle('#ffa726')}">↪ I diverged</button>
-          <button id="idle-pause" style="${_popupBtnStyle('#888')}">⏸ Pause focus</button>
+          <button id="idle-pause" style="${_popupBtnStyle('#888')}">${isGap && msg.trimmed ? '⏸ Keep it paused' : '⏸ Pause focus'}</button>
         </div>`;
       overlay.appendChild(card);
       document.documentElement.appendChild(overlay);

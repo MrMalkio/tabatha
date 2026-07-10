@@ -19,7 +19,8 @@ import { getInstallIdentity } from '../../services/installIdentity.js';
 import {
   reconstructStintFromStatus,
   resolveAttributionTarget,
-  classifyInstallForCleanup
+  classifyInstallForCleanup,
+  isOwnAbandonedStint
 } from '../../utils/stintReconciliation.js';
 
 let deps = {};
@@ -397,6 +398,23 @@ async function fetchInstalls(supabase, profileId, selfId) {
       is_self: s.browser_profile_id === selfId
     };
   });
+}
+
+// NB-05: return the ACTIVE install's OWN abandoned same-class stints — installs
+// left clocked in/on-break that have gone stale without a proper clock-out.
+// Used by the headless auto-clock-in path (clockService.maybeAutoClockIn) to
+// decide whether to suppress silent clock-in and notify instead. Returns [] when
+// awareness isn't ready (no supabase / not signed in), so callers stay safe.
+export async function getOwnAbandonedStints() {
+  if (!deps.supabase || !activeProfileId) return [];
+  try {
+    const identity = await getInstallIdentity();
+    const selfClassification = identity?.classification || 'professional';
+    const installs = await fetchInstalls(deps.supabase, activeProfileId, activeBrowserProfileId);
+    return installs.filter(i => isOwnAbandonedStint(i, selfClassification));
+  } catch {
+    return [];
+  }
 }
 
 // FIX-10 — pure shaper (exported for tests). Takes raw focus_items rows and
