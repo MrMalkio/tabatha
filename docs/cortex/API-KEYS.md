@@ -33,7 +33,7 @@ Legend — **Have** = already provisioned somewhere in Flux · **Need** = must p
 | K7 | Unified routing / fallbacks / observability | **Vercel AI Gateway** | C8 · Phase 2 | ❓ **Need** if we adopt (optional) | ⏳ check Vercel |
 | K8 | External archive — OneDrive | **Microsoft Graph** (OAuth app) | C3 · Phase 2+ | ❌ **Need** (net-new) | — |
 | K9 | External archive — Google Drive | Google OAuth | C3 · Phase 2+ | ✅ via connector | — |
-| K10 | Premium TTS (optional, if OpenAI TTS insufficient) | ElevenLabs | C9 · Phase 3 | ❌ optional net-new | — |
+| K10 | Premium TTS (optional, if OpenAI TTS insufficient) | ElevenLabs | C9 · Phase 3 | ✅ **Have** (minted 2026-07-10, scoped TTS+STT only, key "Tabatha Cortex") | `.env.cortex.local` `ELEVENLABS_API_KEY` |
 | K11 | Asana (checkpoints, feedback→task) | Asana PAT / OAuth app | cross-cutting | ✅ **Have** (widget uses `ASANA_CLIENT_SECRET`) | `flux-asana-widget/.env` |
 
 ## ✅ VERDICT — what development actually needs
