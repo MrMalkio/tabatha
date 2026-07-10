@@ -797,11 +797,19 @@ function Settings() {
                       const backstop = setTimeout(() => setSyncingNow(false), 15000);
                       try {
                         const res = await chrome.runtime.sendMessage({ type: 'SYNC_NOW' });
-                        if (res?.success && res.lastSyncSuccess) {
-                          const newDiag = (res.recentDiagnostics || []).filter(d => new Date(d.at).getTime() > (Date.now() - 5000));
-                          if (newDiag.length === 0) setAuthError('✓ Synced ' + new Date(res.lastSyncSuccess).toLocaleTimeString());
+                        // Surface the outcome EITHER way — a failing sync must never
+                        // look like an unresponsive button (2026-07-10 finding: the
+                        // handler always returns success:true; failures only show up
+                        // as fresh diagnostic rows).
+                        const newDiag = (res?.recentDiagnostics || []).filter(d => new Date(d.at).getTime() > (Date.now() - 10000));
+                        if (newDiag.length > 0) {
+                          setAuthError(`⚠ Sync issue: ${newDiag[0].kind} — ${String(newDiag[0].detail || '').slice(0, 140)}`);
+                        } else if (res?.lastSyncSuccess) {
+                          setAuthError('✓ Synced ' + new Date(res.lastSyncSuccess).toLocaleTimeString());
+                        } else {
+                          setAuthError('⚠ Sync ran but nothing was pushed — check Sync Status below');
                         }
-                      } catch { /* shown via diagnostic */ } finally { clearTimeout(backstop); setSyncingNow(false); }
+                      } catch (e) { setAuthError(`⚠ Sync failed: ${e?.message || 'no response'}`); } finally { clearTimeout(backstop); setSyncingNow(false); }
                     }}
                     disabled={syncingNow}
                     title={pulseTarget === 'sync' ? 'Sync now (recommended)' : 'Sync now'}
