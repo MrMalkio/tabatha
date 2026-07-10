@@ -944,3 +944,16 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 - Suite: **408/408 node tests**, builds green both repos.
 
 **Next steps:** Malkio — reload extension, Supabase re-sign-in, ghost card removal, Phase 1 regression → v7.0.0. Engineering — 041 archive adapters; 042 voice (routed STT/TTS via live proxy, .pem-gated hotkeys); 043 T5 SOP + T6 Headbox placement; 044 wired later with 041 per Malkio.
+
+---
+
+## 2026-07-10 (night) — "Removed features" investigation → staging merge restoration (v6.6.0)
+
+**Report:** Malkio noticed the advanced intent time editor was gone. Three Sonnet analysts ran parallel audits:
+1. In-branch sweep: all 32 cortex commits verified — ZERO regressions/overwrites; every on-branch feature intact at HEAD.
+2. Time-editor hunt: the advanced editor = NB-09 (c429db5, authored by Malkio on staging Jul 5) — AFTER the cortex branch forked from main@6.5.0 (Jul 1). Never on this branch; never deleted.
+3. Fork-gap: staging = v6.6.0 with 17 commits we lacked (NB-03 roles, NB-04 analytics, NB-05 abandoned stints, NB-08 settings search, NB-09 time editing + gap detector, storage guard, PGRST204 sync resilience). Previous dist was built from that line.
+
+**Fix (Opus merge):** staging merged into the cortex branch @ 12f6147 — both feature sets verified coexisting (resumeFocus fallback re-preserved), version → 6.6.0, staging's colliding migration 022 renumbered → 026 and applied to Flux (local==remote @ 026). Tests 408 → **536 green**; build green; content scripts clean. Lesson reinforced: the pinned dist path serves whichever line the main dir is on — the build/load constraint's worktree warning was the mechanism.
+
+**Next:** Malkio reloads → verifies time editor back; NB-01/02 schedule profiles remain on their branch (explicitly gated) — bring over on request.

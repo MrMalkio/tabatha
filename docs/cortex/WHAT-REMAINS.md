@@ -1,4 +1,4 @@
-# Tabatha Cortex — What Remains (as of 2026-07-10 afternoon ET)
+# Tabatha Cortex — What Remains (as of 2026-07-10 evening ET · extension now v6.6.0)
 
 Synthesis of `docs/cortex/HANDOFF.md` (3 rounds, last 18h), `.headbox/plan-registry.md` rows 039–044,
 `docs/cortex/README.md`, `docs/cortex/PROGRAM-agent-control-layer.md`, `docs/progress.md`, and both
@@ -29,9 +29,10 @@ repo git logs (`Tabatha` @ `claude/tabatha-ai-integration-layer-91903b`, `tabath
 3. **Remove the ghost extension card** — CONFIRMED still present in Secure Preferences: `dphebjboopafmehmmcclgmhbgfahchde` (disabled, `disable_reasons:[4]`, pre-key path-derived) alongside the live `hoknmocl…`. It may render greyed/errored not as a normal card. Fix: toggle Developer-mode off/on to force a re-render, OR Remove Tabatha entirely + Load-unpacked once (collapses both path-entries into the keyed one).
 4. **Run the Phase 1 manual regression checklist** (`HANDOFF.md` "Phase 1 smoke test", incl. Voice v0) → bump `public/manifest.json` to **v7.0.0** + `npm run version:sync`. Gates flipping registry 040 to `completed`.
 5. **Program-spec Google Doc re-sync** — `00-cortex-program-spec.md` has 2 local additions not mirrored to the Drive doc. Low urgency.
-6. **Live Stints ghost card** — Work Shifts → Live Stints may show a stale install from the overnight reconnect cycle; Dismiss it (`DISMISS_INSTALL`). Distinct from #3.
+6. **Live Stints ghost card** — now easier: the restored NB-05 AbandonedStintsModal surfaces your own ghost stints at clock-in for one-click end-time/discard; or Dismiss in Work Shifts → Live Stints.
 
 ### Handled by Fable/agents (2026-07-10 PM) — no longer on you
+- ✅ **'Removed features' mystery solved + RESTORED** — nothing was deleted: the cortex branch forked from main@6.5.0 on Jul 1, while Malkio's previous dist came from staging (v6.6.0, NB-03→NB-09, incl. the advanced time editor authored Jul 5). Fixed by MERGING staging into the branch (12f6147): time-editing overhaul (typed durations, Set/Add/Subtract, live clamp preview, trim-to-last-activity, zero-checkpoint access), offline-gap detector, AbandonedStintsModal, work-shifts analytics, settings fuzzy search, storage-failure guard, PGRST204 sync resilience — all coexisting with the Cortex work. 536 tests green. Staging's colliding migration 022 renumbered to 026 and APPLIED to Flux (local==remote at 026). Three-analyst audit confirmed zero in-branch regressions across all 32 cortex commits.
 - ✅ **Companion v0.2.0 relaunched** clean (`Tabby Desk v0.2.0 (release)`, WS listening, extension reconnected); its **corrupted SQLite activity DB rebuilt** via raw b-tree salvage (372 sessions + 1 clock recovered), integrity ok.
 - ✅ **cortex-proxy deployed** (tier-② routing live; 401-protected; OpenAI secret set server-side).
 - ✅ **Migration 025 applied** — adds the `surface` CHECK (`browser/os/desktop/voice/mobile`) the docs wrongly assumed 022 had; voice cloud-sync unblocked. Local==remote at 025.
