@@ -3,6 +3,8 @@
 // dispatch runtime messages through the service chain.
 
 import { supabase } from '../services/supabaseClient';
+// NB-01/NB-02: required-hours shortfall detection at clock-out.
+import { getWorkRequirements, logShortfalls } from '../services/scheduleApi.js';
 import {
   setStorage,
   getTabData
@@ -143,7 +145,10 @@ configureClockService({
   getTabData,
   triggerSync,
   notifyAwarenessStateChange,
-  setAwarenessIdleState
+  setAwarenessIdleState,
+  // NB-01/NB-02: required-hours shortfall detection (fail-open when signed out).
+  supabase,
+  scheduleApi: { getWorkRequirements, logShortfalls }
 });
 
 configureFocusService({
