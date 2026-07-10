@@ -1,5 +1,7 @@
 # C9 — Voice & Audio (two-way + 3 hotkeys + dictation)
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1_w9TDB8h2HYqfNxXN64uaPK43qgH-9Y-2s9OxMDM7o8/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5 (C9), §7 (full detail), §8 (phasing)
 Origin: user (`SOURCE-braindumps.md` Dumps 2, 3, 4) + feature #211 (`docs/features/211-audio-input-voice-control.md`)

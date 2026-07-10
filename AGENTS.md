@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 18 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 19 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
 - **Current version:** 6.5.0
-- **Current focus:** Ghost-stint / concurrent-shift fix (Plan 036 follow-up). Migration 017 applied. Live Stints panel shipped. Build/load constraint documented in agent file.
+- **Current focus:** Cortex program (Plans 039/040–044). Phase 1 code-complete on `claude/tabatha-ai-integration-layer-91903b` — pending Malkio regression → v7.0.0. See `docs/cortex/HANDOFF.md`.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -181,6 +181,7 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-05-28 | Antigravity | Calendar Scoping & Plan 035 | Drafted Plan 035 detailed technical implementation plan (Unified Calendar, Month/Week/Day scheduling, Sidebar agenda, delta sync). Renumbered from 030. | Begin Phase 2 UI implementation (CalendarView, CalendarAgenda) |
 | 2026-05-28 | Antigravity | v5.8.0 Stabilization + SectionNav | Code audit (3 bugs fixed), auto-checkpoint system, sub-focus UX, video call suppression, SectionNav hover-expand refactor with smart toggle. Bumped 5.7.2→5.8.0. | Regression retest v5.8.0, Plan 035 Calendar execution, Companion sync parity |
 | 2026-06-04 | Claude (Opus 4.8) | Ghost-stint / concurrent-shift fix | Diagnosed 4 root causes (install identity not persisted, orphans never reconcile, stale filter counts dead installs, open stints not synced). Added migration 017 (local_id + machine_id + unique index on browser_profiles). Upsert on (profile_id, local_id) in syncService. New LIST_LIVE_STINTS/CLOCK_OUT_INSTALL/DISMISS_INSTALL/CLEAR_ALL_OFFLINE handlers in awarenessService. Live Stints panel in Work Shifts. isLiveConcurrent filter in home + sidebar. 26 unit tests for pure helpers (stintReconciliation.js). Promoted build/load constraint into AGENTS.md. | Apply migration 017 to Supabase, load 6.3.6 dist, verify Live Stints panel and ghost cleanup end-to-end |
+| 2026-07-10 | Claude (Fable 5, overnight) | Cortex program expansion + Phase 1 T4–T6 | Expanded all 15 C1–C15 feature files to full specs (6 parallel subagents) + Drive mirror; closed 3 braindump gaps in program spec; authored+registered Plans 041–044 (next: 045). Shipped Phase 1 T4 capture I/O (captureVisibleTab + redaction canvas + partitioned Downloads writes + listeners + dwell/nightly-export alarms + retention), T5 (cortexService + CortexPanel dashboard + harness cron bundles + economize-workflow.v1 prompt), T6 (DATA-MAP populated, workspace-map current). Opus diff review → 6 fixes (incognito fail-closed, serialized mutations, window-targeted capture, settingsService routing, fail-closed redaction, single erase listener). 256/256 tests, build green. 15 Asana C-subtasks + status update posted. | Malkio: Phase 1 manual regression → v7.0.0 bump (docs/cortex/HANDOFF.md); re-sync program-spec Google Doc (2 local additions); migration 022 apply decision; companion deploy gates Plan 041; reconcile C9↔#211 voice settings schema |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- END HEADBOX                                                        -->

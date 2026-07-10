@@ -1,5 +1,7 @@
 # C7 — Recommendation & Action Layer
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1HiQ03mfOTsivmvNa91ULw25ZgZrSJ0AcU2kr7Ceq9kk/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5
 Origin: video V8/V9/V10/V11/V12 · [SOURCE-braindumps.md](../SOURCE-braindumps.md) Dump 2 (dashboard yes/no, reactive vs proactive)

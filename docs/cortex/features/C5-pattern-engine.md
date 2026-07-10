@@ -1,5 +1,7 @@
 # C5 — Pattern Engine
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1wkvKOXMTuopenE0idz-VblgC6qT1YSpyeJEBe8l73uI/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5, §8
 Origin: video V3/V5

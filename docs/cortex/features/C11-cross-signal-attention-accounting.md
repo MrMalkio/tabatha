@@ -1,5 +1,7 @@
 # C11 — Cross-Signal Attention Accounting
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1AR27g54pEakTIXQL_NdHGZKIuSC0IutEskv1D1hsl0k/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5 (C11)
 Origin: user — Dump 2 (`SOURCE-braindumps.md`)

@@ -1,5 +1,7 @@
 # Implementation Plan 040: Cortex Phase 1 — First AI Observation Layer
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1pqlzpjlYWbl7eF3YzWpXvDs7tVkND13-EwzHIFs9S-o/edit?usp=drivesdk&ouid=104108780460431833741
+
 - **Program:** Tabatha Cortex (Plan 039). Spec: `docs/cortex/00-cortex-program-spec.md` §8.
 - **Current version:** 6.5.0 → **target 7.0.0** (MAJOR — first AI integration).
 - **Branch:** `claude/tabatha-ai-integration-layer-91903b` (Cortex program branch).
@@ -26,14 +28,14 @@ Push all decision logic into **pure, unit-tested modules in `src/utils/`** (no c
 ### T3 — Migration 022 (skeleton)  ← this session
 7. `supabase/migrations/022_cortex_ledger.sql` — `tabatha.cortex_observations` + `tabatha.cortex_capture_refs`, personal/org partition column, RLS mirroring existing patterns. Not applied yet (local-first; cloud batch is backup).
 
-### T4 — Storage + capture I/O  ← next increment
-Local frame write to configurable path, external-archive interface stub, nightly ledger export file. Companion OS-capture handoff (Rust, separate repo — depends on companion deploy board item).
+### T4 — Storage + capture I/O  ✅ Fable 2026-07-10
+`chrome.tabs.captureVisibleTab` → canvas redaction pass (blackout/blur BEFORE persist) → partitioned frame write via `chrome.downloads` under `captureStoragePath` (MV3 constraint: Downloads-relative; true arbitrary paths land with the companion in Plan 041). Suppressed frames record context-only observations (`suppressed: true`). Event listeners (tab activate/update, window focus, focusEngine storage watch) + dwell alarm (30s MV3 floor) + nightly export alarm (03:30) + per-partition age pruning (`pruneLedgerByAge`). New pure modules: `src/utils/captureArtifacts.js`, `src/utils/ledgerExport.js` (TDD). Companion OS-capture handoff explicitly deferred to Plan 041 T1 (gated on companion deploy board item).
 
-### T5 — Cron-in-harness + Dashboard  ← next increment
-Harness scheduled task writer + master `economize-workflow.v1` prompt; read-only Recommendation dashboard panel (approve/dismiss).
+### T5 — Cron-in-harness + Dashboard  ✅ Fable 2026-07-10
+`src/utils/harnessCron.js` (TDD): harness bundle builder (claude-code + codex) + `cortex-recommendations.v1` contract. Master prompt authored: `docs/cortex/prompts/economize-workflow.v1.md` (embedded mirror `src/background/cortexPrompt.js`). New `cortexService` (LIST/IMPORT/SET_STATUS/DOWNLOAD_HARNESS_CRON) + `CortexPanel` dashboard in Settings → Privacy & Capture (read-only + yes/no + import + cron-bundle download + manual export).
 
-### T6 — Agent Data Map  ← next increment
-Populate `docs/cortex/DATA-MAP.md`, update `.headbox/workspace-map.md`.
+### T6 — Agent Data Map  ✅ Fable 2026-07-10
+`docs/cortex/DATA-MAP.md` populated (27 signals, real retention/redaction/access values, open-questions section); `.headbox/workspace-map.md` updated to 2026-07-10. Plan is code-complete 6/6 — pending Malkio manual regression (see `docs/cortex/HANDOFF.md`) → v7.0.0 bump.
 
 ## Test strategy
 `node --test`. Every T1 module gets a `test/<module>.test.js` written FIRST. Target: full branch coverage of decision logic (suppression edge cases, handoff, dedupe, retention budget math). T2 service shell verified by build (`npm run build`) + message-handler smoke.

@@ -872,3 +872,22 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 - No central feature registry exists; docs/features/*.md is the canonical list.
 
 **Next steps:** Reconcile #214 with the Asana skill matrix definition; slot #210/#213/#214 into Phase 3/4 prioritization; define the AI-counterpart boundary for #211 (which phases ship without AI).
+
+---
+
+## 2026-07-09/10 — Cortex Overnight (Fable): Program Expansion + Phase 1 T4–T6
+
+**Goal:** Autonomous overnight session for the Tabatha Cortex program (Plans 039/040): finish the program spec expansion, continue Phase 1 with TDD discipline, mirror docs to Drive, keep Asana current.
+
+**Done:**
+- **Docs/spec:** All 15 feature files (C1–C15) expanded stub → full spec via 6 parallel subagents; reconciled against the verbatim braindumps and closed 3 spec gaps (universal audio-input replacement, tabatha-mobile repos in the reuse map, multi-screen/per-window capture nuance). Plans 041–044 (Phases 2–5) authored + registered; registry next number = 045. DATA-MAP.md populated (27 signals, real retention/redaction/access values); workspace-map current. Drive mirror: features/prompts/plans subfolders + Google-Doc link headers on all locals. HANDOFF.md written for Malkio.
+- **Phase 1 T4 (capture I/O):** captureVisibleTab (window-targeted) → canvas redaction (blackout/blur BEFORE persist, fail-closed) → partitioned frame writes via chrome.downloads under Downloads/Tabatha/Cortex/captures/<personal|org>/YYYY-MM/; suppressed frames record context-only observations; tab/window/focus listeners; 30s dwell heartbeat; 03:30 nightly ledger export; per-partition age retention. New TDD utils: captureArtifacts.js, ledgerExport.js.
+- **Phase 1 T5 (cron-in-harness + dashboard):** harnessCron.js (claude-code + codex bundle builder, cortex-recommendations.v1 contract), master prompt economize-workflow.v1 (docs/cortex/prompts + embedded mirror), cortexService (list/import/approve/dismiss), CortexPanel dashboard in Settings → Privacy & Capture.
+- **Quality loop:** Opus reviewer audited the T4/T5 diff — 6 findings, all fixed: incognito capture fail-closed, serialized ledger/state mutations, capture pinned to guarded window, setEnabled routed via settingsService, redaction fails closed on invalid rules, single download-erase listener.
+- **Asana:** 15 C-cluster subtasks under program task 1216437560480330; progress comments on program + Phase 1 tasks; gating comments on .pem + companion-deploy board items; green project status update.
+
+**Key findings:** MV3 can't write arbitrary filesystem paths (captureStoragePath is Downloads-relative until the companion handoff, Plan 041); chrome.alarms floor makes dwell resolution ≥30s; C9 voice has a settings-schema collision with feature #211 (blocker for Plan 042); tabatha-mobile is scaffold-only (a feature doc over-claimed it — DATA-MAP corrected); pruning removes ledger rows but not orphaned frame files (open question).
+
+**Tests/build:** 256/256 node --test green; npm run build green. Commits d228dc1, 85d8100 (+ final wrap-up commit) on claude/tabatha-ai-integration-layer-91903b. Nothing pushed.
+
+**Next steps:** Malkio manual regression of Phase 1 (see HANDOFF.md smoke-test) → v7.0.0 bump; re-sync program-spec Google Doc (2 local additions); decide migration 022 apply; companion deploy gates Plan 041; reconcile C9↔#211 before voice work.

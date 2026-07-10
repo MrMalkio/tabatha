@@ -1,5 +1,7 @@
 # C14 — Agent Data Map & Governance
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1d3koDnACK98Au0uTQWMAtcNDktBrwYC9Jog6rqcGG0E/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5, §9
 Origin: user — **mandatory** (Malkio's word, program spec §5 C14)

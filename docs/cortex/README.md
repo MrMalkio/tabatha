@@ -1,5 +1,7 @@
 # Tabatha Cortex — Documentation Index
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1UlvVqgMm_64EAqpNEOjDcaZWiWPJQYyFO2P6_0Gz2Io/edit?usp=drivesdk&ouid=104108780460431833741
+
 Cortex is the AI intelligence tier of the Tabatha Attention OS: it watches the telemetry Tabatha already collects, captures screenshots/audio only when context warrants, distills behavior into an Observations Ledger, finds patterns of waste (repeat ≥3–4×), and runs an optimization loop that surfaces — and increasingly executes — fixes. It is a **program, not a feature**: ~15 capability clusters across 5 layers, shipped in phases. Phase 1 targets **v7.0.0**.
 
 Each cluster below has its own independent, expandable feature file so it can be delegated to a separate agent and reassembled ("like a transformer"). Every file cross-links back to the Program Spec.

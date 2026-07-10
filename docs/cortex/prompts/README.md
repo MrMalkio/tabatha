@@ -1,5 +1,7 @@
 # Cortex — Optimization Prompts
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1Fou1lTHB0-UEWFMFze8n9FVZgqbZ4sdWewUyeJurPdc/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: stub — Fable to populate
 Parent: [Program Spec](../00-cortex-program-spec.md) §5 · Clusters: [C6](../features/C6-optimization-loop.md), [C8](../features/C8-agent-orchestration-routing.md)
 

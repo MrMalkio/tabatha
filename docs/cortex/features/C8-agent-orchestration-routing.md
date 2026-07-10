@@ -1,5 +1,7 @@
 # C8 — Agent Orchestration & Routing (Autonomy Ladder)
 
+> 🔗 Google Doc: https://docs.google.com/document/d/10DSO-D9urZWzH6c_L4_ajlnuxAT3Wt54lkCWAefCPKs/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5
 Origin: user · [SOURCE-braindumps.md](../SOURCE-braindumps.md) Dump 2 (routing/autonomy — most relevant)

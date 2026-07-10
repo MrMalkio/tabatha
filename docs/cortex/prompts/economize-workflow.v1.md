@@ -1,5 +1,7 @@
 # Master Optimization Prompt — economize-workflow.v1
 
+> 🔗 Google Doc: https://docs.google.com/document/d/19nJSFMixlk1O8baHl8rqEfxTFgJjBARBObFvq8LAzMg/edit?usp=drivesdk&ouid=104108780460431833741
+
 - **Cluster:** C6 Optimization Loop (executed via C8 tier-① cron-in-harness)
 - **Status:** v1 — authored by Fable 2026-07-10. Never edit in place; bump to v2.
 - **Input:** one `cortex-ledger-export.v1` JSON file (nightly export, see `src/utils/ledgerExport.js`)

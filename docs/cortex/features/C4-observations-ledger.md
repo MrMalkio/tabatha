@@ -1,5 +1,7 @@
 # C4 — Observations Ledger
 
+> 🔗 Google Doc: https://docs.google.com/document/d/16PptPBmPAWet8Rqa-KyMQGvUDkDB9zrNkDWmwXCLNqU/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5, §8, §9
 Origin: video V2/V4

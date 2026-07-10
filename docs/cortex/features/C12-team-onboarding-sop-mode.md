@@ -1,5 +1,7 @@
 # C12 — Team / Onboarding SOP Mode
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1sP0-cmy_JTfQ9XEGmQE6BxdnCoChaRmjZYEwXKgyZxM/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5 (C12)
 Origin: video V16 (Nick Saraev source video, program spec §2) + user Dump 1/2

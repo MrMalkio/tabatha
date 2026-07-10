@@ -1,5 +1,7 @@
 # C1 — Adaptive Capture Engine
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1MrTN60jxMtSloSdpQ9HhP4M32ETRH_3TVB0aSgIm0yE/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5
 Origin: video V1; user-expanded (SOURCE-braindumps.md Dump 1, Dump 3)

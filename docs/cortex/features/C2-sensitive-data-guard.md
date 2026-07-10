@@ -1,5 +1,7 @@
 # C2 — Sensitive-Data Guard
 
+> 🔗 Google Doc: https://docs.google.com/document/d/1wzq3UTgvr1T_M2tx8_uzr35SaQf5D-aMHWv9o7r0p4o/edit?usp=drivesdk&ouid=104108780460431833741
+
 Status: expanded (Fable overnight 2026-07-10)
 Parent: [Program Spec](../00-cortex-program-spec.md) §5
 Origin: user; privacy spine (SOURCE-braindumps.md Dump 3)
