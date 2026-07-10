@@ -35,14 +35,14 @@ repo git logs (`Tabatha` @ `claude/tabatha-ai-integration-layer-91903b`, `tabath
 - ✅ **Companion v0.2.0 relaunched** clean (`Tabby Desk v0.2.0 (release)`, WS listening, extension reconnected); its **corrupted SQLite activity DB rebuilt** via raw b-tree salvage (372 sessions + 1 clock recovered), integrity ok.
 - ✅ **cortex-proxy deployed** (tier-② routing live; 401-protected; OpenAI secret set server-side).
 - ✅ **Migration 025 applied** — adds the `surface` CHECK (`browser/os/desktop/voice/mobile`) the docs wrongly assumed 022 had; voice cloud-sync unblocked. Local==remote at 025.
-- ⏳ **Companion merge/deploy** (`feat/cortex-capture` → master, tag v0.2.0, Asana board close) — in progress by an Opus operator (Malkio delegated).
-- ⏳ **Phase 042 C10a reconciliation core + Phase 043 multi-cadence** — in progress (Malkio: "jump to 042/043").
+- ✅ **Companion merged + deployed** — feat/cortex-capture → master @ dbf8cd7, tagged v0.2.0, master-built exe running clean at the canonical path (no remote exists on that repo — local master only). Plan 041 deploy gate CLOSED; Asana board item updated (story 1216459982162117).
+- ✅ **C10a Context Reconciliation v1 shipped** (b8a1fb7 — Reconcile-now confirm/skip panel, 4 proposal kinds incl. retroactive time edits, context textbox; audio input + LLM reasoning deferred to v2) and ✅ **Phase 043 T3 multi-cadence shipped** (intraday slice exports + dual-cadence harness bundle, opt-in cortexIntradayEnabled). Suite now **408 tests green**.
 
 ## Remaining engineering by plan
 - **040 Phase 1** — code-complete 6/6. Nothing left to build; gate is Malkio's manual regression → v7.0.0 (see waiting-on #5).
-- **041 Phase 2** (partial 4/6) — Drive/OneDrive external-archive adapters (T2 remainder); T1 capture code now complete both sides (extension `2f171b5` + companion `b94f7d0`), merge/deploy is the remaining piece to close it (#4 above); proxy deploy (T3, #6 above); Vercel Gateway key still blank (T4 gated on procurement).
-- **042 Phase 3 voice** (partial 3/9) — offscreen/global-hotkey plumbing (gated on the `.pem` board item, see Risks); realtime speak-to-Tabby; dictation engine; routed STT/TTS.
-- **043 Phase 4 autonomy** (partial 4/6) — T4 migration 023 (`org_capture_policy`) now applied, done; remaining: T3 multi-cadence optimization; T5 SOP observation mode; T6 Headbox harness placement.
+- **041 Phase 2** (partial 5/6) — remaining: Drive/OneDrive external-archive adapters (T2 remainder); Vercel Gateway key blank (T4, procurement-gated). T1 merge/deploy ✅, T3 proxy ✅ (deployed + live).
+- **042 Phase 3 voice** (partial 4/9 incl. C10a) — remaining: offscreen/global-hotkey plumbing (.pem-gated); realtime speak-to-Tabby; dictation engine; routed STT/TTS (proxy now live to route through); C10a v2 (LLM reasoning + audio context input).
+- **043 Phase 4 autonomy** (partial 5/6) — remaining: T5 SOP observation mode; T6 Headbox harness placement (companion-side, now unblocked by the deploy).
 - **044 Phase 5 cross-signal** (partial 1/6) — detection-surface wiring for controller attribution; reply-latency/power signals; leverage analytics; ergonomic camera; mobile parity (tabatha-mobile is scaffold-only); Mac companion parity.
 
 ## Back burner

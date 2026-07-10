@@ -928,3 +928,19 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 - WHAT-REMAINS.md maintained as the living status page.
 
 **Next steps (Malkio):** Supabase re-sign-in (sole sync blocker) · remove ghost extension card · verify v0.2.0 (panel/clock/silent capture) · merge/deploy feat/cortex-capture · Phase 1 regression → v7.0.0 · deploy cortex-proxy.
+
+---
+
+## 2026-07-10 (evening) — Delegated push: deploy closed, Phases 2/3/4 advanced, proxy live
+
+**Done (all via delegated agents per Malkio's tiering — Opus in-flight work finished, new dispatches Sonnet):**
+- **Companion deployed**: feat/cortex-capture merged → master @ dbf8cd7, tagged v0.2.0, master-built exe swapped + relaunched clean (Plan 041 T1 CLOSED, Asana board item updated). Companion SQLite DB rebuilt earlier via raw b-tree salvage after corruption.
+- **cortex-proxy live** (tier-② routing; 401-protected; OpenAI secret server-side) — Plan 041 T3 done.
+- **Migration 025 applied** (surface CHECK incl. voice/desktop/mobile — discovered 022 never had the constraint the docs assumed).
+- **C10a Context Reconciliation v1 shipped** (b8a1fb7): Reconcile-now panel, 4 proposal kinds incl. retroactive time edits, confirm/skip + context box; C11a-stamped, audited, reversible.
+- **Plan 043 T3 multi-cadence shipped**: cadence decision table, intraday slice exports + economize-intraday.v1, dual-cadence harness bundle, opt-in flags.
+- **Plan 045 registered** — Agent Control Layer formalized as Cortex Phase 6 (back-burnered post-Cortex).
+- Ghost extension entry confirmed on disk (dph… still in Secure Preferences) w/ removal steps; CortexPanel live-status fix (b9a1965); dist verified to carry the silent-capture fix (15/16 in-browser PASS).
+- Suite: **408/408 node tests**, builds green both repos.
+
+**Next steps:** Malkio — reload extension, Supabase re-sign-in, ghost card removal, Phase 1 regression → v7.0.0. Engineering — 041 archive adapters; 042 voice (routed STT/TTS via live proxy, .pem-gated hotkeys); 043 T5 SOP + T6 Headbox placement; 044 wired later with 041 per Malkio.
