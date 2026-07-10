@@ -485,3 +485,13 @@
   1. Before Cortex Phase 1 build starts, cut a companion release that folds in all pending changes + the Headbox integration, then baseline from there ← **suggested**
   2. Freeze companion at current deployed version; do Cortex Phase 1 browser-only (defer C1 OS-capture to Phase 2)
   3. Inventory all in-flight companion/Headbox threads first (single status doc) before deciding sequencing
+
+## 2026-07-10 — Agent Control Layer (Tabatha CLI/MCP) — BACK BURNER until Cortex complete
+- **Noticed while:** Cortex continuation session — Malkio explicitly parked it.
+- **What:** Agents need to read/write/coordinate THROUGH Tabatha (set intents, focuses, clock, context notes; use Tabatha as agent working-memory during computer/browser use) via an MCP server + CLI. The efferent sibling of Cortex (which only observes). Boundary + phasing scoped.
+- **Why it matters:** Closes the loop Cortex opens; required for honest attribution (C11a shipped as the prereq) and multi-agent coordination on the machine.
+- **Options:**
+  1. MCP-first via desktop companion WS bridge (harness-native) ← **suggested**
+  2. CLI-first thin wrapper for scripting/cron
+  3. Extension native-messaging host (no companion dependency)
+- **Artifacts:** docs/cortex/PROGRAM-agent-control-layer.md · Asana task 1216454646338939
