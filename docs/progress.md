@@ -911,3 +911,20 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 **Quality loop:** Opus review over the Phase 2/3 diff → 1 confirmed finding fixed (self-correction storage race narrowed to single-round-trip targeted mutations); InBar voice interception verified safe (modal can never be swallowed; voice-off path byte-identical; no ESM leak into the content script).
 
 **Next steps:** Malkio: extension reload + re-smoke-test → v7.0.0; merge/deploy companion branch (closes the deploy gate); deploy cortex-proxy (set secret); later: migrations 022/023, gateway/ElevenLabs keys, .pem before manifest-permission phases. Remaining phase work: routed STT/TTS + realtime voice + dictation engine (042), multi-cadence + SOP mode + Headbox placement (043), signals/analytics/camera/mobile/Mac (044).
+
+---
+
+## 2026-07-10 (afternoon) — Live-fix session: capture UX, clock, companion v0.2.0, DB push + repair
+
+**Goal:** Address Malkio's live-testing reports (Save-As dialogs, capture not following activity, clock desync, desk panel dead, sync stale) under the new delegation rules (Fable orchestrates; Opus agents own terminal/browser; Sonnet agents launch/synthesize; Supabase+Asana via CLI).
+
+**Done:**
+- Migrations **018–024 pushed to live Flux** via CLI with Malkio's new token (remote was at 017 — registry record corrected). Sync's schema drift closed.
+- Extension `2f171b5` (361 tests): silent capture writes (companion WS CAPTURE_FRAME / OPFS fallback — Save-As dialog eliminated), C1 focus-gate (tab capture only while Chrome focused), tab-title slug in filenames, clock-state request on connect, pendingCortexExports buffering.
+- Companion `b94f7d0` @ feat/cortex-capture (79 tests): desk panel fixed (custom-protocol default → embedded UI), **v0.2.0** shown in title/tray, clock_in idempotency fix (root cause of clock desync), CAPTURE_FRAME/WRITE_EXPORT/FILE_WRITTEN handlers (path-safe), OS-frame title slugs; verified desktop capture was already writing (62+45 frames) — visibility artifact, not a capture failure.
+- Companion **v0.2.0 swapped in + relaunched** (Sonnet operator); then its SQLite activity DB (pre-existing corruption, likely from dual-instance writes + force-kills) **rebuilt via raw b-tree page salvage — 372 app_sessions + 1 clock_session recovered**, integrity ok, clean startup.
+- Persistence root-caused (Chrome GC on crashed exit + ghost pre-key entry + build race) → atomic dist swap shipped, constraint rules updated, Asana board comment posted via CLI.
+- ElevenLabs scoped key minted → env store (K10 ✅). C10a + Agent Control Layer scoped (doc + Asana task each; control layer BACK BURNER post-Cortex). C11a attribution v1 shipped.
+- WHAT-REMAINS.md maintained as the living status page.
+
+**Next steps (Malkio):** Supabase re-sign-in (sole sync blocker) · remove ghost extension card · verify v0.2.0 (panel/clock/silent capture) · merge/deploy feat/cortex-capture · Phase 1 regression → v7.0.0 · deploy cortex-proxy.
