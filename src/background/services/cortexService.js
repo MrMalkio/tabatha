@@ -15,6 +15,7 @@
 // ════════════════════════════════════════════
 
 import { getStorage, setStorage, getSettings } from './storageService.js';
+import { recordObservation } from './captureService.js';
 import {
   buildHarnessCronBundle,
   normalizeRecommendations,
@@ -174,6 +175,23 @@ export async function handleMessage(type, message) {
     case 'DOWNLOAD_HARNESS_CRON': return downloadHarnessCronBundle(message?.harness);
     case 'GET_MORNING_DIGEST': return getMorningDigest(message?.day);
     case 'EXPORT_APPROVED_ACTIONS': return exportApprovedActions();
+    // C9 voice: mirror a dictation/voice event into the C4 ledger (kind:'voice').
+    // Partition-aware — derives clock state so voice notes split org vs personal.
+    case 'RECORD_VOICE_OBSERVATION': {
+      const transcript = typeof message?.transcript === 'string' ? message.transcript.trim() : '';
+      if (!transcript) return { ok: false, error: 'empty-transcript' };
+      let clockState = 'clocked_out';
+      try {
+        const { clockSession } = await getStorage('clockSession');
+        if (clockSession?.active) clockState = clockSession.onBreak ? 'on_break' : 'clocked_in';
+      } catch { /* default personal */ }
+      const rec = await recordObservation(
+        { at: Date.now(), surface: 'voice', kind: 'voice', title: transcript },
+        clockState,
+        { voiceKind: message?.kind || 'voice-note' }
+      );
+      return { ok: true, observation: rec };
+    }
     default: return undefined;
   }
 }

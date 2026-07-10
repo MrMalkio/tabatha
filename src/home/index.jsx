@@ -1454,6 +1454,75 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
 }
 
 // ════════════════════════════════════════════
+// Cortex C9 — Voice Note button (Plan 042 T5, Hotkey-3 groundwork)
+// In-page 🎙️ button: webspeech dictation → RECORD_VOICE_OBSERVATION so the
+// transcript lands as a partition-aware C4 observation (kind:'voice'). This is
+// a button, not a global hotkey — chrome.commands additions are a manifest
+// change, which is out of scope for this slice. Renders nothing unless voice
+// is enabled in settings AND the browser supports SpeechRecognition.
+// ════════════════════════════════════════════
+function VoiceNoteButton({ enabled }) {
+  const [listening, setListening] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const recognitionRef = useRef(null);
+  const transcriptRef = useRef('');
+
+  const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!enabled || !SR) return null;
+
+  const flash = (msg) => { setConfirm(msg); setTimeout(() => setConfirm(''), 2600); };
+
+  const stop = () => { try { recognitionRef.current?.stop(); } catch { /* noop */ } };
+
+  const start = () => {
+    if (listening) { stop(); return; }
+    let rec;
+    try { rec = new SR(); } catch { flash('Mic unavailable'); return; }
+    transcriptRef.current = '';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onstart = () => setListening(true);
+    rec.onresult = (event) => {
+      let finalText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+      }
+      if (finalText) transcriptRef.current += (transcriptRef.current ? ' ' : '') + finalText.trim();
+    };
+    rec.onerror = (e) => { setListening(false); flash(e?.error === 'not-allowed' ? 'Mic denied' : 'Voice error'); };
+    rec.onend = async () => {
+      setListening(false);
+      const transcript = transcriptRef.current.trim();
+      if (!transcript) { flash('No speech heard'); return; }
+      const res = await sendMessage('RECORD_VOICE_OBSERVATION', { transcript, kind: 'voice-note' });
+      flash(res?.ok ? '✓ Voice note saved' : 'Save failed');
+    };
+    recognitionRef.current = rec;
+    try { rec.start(); } catch { flash('Could not start'); }
+  };
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      <Tooltip text={listening ? 'Stop & save voice note' : 'Voice note (dictate → ledger)'}>
+        <button
+          onClick={start}
+          style={{
+            background: listening ? '#ef535022' : 'var(--color-surface)',
+            border: `1px solid ${listening ? '#ef5350' : 'var(--color-border)'}`,
+            borderRadius: 'var(--radius-md)', color: listening ? '#ef5350' : 'var(--color-text-primary)',
+            padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)'
+          }}
+        >
+          {listening ? '⏹' : '🎙️'}
+        </button>
+      </Tooltip>
+      {confirm && <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{confirm}</span>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // Main Home Component
 // ════════════════════════════════════════════
 function Home() {
@@ -1718,6 +1787,7 @@ function Home() {
               </Tooltip>
             )}
             <CompanionStatus compact />
+            <VoiceNoteButton enabled={!!settings.voice?.enabled} />
             <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>

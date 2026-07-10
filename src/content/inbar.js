@@ -3,6 +3,15 @@
 // Collapses to a persistent nub toggle when dismissed
 // Supports inline note-taking for current focus/task/intent
 // Supports pause + sticky note overlay for "where I left off" context
+//
+// Cortex C9 voice output (Plan 042 T2/T5): when voice.output is enabled, the
+// focus-timer-expired and drift overlays are announced by Tabby's voice first
+// (tone → mic hold-off window → spoken line), and the classic overlay is
+// delayed until after. Default OFF — with voice disabled the overlays behave
+// exactly as before. voiceOutput.js (and its voiceDecision.js dep) are imported
+// ONLY here among content-script entries, so rollup inlines them into inbar.js.
+
+import { tabbyAnnounce } from '../services/voiceOutput.js';
 
 (async () => {
   // 1. Get current tab's context and active focus
@@ -1317,6 +1326,27 @@
       const s = totalSec % 60;
       return m > 0 ? `${m}m ${s}s` : `${s}s`;
     };
+
+    // ── C9 voice output gate (Plan 042 T2/T5) ──
+    // Announce a would-be-modal event via Tabby's voice when voice.output is
+    // enabled, else show the overlay immediately. Presence is proxied by this
+    // tab actually being visible+focused; absent/unknown → decideSpeakOrModal
+    // falls straight back to the modal, so no event is ever silently dropped.
+    const _voiceOutputOn = () => !!(settings?.voice?.enabled && settings?.voice?.output?.enabled);
+    const _presence = () => (document.visibilityState === 'visible' && document.hasFocus()) ? 'present' : 'unknown';
+    const _maybeAnnounce = (modalType, context, { onProceedModal, onHoldOff = () => {} }) => {
+      if (!_voiceOutputOn()) { onProceedModal(); return; }
+      // Fire-and-forget: tabbyAnnounce always drives to some resolution and
+      // never throws (tone → hold-off window → speak → show overlay anyway).
+      try {
+        tabbyAnnounce({
+          modalType, context,
+          voiceSettings: settings.voice,
+          presence: _presence(),
+          onProceedModal, onHoldOff
+        });
+      } catch { onProceedModal(); }
+    };
     const _buildFTEActions = (card, overlay, focusId) => {
       card.querySelector('#fte-extend-custom')?.addEventListener('click', () => {
         const val = Number(card.querySelector('#fte-snooze-custom-val')?.value || 5);
@@ -1367,16 +1397,27 @@
     // ── Timer Expired — 6-CTA overlay (singleton) ──
     if (msg.type === 'FOCUS_TIMER_EXPIRED') {
       if (document.getElementById('tabatha-popup-overlay')) return; // singleton
-      const overlay = _createOverlay();
-      const card = _createCard();
-      card.innerHTML = `
-        <div style="font-size:32px;margin-bottom:8px;">⏰</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Focus Timer Expired</div>
-        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"${msg.label}" — Your allotted ${msg.timerMinutes}m is up.</div>
-        ${_fteButtonsHTML()}`;
-      overlay.appendChild(card);
-      document.documentElement.appendChild(overlay);
-      _buildFTEActions(card, overlay, msg.focusId);
+      const showFteOverlay = () => {
+        if (document.getElementById('tabatha-popup-overlay')) return; // singleton (may have opened during the voice window)
+        const overlay = _createOverlay();
+        const card = _createCard();
+        card.innerHTML = `
+          <div style="font-size:32px;margin-bottom:8px;">⏰</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Focus Timer Expired</div>
+          <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"${msg.label}" — Your allotted ${msg.timerMinutes}m is up.</div>
+          ${_fteButtonsHTML()}`;
+        overlay.appendChild(card);
+        document.documentElement.appendChild(overlay);
+        _buildFTEActions(card, overlay, msg.focusId);
+      };
+      // Voice: "hold off" → snooze the timer 5m (mirrors the FTE snooze CTA).
+      _maybeAnnounce('focus-timer-expired', { focusLabel: msg.label, timerMinutes: msg.timerMinutes }, {
+        onProceedModal: showFteOverlay,
+        onHoldOff: () => {
+          try { chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {}
+          try { chrome.runtime.sendMessage({ type: 'EXTEND_FOCUS_TIMER', focusId: msg.focusId, extraMinutes: 5 }); } catch {}
+        }
+      });
     }
 
     // ── Welcome Back — resume prompt (singleton) ──
@@ -1488,25 +1529,36 @@
     // ── Plan 036: Focus Drift Detected (singleton) ──
     if (msg.type === 'FOCUS_DRIFT_DETECTED') {
       if (document.getElementById('tabatha-popup-overlay')) return; // singleton
-      const overlay = _createOverlay();
-      const card = _createCard();
-      card.innerHTML = `
-        <div style="font-size:30px;margin-bottom:8px;">🧭</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Drifting off?</div>
-        <div style="font-size:13px;color:#aaa;margin-bottom:14px;">You've been on unrelated tabs for a bit while focused on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong></div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
-          <button id="drift-still" style="${_popupBtnStyle('#66bb6a')}">✅ Still working on it</button>
-          <button id="drift-switch" style="${_popupBtnStyle('#ab47bc')}">🔀 Switching tasks</button>
-          <button id="drift-checking" style="${_popupBtnStyle('#888')}">👀 Just checking</button>
-        </div>`;
-      overlay.appendChild(card);
-      document.documentElement.appendChild(overlay);
-      let curTabId = null;
-      chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }).then(r => { curTabId = r?.tabId ?? null; }).catch(() => {});
-      const respond = (response) => _dismissAndSend(overlay, 'FOCUS_DRIFT_RESPONSE', { focusId: msg.focusId, response, tabId: curTabId });
-      card.querySelector('#drift-still')?.addEventListener('click', () => respond('still_working'));
-      card.querySelector('#drift-switch')?.addEventListener('click', () => respond('switching'));
-      card.querySelector('#drift-checking')?.addEventListener('click', () => respond('just_checking'));
+      const showDriftOverlay = () => {
+        if (document.getElementById('tabatha-popup-overlay')) return; // singleton (may have opened during the voice window)
+        const overlay = _createOverlay();
+        const card = _createCard();
+        card.innerHTML = `
+          <div style="font-size:30px;margin-bottom:8px;">🧭</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Drifting off?</div>
+          <div style="font-size:13px;color:#aaa;margin-bottom:14px;">You've been on unrelated tabs for a bit while focused on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+            <button id="drift-still" style="${_popupBtnStyle('#66bb6a')}">✅ Still working on it</button>
+            <button id="drift-switch" style="${_popupBtnStyle('#ab47bc')}">🔀 Switching tasks</button>
+            <button id="drift-checking" style="${_popupBtnStyle('#888')}">👀 Just checking</button>
+          </div>`;
+        overlay.appendChild(card);
+        document.documentElement.appendChild(overlay);
+        let curTabId = null;
+        chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }).then(r => { curTabId = r?.tabId ?? null; }).catch(() => {});
+        const respond = (response) => _dismissAndSend(overlay, 'FOCUS_DRIFT_RESPONSE', { focusId: msg.focusId, response, tabId: curTabId });
+        card.querySelector('#drift-still')?.addEventListener('click', () => respond('still_working'));
+        card.querySelector('#drift-switch')?.addEventListener('click', () => respond('switching'));
+        card.querySelector('#drift-checking')?.addEventListener('click', () => respond('just_checking'));
+      };
+      // Voice: "hold off" → treat as "just checking" (the drift snooze path).
+      _maybeAnnounce('drift-detected', { focusLabel: msg.focusLabel }, {
+        onProceedModal: showDriftOverlay,
+        onHoldOff: () => {
+          try { chrome.runtime.sendMessage({ type: 'DISMISS_POPUP' }); } catch {}
+          try { chrome.runtime.sendMessage({ type: 'FOCUS_DRIFT_RESPONSE', focusId: msg.focusId, response: 'just_checking' }); } catch {}
+        }
+      });
     }
 
     // ── Plan 036: Auto-Focus suggestion — non-blocking transient chip ──

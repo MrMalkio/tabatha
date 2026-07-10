@@ -223,6 +223,41 @@ export default function CortexPanel({ settings = {}, updateSetting = () => {} })
           ))}
         </>
       )}
+
+      {/* ════ C9 Voice (v0) — Plan 042 T2/T5 ════════════════════════════════
+          Minimal surface: master + "Tabby speaks" toggles only. The rest of
+          the voice schema (hotkeys, stt tiers, per-modal overrides) stays
+          config-file-level for now. Nested writes go through the whole `voice`
+          object because updateSetting is a flat top-level setter. */}
+      <div style={{ fontSize: '13px', fontWeight: 700, margin: '20px 0 8px' }}>🗣 Voice (v0)</div>
+      <GlassCard style={{ padding: '12px' }}>
+        <label style={{ ...fieldRow, cursor: 'pointer' }}>
+          <span style={fieldLabel}>Voice features (master)</span>
+          <input
+            type="checkbox"
+            checked={!!settings.voice?.enabled}
+            onChange={(e) => updateSetting('voice', { ...(settings.voice || {}), enabled: e.target.checked })}
+          />
+        </label>
+        <label style={{ ...fieldRow, borderBottom: 'none', cursor: settings.voice?.enabled ? 'pointer' : 'not-allowed', opacity: settings.voice?.enabled ? 1 : 0.5 }}>
+          <span style={fieldLabel}>Tabby speaks (voice output)</span>
+          <input
+            type="checkbox"
+            disabled={!settings.voice?.enabled}
+            checked={!!settings.voice?.output?.enabled}
+            onChange={(e) => updateSetting('voice', {
+              ...(settings.voice || {}),
+              output: { ...((settings.voice || {}).output || {}), enabled: e.target.checked }
+            })}
+          />
+        </label>
+        <p style={{ ...muted, margin: '6px 0 0', lineHeight: 1.5 }}>
+          Off by default. With output on, the focus-timer and drift prompts are spoken
+          (soft tone → a brief “hold off” mic window → a short line) before the dialog
+          appears — and always fall back to the dialog if you're away. Web Speech only;
+          nothing leaves this machine and no new permissions are used.
+        </p>
+      </GlassCard>
     </div>
   );
 }

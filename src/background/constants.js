@@ -62,6 +62,31 @@ export const DEFAULT_SETTINGS = {
   // C10 — Passive Self-Correction (Plan 042 T7)
   selfCorrectionEnabled: false,           // MASTER enable for passive self-correction (opt-in; nightly + on-demand)
   selfCorrectionConfidence: 'high',       // min confidence to auto-apply: 'explicit' | 'high' | 'medium' | 'low' (below → queued suggestion)
+  // C9 — Voice & Audio (Plan 042 T2/T5) — unified schema per docs/cortex/DECISION-voice-settings.md.
+  // Default OFF everywhere; #211 webspeech is the shipped substrate, C9 the superset.
+  voice: {
+    enabled: false,                       // master opt-in (C15 density dial gates surfaces)
+    hotkeys: {
+      transcribe: 'Alt+Shift+T',          // C9 hotkey 1 — field dictation (pure, no interpretation)
+      speak:      'Alt+Shift+V',          // C9 hotkey 2 — keeps #211's binding (its single hotkey maps here)
+      note:       'Alt+Shift+N'           // C9 hotkey 3 — voice note → Flux context
+    },
+    stt: {                                // per-hotkey provider tier (C9 cost control)
+      transcribe: 'webspeech',            // free/local; the shipped VoiceInput.jsx path
+      speak:      'webspeech',            // auto-upgrades to 'routed' when a C8 routing tier is configured
+      note:       'webspeech'
+    },                                    // values: 'webspeech' | 'routed' (C8 tier ①–④ decides the actual provider)
+    speakMode: 'process-then-reply',      // 'realtime' | 'process-then-reply' | 'silent-update'
+    output: {                             // "Tabby speaks" (C9 §output)
+      enabled: false,
+      toneBeforeSpeak: true,
+      micPreOpenMs: 1500,                 // "hold off" interjection window
+      modalFallback: true,                // silent/absent user → modal
+      perModalType: {}                    // modalType → 'speak' | 'modal' | 'silent'
+    },
+    floatingButton: false,                // #211 Phase B omnipresent mic button
+    mirrorToLedger: true                  // everything dictated also feeds C4 (C9 hard rule)
+  },
   storage: {
     cortexLedgerCap: 5000,
     snapshotIntervalMinutes: 30,
