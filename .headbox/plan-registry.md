@@ -148,7 +148,7 @@ Wave 0 (pre-prod gate)
 
 ## Migration Status (Supabase Remote)
 
-> **Last verified:** 2026-06-30 — **All migrations 001–019 applied + verified to the live Flux project. Remote DB is current.**
+> **Last verified:** 2026-07-10 — **All migrations 001–024 applied to the live Flux project (CLI push).** ⚠️ Correction: on 2026-07-10 the remote was found at 017 — the 2026-06-30 "018/019 applied + verified" record was inaccurate for the live project. 018–024 were applied together 2026-07-10 (all additive; 021 priority column pre-existed, IF NOT EXISTS skipped cleanly).
 > **Project:** Flux (`mtdgoahskcibjbhfvofx`)
 
 | #        | File                                        | Status                      | Introduced By                    |
@@ -164,8 +164,13 @@ Wave 0 (pre-prod gate)
 | 015      | `015_fix_rls_recursion.sql`               | ✅ Applied (2026-06-02)     | RLS recursion fix (SECURITY DEFINER helpers) — see db-rls-audit-2026-06-02.md |
 | 016      | `016_restore_browser_profiles_write_rls.sql` | ✅ Applied (2026-06-02)  | Restore browser_profiles INSERT/UPDATE/DELETE (regressed by 012) |
 | 017      | `017_browser_profile_identity.sql`        | ✅ Applied                  | Browser-profile identity                                     |
-| 018      | `018_redeem_sets_profile_defaults.sql`    | ✅ Applied + verified 2026-06-30 | v6.4.0 org attribution — `redeem_invite_token` sets `default_org_id`/`team_id` |
-| 019      | `019_owner_read_views.sql`                | ✅ Applied + verified 2026-06-30 | v6.4.0 owner read views (service-role only)                  |
+| 018      | `018_redeem_sets_profile_defaults.sql`    | ✅ Applied 2026-07-10 (was NOT live despite 06-30 record) | v6.4.0 org attribution — `redeem_invite_token` sets `default_org_id`/`team_id` |
+| 019      | `019_owner_read_views.sql`                | ✅ Applied 2026-07-10 (was NOT live despite 06-30 record) | v6.4.0 owner read views (service-role only)                  |
+| 020      | `020_create_organization_rpc.sql`         | ✅ Applied 2026-07-10 | create_organization RPC + widened org_members role check |
+| 021      | `021_add_focus_item_priority.sql`         | ✅ Applied 2026-07-10 | focus_items.priority (FIX-10) — was the live sync-drift failure |
+| 022      | `022_cortex_ledger.sql`                   | ✅ Applied 2026-07-10 | Cortex observations ledger + capture refs (Plan 040) |
+| 023      | `023_cortex_org_capture_policy.sql`       | ✅ Applied 2026-07-10 | Org capture mandate policy (Plan 043 T4) |
+| 024      | `024_cortex_controller_attribution.sql`   | ✅ Applied 2026-07-10 | controller/confidence/provenance columns (C11a) |
 
 > **Push command:** `$env:SUPABASE_DB_PASSWORD = '<Flux_DB_Pass>'; npx supabase db push --linked`
 > **⚠️ NOTE:** DB password rotation (P0.1) still pending — deferred per user decision.
