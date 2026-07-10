@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import {
   computeRedactionRects,
   buildCaptureFilename,
-  buildCapturePath
+  buildCaptureRelPath,
+  buildCapturePath,
+  slugifyTitle
 } from '../src/utils/captureArtifacts.js';
 
 const DIMS = { width: 1000, height: 800 };
@@ -122,4 +124,53 @@ test('buildCapturePath: sanitizes backslashes, duplicate + trailing slashes, and
 test('buildCapturePath: empty root falls back to default store', () => {
   const p = buildCapturePath('', REC, 'f.jpg');
   assert.match(p, /^Tabatha\/Cortex\/captures\/personal\//);
+});
+
+// ── slugifyTitle ───────────────────────────────────────────
+
+test('slugifyTitle: lowercases, non-alnum → dash, collapses + trims', () => {
+  assert.equal(slugifyTitle('GitHub · Pull Request #42!'), 'github-pull-request-42');
+});
+
+test('slugifyTitle: caps length and trims a trailing dash from the cut', () => {
+  const long = 'a'.repeat(30) + ' ' + 'b'.repeat(30);
+  const slug = slugifyTitle(long);
+  assert.equal(slug.length <= 40, true);
+  assert.equal(slug.endsWith('-'), false);
+});
+
+test('slugifyTitle: empty / nullish / symbols-only → empty string', () => {
+  assert.equal(slugifyTitle(''), '');
+  assert.equal(slugifyTitle(null), '');
+  assert.equal(slugifyTitle(undefined), '');
+  assert.equal(slugifyTitle('!!!'), '');
+});
+
+// ── buildCaptureFilename: tab-title slug (FIX B) ───────────
+
+test('buildCaptureFilename: includes a sanitized tab-title slug when present', () => {
+  const name = buildCaptureFilename({ ...REC, title: 'GitHub — Pull Request' });
+  assert.equal(name, '2026-07-10T03-12-45-123Z_browser_personal_github-pull-request.jpg');
+});
+
+test('buildCaptureFilename: title slug drops cleanly when title empty/absent', () => {
+  assert.equal(buildCaptureFilename(REC), '2026-07-10T03-12-45-123Z_browser_personal.jpg');
+  assert.equal(buildCaptureFilename({ ...REC, title: '   ' }), '2026-07-10T03-12-45-123Z_browser_personal.jpg');
+});
+
+test('buildCaptureFilename: title slug + multi-monitor screen suffix compose', () => {
+  const name = buildCaptureFilename({ ...REC, title: 'Docs' }, { screenIndex: 2 });
+  assert.equal(name, '2026-07-10T03-12-45-123Z_browser_personal_docs_s2.jpg');
+});
+
+// ── buildCaptureRelPath (rel_path stripping — companion/OPFS) ──
+
+test('buildCaptureRelPath: partition/YYYY-MM/filename, no Downloads root', () => {
+  assert.equal(buildCaptureRelPath(REC, 'f.jpg'), 'personal/2026-07/f.jpg');
+  assert.equal(buildCaptureRelPath({ ...REC, partition: 'org' }, 'f.jpg'), 'org/2026-07/f.jpg');
+});
+
+test('buildCapturePath === root + buildCaptureRelPath (root is a pure prefix)', () => {
+  const rel = buildCaptureRelPath(REC, 'f.jpg');
+  assert.equal(buildCapturePath('Tabatha/Cortex/captures', REC, 'f.jpg'), `Tabatha/Cortex/captures/${rel}`);
 });

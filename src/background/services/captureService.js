@@ -9,19 +9,29 @@
 // and touches chrome APIs/storage.
 //
 // T4 adds the real I/O: chrome.tabs.captureVisibleTab → canvas redaction pass
-// (blackout/blur BEFORE persist, per the C2 privacy spine) → frame write via
-// chrome.downloads under the Downloads-relative captureStoragePath (MV3 cannot
-// write arbitrary filesystem paths; the desktop companion is the future home
-// of true external-archive writes — see externalArchive stub below), plus the
+// (blackout/blur BEFORE persist, per the C2 privacy spine) → SILENT frame write.
+// The C3 "companion is the real writer" architecture: the redacted frame is
+// handed to the desktop companion over the bridge (CAPTURE_FRAME → the companion
+// writes it under its own base dir and replies FILE_WRITTEN). When the companion
+// is offline we fall back to OPFS (navigator.storage.getDirectory — available in
+// MV3 service workers) under cortex/captures/<rel>. We NEVER use chrome.downloads
+// for frames — it pops the OS Save-As dialog on every capture. If neither sink is
+// available we record a context-only observation (no dialog, ever). Plus the
 // event listeners (tab/window/focus) and the dwell + nightly-export alarms.
 //
+// C1 browser⇄OS handoff: the extension captures the visible tab ONLY when Chrome
+// is the focused application. While Chrome is blurred the companion owns OS
+// capture; the extension no-ops (no stale last-focused-tab grabs).
+//
 // Storage keys:
-//   cortexLedger        — array of normalized observations (capped)
-//   cortexCaptureState  — { lastCaptureAt, lastContextKey, lastExportDay }
+//   cortexLedger          — array of normalized observations (capped)
+//   cortexCaptureState    — { lastCaptureAt, lastContextKey, lastExportDay }
+//   pendingCortexExports  — nightly exports buffered while companion offline
 // ════════════════════════════════════════════
 
 import { getStorage, setStorage, getSettings } from './storageService.js';
 import * as settingsService from './settingsService.js';
+import { companionBridge } from './companionService.js';
 import { decideCapture, captureSurface } from '../../utils/captureDecision.js';
 import { evaluateCapture } from '../../utils/sensitiveDataGuard.js';
 import { normalizeObservation, partitionOf } from '../../utils/observationLedger.js';
@@ -29,17 +39,25 @@ import { findActiveSession } from '../../utils/agentSessionStore.js';
 import {
   computeRedactionRects,
   buildCaptureFilename,
-  buildCapturePath
+  buildCaptureRelPath
 } from '../../utils/captureArtifacts.js';
 import {
   buildLedgerExport,
-  buildExportRelPath,
   pruneLedgerByAge
 } from '../../utils/ledgerExport.js';
 
 const LEDGER_KEY = 'cortexLedger';
 const STATE_KEY = 'cortexCaptureState';
+const PENDING_EXPORTS_KEY = 'pendingCortexExports';
 const DEFAULT_LEDGER_CAP = 5000;
+
+// C1 browser⇄OS handoff: is Chrome the focused application right now? Updated by
+// chrome.windows.onFocusChanged and the companion's chromeFocused/chromeBlurred
+// events (companionService emits those from APP_SWITCH). Default true so a fresh
+// worker doesn't over-suppress before the first focus signal arrives.
+let chromeFocused = true;
+export function setChromeFocused(v) { chromeFocused = !!v; }
+export function isChromeFocused() { return chromeFocused; }
 
 export const DWELL_ALARM = 'cortex-dwell-tick';
 export const NIGHTLY_EXPORT_ALARM = 'cortex-nightly-export';
@@ -160,12 +178,11 @@ async function listObservations(limit = 100) {
 
 // ── T4: pixel I/O ───────────────────────────────────────────
 
-// C3 external-archive interface stub. Local (Downloads) is the only concrete
-// target in Phase 1; Drive/OneDrive/HDD adapters and true arbitrary-path
-// writes arrive with the companion handoff (Phase 2+).
+// C3 external-archive interface stub. The desktop companion is now the concrete
+// external writer (it owns the real base dir); OPFS is the offline fallback.
 export const externalArchive = {
-  targets: () => ['local-downloads'],
-  archive: async () => ({ archived: 0, reason: 'no-external-target-in-phase-1' })
+  targets: () => ['companion', 'opfs'],
+  archive: async () => ({ archived: 0, reason: 'writes-happen-inline-via-companion-or-opfs' })
 };
 
 function blobToDataUrl(blob) {
@@ -204,36 +221,78 @@ async function applyRedactions(dataUrl, redactions, style = 'blackout') {
   return blobToDataUrl(await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.7 }));
 }
 
-// Erase our frame downloads from the shelf/history once complete (file stays
-// on disk). Best-effort: capture must never break on shelf cosmetics. One
-// module-level listener (registered in registerCaptureListeners) watches the
-// pendingErase set rather than stacking a listener per download.
-const pendingErase = new Set();
-function eraseWhenComplete(downloadId) {
-  pendingErase.add(downloadId);
+// Write a file into OPFS (origin-private file system) — silent, MV3 SW-available,
+// no user prompt. Creates the nested directory tree as needed.
+async function writeOpfsFile(path, dataUrl) {
+  const dir0 = await navigator?.storage?.getDirectory?.();
+  if (!dir0) throw new Error('OPFS unavailable');
+  const blob = await (await fetch(dataUrl)).blob();
+  const parts = String(path).split('/').filter(Boolean);
+  const filename = parts.pop();
+  let dir = dir0;
+  for (const seg of parts) dir = await dir.getDirectoryHandle(seg, { create: true });
+  const handle = await dir.getFileHandle(filename, { create: true });
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
 }
-function handleDownloadChanged(delta) {
-  if (!pendingErase.has(delta.id)) return;
-  if (delta.state?.current === 'complete' || delta.state?.current === 'interrupted') {
-    pendingErase.delete(delta.id);
-    if (delta.state.current === 'complete') {
-      try { chrome.downloads.erase({ id: delta.id }); } catch { /* cosmetic */ }
-    }
+
+// Persist one redacted frame SILENTLY and return the captureRef to store on the
+// observation. Preferred sink is the companion (owns the real base dir); OPFS is
+// the offline fallback (captureRef prefixed `opfs:`); if neither is available we
+// return null so the caller records a context-only observation. NEVER a Save-As
+// dialog. rec must carry { ts, surface, partition } for path building.
+async function persistFrame(dataUrl, rec) {
+  const filename = buildCaptureFilename(rec);
+  const relPath = buildCaptureRelPath(rec, filename);
+
+  if (companionBridge?.isConnected) {
+    // Fire-and-forget: the observation is recorded optimistically; the companion
+    // acks with FILE_WRITTEN (handled in companionService for logging).
+    companionBridge.sendCaptureFrame(relPath, dataUrl);
+    return relPath;
+  }
+
+  try {
+    await writeOpfsFile(`cortex/captures/${relPath}`, dataUrl);
+    return `opfs:${relPath}`;
+  } catch (err) {
+    console.warn('[captureService] OPFS frame write unavailable (recording context only):', err?.message);
+    return null;
   }
 }
 
-// Write one frame under Downloads/<captureStoragePath>/<partition>/<YYYY-MM>/.
-async function writeFrame(dataUrl, rec, settings) {
-  const filename = buildCaptureFilename(rec);
-  const relPath = buildCapturePath(settings.captureStoragePath, rec, filename);
-  const downloadId = await chrome.downloads.download({
-    url: dataUrl,
-    filename: relPath,
-    conflictAction: 'uniquify',
-    saveAs: false
-  });
-  eraseWhenComplete(downloadId);
-  return relPath;
+// Route an automatic/background export (nightly ledger) to the companion for a
+// silent real-filesystem write. When the companion is offline the export is
+// buffered in storage and flushed on the next 'connected' event — a background
+// write must never surface a Save-As dialog. Returns { sent } or { buffered }.
+async function writeExport(filename, content) {
+  if (companionBridge?.isConnected) {
+    companionBridge.sendWriteExport(filename, content);
+    return { sent: true };
+  }
+  const { [PENDING_EXPORTS_KEY]: prev } = await getStorage(PENDING_EXPORTS_KEY);
+  const pending = Array.isArray(prev) ? prev : [];
+  // De-dupe by filename so re-running an export for the same day replaces rather
+  // than stacks the buffered copy.
+  const next = pending.filter((e) => e?.filename !== filename);
+  next.push({ filename, content, bufferedAt: Date.now() });
+  await setStorage({ [PENDING_EXPORTS_KEY]: next });
+  return { buffered: true };
+}
+
+// Flush exports buffered while the companion was offline. Called on the bridge
+// 'connected' event. No-op (and preserves the buffer) if still disconnected.
+export async function flushPendingCortexExports() {
+  if (!companionBridge?.isConnected) return { flushed: 0 };
+  const { [PENDING_EXPORTS_KEY]: prev } = await getStorage(PENDING_EXPORTS_KEY);
+  const pending = Array.isArray(prev) ? prev : [];
+  if (!pending.length) return { flushed: 0 };
+  for (const e of pending) {
+    if (e?.filename) companionBridge.sendWriteExport(e.filename, e.content);
+  }
+  await setStorage({ [PENDING_EXPORTS_KEY]: [] });
+  return { flushed: pending.length };
 }
 
 async function activeTabTarget() {
@@ -299,13 +358,16 @@ async function captureNowInner({ target = {}, event, clockState } = {}) {
     return { captured: false, reason: 'suppressed' };
   }
 
-  // Pixel grab — browser surface only in Phase 1 (companion OS capture is the
-  // Phase 2 handoff). Protected pages (chrome://, Web Store) throw: degrade to
-  // a context-only observation rather than failing the event. Capture the
-  // guarded tab's OWN window so the frame can never come from a different
-  // window than the one the guard evaluated.
+  // Pixel grab — browser surface only, and ONLY when Chrome is the focused
+  // application (C1 handoff). captureSurface() returns 'browser' when Chrome is
+  // focused, 'os' when it's blurred (companion owns capture then), 'none' idle.
+  // While blurred we do NOT grab the (stale, last-focused) tab; we record a
+  // context-only observation instead. Protected pages (chrome://, Web Store)
+  // throw: also degrade to context-only. Capture the guarded tab's OWN window so
+  // the frame can never come from a different window than the guard evaluated.
+  const surface = captureSurface({ chromeFocused, idle: false });
   let captureRef = null;
-  if ((target.surface || 'browser') === 'browser') {
+  if (surface === 'browser' && (target.surface || 'browser') === 'browser') {
     try {
       let dataUrl = await chrome.tabs.captureVisibleTab(target.windowId ?? null, {
         format: 'jpeg',
@@ -317,9 +379,10 @@ async function captureNowInner({ target = {}, event, clockState } = {}) {
       const provisional = {
         ts: new Date(baseRaw.at).toISOString(),
         surface: baseRaw.surface,
-        partition: partitionOf({}, clock)
+        partition: partitionOf({}, clock),
+        title: baseRaw.title
       };
-      captureRef = await writeFrame(dataUrl, provisional, settings);
+      captureRef = await persistFrame(dataUrl, provisional);
     } catch (err) {
       console.warn('[captureService] frame grab failed (recording context only):', err?.message);
     }
@@ -346,6 +409,9 @@ async function captureNowInner({ target = {}, event, clockState } = {}) {
 async function onContextEvent(type, contextKey) {
   const settings = await getSettings();
   if (!(await isEnabled(settings))) return;
+  // C1 handoff: the extension only captures the tab while Chrome is focused.
+  // When blurred the companion owns OS capture — don't grab a stale tab frame.
+  if (!chromeFocused) return;
   const target = await activeTabTarget();
   if (!target) return;
   await captureNow({ target, event: { type, at: Date.now(), contextKey } });
@@ -356,6 +422,9 @@ async function onContextEvent(type, contextKey) {
 export async function handleDwellTick() {
   const settings = await getSettings();
   if (!(await isEnabled(settings))) return;
+  // C1 handoff: suppress dwell-tick tab grabs entirely while Chrome is blurred —
+  // the companion captures the focused screen in that window.
+  if (!chromeFocused) return;
   const target = await activeTabTarget();
   if (!target) return;
   const contextKey = `tab:${target.tabId}:${target.host || ''}`;
@@ -377,15 +446,15 @@ async function runNightlyExportInner(dayOverride) {
   const day = dayOverride || new Date(now - 86400000).toISOString().slice(0, 10);
 
   const { filename, content } = buildLedgerExport(arr, { day, now });
+  // C4→C6: the ledger export the harness cron reads must land on the real
+  // filesystem. Route it through the companion (silent write) — NOT chrome.downloads
+  // (which pops a Save-As dialog). Buffer when the companion is offline.
   let exported = false;
+  let buffered = false;
   if (content.counts.total > 0) {
-    const relPath = buildExportRelPath(settings.captureStoragePath, filename);
-    const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(content, null, 1))}`;
-    const downloadId = await chrome.downloads.download({
-      url: dataUrl, filename: relPath, conflictAction: 'overwrite', saveAs: false
-    });
-    eraseWhenComplete(downloadId);
-    exported = true;
+    const res = await writeExport(filename, JSON.stringify(content, null, 1));
+    exported = !!res.sent;
+    buffered = !!res.buffered;
   }
 
   const pruned = pruneLedgerByAge(arr, settings.captureRetention, now);
@@ -393,7 +462,7 @@ async function runNightlyExportInner(dayOverride) {
   if (pruned.length !== arr.length) updates[LEDGER_KEY] = pruned;
   await setStorage(updates);
 
-  return { exported, day, records: content.counts.total, prunedCount: arr.length - pruned.length };
+  return { exported, buffered, day, records: content.counts.total, prunedCount: arr.length - pruned.length };
 }
 
 // ── Plan 041 T1: companion handoff wiring ───────────────────
@@ -448,8 +517,17 @@ export function registerCompanionCaptureBridge(bridge) {
     ).catch((err) => console.warn('[captureService] companion observation failed:', err?.message));
   });
 
-  // Mirror config on connect and whenever the relevant settings change.
-  bridge.on('connected', () => { pushCaptureConfig(bridge).catch(() => {}); });
+  // C1 handoff: mirror Chrome focus from the companion's app-switch signal so the
+  // dwell/context capture path stays silent while the user is in another app.
+  bridge.on('chromeFocused', () => { chromeFocused = true; });
+  bridge.on('chromeBlurred', () => { chromeFocused = false; });
+
+  // Mirror config on connect, flush any exports buffered while offline, and
+  // re-push config whenever the relevant settings change.
+  bridge.on('connected', () => {
+    pushCaptureConfig(bridge).catch(() => {});
+    flushPendingCortexExports().catch(() => {});
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.settings) return;
     const prev = changes.settings.oldValue || {};
@@ -470,8 +548,6 @@ export function registerCaptureListeners() {
   if (listenersRegistered) return;
   listenersRegistered = true;
 
-  try { chrome.downloads.onChanged.addListener(handleDownloadChanged); } catch { /* cosmetic */ }
-
   chrome.tabs.onActivated.addListener((activeInfo) => {
     onContextEvent('tab-activated', `tab:${activeInfo.tabId}`);
   });
@@ -486,8 +562,10 @@ export function registerCaptureListeners() {
 
   chrome.windows.onFocusChanged.addListener(async (windowId) => {
     if (windowId === chrome.windows.WINDOW_ID_NONE) {
-      // Chrome blurred → companion owns capture (C1 handoff; Phase 2 sends a
-      // WS signal). Record the surface transition so the ledger shows it.
+      // Chrome blurred → companion owns OS capture (C1 handoff). Flag it so the
+      // dwell/context path stops grabbing the (now stale) last-focused tab, and
+      // record the surface transition so the ledger shows it.
+      chromeFocused = false;
       const settings = await getSettings();
       if (!(await isEnabled(settings))) return;
       await recordObservation(
@@ -496,6 +574,8 @@ export function registerCaptureListeners() {
       );
       return;
     }
+    // A real window gained focus → Chrome is the foreground app again.
+    chromeFocused = true;
     onContextEvent('window-focus-changed', `win:${windowId}`);
   });
 
