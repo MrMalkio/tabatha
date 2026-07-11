@@ -10,7 +10,6 @@ import { Tooltip } from '../components/ui/Tooltip';
 import { TagPicker } from '../components/ui/TagPicker';
 import { FUNNEL_STAGES } from '../hooks/useFocusEngine';
 import { supabase, redeemInviteToken, createOrganization } from '../services/supabaseClient';
-import { applyInviteDefaults } from '../services/orgAttribution';
 import { useAuth } from '../hooks/useAuth';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 import { getLogs, clearLogs } from '../services/logger';
@@ -551,7 +550,7 @@ function Settings() {
   );
 
   // Supabase Auth State (via useAuth hook)
-  const { session, profile, orgs, teams, loading: authLoading, signIn, signOut, forceResetAuth, refreshProfile, isSignedIn } = useAuth();
+  const { session, profile, orgs, teams, loading: authLoading, signIn, signOut, forceResetAuth, refreshProfile, saveDisplayName, isSignedIn } = useAuth();
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [inviteToken, setInviteToken] = useState('');
@@ -587,33 +586,16 @@ function Settings() {
     if (!next || !(profile?.id || session?.user?.id)) { setEditingDisplayName(false); return; }
     setSavingDisplayName(true);
     setAuthError(null);
-    try {
-      // .select() forces Supabase to return the updated rows. If RLS or a
-      // stale JWT silently rejects the update, the response is an empty
-      // array (no error, just 0 rows). Without .select() we couldn't tell
-      // the difference between "saved" and "silently dropped".
-      const baseUpdate = supabase
-        .schema('tabatha')
-        .from('profiles')
-        .update({ display_name: next, updated_at: new Date().toISOString() });
-      const scopedUpdate = profile?.id
-        ? baseUpdate.eq('id', profile.id)
-        : baseUpdate.eq('auth_user_id', session.user.id);
-      const { data, error } = await Promise.race([
-        scopedUpdate.select(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out after 10s — the cloud may be unreachable')), 10000))
-      ]);
-      if (error) throw error;
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error('Update succeeded with 0 rows changed. Your session may be stale — try "Force reset auth" below and sign in again.');
-      }
-      await refreshProfile();
-      setEditingDisplayName(false);
-      setAuthError('✓ Name updated');
-    } catch (err) {
-      setAuthError('Failed to update name: ' + (err.message || err));
-    } finally {
-      setSavingDisplayName(false);
+    // Optimistic + queued: the name updates locally immediately (survives
+    // reload) and the write is handed to the background cloud outbox. No 10s
+    // timeout race — the outbox flushes with backoff and reconciles later.
+    const res = await saveDisplayName(next);
+    setSavingDisplayName(false);
+    setEditingDisplayName(false);
+    if (res?.ok) {
+      setAuthError(res.deferred ? '✓ Name saved — syncing to cloud…' : '✓ Name saved');
+    } else {
+      setAuthError('Failed to update name: ' + (res?.error || 'unknown error'));
     }
   };
 
@@ -717,10 +699,8 @@ function Settings() {
       const res = await redeemInviteToken(inviteToken.trim());
       if (res.success) {
         setInviteToken('');
-        // A1 defense-in-depth: if the profile still has no org default (e.g.
-        // server function 018 not yet live), stamp it client-side so the next
-        // sync attributes rows to the org. No-ops once the default is set.
-        try { await applyInviteDefaults({ supabase, profile, result: res }); } catch { /* server is authoritative */ }
+        // Org/team default attribution is applied server-side (migration 018)
+        // and, as belt-and-braces, in the background REDEEM_INVITE_TOKEN handler.
         await refreshProfile();
         setAuthError('✓ Successfully joined organization!');
       } else {

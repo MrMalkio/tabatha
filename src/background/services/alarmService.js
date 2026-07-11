@@ -32,6 +32,10 @@ import {
   runIntradayCadence,
   INTRADAY_OPTIMIZE_ALARM
 } from './cortexService.js';
+import {
+  runOutboxFlushAlarm,
+  CLOUD_OUTBOX_ALARM
+} from './cloudWriteService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
 // local constant avoids the circular import.
@@ -108,6 +112,9 @@ async function handleAlarm(alarm) {
       // Cortex Plan 043 T3: C6 LOW/intraday optimization cadence (opt-in)
       case INTRADAY_OPTIMIZE_ALARM:
         return runIntradayCadence();
+      // Cloud outbox retry — flushes queued cloud writes with backoff.
+      case CLOUD_OUTBOX_ALARM:
+        return runOutboxFlushAlarm();
       default:
         return;
     }

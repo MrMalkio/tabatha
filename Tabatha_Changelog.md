@@ -5,6 +5,21 @@ file.
 
 ---
 
+## [v6.7.7] - Background-routed cloud writes + outbox queue (page auth hang fixed) - _2026-07-10_
+
+### Fixed
+
+- **Root-caused and killed the page-context Cloud Sync hang.** Saving a display name, creating an organisation, or redeeming/minting an invite from Settings (and Work Shifts schedule reads) could hang ~10–15s then time out, and the Account panel logged `auth_init_failed`. The cause was a self-deadlock inside the page's auth client: its init lock is held while `onAuthStateChange` subscribers run, and the subscriber's nested cloud read re-entered that same lock forever. The `onAuthStateChange` callback now defers all follow-up work off its microtask (never `await`s a cloud call inline), so the client can never wedge.
+
+### Added
+
+- **Background is now the single Cloud auth owner.** Page contexts source the session and access token from the background service worker (`GET_AUTH_STATE` / `GET_ACCESS_TOKEN`) and read via a deadlock-proof data client configured with an `accessToken` callback — it never runs page-local auth machinery. Realtime (team activity, live profile) keeps working on the routed token.
+- **Cloud outbox — queue, never race.** Display-name changes enqueue to a durable, idempotency-keyed queue (`src/utils/cloudOutbox.js`) with latest-wins dedupe and exponential backoff, flushed by the background. The UI gets an instant optimistic ack instead of a 10s timeout race; the name updates locally, survives a reload, and reconciles on cloud confirm. Survives service-worker restarts.
+- **All cloud mutations routed through the background** (`UPDATE_PROFILE_NAME`, `CREATE_ORGANIZATION`, `REDEEM_INVITE_TOKEN`, `CREATE_INVITE_TOKEN`, `DELETE_INVITE_TOKEN`) so they execute against the never-wedged background client.
+- **Auto-sync on sign-in.** Signing in now triggers a full sync + outbox flush automatically (also on service-worker boot) — no need to click "Cloud Sync now" (kept as a manual fallback).
+
+---
+
 ## [v6.7.6] - UI: hide backend vendor name in Cloud Sync label - _2026-07-10_
 
 ### Changed

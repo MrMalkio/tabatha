@@ -12,7 +12,7 @@
 // see empty rosters and disabled mint buttons.
 // ============================================================
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase, createInviteToken } from '../services/supabaseClient';
+import { dataClient, createInviteToken, deleteInviteToken } from '../services/supabaseClient';
 
 const CLASSIFICATION_ICON = { business: '💼', professional: '👔', work: '🏗', personal: '🏠' };
 const BROWSER_ICON = { desktop_companion: '💻', mobile_ios: '📱', mobile_android: '📱', tabatha_web: '🌐' };
@@ -65,7 +65,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
 
       // Org-owner: all members of those orgs
       if (manageableOrgs.length > 0) {
-        const { data: orgMembers, error: orgErr } = await supabase
+        const { data: orgMembers, error: orgErr } = await dataClient
           .schema('tabatha')
           .from('org_members')
           .select('profile_id, role, org_id')
@@ -81,7 +81,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
 
       // Team-manager: members of those teams
       if (manageableTeams.length > 0) {
-        const { data: teamMembers, error: teamErr } = await supabase
+        const { data: teamMembers, error: teamErr } = await dataClient
           .schema('tabatha')
           .from('team_members')
           .select('profile_id, role, team_id')
@@ -104,7 +104,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
       }
 
       // 2. Hydrate profile names / avatars
-      const { data: profileRows, error: profErr } = await supabase
+      const { data: profileRows, error: profErr } = await dataClient
         .schema('tabatha')
         .from('profiles')
         .select('id, display_name, avatar_url')
@@ -113,7 +113,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
       const profileById = new Map((profileRows || []).map(p => [p.id, p]));
 
       // 3. Pull browser_profiles per member
-      const { data: installRows, error: installErr } = await supabase
+      const { data: installRows, error: installErr } = await dataClient
         .schema('tabatha')
         .from('browser_profiles')
         .select('id, profile_id, browser, profile_name, classification, last_seen_at')
@@ -128,7 +128,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
       const installIds = (installRows || []).map(r => r.id);
       let statusMap = {};
       if (installIds.length > 0) {
-        const { data: statusRows, error: statusErr } = await supabase
+        const { data: statusRows, error: statusErr } = await dataClient
           .schema('tabatha')
           .from('browser_profile_status')
           .select('*')
@@ -167,7 +167,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
   // low-frequency surfaces.
   useEffect(() => {
     if (!canSeeTeamActivity) return undefined;
-    const channel = supabase
+    const channel = dataClient
       .channel(`team_activity_${profileId}`)
       .on('postgres_changes', { event: '*', schema: 'tabatha', table: 'browser_profile_status' }, loadTeamActivity)
       .subscribe();
@@ -182,7 +182,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
     if (!canSeeTeamActivity) { setPendingInvites([]); return; }
     try {
       const orgIds = manageableOrgs.map(o => o.org_id);
-      const { data, error } = await supabase
+      const { data, error } = await dataClient
         .schema('tabatha')
         .from('invite_tokens')
         .select('id, token, org_id, team_id, role, expires_at, used_at, created_at')
@@ -203,8 +203,7 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
     if (!window.confirm('Revoke this invite? Anyone who has it but has not redeemed will no longer be able to join.')) return;
     setRevokingId(id);
     try {
-      const { error } = await supabase.schema('tabatha').from('invite_tokens').delete().eq('id', id);
-      if (error) throw error;
+      await deleteInviteToken(id);
       await loadPendingInvites();
     } catch (err) {
       window.alert('Revoke failed: ' + (err.message || err));

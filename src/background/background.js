@@ -81,6 +81,11 @@ import * as cortexService from './services/cortexService.js';
 import * as agentSessionService from './services/agentSessionService.js';
 import * as selfCorrectionService from './services/selfCorrectionService.js';
 import * as contextReconcileService from './services/contextReconcileService.js';
+import * as cloudWriteService from './services/cloudWriteService.js';
+import {
+  configureCloudWriteService,
+  flushCloudOutbox
+} from './services/cloudWriteService.js';
 import * as feedbackService from './services/feedbackService.js'; // B2: in-app feedback → Asana
 import * as awarenessService from './services/awarenessService.js';
 import {
@@ -111,6 +116,9 @@ configureAwarenessService({
   requestClockOut: () => clockService.handleMessage('CLOCK_OUT', {}, null)
 });
 configureCompanionInstallService({ supabase, companionBridge });
+// Cloud writes (profile name via outbox; org/invite via direct RPC). The SW is
+// the single auth owner — page contexts route every mutation here.
+configureCloudWriteService({ supabase, triggerSync });
 
 configureNotificationService({
   getTabData,
@@ -206,7 +214,8 @@ const services = [
   cortexService,
   agentSessionService,
   selfCorrectionService,
-  contextReconcileService
+  contextReconcileService,
+  cloudWriteService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -291,3 +300,8 @@ startAwareness();
 // + heartbeat its status. Bails gracefully if the companion isn't running
 // or the user isn't signed in.
 startCompanionInstallService();
+
+// Flush any cloud writes queued before the SW last stopped (e.g. a display-name
+// change made offline / while signed out). No-ops when the outbox is empty or
+// the user isn't signed in yet — sign-in re-triggers it via AUTH_STATE_CHANGED.
+flushCloudOutbox().catch(() => {});
