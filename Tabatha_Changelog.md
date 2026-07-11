@@ -5,6 +5,15 @@ file.
 
 ---
 
+## [v6.7.8] - Sync review fixes: durable fallback + per-op outbox persistence - _2026-07-10_
+
+### Fixed
+
+- **Display-name saves can no longer silently vanish.** If the service worker was asleep or torn down mid-message (a routine MV3 race), `saveDisplayName` used to swallow the failed `sendMessage` into a fabricated `{ ok: true }` — nothing was queued, no retry armed, and the cloud row stayed stale with a "✓ syncing" message. `updateProfileName` now falls back to persisting the write directly into the durable outbox (`_cloudOutbox`) and arms the flush alarm; only a genuine local-persist failure surfaces a real, retryable error to the user.
+- **Cloud outbox honours its at-most-once-per-success contract under teardown.** `flushCloudOutbox` now persists the queue after each op's success/failure inside the loop instead of once at the end, so a service-worker teardown mid-flush can't re-execute an op whose network write already landed.
+
+---
+
 ## [v6.7.7] - Background-routed cloud writes + outbox queue (page auth hang fixed) - _2026-07-10_
 
 ### Fixed

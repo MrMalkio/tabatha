@@ -148,16 +148,23 @@ export async function flushCloudOutbox() {
         // Unknown op type (e.g. queued by a newer build) — drop it so it can't
         // wedge the queue, and leave a breadcrumb.
         outbox = markSuccess(outbox, op.id);
+        await saveOutbox(outbox);
         await recordDiagnostic('cloud_outbox_unknown_type', `Dropped queued op of unknown type '${op.type}'.`);
         continue;
       }
       try {
         await executor(supabase, op.payload);
         outbox = markSuccess(outbox, op.id);
+        // Persist immediately (before the next op / any SW teardown) so a
+        // succeeded op can never be re-executed on the next flush. This is the
+        // outbox's at-most-once-per-success contract; keep it robust even for a
+        // future non-idempotent executor.
+        await saveOutbox(outbox);
         flushed += 1;
       } catch (err) {
         const res = markFailure(outbox, op.id, { now: Date.now(), error: err });
         outbox = res.outbox;
+        await saveOutbox(outbox);
         if (res.gaveUp) {
           await recordDiagnostic('cloud_outbox_gave_up',
             `Gave up on ${op.type} after ${res.op?.attempts} attempts: ${res.op?.lastError}`);
@@ -165,7 +172,6 @@ export async function flushCloudOutbox() {
       }
     }
 
-    await saveOutbox(outbox);
     await reconcileFlushAlarm(outbox);
     return { flushed, remaining: size(outbox), nextWakeAt: nextWakeAt(outbox) };
   } catch (err) {

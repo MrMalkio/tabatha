@@ -361,11 +361,15 @@ export function useAuth() {
     });
     try {
       const res = await updateProfileName({ displayName, profileId, authUserId });
-      return { ok: true, queued: !!res?.queued };
+      return { ok: true, queued: !!res?.queued, deferred: !!res?.deferred };
     } catch (err) {
-      // The write is still queued locally; surface a soft note, not a failure.
-      await writeAuthDiagnostic('display_name_enqueue_failed', err);
-      return { ok: true, queued: true, deferred: true };
+      // updateProfileName already falls back to persisting the write directly
+      // into the durable outbox when the SW can't be reached. Reaching this
+      // catch means even that local persist failed — a genuine failure, not a
+      // deferred success. Surface it so the UI shows an error and the user can
+      // retry, instead of silently claiming a save that never got queued.
+      await writeAuthDiagnostic('display_name_save_failed', err);
+      return { ok: false, error: 'Could not save your name — please try again.' };
     }
   }, [profile?.id, session?.user?.id]);
 

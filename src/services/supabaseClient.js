@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeOutbox, enqueue } from '../utils/cloudOutbox.js';
 
 const supabaseUrl = 'https://mtdgoahskcibjbhfvofx.supabase.co';
 const supabaseKey = 'sb_publishable_lPmWAzfBqbHkyGslkhohQA_8QgdBCu_';
+
+// Page-side durable-fallback keys — MUST mirror cloudWriteService's constants.
+// Used only when the SW can't be reached to enqueue a cloud write (see
+// updateProfileName's catch below); the write is persisted straight into the
+// same outbox the background flushes on its next wake.
+const CLOUD_OUTBOX_STORAGE_KEY = '_cloudOutbox';
+const CLOUD_OUTBOX_ALARM = 'cloud-outbox-flush';
 
 // Disable supabase-js's Web Locks coordination. The default lock uses
 // navigator.locks to serialize auth-token access across browser tabs — fine
@@ -317,10 +325,43 @@ export async function deleteInviteToken(id) {
 }
 
 /**
+ * Page-side durable fallback for a display-name write. Used only when the
+ * service worker can't be reached to enqueue (asleep / torn down mid-message —
+ * a routine MV3 race). Persists the op straight into the same `_cloudOutbox`
+ * storage the background flushes on its next wake (boot flush / periodic alarm /
+ * next sign-in), and arms the retry alarm so a sleeping SW is woken to flush it.
+ * Latest-wins dedupe by `key` means this can't double-apply if the message
+ * actually did reach the background before the channel dropped.
+ */
+async function enqueueProfileNameLocally({ displayName, profileId = null, authUserId = null }) {
+  const key = `cloud_profile_name:${profileId || authUserId}`;
+  const { [CLOUD_OUTBOX_STORAGE_KEY]: raw } = await chrome.storage.local.get(CLOUD_OUTBOX_STORAGE_KEY);
+  const { outbox } = enqueue(normalizeOutbox(raw), {
+    type: 'cloud_profile_name',
+    key,
+    payload: { displayName, profileId, authUserId },
+    now: Date.now(),
+  });
+  await chrome.storage.local.set({ [CLOUD_OUTBOX_STORAGE_KEY]: outbox });
+  // Wake a sleeping SW within ~1 min to flush the queued write.
+  try { chrome.alarms?.create(CLOUD_OUTBOX_ALARM, { periodInMinutes: 1 }); } catch { /* alarms unavailable */ }
+}
+
+/**
  * Queue a display-name update. The background enqueues it to the durable cloud
  * outbox and returns an immediate optimistic ack — no UI timeout race. The
  * write flushes with exponential backoff and survives SW restarts.
+ *
+ * If the SW can't be reached to enqueue, we do NOT fabricate a success: we fall
+ * back to persisting the write directly into the durable outbox (see
+ * enqueueProfileNameLocally). Only if even that local persist fails does the
+ * error propagate to the caller.
  */
 export async function updateProfileName({ displayName, profileId = null, authUserId = null }) {
-  return callBackground('UPDATE_PROFILE_NAME', { displayName, profileId, authUserId });
+  try {
+    return await callBackground('UPDATE_PROFILE_NAME', { displayName, profileId, authUserId });
+  } catch (err) {
+    await enqueueProfileNameLocally({ displayName, profileId, authUserId });
+    return { ok: true, success: true, queued: true, deferred: true };
+  }
 }
