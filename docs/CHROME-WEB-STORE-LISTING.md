@@ -4,9 +4,10 @@
 bottom for what's still missing before this can actually go live.
 
 This document contains everything needed to fill out the Chrome Web Store Developer
-Dashboard listing form, ready to copy-paste when we're ready to publish. It is based on
-`public/manifest.json` (v6.4.0), `RELEASE-6.4.0.md`, and `Tabatha_Concept.md` as of
-2026-07-01.
+Dashboard listing form, ready to copy-paste when we're ready to publish. Originally
+based on `public/manifest.json` (v6.4.0), `RELEASE-6.4.0.md`, and `Tabatha_Concept.md`
+as of 2026-07-01; asset/packaging sections refreshed against **v6.7.11** on 2026-07-15
+(icons, promo tile, store zip pipeline, privacy policy — see sections 7a, 8, 10).
 
 ---
 
@@ -172,9 +173,36 @@ owner). No advertising or analytics resale.
 **Certifications to check in the Dashboard when submitting:**
 - [ ] "This extension does not sell or transfer user data to third parties outside
       approved use cases" — should be checkable, confirm with current business terms.
-- [ ] Confirm whether a hosted **privacy policy URL** exists/is required (Chrome
-      requires a published privacy policy page if any personal or usage data is
-      collected — see checklist item below, this is currently missing).
+- [x] Hosted **privacy policy URL** — DONE. The plain-language policy now lives at
+      `PRIVACY.md` (repo root, public repo). Use this URL in the Dashboard's
+      Privacy field:
+      **https://github.com/MrMalkio/tabatha/blob/main/PRIVACY.md**
+      (valid once `feat/cws-package` merges to `main`; until then the identical
+      content is live at
+      https://github.com/MrMalkio/tabatha/blob/feat/cws-package/PRIVACY.md)
+
+---
+
+## 7a. Store zip / key-stripping
+
+`npm run build:store` (→ `scripts/build-store-zip.mjs`) produces the upload artifact
+`store-assets/tabatha-store-v<version>.zip`. It runs the normal build, stages `dist/`,
+**deletes the pinned `"key"` field from the staged `manifest.json`**, validates the
+payload (manifest parses + has a version, all entry pages/icons/content scripts
+present, no `*.map` files, no dotfiles), and zips it.
+
+**Why the key is stripped:** the Chrome Web Store rejects uploads whose manifest
+carries a `key`. The store derives and pins its own key, which means the store-installed
+extension gets a **new extension ID** — different from the internal unpacked ID
+(`hoknmoclnhccpgofpdihmiadmnmejjod`) that the pinned key produces.
+
+**Staff data migration:** because IDs differ, `chrome.storage` does NOT carry over
+from the unpacked install to the store install. Migration path = **Cloud Sync
+sign-in**: install the store version, sign in, data follows the account; then remove
+the unpacked copy. Until the listing is live, staff use the interim bundle
+`store-assets/tabatha-staff-unpacked-v<version>.zip` (built extension WITH the key +
+`install-extension-persistence.ps1` + 3-step `INSTALL.md`), which keeps the existing
+ID and data.
 
 ---
 
@@ -182,16 +210,14 @@ owner). No advertising or analytics resale.
 
 | Asset | Requirement | Status |
 |---|---|---|
-| Store icon | 128×128 PNG | **Needs work.** `public/icons/icon128.png` exists but is actually a 1024×1024 image saved under that filename — it was never resized. Same is true of `icon16.png` and `icon48.png`: all three files in `public/icons/` are byte-identical 1024×1024 PNGs (verified: all three are 358,170 bytes, all measure 1024×1024px). The manifest icon set is technically "working" because Chrome scales at runtime, but the Web Store upload for the *store listing* icon specifically wants a real 128×128 PNG — export one properly (with padding per Google's spec) from the source art rather than reusing the raw 1024px file. |
-| Small promo tile | 440×300 PNG or JPEG | **Needs to be created.** No promo tile assets found anywhere in the repo (`public/`, or elsewhere). |
+| Store icon | 128×128 PNG | **DONE (2026-07-15, v6.7.11).** `public/icons/` now holds true multi-resolution exports: `icon16.png` (16×16), `icon32.png` (32×32), `icon48.png` (48×48), `icon128.png` (128×128), resized from the preserved original `icon-1024.png` (high-quality bicubic). The manifest (`icons` + `action.default_icon`) declares 16/32/48/128. Use `icon128.png` as the store listing icon. |
+| Small promo tile | 440×300 PNG or JPEG | **DONE (2026-07-15).** `store-assets/promo-440x300.png` — icon + "Tabatha" wordmark + "Context & Focus Manager" tagline on the brand dark (#0F1115) with the cyan (#00D2FF) accent. |
 | Screenshots | 1–5 images, 1280×800 or 640×400 | **Needs to be captured.** No screenshots exist in the repo. This is a live-capture task, not something to fabricate — see shot list below. |
 | Marquee promo tile (optional) | 1400×560 PNG or JPEG | **Not started / optional.** Skip unless we want featured placement; not required to publish. |
 
-Quick way to confirm current icon state yourself: `public/icons/icon16.png`,
-`icon48.png`, and `icon128.png` all report 1024×1024 when opened — none of them is
-actually 16px or 48px. Before submitting, regenerate proper multi-resolution icons
-(16, 48, 128 at minimum, ideally also 32) from source vector art (`public/icons/icon.svg`
-exists and is the right source to re-export from).
+Icon regeneration note (resolved 2026-07-15): the three PNGs used to be the same
+unresized 1024×1024 file; they are now real 16/32/48/128 exports, with the 1024px
+original kept as `public/icons/icon-1024.png` (source of truth alongside `icon.svg`).
 
 ---
 
@@ -229,12 +255,14 @@ Capture notes:
 
 - [ ] **Screenshots not captured** — all 5 shots above are still TODO; requires a
       real, populated Tabatha instance (see PS machine note above), not a fresh install.
-- [ ] **Icon assets are not store-ready** — `icon16.png`/`icon48.png`/`icon128.png`
-      are all the same unresized 1024×1024 PNG; need real multi-resolution exports.
-- [ ] **No promo tile (440×300)** created yet — required for the listing.
-- [ ] **No hosted privacy policy URL** — Chrome Web Store requires a published privacy
-      policy page for extensions that handle user data; we have the *content* (section
-      7 above) but no live URL to point the Dashboard's Privacy field at yet.
+- [x] **Icon assets are store-ready** (2026-07-15) — real 16/32/48/128 exports in
+      `public/icons/`, 1024px original preserved as `icon-1024.png`, manifest updated.
+- [x] **Promo tile (440×300)** created — `store-assets/promo-440x300.png`.
+- [x] **Hosted privacy policy URL** — `PRIVACY.md` at repo root (public repo):
+      https://github.com/MrMalkio/tabatha/blob/main/PRIVACY.md (once `feat/cws-package`
+      is merged; branch URL live meanwhile — see section 7).
+- [x] **Upload zip pipeline** — `npm run build:store` produces the key-stripped
+      `store-assets/tabatha-store-v<version>.zip`, validated (see section 7a).
 - [ ] **Chrome Web Store developer account** — confirm the one-time $5 registration fee
       has been paid and the publishing account is set up under the right organization
       (not a personal account), so ownership/transfer isn't a mess later.
@@ -260,5 +288,6 @@ Capture notes:
 ---
 
 *Generated from `public/manifest.json` (v6.4.0), `RELEASE-6.4.0.md`, `Tabatha_Concept.md`,
-and `TEAM-ONBOARDING.md` on 2026-07-01. Update this doc if the manifest's permissions,
-version, or description change before submission.*
+and `TEAM-ONBOARDING.md` on 2026-07-01; packaging/assets refreshed against v6.7.11 on
+2026-07-15. Update this doc if the manifest's permissions, version, or description
+change before submission.*

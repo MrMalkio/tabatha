@@ -14,6 +14,11 @@ dist-v*/
 # Atomic-build staging + rollback dirs (scripts/swap-dist.mjs)
 .dist-build/
 dist.old-*/
+# Store-zip staging (scripts/build-store-zip.mjs) + packaged outputs.
+# store-assets/ itself IS committed (promo tile, docs); only zips/staging stay out —
+# zips are already covered by the global *.zip rule below.
+.store-build/
+store-assets/staff-unpacked-bundle/extension/
 *.local
 
 # Editor directories and files

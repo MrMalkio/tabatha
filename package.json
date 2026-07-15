@@ -1,11 +1,12 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "6.7.10",
+  "version": "6.7.11",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/swap-dist.mjs",
+    "build:store": "node scripts/build-store-zip.mjs",
     "lint": "eslint .",
     "test": "node --test",
     "preview": "vite preview",
