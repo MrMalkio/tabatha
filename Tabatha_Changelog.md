@@ -5,6 +5,20 @@ file.
 
 ---
 
+## [v6.7.9] - Stable extension load path (stops "uninstalling on restart") - _2026-07-15_
+
+### Fixed
+
+- **The extension no longer disappears after a restart.** Chrome loaded the unpacked extension straight from the git build folder (`…\Tabatha\dist`), which `npm run build` legitimately empties/rewrites. Any restart — made frequent and unattended by Windows Fast Startup, and Chrome's startup extension-GC after an unclean exit — that landed while `dist` was mid-build/invalid caused Chrome to permanently drop the unpacked entry, forcing a manual "Load unpacked". The load path is now decoupled from the git tree: a stable mirror at `%LOCALAPPDATA%\Tabatha\extension` is kept populated with the freshest **valid** build and self-heals on logon, so Chrome always validates against a complete folder.
+
+### Added
+
+- **`scripts/mirror-extension.ps1`** — atomically mirrors a valid `dist` build into the stable load path (validates manifest + pinned key + entry pages before swapping; leaves the last-known-good copy untouched if the source is missing/mid-build).
+- **`scripts/install-extension-persistence.ps1`** — one-time machine setup: seeds the stable path and registers a logon autostart (scheduled task, or HKCU Run-key fallback) that re-mirrors/self-heals before Chrome starts. Prints the one-time "Load unpacked from the stable path" step.
+- **`npm run mirror:extension`** — refresh the stable load path on demand after a build.
+
+---
+
 ## [v6.7.8] - Sync review fixes: durable fallback + per-op outbox persistence - _2026-07-10_
 
 ### Fixed

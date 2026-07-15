@@ -1,7 +1,7 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "6.7.8",
+  "version": "6.7.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
     "version:check": "node scripts/sync-version.mjs --check",
     "changelog:build": "node scripts/build-changelog.mjs",
     "changelog:check": "node scripts/build-changelog.mjs --check",
+    "mirror:extension": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mirror-extension.ps1",
     "prebuild": "node scripts/sync-version.mjs && node scripts/build-changelog.mjs --check"
   },
   "dependencies": {
