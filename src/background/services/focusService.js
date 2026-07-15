@@ -1079,7 +1079,7 @@ async function setFocusStartTime(focusId, startedAt, reason) {
     else if (other.pausedAt) oEnd = new Date(other.pausedAt).getTime();
     else if (other.endedAt) oEnd = new Date(other.endedAt).getTime();
     else continue;
-    if (Number.isFinite(oEnd) && oEnd > oStart) otherIntervals.push({ startMs: oStart, endMs: oEnd });
+    if (Number.isFinite(oEnd) && oEnd > oStart) otherIntervals.push({ startMs: oStart, endMs: oEnd, label: other.label || null });
   }
 
   const v = validateStartTime({ proposedStartMs, currentStartMs, now, clockInMs, otherIntervals });
@@ -1104,7 +1104,11 @@ async function setFocusStartTime(focusId, startedAt, reason) {
   autoCheckpoint(item, `🛠 Start backdated +${mins}m${reason ? ' — ' + reason : ''}`);
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-  return { focusEngine: engine, startedAt: item.startedAt, addedMs, clamped: v.clamped };
+  // Response carries everything the UI needs to EXPLAIN a clamp instead of
+  // silently swallowing it: the effective start, the credited ms, whether the
+  // request was clamped, and (when an overlapping focus caused it) that
+  // focus's label. Additive fields only — existing semantics unchanged.
+  return { focusEngine: engine, startedAt: item.startedAt, addedMs, clamped: v.clamped, clampedBy: v.clampedBy || null };
 }
 
 // Edit an existing checkpoint entry's text and/or progress level.
