@@ -85,6 +85,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [editFunnel, setEditFunnel] = useState('unsorted');
   const [editTags, setEditTags] = useState({});
   const [editStart, setEditStart] = useState(''); // B1: backdate start (datetime-local)
+  const [startFeedback, setStartFeedback] = useState(null); // { text, tone: 'error'|'warn'|'ok' } — clamp-aware backdate feedback
   // Plan 025: Checkpoint Progress Notes
   const [showCPN, setShowCPN] = useState(false);
   const [cpnText, setCpnText] = useState('');
@@ -128,6 +129,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     setEditFunnel(activeFocus.funnelStage || 'unsorted');
     setEditTags(activeFocus.tags || {});
     setEditStart(toLocalInput(activeFocus.startedAt));
+    setStartFeedback(null);
     setEditing(true);
   };
 
@@ -151,10 +153,38 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       }
     }
     // B1: backdate start time if it was moved earlier in the edit panel.
+    // The handler may CLAMP the request (anti-double-count vs other focuses,
+    // clock-in floor, now ceiling) — never swallow that silently: explain it.
     const origStart = activeFocus.startedAt ? new Date(activeFocus.startedAt).getTime() : null;
     const newStart = editStart ? new Date(editStart).getTime() : null;
     if (newStart != null && Number.isFinite(newStart) && newStart !== origStart) {
-      await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
+      const r = await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
+      if (r?.error) { setStartFeedback({ tone: 'error', text: r.error }); return; }
+      const addedMins = Math.round((r?.addedMs || 0) / 60000);
+      const hhmm = r?.startedAt ? new Date(r.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      if (r?.clamped && !(r?.addedMs > 0)) {
+        // Fully suppressed — keep the editor open and explain why.
+        setStartFeedback({
+          tone: 'error',
+          text: r?.clampedBy
+            ? `Couldn't backdate to that time — "${r.clampedBy}" already occupied it. Earliest available: ${hhmm}.`
+            : `Couldn't backdate to that time — it's outside the allowed window. Earliest available: ${hhmm}.`,
+        });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        return;
+      }
+      if (r?.clamped) {
+        // Partial clamp — applied, but not as far back as requested.
+        setStartFeedback({ tone: 'warn', text: `Backdated to ${hhmm}${r?.clampedBy ? ` (limited by "${r.clampedBy}")` : ''} — +${addedMins}m credited.` });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 2500);
+        return;
+      }
+      if (addedMins > 0) {
+        setStartFeedback({ tone: 'ok', text: `+${addedMins}m credited.` });
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 1200);
+        return;
+      }
     }
     setEditing(false);
   };
@@ -279,6 +309,11 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
                 <input type="datetime-local" value={editStart} max={toLocalInput(new Date().toISOString())} onChange={e => setEditStart(e.target.value)} style={{ width: '100%', padding: '4px 8px', fontSize: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
                 {backdatedMins(activeFocus.startedAt, editStart) > 0 && (
                   <div style={{ fontSize: '10px', color: 'var(--color-accent-primary)', marginTop: '2px' }}>backdated +{backdatedMins(activeFocus.startedAt, editStart)}m</div>
+                )}
+                {startFeedback && (
+                  <div style={{ fontSize: '10px', marginTop: '2px', color: startFeedback.tone === 'error' ? '#ef5350' : startFeedback.tone === 'warn' ? '#ffa726' : '#66bb6a' }}>
+                    {startFeedback.tone === 'ok' ? '✓ ' : '⚠ '}{startFeedback.text}
+                  </div>
                 )}
               </div>
               <button onClick={saveEdit} style={btnStyle('#66bb6a')}>💾 Save</button>

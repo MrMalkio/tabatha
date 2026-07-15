@@ -312,6 +312,77 @@ test('SET_FOCUS_START_TIME logs a backdated checkpoint', async () => {
   assert.ok((f1.checkpoint || []).some(c => /backdated|start/i.test(c.text || '')), 'expected a start-edit checkpoint');
 });
 
+// ── Multi-focus clamp coverage: the anti-double-count overlap path ──
+// (previously untested — every earlier test seeded a single focus item, so the
+// clamp-vs-sibling branch of validateStartTime had zero coverage.)
+
+function seedWithSibling(f1over, f2over = {}) {
+  installChromeMock({
+    store: {
+      focusEngine: {
+        activeFocusId: null,
+        items: {
+          f1: baseItem(f1over),
+          f2: {
+            id: 'f2', label: 'Email triage', focusState: 'paused', funnelStage: 'addressing',
+            startedAt: minsAgo(120), pausedAt: minsAgo(10), elapsedMs: 0,
+            lastResumedAt: null, timerMinutes: 30, checkpoint: [], ...f2over,
+          },
+        },
+        history: [],
+      },
+    },
+  });
+}
+
+test('SET_FOCUS_START_TIME fully suppressed by an overlapping sibling: clamped, addedMs 0, blocking label reported', async () => {
+  // f2 occupied [120m ago, 10m ago]; f1 started right at 10m ago. Backdating f1
+  // to 60m ago lands inside f2's span → clamps forward to f2's end, which IS
+  // f1's current start → nothing credited. The response must say so.
+  seedWithSibling({ startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null });
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(60) });
+  assert.equal(r.clamped, true);
+  assert.ok(r.addedMs < 1000, `expected ~0 credited, got ${r.addedMs}`);
+  assert.equal(r.clampedBy, 'Email triage');
+  // start stays ≈ where it was (f2's pausedAt ≈ f1's old start)
+  const f1 = r.focusEngine.items.f1;
+  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 10 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
+  assert.ok(f1.elapsedMs >= 4.9 * MIN && f1.elapsedMs <= 5.1 * MIN, `elapsed must be untouched, was ${f1.elapsedMs}`);
+});
+
+test('SET_FOCUS_START_TIME partially clamped by a sibling: correct addedMs and effective start', async () => {
+  // f2 occupied [120m ago, 30m ago]; f1 started 10m ago. Backdating to 60m ago
+  // clamps to 30m ago → 20m credited (not the requested 50m).
+  seedWithSibling(
+    { startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null },
+    { pausedAt: minsAgo(30) },
+  );
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(60) });
+  assert.equal(r.clamped, true);
+  assert.equal(r.clampedBy, 'Email triage');
+  assert.ok(r.addedMs >= 19.9 * MIN && r.addedMs <= 20.1 * MIN, `addedMs was ${r.addedMs}`);
+  const f1 = r.focusEngine.items.f1;
+  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 30 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
+  // 5m stored + 20m credited = 25m, under the 30m wall-clock ceiling
+  assert.ok(f1.elapsedMs >= 24.9 * MIN && f1.elapsedMs <= 25.1 * MIN, `elapsed was ${f1.elapsedMs}`);
+});
+
+test('SET_FOCUS_START_TIME with a non-overlapping sibling is unclamped and unchanged', async () => {
+  // f2 occupied [120m ago, 90m ago] — clear of the requested [60m ago, now] span.
+  seedWithSibling(
+    { startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null },
+    { pausedAt: minsAgo(90) },
+  );
+  const newStart = minsAgo(60);
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: newStart });
+  assert.equal(r.clamped, false);
+  assert.equal(r.clampedBy, null);
+  assert.ok(r.addedMs >= 49.9 * MIN && r.addedMs <= 50.1 * MIN, `addedMs was ${r.addedMs}`);
+  const f1 = r.focusEngine.items.f1;
+  assert.equal(f1.startedAt, newStart);
+  assert.ok(f1.elapsedMs >= 54.9 * MIN && f1.elapsedMs <= 55.1 * MIN, `elapsed was ${f1.elapsedMs}`);
+});
+
 test('EDIT_CHECKPOINT updates note text and progress level', async () => {
   seed(baseItem({ checkpoint: [{ id: 'c1', text: 'old', progressLevel: 'none', progressValue: 0, triggeredBy: 'home' }] }));
   const r = await focus.handleMessage('EDIT_CHECKPOINT', { focusId: 'f1', checkpointId: 'c1', text: 'new text', progressLevel: 'lot' });

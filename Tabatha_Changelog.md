@@ -5,6 +5,14 @@ file.
 
 ---
 
+## [v6.7.10] - Backdating explains itself instead of silently doing nothing - _2026-07-15_
+
+### Fixed
+
+- **Backdating a focus's start time no longer fails silently.** When a backdate request landed inside a window another focus already occupied, the anti-double-count guard correctly limited (or fully suppressed) the edit — but both time editors (home and sidebar) ignored the result and quietly closed, making backdating look broken. The editor now explains exactly what happened: a fully blocked backdate keeps the editor open with "Couldn't backdate to that time — '<focus>' already occupied it. Earliest available: HH:MM."; a partially limited one confirms "Backdated to HH:MM (limited by '<focus>') — +Xm credited."; and a clean backdate briefly confirms "+Xm credited." The time-accounting guard itself is unchanged — the same wall-clock window is still never credited twice.
+
+---
+
 ## [v6.7.9] - Stable extension load path (stops "uninstalling on restart") - _2026-07-15_
 
 ### Fixed

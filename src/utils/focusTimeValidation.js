@@ -25,9 +25,11 @@ function clampMs(value, lo, hi) {
  * @param {number} args.currentStartMs   the focus's current startedAt (epoch ms)
  * @param {number} args.now              epoch ms "now"
  * @param {?number} args.clockInMs        clock-in epoch ms, or null/undefined if not clocked in
- * @param {Array<{startMs:number,endMs:number}>} [args.otherIntervals]
- *        active intervals of *other* focuses to avoid double-counting against
- * @returns {{ok:boolean, startMs?:number, clamped?:boolean, error?:string}}
+ * @param {Array<{startMs:number,endMs:number,label?:string}>} [args.otherIntervals]
+ *        active intervals of *other* focuses to avoid double-counting against.
+ *        Optional `label` is echoed back as `clampedBy` when that interval
+ *        forces the start forward, so the UI can explain the clamp.
+ * @returns {{ok:boolean, startMs?:number, clamped?:boolean, clampedBy?:?string, error?:string}}
  */
 export function validateStartTime({ proposedStartMs, currentStartMs, now, clockInMs, otherIntervals = [] }) {
   const nowMs = Number.isFinite(now) ? now : Date.now();
@@ -38,6 +40,7 @@ export function validateStartTime({ proposedStartMs, currentStartMs, now, clockI
 
   let start = proposedStartMs;
   let clamped = false;
+  let clampedBy = null; // label of the last overlapping focus that pushed the start forward
 
   // (1) lower bound: clock-in time, if clocked in. (2) upper bound: now.
   const lo = Number.isFinite(clockInMs) ? clockInMs : null;
@@ -64,6 +67,7 @@ export function validateStartTime({ proposedStartMs, currentStartMs, now, clockI
         if (iv.endMs > start && iv.startMs < nowMs && start < iv.endMs) {
           start = iv.endMs;
           clamped = true;
+          clampedBy = iv.label || null;
           moved = true;
         }
       }
@@ -75,7 +79,7 @@ export function validateStartTime({ proposedStartMs, currentStartMs, now, clockI
     }
   }
 
-  return { ok: true, startMs: start, clamped };
+  return { ok: true, startMs: start, clamped, clampedBy };
 }
 
 export default { validateStartTime };
