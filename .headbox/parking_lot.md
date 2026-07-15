@@ -504,3 +504,12 @@
   2. CLI-first thin wrapper for scripting/cron
   3. Extension native-messaging host (no companion dependency)
 - **Artifacts:** docs/cortex/PROGRAM-agent-control-layer.md · Asana task 1216454646338939
+
+## 2026-07-15 — Backdate overlap: trim / backburner conflict chooser
+- **Noticed while:** fixing "backdating intent start time not working" (fix/backdate-overlap-clamp).
+- **What:** `SET_FOCUS_START_TIME` now sets the start the user picked (bounded by clock-in/now) and RETURNS `overlaps` — the other-focus intervals the new credited span [start, now] intersects — instead of silently clamping the start forward. Right now overlaps are only surfaced as a timeline note; nothing lets the user resolve the double-counted time.
+- **Why it matters:** Malkio's intent: when a backdated window overlaps time already tracked on another focus, the user should choose to (a) trim that overlap from the other focus, or (b) move the overlapped span to backburner time — not have it auto-resolved. Current time-counting "considers all of the time in an odd way."
+- **Options:**
+  1. Post-backdate modal in home/sidebar: list each overlapping focus + overlapMs, with "Trim from that focus" / "Send to backburner" / "Leave as-is" per row (uses the returned `overlaps`). ← **suggested**
+  2. Background auto-trim with an undo toast.
+  3. Analytics-only: leave elapsed as-is, just flag double-counted spans in reports.

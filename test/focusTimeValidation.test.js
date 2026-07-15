@@ -64,9 +64,10 @@ test('no clock-in session: lower bound is unbounded (only clamps to now)', () =>
   assert.equal(r.startMs, now - 300 * MIN);
 });
 
-test('proposed start that overlaps another active interval clamps to that interval end', () => {
+test('overlapping another active interval keeps the chosen start and REPORTS the overlap', () => {
   const now = t(0);
-  // Another focus was active from -60m to -20m. We try to backdate into it.
+  // Another focus was active from -60m to -20m. We backdate into it. The start
+  // the user picked (-40m) stands; the overlap is reported, not applied.
   const r = validateStartTime({
     proposedStartMs: now - 40 * MIN,
     currentStartMs: now - 10 * MIN,
@@ -75,17 +76,18 @@ test('proposed start that overlaps another active interval clamps to that interv
     otherIntervals: [{ startMs: now - 60 * MIN, endMs: now - 20 * MIN }],
   });
   assert.equal(r.ok, true);
-  assert.equal(r.clamped, true);
-  // clamps forward to the end of the overlapping interval
-  assert.equal(r.startMs, now - 20 * MIN);
+  assert.equal(r.clamped, false); // clock-in/now bounds did not move it
+  assert.equal(r.startMs, now - 40 * MIN); // chosen start is preserved
+  assert.equal(r.overlaps.length, 1);
+  // credited span [-40m, now] overlaps [-60m, -20m] by 20m (from -40m to -20m).
+  assert.equal(r.overlaps[0].overlapMs, 20 * MIN);
 });
 
-test('P1: credited span [proposedStart, now] overlapping another interval clamps forward (no double-count)', () => {
+test('credited span [proposedStart, now] overlapping another interval is preserved and reported', () => {
   const now = t(0);
-  // Repro from the review: proposed start is EARLIER than another focus's
-  // active interval, so the proposed *instant* is NOT inside it — but the
-  // credited span [now-90m, now] still swallows the overlapped 40m.
-  // Must clamp the start forward past the overlapping interval's end.
+  // Proposed start (-90m) is EARLIER than another focus's active interval, so the
+  // credited span [-90m, now] swallows the overlapped 40m. The start is NOT moved
+  // anymore — the full 40m overlap is reported for the caller to resolve.
   const r = validateStartTime({
     proposedStartMs: now - 90 * MIN,
     currentStartMs: now - 10 * MIN,
@@ -94,13 +96,13 @@ test('P1: credited span [proposedStart, now] overlapping another interval clamps
     otherIntervals: [{ startMs: now - 60 * MIN, endMs: now - 20 * MIN }],
   });
   assert.equal(r.ok, true);
-  assert.equal(r.clamped, true);
-  // start must be >= the overlapping interval's end so the credited span
-  // [start, now] no longer overlaps [now-60m, now-20m].
-  assert.equal(r.startMs, now - 20 * MIN);
+  assert.equal(r.clamped, false);
+  assert.equal(r.startMs, now - 90 * MIN); // backdate takes full effect
+  assert.equal(r.overlaps.length, 1);
+  assert.equal(r.overlaps[0].overlapMs, 40 * MIN);
 });
 
-test('P1: credited span overlapping MULTIPLE intervals clamps past the latest-ending one', () => {
+test('span overlapping MULTIPLE intervals preserves the start and reports each overlap', () => {
   const now = t(0);
   const r = validateStartTime({
     proposedStartMs: now - 200 * MIN,
@@ -113,13 +115,14 @@ test('P1: credited span overlapping MULTIPLE intervals clamps past the latest-en
     ],
   });
   assert.equal(r.ok, true);
-  assert.equal(r.clamped, true);
-  // both intervals lie within [now-200m, now]; clamp forward past the one that
-  // ends last (now-20m) so no overlap remains.
-  assert.equal(r.startMs, now - 20 * MIN);
+  assert.equal(r.clamped, false);
+  assert.equal(r.startMs, now - 200 * MIN); // full backdate stands
+  assert.equal(r.overlaps.length, 2);
+  const totalOverlap = r.overlaps.reduce((s, o) => s + o.overlapMs, 0);
+  assert.equal(totalOverlap, (40 + 50) * MIN); // 40m + 50m overlapped
 });
 
-test('proposed start fully clear of other intervals is unchanged', () => {
+test('proposed start fully clear of other intervals reports no overlap', () => {
   const now = t(0);
   const r = validateStartTime({
     proposedStartMs: now - 15 * MIN,
@@ -131,6 +134,7 @@ test('proposed start fully clear of other intervals is unchanged', () => {
   assert.equal(r.ok, true);
   assert.equal(r.startMs, now - 15 * MIN);
   assert.equal(r.clamped, false);
+  assert.equal(r.overlaps.length, 0);
 });
 
 test('invalid (non-finite) proposed start is rejected', () => {
@@ -146,10 +150,10 @@ test('invalid (non-finite) proposed start is rejected', () => {
   assert.ok(r.error);
 });
 
-test('clamp to interval end never pushes past now', () => {
+test('reported overlap never extends past now', () => {
   const now = t(0);
-  // Overlapping interval ends in the "future" relative to now (degenerate);
-  // result must still be <= now.
+  // Overlapping interval ends in the "future" relative to now (degenerate).
+  // The start stands and the reported overlap is capped at now.
   const r = validateStartTime({
     proposedStartMs: now - 5 * MIN,
     currentStartMs: now - 2 * MIN,
@@ -158,5 +162,8 @@ test('clamp to interval end never pushes past now', () => {
     otherIntervals: [{ startMs: now - 10 * MIN, endMs: now + 30 * MIN }],
   });
   assert.equal(r.ok, true);
+  assert.equal(r.startMs, now - 5 * MIN);
   assert.ok(r.startMs <= now);
+  // credited span [-5m, now] overlaps the interval by 5m (from -5m to now).
+  assert.equal(r.overlaps[0].overlapMs, 5 * MIN);
 });

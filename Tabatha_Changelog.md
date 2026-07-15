@@ -5,6 +5,21 @@ file.
 
 ---
 
+## [v6.7.12] - Backdating actually moves the start; overlap is reported, not blocked - _2026-07-15_
+
+> Supersedes v6.7.10's clamp-feedback behavior: the anti-double-count clamp against other focuses is **removed**, not just explained.
+
+### Fixed
+
+- **Backdating a start time now actually moves the start — even when other focuses occupied that window.** The anti-double-count guard in `SET_FOCUS_START_TIME` treated every other focus (including the entire paused/queued backlog) as time already claimed and "resolved" overlap by shoving the proposed start *forward* to the latest interval end — with a full queue, that collapsed nearly every backdate into a silent no-op. The start the user picks now always takes effect, bounded only by two hard limits: not before clock-in, not in the future. Parallel/overlapping focuses are an accepted concept — overlap with another focus is now **reported, not silently blocked**: the editor confirms e.g. `Backdated to HH:MM — overlaps "Email triage" by 20m (both keep their time)`, and the timeline checkpoint notes the overlapped minutes.
+- **Edits limited by the hard bounds explain themselves.** A backdate fully swallowed by the clock-in floor or the now ceiling keeps the editor open with why and the earliest available time; a partially bounded one confirms the effective time and credited minutes; a clean backdate briefly confirms `+Xm credited`. (Per-focus accounting is unchanged: credited `elapsedMs` is still capped at wall-clock since the new start.)
+
+### Changed
+
+- **`validateStartTime` contract:** bounds the start to `[clock-in, now]` only; `clamped`/`clampedBy` now reflect only those bounds (`'clock-in'` / `'now'`), and overlapping other-focus intervals are returned as `overlaps` (with per-interval `overlapMs` and the sibling's `label`) for the caller to surface. `SET_FOCUS_START_TIME` response adds `overlaps` alongside `startedAt`/`addedMs`/`clamped`/`clampedBy`. A follow-up will let the user trim the overlap from the other focus or move it to backburner time.
+
+---
+
 ## [v6.7.11] - Chrome Web Store packaging: real icons, promo tile, store zip, privacy policy - _2026-07-15_
 
 ### Added
@@ -14,14 +29,6 @@ file.
 - **Store promo tile** — `store-assets/promo-440x300.png` (icon + wordmark + tagline on brand dark).
 - **`PRIVACY.md`** — plain-language privacy policy (from the listing doc's disclosure section), hosted publicly for the store's privacy-policy URL requirement.
 - **Staff interim bundle** — `store-assets/tabatha-staff-unpacked-v<version>.zip` (built extension WITH pinned key + persistence installer + 3-step INSTALL.md) so existing unpacked installs keep their extension ID until the store listing is live.
-
----
-
-## [v6.7.10] - Backdating explains itself instead of silently doing nothing - _2026-07-15_
-
-### Fixed
-
-- **Backdating a focus's start time no longer fails silently.** When a backdate request landed inside a window another focus already occupied, the anti-double-count guard correctly limited (or fully suppressed) the edit — but both time editors (home and sidebar) ignored the result and quietly closed, making backdating look broken. The editor now explains exactly what happened: a fully blocked backdate keeps the editor open with "Couldn't backdate to that time — '<focus>' already occupied it. Earliest available: HH:MM."; a partially limited one confirms "Backdated to HH:MM (limited by '<focus>') — +Xm credited."; and a clean backdate briefly confirms "+Xm credited." The time-accounting guard itself is unchanged — the same wall-clock window is still never credited twice.
 
 ---
 

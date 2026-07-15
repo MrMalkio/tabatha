@@ -335,36 +335,45 @@ function seedWithSibling(f1over, f2over = {}) {
   });
 }
 
-test('SET_FOCUS_START_TIME fully suppressed by an overlapping sibling: clamped, addedMs 0, blocking label reported', async () => {
+test('SET_FOCUS_START_TIME overlapping a sibling: start moves in full, overlap reported (not blocked)', async () => {
   // f2 occupied [120m ago, 10m ago]; f1 started right at 10m ago. Backdating f1
-  // to 60m ago lands inside f2's span → clamps forward to f2's end, which IS
-  // f1's current start → nothing credited. The response must say so.
+  // to 60m ago lands inside f2's span. The start the user picked always takes
+  // effect (no clock-in floor here, so it's unbounded below) — the 50m
+  // overlap with f2 is reported, not clamped away.
   seedWithSibling({ startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null });
   const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(60) });
-  assert.equal(r.clamped, true);
-  assert.ok(r.addedMs < 1000, `expected ~0 credited, got ${r.addedMs}`);
-  assert.equal(r.clampedBy, 'Email triage');
-  // start stays ≈ where it was (f2's pausedAt ≈ f1's old start)
+  assert.equal(r.clamped, false);
+  assert.equal(r.clampedBy, null);
+  assert.ok(r.addedMs >= 49.9 * MIN && r.addedMs <= 50.1 * MIN, `expected ~50m credited, got ${r.addedMs}`);
+  assert.equal(r.overlaps.length, 1);
+  assert.equal(r.overlaps[0].label, 'Email triage');
+  assert.ok(r.overlaps[0].overlapMs >= 49.9 * MIN && r.overlaps[0].overlapMs <= 50.1 * MIN, `overlapMs was ${r.overlaps[0].overlapMs}`);
+  // start actually moved to the requested time
   const f1 = r.focusEngine.items.f1;
-  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 10 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
-  assert.ok(f1.elapsedMs >= 4.9 * MIN && f1.elapsedMs <= 5.1 * MIN, `elapsed must be untouched, was ${f1.elapsedMs}`);
+  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 60 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
+  // 5m stored + 50m credited = 55m, under the 60m wall-clock ceiling
+  assert.ok(f1.elapsedMs >= 54.9 * MIN && f1.elapsedMs <= 55.1 * MIN, `elapsed was ${f1.elapsedMs}`);
 });
 
-test('SET_FOCUS_START_TIME partially clamped by a sibling: correct addedMs and effective start', async () => {
+test('SET_FOCUS_START_TIME overlapping a sibling with a narrower interval: start moves in full, smaller overlap reported', async () => {
   // f2 occupied [120m ago, 30m ago]; f1 started 10m ago. Backdating to 60m ago
-  // clamps to 30m ago → 20m credited (not the requested 50m).
+  // moves the start fully to 60m ago (still unbounded below) and reports the
+  // 30m overlap with f2's [120m, 30m] span — not a 20m clamp-shortfall.
   seedWithSibling(
     { startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null },
     { pausedAt: minsAgo(30) },
   );
   const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(60) });
-  assert.equal(r.clamped, true);
-  assert.equal(r.clampedBy, 'Email triage');
-  assert.ok(r.addedMs >= 19.9 * MIN && r.addedMs <= 20.1 * MIN, `addedMs was ${r.addedMs}`);
+  assert.equal(r.clamped, false);
+  assert.equal(r.clampedBy, null);
+  assert.ok(r.addedMs >= 49.9 * MIN && r.addedMs <= 50.1 * MIN, `addedMs was ${r.addedMs}`);
+  assert.equal(r.overlaps.length, 1);
+  assert.equal(r.overlaps[0].label, 'Email triage');
+  assert.ok(r.overlaps[0].overlapMs >= 29.9 * MIN && r.overlaps[0].overlapMs <= 30.1 * MIN, `overlapMs was ${r.overlaps[0].overlapMs}`);
   const f1 = r.focusEngine.items.f1;
-  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 30 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
-  // 5m stored + 20m credited = 25m, under the 30m wall-clock ceiling
-  assert.ok(f1.elapsedMs >= 24.9 * MIN && f1.elapsedMs <= 25.1 * MIN, `elapsed was ${f1.elapsedMs}`);
+  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 60 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
+  // 5m stored + 50m credited = 55m, under the 60m wall-clock ceiling
+  assert.ok(f1.elapsedMs >= 54.9 * MIN && f1.elapsedMs <= 55.1 * MIN, `elapsed was ${f1.elapsedMs}`);
 });
 
 test('SET_FOCUS_START_TIME with a non-overlapping sibling is unclamped and unchanged', async () => {
