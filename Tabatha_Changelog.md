@@ -5,6 +5,12 @@ file.
 
 ---
 
+## [v6.7.15] - Component showcase / display pages - _2026-07-15_
+
+### Added
+
+- **`showcase/` component showcase** — polished, on-brand, self-contained HTML display pages for every key surface (Gatekeeper, sidebar, New Tab dashboard, Sync & Account settings, backdating / checkpoint timeline) plus a component library (InBar, BlockGate, TagPicker, tab rows, analytics, abandoned-stint modal). A reusable marketing / docs / onboarding asset rendered from the real design system (halved radius scale, Pop-Art palette, emoji iconography). Five pages double as the Chrome Web Store screenshots; `scripts/capture-screenshots.mjs` renders them to `store-assets/screenshots/*.png` at an exact 1280×800.
+
 ## [v6.7.14] - First complete self-hosted channel build - _2026-07-15_
 
 ### Changed
