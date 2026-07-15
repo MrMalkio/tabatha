@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.13",
+      "title": "Self-hosted remote update channel for unpacked staff installs",
+      "date": "2026-07-15",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **`scripts/publish-update.mjs` + `npm run publish:update`** — builds the WITH-key unpacked-staff package, zips `dist/` to `store-assets/tabatha-<version>.zip`, computes its sha256, publishes a GitHub Release (tag `ext-v<version>`, distinct from the project's `v<version>` tag scheme) with the zip attached, and commits `latest.json` (`{ version, zipUrl, sha256, published }`) to a dedicated `update-channel` branch — served at the stable URL `https://raw.githubusercontent.com/MrMalkio/tabatha/update-channel/latest.json`.\n- **`scripts/tabatha-updater.ps1`** — polls that `latest.json`, compares semver against the installed stable-path manifest, and on a newer remote version: downloads the release zip, verifies its sha256 (aborts and leaves the current install untouched on any mismatch), validates the extracted build (manifest parses, pinned key present, entry pages present), then atomic-swaps it into `%LocalAppData%\\Tabatha\\extension` using the same never-empty rename pattern as `mirror-extension.ps1`. Logs to `%LocalAppData%\\Tabatha\\update.log`. Idempotent — no-op when already current.\n- **`scripts/install-tabatha-staff.ps1`** — staff/multi-machine installer superseding `install-extension-persistence.ps1` for non-dev machines: seeds the stable path from a bundled `.\\extension` payload, registers both an HKCU Run key (logon) and a Scheduled Task (every 6h) running the updater, and prints the one-time \"Load unpacked\" instruction.\n- **`store-assets/tabatha-staff-v<version>.zip`** — refreshed staff bundle: built extension (WITH pinned key) + `tabatha-updater.ps1` + `install-tabatha-staff.ps1` + updated `INSTALL.md` documenting the 6h/logon auto-update cadence.\n- This channel does NOT depend on Chrome Web Store review — it is live and testable on any staff machine (e.g. PS) the moment `npm run publish:update` is run once."
+        }
+      ]
+    },
+    {
       "version": "6.7.12",
       "title": "Backdating actually moves the start; overlap is reported, not blocked",
       "date": "2026-07-15",
