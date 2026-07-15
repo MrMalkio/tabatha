@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Component Showcase</title>
+<style>
+/* ============================================================
+   Tabatha Component Showcase - gallery hub.
+   Brand chrome uses the logo palette (#0F1115 / #00D2FF); the
+   embedded surfaces render the live app tokens. Radius scale is
+   the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Fully self-contained:
+   inline CSS, live sibling pages as thumbnails, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* hero */
+.hero{max-width:1120px;margin:0 auto;padding:70px 40px 30px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.hero h1{font-size:52px;line-height:1.02;letter-spacing:-.025em;margin-top:16px;max-width:16ch}
+.hero h1 .accent{color:var(--cyan)}
+.hero p{font-size:17px;color:#b8c2cc;max-width:60ch;margin-top:18px}
+.pillars{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.pillar{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r-lg);padding:10px 14px;font-size:13px}
+.pillar .e{font-size:16px}
+.pillar b{font-weight:600}
+.pillar span{color:var(--muted)}
+
+section{max-width:1120px;margin:0 auto;padding:34px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:22px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* shot gallery */
+.shots{display:grid;grid-template-columns:repeat(6,1fr);gap:20px}
+.shotcard{grid-column:span 3;background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;text-decoration:none;color:inherit;transition:transform .18s ease,border-color .18s ease}
+.shotcard:hover{transform:translateY(-3px);border-color:rgba(0,210,255,.4)}
+.shotcard.lead{grid-column:span 6}
+.thumb{position:relative;overflow:hidden;background:#050505;border-bottom:1px solid var(--border)}
+.thumb iframe{border:0;transform-origin:top left;pointer-events:none}
+.shotcard.lead .thumb{height:520px}
+.shotcard.lead .thumb iframe{width:1280px;height:800px;transform:scale(.75)}
+.shotcard:not(.lead) .thumb{height:224px}
+.shotcard:not(.lead) .thumb iframe{width:1280px;height:800px;transform:scale(.276)}
+.cap{display:flex;align-items:center;gap:11px;padding:14px 16px}
+.cap .num{font-family:var(--mono);font-size:12px;color:var(--cyan);font-weight:700}
+.cap .t{font-weight:600;font-size:14px}
+.cap .d{font-size:12px;color:var(--muted)}
+.cap .arrow{margin-left:auto;color:var(--muted)}
+
+/* component library */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:210px;position:relative;overflow:hidden}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px}
+.libcap .t{font-weight:600;font-size:14px}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ---- shared mini-component tokens (live app palette) ---- */
+.app{--acc:#00F0FF}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;display:flex;align-items:center;gap:7px}
+.mono{font-family:var(--mono)}
+
+/* InBar */
+.inbar{width:520px;max-width:100%;height:30px;background:#0d0d0d;border-top:1px solid rgba(255,255,255,.08);
+  border-radius:4px;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:11px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.inbar .up{color:#00e5ff;font-family:var(--mono);font-weight:600}
+.inbar .task{color:#66bb6a;font-family:var(--mono)}
+.inbar .sep{color:#333}
+.inbar .fbadge{color:#00e5ff}
+.inbar .intent{color:#eaeaea;border-bottom:1px solid transparent}
+.inbar .grow{flex:1}
+.inbar .b{opacity:.75}
+.inbar .down{color:#ef5350;font-family:var(--mono)}
+.nub{position:absolute;bottom:14px;right:20px;width:22px;height:22px;border-radius:50%;background:#0d0d0d;
+  border:1px solid rgba(0,229,255,.5);color:#00e5ff;display:grid;place-items:center;font-size:11px}
+
+/* BlockGate */
+.bg-wrap{width:300px;background:#1a1a1a;border:1px solid #5c2b2b;border-radius:6px;padding:18px;text-align:center;
+  box-shadow:0 0 0 6px rgba(180,20,20,.18),0 20px 50px rgba(0,0,0,.5)}
+.bg-wrap h3{color:#ff6b6b;font-size:16px;font-weight:700}
+.bg-wrap .sub{font-size:11px;color:#999;margin-top:4px}
+.bg-wrap .host{color:#ff8a80;font-weight:600;font-size:12px;margin:8px 0}
+.bg-wrap .lab{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#888;text-align:left;margin:10px 0 5px}
+.bg-wrap textarea{width:100%;height:44px;background:#111;border:1px solid #333;border-radius:4px;color:#ddd;font:400 11px var(--sans);padding:7px;resize:none}
+.bg-wrap .cc{font-size:10px;color:#66bb6a;text-align:right;margin-top:3px}
+.bg-wrap select{width:100%;background:#111;border:1px solid #333;border-radius:4px;color:#ddd;font:400 11px var(--sans);padding:6px}
+.bg-wrap .btns{display:flex;gap:8px;margin-top:12px}
+.bg-wrap .btns button{flex:1;border-radius:4px;padding:8px;font:700 11px var(--sans);cursor:pointer;border:0}
+.bg-proceed{background:#3a1e1e;color:#c98;border:1px solid #5c2b2b}
+.bg-leave{background:transparent;color:#8bd48f;border:1px solid #66bb6a55}
+
+/* TagPicker */
+.tp{width:360px;background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:14px}
+.tp .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.tp .f label{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#868E96;display:block;margin-bottom:5px}
+.tp .toggle{display:flex;gap:6px}
+.tp .toggle button{flex:1;border:1px solid #2c2c2c;background:#111;color:#999;border-radius:4px;padding:7px;font:600 11px var(--sans);cursor:pointer}
+.tp .toggle button.on{border-color:var(--appcyan);color:var(--appcyan);background:rgba(0,240,255,.08)}
+.tp .combo{display:flex;align-items:center;gap:7px;background:#111;border:1px solid #2c2c2c;border-radius:4px;padding:7px 9px;font-size:11px;color:#ddd}
+.tp .hint{font-size:10px;color:#868E96;margin-top:10px}
+
+/* tab rows */
+.tabrows{width:400px;display:flex;flex-direction:column;gap:6px}
+.trow{display:flex;align-items:center;gap:9px;padding:9px 11px;background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:4px}
+.trow .prio{width:3px;align-self:stretch;border-radius:2px}
+.trow .ico{font-size:14px}
+.trow .m{flex:1;min-width:0}
+.trow .ti{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .cx{font-size:9px;color:#868E96}
+.trow .tm{font-family:var(--mono);font-size:10px}
+
+/* analytics */
+.an{width:100%;max-width:640px;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.an .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.an .st{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:9px 10px}
+.an .st .k{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#868E96}
+.an .st .v{font-size:17px;font-weight:700;margin-top:3px}
+.an .bars{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:12px}
+.an .br{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:10px}
+.an .br .bl{width:72px;color:#cfcfcf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.an .tk{flex:1;height:7px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+.an .fl{height:100%;border-radius:999px}
+
+/* abandoned stints modal */
+.mod{width:420px;background:rgba(20,20,25,.72);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:18px;backdrop-filter:blur(16px);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.mod .eyeb{color:#ffbe6b}
+.mod h3{font-size:15px;font-weight:700;margin-top:8px}
+.mod .body{font-size:11.5px;color:#a9b2bc;margin-top:8px;line-height:1.5}
+.mod .stint{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:12px;margin-top:12px}
+.mod .stint .top{display:flex;align-items:center;gap:8px;font-size:12px}
+.mod .stint .badge{font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:999px;background:#ffa72622;color:#ffbe6b}
+.mod .stint .mach{margin-left:auto;font-family:var(--mono);font-size:10px;color:#868E96}
+.mod .stint .meta{font-size:10px;color:#868E96;margin-top:6px}
+.mod .stint .exp{font-size:10px;color:#8593a0;margin-top:8px;line-height:1.5}
+.mod .stint .ctl{display:flex;gap:8px;margin-top:10px}
+.mod .stint input{flex:1;background:#111;border:1px solid #2c2c2c;border-radius:4px;color:#ddd;font:400 11px var(--mono);padding:6px 8px}
+.mod .stint .save{border:1px solid #66bb6a55;color:#8bd48f;background:transparent;border-radius:4px;padding:6px 10px;font:600 10.5px var(--sans)}
+.mod .stint .disc{border:1px solid #ef535055;color:#ff8a80;background:transparent;border-radius:4px;padding:6px 10px;font:600 10.5px var(--sans)}
+.mod .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.mod .foot button{border-radius:4px;padding:8px 13px;font:700 11px var(--sans);cursor:pointer}
+.mod .foot .ghost{background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1)}
+.mod .foot .go{background:var(--appcyan);color:#000;border:0}
+
+footer{max-width:1120px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .shots{grid-template-columns:1fr}.shotcard,.shotcard.lead{grid-column:span 1}
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .shotcard:not(.lead) .thumb{height:300px}.shotcard:not(.lead) .thumb iframe{transform:scale(.37)}
+  .hero h1{font-size:38px}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="#screenshots">Store shots</a>
+  <a href="#components">Components</a>
+  <span class="verbadge">v6.7.14</span>
+</nav>
+
+<header class="hero">
+  <div class="kicker">Component Showcase</div>
+  <h1>An <span class="accent">Attention OS</span> for your browser.</h1>
+  <p>Every surface of the Tabatha extension, rendered from its real design system: the halved corner-radius scale, the Pop-Art dark palette, emoji-native iconography, and JetBrains Mono timers. Five of these double as the Chrome Web Store screenshots, captured at an exact 1280&times;800.</p>
+  <div class="pillars">
+    <div class="pillar"><span class="e">🧭</span><b>Context Over Chaos</b>&nbsp;<span>every tab has a purpose</span></div>
+    <div class="pillar"><span class="e">🚪</span><b>Intentional Browsing</b>&nbsp;<span>good friction, on purpose</span></div>
+    <div class="pillar"><span class="e">⏱️</span><b>Universal Time</b>&nbsp;<span>tracking built into the browser</span></div>
+    <div class="pillar"><span class="e">🤖</span><b>Agent-Ready Data</b>&nbsp;<span>structured, not screenshots</span></div>
+  </div>
+</header>
+
+<section id="screenshots">
+  <div class="sec-head">
+    <h2>Chrome Web Store screenshots</h2>
+    <span class="meta">5 surfaces · exact 1280&times;800 · click any card to open full size</span>
+  </div>
+  <div class="shots">
+    <a class="shotcard lead" href="gatekeeper.html" target="_blank" rel="noopener">
+      <div class="thumb"><iframe src="gatekeeper.html" scrolling="no" title="Gatekeeper"></iframe></div>
+      <div class="cap"><span class="num">01</span><div><div class="t">The Gatekeeper</div><div class="d">"Why are you here?" - good friction before every undirected new tab. Continue, Side Quest, Sugar Box, or Park.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="sidebar.html" target="_blank" rel="noopener">
+      <div class="thumb"><iframe src="sidebar.html" scrolling="no" title="Sidebar"></iframe></div>
+      <div class="cap"><span class="num">02</span><div><div class="t">Sidebar Command Center</div><div class="d">Active focus, elapsed time, priority-coded tab list.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="home.html" target="_blank" rel="noopener">
+      <div class="thumb"><iframe src="home.html" scrolling="no" title="Home"></iframe></div>
+      <div class="cap"><span class="num">03</span><div><div class="t">New Tab Dashboard</div><div class="d">Quick Access, working state, Return to Flow.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="settings.html" target="_blank" rel="noopener">
+      <div class="thumb"><iframe src="settings.html" scrolling="no" title="Settings"></iframe></div>
+      <div class="cap"><span class="num">04</span><div><div class="t">Sync &amp; Account</div><div class="d">Cloud Sync health chip and org, metadata only.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="backdating.html" target="_blank" rel="noopener">
+      <div class="thumb"><iframe src="backdating.html" scrolling="no" title="Backdating"></iframe></div>
+      <div class="cap"><span class="num">05</span><div><div class="t">Backdating &amp; Time Editing</div><div class="d">Credited minutes, overlaps kept, checkpoint timeline.</div></div><span class="arrow">↗</span></div>
+    </a>
+  </div>
+</section>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Component library</h2>
+    <span class="meta">the in-page and utility surfaces behind the headline features</span>
+  </div>
+  <div class="lib app">
+
+    <div class="libcard">
+      <div class="stage">
+        <div class="inbar">
+          <span class="up">12:48</span><span class="sep">│</span><span class="task">04:11</span>
+          <span class="fbadge">🎯 Q1 Report</span><span class="grow"></span>
+          <span class="b">🤖</span><span class="b">✏️</span><span class="b">📋</span><span class="b">🔥</span><span class="b">⏸</span><span class="b">📝</span><span class="b">▾</span>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📊</span><div><div class="t">InBar - in-page indicator</div><div class="d">A 26px live bar on every page: intent + task timers, focus label, pause, checkpoint, backburner. Collapses to a nub.</div></div></div>
+    </div>
+
+    <div class="libcard">
+      <div class="stage" style="background:radial-gradient(circle at 50% 30%,rgba(180,20,20,.28),#050505)">
+        <div class="bg-wrap">
+          <h3>🚫 Blocked Site</h3>
+          <div class="sub">This site has been blocked by Tabatha.</div>
+          <div class="host">reddit.com</div>
+          <div class="lab">Why do you need to visit? (min 50 characters)</div>
+          <textarea readonly>Need one figure from last year's thread for the Q1 model, then leaving.</textarea>
+          <div class="cc">71 / 50</div>
+          <div class="lab">How long do you need?</div>
+          <select><option>15 minutes (default)</option></select>
+          <div class="btns"><button class="bg-proceed">Proceed</button><button class="bg-leave">✅ Leave (focus win!)</button></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🚫</span><div><div class="t">BlockGate</div><div class="d">A friction wall on blocked sites: justify the visit in 50+ characters and set a time box, or leave and bank a focus win.</div></div></div>
+    </div>
+
+    <div class="libcard">
+      <div class="stage">
+        <div class="tp">
+          <div class="eyebrow">🏷 Tags &amp; Associations</div>
+          <div class="grid">
+            <div class="f"><label>Realm</label><div class="toggle"><button class="on">💼 Business</button><button>🏠 Personal</button></div></div>
+            <div class="f"><label>Client</label><div class="combo">👤 Acme</div></div>
+            <div class="f"><label>Project</label><div class="combo">📁 Finance</div></div>
+            <div class="f"><label>Task</label><div class="combo">✏️ Q1 revenue charts</div></div>
+          </div>
+          <div class="hint">💡 Selecting a task or project auto-fills related fields</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏷</span><div><div class="t">TagPicker</div><div class="d">Bind a focus to Realm › Client › Project › Task. Business and Personal realms, with autofill up the hierarchy.</div></div></div>
+    </div>
+
+    <div class="libcard">
+      <div class="stage">
+        <div class="tabrows">
+          <div class="trow"><div class="prio" style="background:var(--red)"></div><span class="ico">💼</span><div class="m"><div class="ti">Q1 Revenue Model - Sheets</div><div class="cx">Q1 Report · 22m</div></div><span class="tm" style="color:var(--appcyan)">22m</span></div>
+          <div class="trow"><div class="prio" style="background:var(--amber)"></div><span class="ico">💬</span><div class="m"><div class="ti">#finance-team - Slack</div><div class="cx">Q1 Report · 6m</div></div><span class="tm" style="color:var(--appcyan)">6m</span></div>
+          <div class="trow"><div class="prio" style="background:var(--blue)"></div><span class="ico">🎓</span><div class="m"><div class="ti">useEffect cleanup - React docs</div><div class="cx">Learning React · paused</div></div><span class="tm" style="color:#868E96">4m</span></div>
+          <div class="trow"><div class="prio" style="background:var(--green)"></div><span class="ico">📧</span><div class="m"><div class="ti">Inbox (3) - Gmail</div><div class="cx">Email triage · 2m</div></div><span class="tm" style="color:#868E96">2m</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📑</span><div><div class="t">Tab-list rows</div><div class="d">Each tracked tab: category glyph, title, its Context, and time-in-context. The left rule colors by priority.</div></div></div>
+    </div>
+
+    <div class="libcard wide">
+      <div class="stage" style="min-height:180px">
+        <div class="an">
+          <div>
+            <div class="stats">
+              <div class="st"><div class="k">🎯 Focuses Today</div><div class="v">4</div></div>
+              <div class="st"><div class="k">⏱ Focus Time</div><div class="v">2h 51m</div></div>
+              <div class="st"><div class="k">✅ Completion 7d</div><div class="v">82%</div></div>
+              <div class="st"><div class="k">🔥 Streak</div><div class="v">6d</div></div>
+            </div>
+          </div>
+          <div class="bars">
+            <div class="eyebrow" style="margin-bottom:10px">🔝 Top Focuses</div>
+            <div class="br"><span class="bl">Q1 Report</span><span class="tk"><span class="fl" style="width:100%;background:var(--appcyan)"></span></span></div>
+            <div class="br"><span class="bl">Learning React</span><span class="tk"><span class="fl" style="width:46%;background:var(--amber)"></span></span></div>
+            <div class="br"><span class="bl">Email triage</span><span class="tk"><span class="fl" style="width:22%;background:var(--green)"></span></span></div>
+            <div class="br"><span class="bl">Vacation Planning</span><span class="tk"><span class="fl" style="width:12%;background:var(--violet)"></span></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📈</span><div><div class="t">Analytics &amp; heatmaps</div><div class="d">Hand-rolled stat cards, top-focus and time-by-category bars, plus a 365-day contribution heatmap on the dashboard. No chart library.</div></div></div>
+    </div>
+
+    <div class="libcard wide">
+      <div class="stage">
+        <div class="mod">
+          <div class="eyebrow eyeb">⚠ Unfinished shifts</div>
+          <h3>1 abandoned shift to resolve</h3>
+          <div class="body">Another of your installs was left clocked in without clocking out. Fix the end times or discard them before starting a new shift.</div>
+          <div class="stint">
+            <div class="top">⚪ <b>PS · Chrome</b> <span class="badge">Concurrent</span> <span class="mach">🖥 machine-PS-01</span></div>
+            <div class="meta">Abandoned · clocked in Jul 14, 9:02 AM · last seen Jul 14, 5:47 PM</div>
+            <div class="exp">Set when this shift should have ended (defaults to its last heartbeat). It's reconstructed into your history and attributed to your matching real install.</div>
+            <div class="ctl"><input value="2026-07-14 17:47"><button class="save">✓ Save end time</button><button class="disc">✕ Discard</button></div>
+          </div>
+          <div class="foot"><button class="ghost">Cancel clock-in</button><button class="go">Skip &amp; clock in</button></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">👻</span><div><div class="t">Abandoned-stint modal</div><div class="d">When an install was left clocked in, Tabatha reconstructs the shift end from its last heartbeat so concurrent installs never double-count hours.</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.14</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+</body>
+</html>

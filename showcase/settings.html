@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tabatha - Settings · Sync & Account</title>
+<style>
+:root{
+  --bg:#050505;--surface:rgba(20,20,25,.55);--surface-solid:#141414;
+  --border:rgba(255,255,255,.1);--text:#FAFAFA;--muted:#868E96;
+  --cyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a}
+body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;color:var(--text)}
+.shot{width:1280px;height:800px;overflow:hidden;position:relative;background:var(--bg);display:flex}
+
+/* left nav */
+.nav{width:268px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:#080808}
+.nav-head{padding:16px 18px;border-bottom:1px solid var(--border)}
+.nav-head .t{font-size:15px;font-weight:700}
+.nav-head .v{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);margin-top:3px}
+.nav-list{overflow:hidden;padding:8px 8px}
+.nav-list a{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:5px;font-size:12px;color:#c2c2c2;text-decoration:none;cursor:pointer}
+.nav-list a:hover{background:var(--surface)}
+.nav-list a.on{background:var(--surface);color:#fff;box-shadow:inset 3px 0 0 var(--cyan)}
+
+/* main */
+.main{flex:1;padding:26px 34px;overflow:hidden}
+.h1{font-size:20px;font-weight:700;display:flex;align-items:center;gap:9px}
+.h1 .desc{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:4px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-top:18px;backdrop-filter:blur(16px)}
+.card .lab{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:12px}
+
+/* sync status row */
+.syncrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.chip{font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;color:#34A853;background:rgba(52,168,83,.15)}
+.since{font-size:12px;color:var(--muted)}
+.syncrow .grow{flex:1}
+.btn{border:0;border-radius:4px;padding:8px 14px;font:700 12px var(--sans);cursor:pointer}
+.btn.pri{background:var(--cyan);color:#000;position:relative}
+.btn.pri::after{content:"";position:absolute;inset:-3px;border-radius:6px;border:2px solid var(--cyan);opacity:.5;animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.15);opacity:0}}
+.btn.ghost{background:transparent;color:#c7c7c7;border:1px solid var(--border)}
+
+.states{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.mini{font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:999px}
+.m-fresh{color:#34A853;background:rgba(52,168,83,.15)}
+.m-stale{color:#aaa;background:rgba(170,170,170,.15)}
+.m-err{color:#ff9800;background:rgba(255,152,0,.15)}
+.m-never{color:#ff9800;background:rgba(255,152,0,.15)}
+.m-off{color:#888;background:rgba(136,136,136,.15)}
+.states .cap{font-size:10px;color:#5c5c5c;align-self:center;margin-right:2px}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+.field{margin-bottom:12px}
+.field label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+.field .val{font-size:13px}
+.inline{display:flex;gap:8px;align-items:center}
+.inp{flex:1;background:#111;border:1px solid #2c2c2c;border-radius:6px;padding:9px 11px;color:#fff;font:500 13px var(--sans)}
+.saved{font-size:11px;color:var(--green);font-weight:600}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12.5px}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--muted)}
+.orgpill{font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--violet);color:#1a1020}
+.dataline{display:flex;gap:8px;margin-top:6px}
+.note{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.5;background:rgba(0,240,255,.04);border-left:2px solid rgba(0,240,255,.4);padding:10px 12px;border-radius:0 4px 4px 0}
+</style>
+</head>
+<body>
+<div class="shot">
+  <nav class="nav">
+    <div class="nav-head"><div class="t">⚙️ Settings</div><div class="v">Tabatha v6.7.14-α</div></div>
+    <div class="nav-list">
+      <a>🎯 Focus Engine</a><a>🧠 Focus Lifecycle</a><a>🚪 Intent-Popup</a>
+      <a>🔗 URL Rules</a><a>🚫 Blocked Sites</a><a>⏱ Time Tracking</a>
+      <a>📤 Export &amp; Agents</a><a>⏱️ Work Clock</a><a>📋 Follow-through</a>
+      <a>🏷 Tags &amp; Associations</a><a>📊 Stats &amp; History</a>
+      <a class="on">☁️ Sync &amp; Account</a><a>🔒 Privacy &amp; Capture</a>
+      <a>🔗 Webhooks</a><a>🖥️ Desktop Activity</a><a>🔌 Integrations</a>
+      <a>🛠 Developer</a><a>ℹ️ About</a>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="h1">☁️ Sync &amp; Account
+      <span class="desc">Your Contexts, focus history and clock state follow your account across machines. Metadata only - never page contents, keystrokes, or screenshots.</span>
+    </div>
+
+    <div class="card">
+      <div class="lab">Cloud Sync</div>
+      <div class="syncrow">
+        <span class="chip">● Synced</span>
+        <span class="since">Last synced 2 minutes ago · every ~5 min and on change</span>
+        <span class="grow"></span>
+        <button class="btn pri">Sync now</button>
+        <button class="btn ghost">↻ Reload</button>
+      </div>
+      <div class="states">
+        <span class="cap">Health states:</span>
+        <span class="mini m-fresh">● Synced</span>
+        <span class="mini m-stale">◐ Stale</span>
+        <span class="mini m-err">⚠ Sync error</span>
+        <span class="mini m-never">⚠ Never</span>
+        <span class="mini m-off">○ Offline</span>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="card" style="margin-top:0">
+        <div class="lab">Account</div>
+        <div class="field">
+          <label>Signed in as</label>
+          <div class="val">caspera@duckandshark.com</div>
+        </div>
+        <div class="field">
+          <label>Display name</label>
+          <div class="inline">
+            <input class="inp" value="Cas">
+            <button class="btn ghost">Save</button>
+            <span class="saved">✓ Name saved</span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Install</label>
+          <div class="val" style="font-family:var(--mono);font-size:11px;color:#b7b7b7">chrome · desktop-9F2A · this device</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0">
+        <div class="lab">Organization</div>
+        <div class="kv"><span class="k">Team</span><span>Flux <span class="orgpill">Owner</span></span></div>
+        <div class="kv"><span class="k">Members</span><span>6 active</span></div>
+        <div class="kv"><span class="k">Aggregated reporting</span><span style="color:var(--green)">On</span></div>
+        <div class="kv"><span class="k">Join by token</span><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">FLUX-••••-••••</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="lab">Data &amp; Agent Export</div>
+      <div class="dataline">
+        <button class="btn ghost">📤 Export context.md</button>
+        <button class="btn ghost">💾 Download backup (JSON)</button>
+        <button class="btn ghost">📊 Sync diagnostics</button>
+      </div>
+      <div class="note">Tabatha stores browsing <b>metadata</b> - which sites you use, for how long, and the intent you declare. It never captures screenshots, keystrokes, or page contents. Row-level security scopes every row to your account; owners see aggregated team views only.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
