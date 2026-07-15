@@ -5,6 +5,12 @@ file.
 
 ---
 
+## [v6.7.14] - First complete self-hosted channel build - _2026-07-15_
+
+### Changed
+
+- First update-channel release built from the fully-merged line — combines the self-hosted updater (v6.7.13) with the backdating-actually-moves fix (v6.7.12), which the initial v6.7.13 release predated. This is the build the auto-updater serves to staff installs.
+
 ## [v6.7.13] - Self-hosted remote update channel for unpacked staff installs - _2026-07-15_
 
 ### Added

@@ -67,3 +67,4 @@ tabatha-*.zip
 .env.*.local
 .env.cortex
 .env.cortex.local
+store-assets/_shot_tmp/
