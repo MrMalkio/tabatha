@@ -5,6 +5,18 @@ file.
 
 ---
 
+## [v6.7.11] - Chrome Web Store packaging: real icons, promo tile, store zip, privacy policy - _2026-07-15_
+
+### Added
+
+- **True multi-resolution icons.** `public/icons/icon16/32/48/128.png` are now real 16/32/48/128px exports (previously all three shipped the same mislabeled 1024×1024 PNG). The 1024px original is preserved as `public/icons/icon-1024.png`; the manifest (`icons` + `action.default_icon`) now also declares the 32px size.
+- **`scripts/build-store-zip.mjs` + `npm run build:store`** — builds, stages `dist`, strips the pinned `key` from the staged manifest (Chrome Web Store rejects uploads carrying one), validates the payload (entry pages, icons, no sourcemaps/dotfiles), and zips to `store-assets/tabatha-store-v<version>.zip`.
+- **Store promo tile** — `store-assets/promo-440x300.png` (icon + wordmark + tagline on brand dark).
+- **`PRIVACY.md`** — plain-language privacy policy (from the listing doc's disclosure section), hosted publicly for the store's privacy-policy URL requirement.
+- **Staff interim bundle** — `store-assets/tabatha-staff-unpacked-v<version>.zip` (built extension WITH pinned key + persistence installer + 3-step INSTALL.md) so existing unpacked installs keep their extension ID until the store listing is live.
+
+---
+
 ## [v6.7.9] - Stable extension load path (stops "uninstalling on restart") - _2026-07-15_
 
 ### Fixed
