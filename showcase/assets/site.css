@@ -49,6 +49,53 @@
 .sec-head + .sec-purpose { margin-top: 0; }
 .sec-purpose b { color: #c4ced8; font-weight: 600; }
 
+/* ── product status badges ───────────────────────────────── */
+/* The family now covers three products at three different maturities, so a
+   card must say which it is. Same pill geometry as the hub's `.cwsflag`, so
+   these read as one vocabulary rather than a bolted-on second system.
+
+   Colours are the product's own semantic tokens, not new ones:
+     live   → #66bb6a, the success/synced green
+     dev    → #ffa726, the same amber the app uses for paused/not-running
+     planned→ --muted, deliberately the quietest thing on the card
+
+   `.dev` is the load-bearing one: every mobile card carries it, because the
+   mobile app is not something you can install today and a gallery that renders
+   it identically to the shipped extension would be lying by omission. */
+.statusflag {
+  font: 700 8.5px var(--sans, system-ui); letter-spacing: .08em; text-transform: uppercase;
+  border-radius: 999px; padding: 2px 7px; white-space: nowrap; flex: none;
+  border: 1px solid currentColor;
+}
+.statusflag.live { color: #66bb6a; }
+.statusflag.dev { color: #ffa726; }
+.statusflag.planned { color: var(--muted, #7d8894); }
+
+/* Card-level sub-status. Sits in the caption under the title: the mobile page
+   is tagged in-development as a whole, and this says how far along one card is
+   within that — "built" is honest about the app, not about shipping. */
+.substatus {
+  display: inline-flex; align-items: center; gap: 5px;
+  font: 600 9.5px var(--sans, system-ui); letter-spacing: .04em;
+  margin-top: 6px; padding: 2px 7px; border-radius: var(--r-sm, 2px);
+}
+.substatus.built { color: #8fce93; background: rgba(102, 187, 106, .12); }
+.substatus.partial { color: #ffc072; background: rgba(255, 167, 38, .12); }
+.substatus.planned { color: #9aa5b1; background: rgba(255, 255, 255, .05); }
+
+/* Page-level in-development notice. One honest paragraph at the top of a page
+   whose product you cannot install yet. */
+.devnote {
+  display: flex; align-items: flex-start; gap: 12px;
+  max-width: 1180px; margin: 18px auto 0; padding: 14px 16px;
+  border: 1px solid rgba(255, 167, 38, .3); background: rgba(255, 167, 38, .07);
+  border-radius: var(--r-md, 4px);
+}
+.devnote .e { font-size: 16px; line-height: 1.4; flex: none; }
+.devnote .tx { font-size: 12.5px; line-height: 1.6; color: #c8b490; }
+.devnote .tx b { color: #ffc072; font-weight: 700; }
+@media (max-width: 900px) { .devnote { margin: 18px 20px 0; } }
+
 /* ── per-card feedback actions ───────────────────────────── */
 /* Absolutely positioned and transparent until hover/focus, so
    they add ZERO layout height. The capture script clips each

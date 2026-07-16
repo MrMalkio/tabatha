@@ -1,14 +1,15 @@
 # Tabatha Component Showcase & Public Site
 
 A polished, on-brand set of static HTML pages covering **every user-facing
-surface** of the extension. It is both an internal reference and the **public
-site** deployed to `tabatha.pondocean.co` on Cloudflare Pages. Four jobs:
+surface of the whole product family** — the browser extension, the desktop
+companion, and the mobile app. It is both an internal reference and the
+**public site** deployed to `tabatha.pondocean.co` on Cloudflare Pages. Four jobs:
 
 1. **Source for the 5 Chrome Web Store screenshots** — each shot page carries a
    `.shot` container of exactly **1280×800**, captured to
    `store-assets/screenshots/0N-*.png`.
 2. **A durable, reusable marketing / docs / onboarding asset** — an indexed
-   gallery hub plus six category pages that stay brand-faithful to the real
+   gallery hub plus eight category pages that stay brand-faithful to the real
    extension.
 3. **A visual regression reference** — `npm run capture:showcase` renders every
    frame and every component card to PNG, so a design change that breaks a
@@ -16,7 +17,42 @@ site** deployed to `tabatha.pondocean.co` on Cloudflare Pages. Four jobs:
 4. **A public feedback and roadmap surface** — site-wide search, a per-component
    bug/feature reporter, and a kanban roadmap.
 
-Brand-faithful to **Tabatha v6.7.17**.
+Brand-faithful to **Tabatha v6.7.18**.
+
+---
+
+## The three products
+
+The site covers a family, and each product is at a different maturity. **Status
+is stated on every page and every card**, because a gallery that renders a
+planned screen identically to a shipped one is lying by omission.
+
+| Product | Repo | Status on the site |
+|---|---|---|
+| **Browser extension** | `Tabatha` (this repo) | Shipped — 8 surfaces, 90 components |
+| **Desktop companion** | `tabatha-desktop` | **Shipped v0.2.0** — 15 surfaces & subsystems |
+| **Mobile app** | `tabatha-mobile` | **In development, not installable** — 15 screens & services |
+
+Badges live in `assets/site.css`: `.statusflag` (`live` / `dev` / `planned`) uses
+the app's own semantic colors, `.substatus` carries a per-card built-vs-planned
+state, and `.devnote` is the page-level notice. They sit **inside** the `.t`
+caption, which is why `build-search-index.mjs` strips them out of record names
+and folds them into `keywords` instead.
+
+> **Which mobile repo is canonical?** `tabatha-mobile` (Expo/React Native). Its
+> own `AGENTS.md` says so outright — *"Do not treat `tabatha-mobile-2` as a
+> replacement yet"* — and `tabatha-mobile-2` is a **UI/UX design lab** whose last
+> commit is literally `feat(design): pivot AI Studio to UI/UX design lab`. So the
+> mobile page takes its **product** from `tabatha-mobile` and its **design
+> language** from mobile-2's spec, and says which is which.
+
+Each product's stages render **its own tokens**, not the extension's:
+
+| | Background | Accent | Radius |
+|---|---|---|---|
+| Extension | `#050505` | `#00F0FF` cyan | 2/4/8 |
+| Companion | `#0d0f12` | `#4a9eff` blue | 8/4 |
+| Mobile | `#0F1117` | `#6C63FF` indigo | 8/12/16/999 |
 
 ---
 
@@ -24,7 +60,7 @@ Brand-faithful to **Tabatha v6.7.17**.
 
 | Class | Files | Has site chrome? |
 |---|---|---|
-| **Real site pages** (7) | `index.html`, the 6 `components-*.html`, plus `roadmap.html` | **Yes** — header search, "Request a feature", per-card actions |
+| **Real site pages** (10) | `index.html`, the 8 `components-*.html`, plus `roadmap.html` | **Yes** — header search, "Request a feature", per-card actions |
 | **Surface frames** (8) | `gatekeeper`, `sidebar`, `home`, `settings`, `backdating`, `popup`, `workshifts`, `settings-sections` | **No, deliberately** |
 
 The surface frames are rendered by `scripts/capture-screenshots.mjs` at an exact
@@ -35,7 +71,7 @@ lives on the hub, where they are presented as cards.
 
 For the same reason, the per-card Report/Request controls are absolutely
 positioned and `opacity: 0` until hover/focus: they add **zero layout height**,
-so `.libcard` bounding boxes stay identical and the 90 card captures do not
+so `.libcard` bounding boxes stay identical and the 120 card captures do not
 reflow.
 
 ---
@@ -75,7 +111,7 @@ GitHub-issue fallback can be exercised locally.
 > filenames and their exact 1280×800 dimensions are contractual — the capture
 > script flags them and validates both. Do not rename or resize them.
 
-### Component library (90 cards across 6 pages)
+### Component library (120 cards across 8 pages)
 
 | Page | Cards | Covers |
 |------|-------|--------|
@@ -84,16 +120,18 @@ GitHub-issue fallback can be exercised locally.
 | `components-data.html` | 15 | Stat cards, Top Focuses, Time by Category, Context Distribution, ActivityHeatmap (365 days), Daily Hours, Peak Hours, Break Patterns, weekly comparison, Time per Focus, LogsPanel (chips · table · empty), range selector |
 | `components-org.html` | 14 | TeamActivityPanel, StatusChip (9 states), invite tokens, orgs & teams, InitiativesPanel tree, ProjectsClientsPanel, Live Stints, AbandonedStintsModal, OtherProfilesStrip, CompanionStatus, Schedule (3 modes), shortfalls & requests |
 | `components-settings.html` | 16 | Nav (all 22 sections), sync chip (5 states), SettingsSearch (idle · results · empty), themes (12), swatches, field rows & toggles, funnel stages, URL Rules (3 tabs), Domain Groups, Intent Changes, Developer, retention, Cortex, Webhooks, About |
-| `components-primitives.html` | 14 | GlassCard, PopButton (3 sizes), ComboInput, TagPicker, StagePicker, VoiceInput, Tooltip, CommandPalette, KeyboardShortcuts (14), LinkMergeModal, TasksPanel, tab-list rows, PriorityPill, ChangelogView, UnifiedTimeline |
+| `components-primitives.html` | 14 | GlassCard, PopButton (3 sizes), ComboInput, TagPicker (incl. **personal realm → client auto-filled to Self**), StagePicker, VoiceInput, Tooltip, CommandPalette, KeyboardShortcuts (14), LinkMergeModal, TasksPanel, tab-list rows, PriorityPill, ChangelogView, UnifiedTimeline |
+| `components-companion.html` | 15 | **Desktop companion, shipped v0.2.0.** Tray menu (11 items), tray icon (tracking · paused), Desk Panel, InstallGuide (connected · disconnected · never-installed), window monitor, time clock (out · in · break), today summary, recent activity, categorizer (9 + unknown), WebSocket bridge (10 out / 12 in), SQLite activity log, opt-in screen capture, extension updater, autostart + `tabatha://`, activity report |
+| `components-mobile.html` | 15 | **Mobile, in development — every card badged.** *Built:* Dashboard, Settings, bottom-tab nav, persistent notification (partial), native usage monitor, categorizer, hybrid LAN-first sync. *Planned:* Focus Hub, activity timeline, analytics, tasks, shift controls, InBar floating widget, onboarding, Morning Kickstart |
 
 ---
 
 ## Re-capture the assets
 
 ```bash
-npm run capture:showcase   # everything: 8 frames + 90 cards (~28s)
+npm run capture:showcase   # everything: 8 frames + 120 cards (~36s)
 npm run capture:shots      # the 8 1280x800 frames only
-npm run capture:cards      # the 90 component cards only
+npm run capture:cards      # the 120 component cards only
 ```
 
 Launches headless Chrome (standard Windows path, or `CHROME_PATH`). Writes:
@@ -104,8 +142,17 @@ Launches headless Chrome (standard Windows path, or `CHROME_PATH`). Writes:
   its natural size, validated against its measured rect (allowing for the
   display's device-pixel-ratio) and for non-blankness.
 
-Because the pages are static, capture is deterministic — no live extension
-needed.
+No live extension, login, or companion is needed: the pages are static.
+
+> **Capture is NOT byte-deterministic.** This README used to claim it was. It is
+> not: capturing the same unchanged `settings.html` twice produces two different
+> PNGs (verified — `a9ce54…` then `1e7226…`, the second landing back on the
+> committed bytes). Text antialiasing varies between runs. So **a diff in a
+> screenshot is not by itself evidence that anything changed**, and re-running
+> capture will always churn a few assets. What *is* enforced is the contract the
+> script validates: the five CWS shots stay exactly 1280×800 under their pinned
+> filenames, and nothing is blank. Do not wire a byte-comparison of these PNGs
+> into CI expecting it to be stable.
 
 ### Two traps worth knowing about (both cost real time)
 
@@ -167,6 +214,34 @@ keyboard shortcuts, all 13 webhook events, and all 9 log types.
   the top level uses the real accent. Reproduced as shipped, and called out in
   that card's caption.
 - **Mixed radii** in the content-script overlays and `LinkMergeModal`, as above.
+- **The mobile Dashboard's "Top app" stat renders a literal `—`.** It is an
+  unwired placeholder in the shipped Expo build. Reproduced as shipped.
+
+**Discrepancies found while building the family pages** (code won in each case):
+
+- **The companion's READMEs are stale at v0.1.0** and assert *"Metadata only —
+  no screenshots, no keyloggers, no content capture."* The shipped code has a
+  full screen-capture engine. It is off by default and fails closed, so the
+  honest framing is *"opt-in capture, disabled by default"* — but that README
+  line must not be reused, and the card says so.
+- **`COMPANION_STATUS.tracking` is hardcoded `true`** in `ws_server.rs`. Pausing
+  from the tray does not change what the extension sees over the wire. Not
+  advertised as live anywhere on the site.
+- **`CATEGORY_RULES` / custom category overrides are dead code** — the message
+  variant and `set_override()` both compile, but the categorizer is never wired
+  to the ws_server. The message is listed as part of the protocol (it is), but
+  custom categories are **not** claimed as a feature.
+- **The companion's docs say "50+ app→category mappings"; the real count is ~100.**
+- **Companion day boundaries are UTC** while the tray's text report prints local
+  time, so they disagree near midnight in a distant timezone. Stated on the card.
+- **`FEATURES.md` overstates geofencing** — the checkbox implies a Settings UI for
+  region CRUD that does not exist in `src/`; the plan doc confirms the service is
+  a stub that was never wired in. **Geofencing is therefore not shown at all.**
+- **Two conflicting category palettes exist in the mobile specs.** The page
+  renders the one the design language declares, and the card notes the conflict.
+- **The shipped mobile app does not use its own declared design language yet**
+  (it draws an older ad-hoc palette). The page renders the declared language and
+  the `.devnote` says exactly that.
 
 **Grounded in the concept, lightly composed for a single storytelling frame:**
 the home dashboard's *Quick Access* tiles and *Return to Flow* restore prompt
@@ -202,7 +277,7 @@ The site is deployed at **`tabatha.pondocean.co`**.
 | **Root directory** | *(repo root)* |
 | **Functions directory** | `functions` (picked up automatically) |
 
-The build command only regenerates `search-index.json`. There is no bundler:
+The build command only regenerates `search-index.json` (185 records). There is no bundler:
 the site ships as flat static files exactly as they sit in `showcase/`. If you
 prefer to commit the index (it is committed today), the build command can be
 set to `echo noop` and the site will still deploy correctly.

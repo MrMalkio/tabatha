@@ -5,6 +5,27 @@ file.
 
 ---
 
+## [v6.7.18] - Public site covers the whole product family - _2026-07-16_
+
+### Added
+
+- **Desktop Companion category page** (`showcase/components-companion.html`) — 15 cards covering the shipped **v0.2.0** companion: tray menu and its runtime-rasterized icon, Desk Panel, InstallGuide (connected · disconnected · never-installed), window monitor, time clock, today summary, recent activity, categorizer, WebSocket bridge (all 10 outbound + 12 inbound message types), the SQLite activity log, opt-in screen capture, extension updater, autostart + `tabatha://`, and the tray's text activity report. Stages render the companion's **own** tokens (`#4a9eff` / `#10ac84`, 8/4 radius), because it is a different app from the extension.
+- **Mobile App category page** (`showcase/components-mobile.html`) — 15 cards, **every one tagged "In development"**: nothing here is installable. 7 are marked *Built in app* (Dashboard, Settings, bottom-tab nav, persistent notification, native usage monitor, categorizer, hybrid LAN-first sync) and 8 *Planned* (Focus Hub, activity timeline, analytics, tasks, shift controls, InBar floating widget, onboarding, Morning Kickstart), taken from the canonical repo's `FEATURES.md` checkboxes and verified against `src/`.
+- **Product status badge system** (`showcase/assets/site.css`) — `.statusflag` (`live` / `dev` / `planned`) reusing the app's own semantic colors, a per-card `.substatus`, and a page-level `.devnote`. Same pill geometry as the hub's existing `.cwsflag`, so it reads as one vocabulary.
+- **"The family" hub section** — the three products, what each is for, and why they are separate: an extension sees tabs but not windows, a desktop app sees windows but not what is inside a tab, and neither is in your pocket. One shift at a time, wherever you started it.
+- **"Why?" on feature requests** — its own labelled textarea, distinct from the description, asked for once and yielded on rather than hard-blocked. Carried into both the Asana task body (as its own `WHY THIS MATTERS` block above the metadata rule, with an explicit `(not supplied)` when skipped) and the prefilled GitHub-issue fallback (as a `### Why this matters` section). Bug reports keep exactly the fields they had.
+
+### Fixed
+
+- **TagPicker was missing its personal-realm states** — the card showed only the business realm. Added *expanded / personal selected* (client auto-filled to **Self**, Project dropped as a business-only field, Task retained) and a *collapsed / personal* breadcrumb, matching `src/components/ui/TagPicker.jsx`.
+- **Search index folded badge text into record names** — `.cwsflag` and the new `.statusflag` sit inside the `.t` caption, so the extractor produced records literally named `"The Gatekeeper Store shot"`, and would have produced `"Dashboard In development"` for all 25 new cards. Badges are now stripped from the name and folded into `keywords`, where "in development" is genuinely worth matching.
+
+### Changed
+
+- **Search index: 147 → 185 records** (120 component cards across 8 category pages, 11 pages, 12 sections, 8 surfaces, 34 roadmap items). `scripts/build-search-index.mjs` gained the two new pages, an `EXPECTED_CARDS` constant, and family-card indexing; `scripts/capture-screenshots.mjs` gained the two new card pages. The 5 Chrome Web Store shots are untouched and still validate at exactly 1280×800.
+
+---
+
 ## [v6.7.17] - Showcase becomes a public site: purpose copy, search, feedback, roadmap - _2026-07-16_
 
 ### Added

@@ -104,7 +104,7 @@ section{max-width:1180px;margin:0 auto;padding:34px 40px;scroll-margin-top:118px
   transition:transform .18s ease,border-color .18s ease}
 .cat:hover{transform:translateY(-3px);border-color:rgba(0,210,255,.4)}
 .cat .e{font-size:22px}
-.cat .t{font-weight:600;font-size:15px}
+.cat .t{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cat .d{font-size:12.5px;color:var(--muted);line-height:1.5}
 .cat .items{font-size:11px;color:#5b6570;line-height:1.65}
 .cat .n{margin-top:auto;padding-top:12px;font-family:var(--mono);font-size:10.5px;color:var(--cyan)}
@@ -137,16 +137,17 @@ footer .dot{opacity:.4}
   <span class="wordmark">Ta<b>b</b>atha</span>
   <span class="tag">Context &amp; Focus Manager</span>
   <span class="grow"></span>
+  <a href="#family">Family</a>
   <a href="#surfaces">Surfaces</a>
   <a href="#library">Library</a>
   <a href="roadmap.html">Roadmap</a>
-  <span class="verbadge">v6.7.16</span>
+  <span class="verbadge">v6.7.18</span>
 </nav>
 
 <header class="hero">
   <div class="kicker">Component Showcase</div>
   <h1>An <span class="accent">Attention OS</span> for your browser.</h1>
-  <p>Every user-facing surface of the Tabatha extension, rendered from its real design system: the halved corner-radius scale, the Pop-Art dark palette, emoji-native iconography, and JetBrains Mono timers. Five of these double as the Chrome Web Store screenshots, captured at an exact 1280&times;800.</p>
+  <p>Every user-facing surface of Tabatha - the browser extension, the desktop companion, and the mobile app - rendered from each product's own design system: the halved corner-radius scale, the Pop-Art dark palette, emoji-native iconography, and JetBrains Mono timers. Five of these double as the Chrome Web Store screenshots, captured at an exact 1280&times;800.</p>
   <div class="pillars">
     <div class="pillar"><span class="e">🧭</span><b>Context Over Chaos</b>&nbsp;<span>every tab has a purpose</span></div>
     <div class="pillar"><span class="e">🚪</span><b>Intentional Browsing</b>&nbsp;<span>good friction, on purpose</span></div>
@@ -157,6 +158,7 @@ footer .dot{opacity:.4}
 
 <div class="indexbar">
   <div class="inner">
+    <a href="#family">Family</a>
     <a href="#surfaces">Surfaces</a>
     <a href="#library">Library</a>
     <a href="components-overlays.html">Overlays</a>
@@ -165,15 +167,62 @@ footer .dot{opacity:.4}
     <a href="components-org.html">Org &amp; Team</a>
     <a href="components-settings.html">Settings</a>
     <a href="components-primitives.html">Primitives</a>
+    <a href="components-companion.html">Companion</a>
+    <a href="components-mobile.html">Mobile</a>
     <span class="grow"></span>
     <input id="filter" type="search" placeholder="Filter the gallery…" aria-label="Filter surfaces and categories">
     <span id="fcount"></span>
   </div>
 </div>
 
+<section id="family">
+  <div class="sec-head">
+    <h2>The family</h2>
+    <span class="meta">3 products · one day, counted once</span>
+  </div>
+  <p class="sec-purpose">Tabatha is three programs that share one clock. They exist separately because
+    <b>attention does not respect process boundaries</b> but operating systems do: an extension can see your
+    tabs and nothing else, a desktop app can see your windows but not what is inside a tab, and neither is in
+    your pocket at 8am. Splitting them is not an architecture preference, it is the only way to see a whole
+    day. Splitting them is also the hard part - so the rule underneath all three is that <b>one shift exists at
+    a time</b>, wherever you started it, and each program yields to whichever of them can actually see what you
+    are doing right now.</p>
+  <div class="cats" id="famgrid">
+
+    <a class="cat" href="#surfaces" data-k="extension browser chrome mv3 tabs gatekeeper sidebar focus engine shipped live core">
+      <span class="e">🧩</span>
+      <div class="t">Browser Extension <span class="statusflag live">Shipped</span></div>
+      <div class="d">The core product, and the only one that knows <i>why</i> you opened something. It gates new tabs,
+        binds every tab to a Context, and runs the Focus Engine the other two report into.</div>
+      <div class="items">Chrome MV3 · 8 surfaces · 90 components · self-updating channel</div>
+      <div class="n">8 surfaces · 90 components →</div>
+    </a>
+
+    <a class="cat" href="components-companion.html" data-k="companion desktop tauri rust tray windows window monitor sqlite categorizer websocket 9147 capture updater autostart shipped live tabby desk">
+      <span class="e">🖥️</span>
+      <div class="t">Desktop Companion <span class="statusflag live">Shipped · v0.2.0</span></div>
+      <div class="d">A Windows tray app that watches the rest of the desktop, so the hours you spend outside the
+        browser stop reading as idle. It is also how the extension distributes and updates itself.</div>
+      <div class="items">Tray · Desk Panel · window monitor · categorizer · local SQLite · WebSocket bridge · opt-in capture · updater · autostart</div>
+      <div class="n">15 surfaces &amp; subsystems →</div>
+    </a>
+
+    <a class="cat" href="components-mobile.html" data-k="mobile android app phone expo react native usage stats foreground service focus hub timeline analytics tasks in development planned not released">
+      <span class="e">📱</span>
+      <div class="t">Mobile App <span class="statusflag dev">In development</span></div>
+      <div class="d">Android. Tracks where phone time goes, carries the same shift out of the building, and syncs to
+        your own desktop over your own network before it ever reaches for the cloud.</div>
+      <div class="items">Dashboard · Settings · persistent notification · native usage monitor · categorizer · hybrid LAN-first sync · Focus Hub and timeline planned</div>
+      <div class="n">15 screens &amp; services · not yet installable →</div>
+    </a>
+
+  </div>
+  <div class="nores" id="nores-f">No product matches that filter.</div>
+</section>
+
 <section id="surfaces">
   <div class="sec-head">
-    <h2>Surfaces</h2>
+    <h2>Extension surfaces</h2>
     <span class="meta">8 full-page frames · exact 1280&times;800 · click any card to open full size</span>
   </div>
   <p class="sec-purpose">A surface is a whole place in Tabatha you can be: the gate that interrupts a new tab, the sidebar that
@@ -220,7 +269,7 @@ footer .dot{opacity:.4}
 
 <section id="library">
   <div class="sec-head">
-    <h2>Component library</h2>
+    <h2>Extension component library</h2>
     <span class="meta">6 category pages · 90 component cards · state variants throughout</span>
   </div>
   <p class="sec-purpose">The surfaces above are assembled from these ninety components, grouped by the job they do rather than
@@ -283,7 +332,7 @@ footer .dot{opacity:.4}
 
 <footer>
   <span>Tabatha component showcase</span><span class="dot">·</span>
-  <span>brand-faithful to v6.7.16</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.18</span><span class="dot">·</span>
   <span>self-contained, no network dependencies</span><span class="dot">·</span>
   <span>icons are emoji, exactly as the extension ships</span>
 </footer>
@@ -295,9 +344,11 @@ footer .dot{opacity:.4}
 (function () {
   var box = document.getElementById('filter');
   var count = document.getElementById('fcount');
+  var fam = Array.prototype.slice.call(document.querySelectorAll('#famgrid .cat'));
   var shots = Array.prototype.slice.call(document.querySelectorAll('#shotgrid .shotcard'));
   var cats = Array.prototype.slice.call(document.querySelectorAll('#catgrid .cat'));
-  var all = shots.concat(cats);
+  var all = fam.concat(shots, cats);
+  var noF = document.getElementById('nores-f');
   var noS = document.getElementById('nores-s');
   var noC = document.getElementById('nores-c');
 
@@ -317,6 +368,7 @@ footer .dot{opacity:.4}
       el.classList.toggle('hidden', !hit);
       if (hit) shown++;
     });
+    noF.classList.toggle('show', !!q && !visible(fam));
     noS.classList.toggle('show', !!q && !visible(shots));
     noC.classList.toggle('show', !!q && !visible(cats));
     count.textContent = q ? shown + '/' + all.length : '';
