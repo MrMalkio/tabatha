@@ -513,3 +513,21 @@
   1. Post-backdate modal in home/sidebar: list each overlapping focus + overlapMs, with "Trim from that focus" / "Send to backburner" / "Leave as-is" per row (uses the returned `overlaps`). ← **suggested**
   2. Background auto-trim with an undo toast.
   3. Analytics-only: leave elapsed as-is, just flag double-counted spans in reports.
+
+## 2026-07-16 — StagePicker "unsorted" active chip renders an invalid 5-digit hex
+- **Noticed while:** Building the expanded component showcase (`showcase/components-focus.html`, `components-primitives.html`).
+- **What:** `src/components/ui/StagePicker.jsx:24` computes the active-chip fill as `stage.color + '33'`. Every `FUNNEL_STAGES` color is a 6-digit hex except `unsorted`, which is `#888` (`src/hooks/useFocusEngine.js:150`). So the selected-unsorted chip resolves to `#88833` — a 5-digit value browsers discard, leaving the chip transparent while every other stage tints correctly.
+- **Why it matters:** Cosmetic but real: the "Unsorted" stage is the only one that gives no selected-state feedback, in every surface that uses StagePicker (IntentsPanel, FocusBar edit, FocusQueue, sidebar, InBar edit dropdown). It looks like a dead control.
+- **Options:**
+  1. Normalise `unsorted` to a 6-digit `#888888` in `FUNNEL_STAGES`. ← **suggested**
+  2. Convert the chip fill to `rgba()` via a small hex-to-rgba helper (fixes the whole class of `+'22'`/`+'33'` alpha-suffix concatenations app-wide).
+  3. Leave as-is; document that Unsorted has no active tint.
+
+## 2026-07-16 — InBar edit-dropdown focus list hardcodes the "queued" state class
+- **Noticed while:** Building the expanded component showcase (`showcase/components-overlays.html`).
+- **What:** `src/content/inbar.js:578` emits `<span class="focus-state queued">${stage}</span>` for every row in `buildFocusList()`. The class is a literal, so the `.focus-state.active` (green `#66bb6a`) and `.focus-state.paused` (amber `#ffa726`) styles defined right above it at lines ~437-439 are never applied. The chip also prints the *funnel stage* text inside a class named for the *focus state* — two different taxonomies.
+- **Why it matters:** In the InBar edit dropdown, an active focus and a paused focus are visually identical to a queued one. The three-color affordance is defined in CSS and shipped, but dead. The `.focus-item.active` left-border still works, so the bug is easy to miss.
+- **Options:**
+  1. Interpolate the real state: `class="focus-state ${f.focusState || 'queued'}"` and keep the stage text. ← **suggested**
+  2. Render two chips (state + stage) to keep the taxonomies separate.
+  3. Drop the unused `.focus-state.active` / `.paused` CSS if the queued-only look is intended.

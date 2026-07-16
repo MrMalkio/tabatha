@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Org &amp; Team</title>
+<style>
+/* ============================================================
+   Tabatha Component Showcase — category page kit.
+   Chrome uses the logo palette (#0F1115 / #00D2FF); component
+   stages render the live app tokens (Pop-Art theme: bg #050505,
+   accent #00F0FF, secondary #FF0055, gold #FFD700). Radius scale
+   is the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Self-contained:
+   inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --purple:#ab47bc;--agent:#b388ff;--backburner:#ff9800;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+/* state variant strip */
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+
+/* shared app-surface tokens */
+.app{--acc:#00F0FF}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;display:flex;align-items:center;gap:7px}
+.mono{font-family:var(--mono)}
+.glass{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;backdrop-filter:blur(16px)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Org & Team component CSS (appended after the shared kit).
+   App-surface tokens resolved to their live values:
+   --color-surface #14141a / --color-bg-base #050505 /
+   --color-border rgba(255,255,255,.1) / --color-text-muted #868E96 /
+   --color-accent-primary #00F0FF / --color-accent-secondary #FF0055
+   ============================================================ */
+.surf{width:100%;max-width:420px}
+.surf.w480{max-width:480px}
+.surf.w520{max-width:520px}
+.seclabel{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#868E96;font-weight:700;padding:0 8px}
+.blurb{font-size:11px;color:#868E96;line-height:1.5;padding:2px 8px 8px}
+.rowcard{padding:8px 12px;background:#14141a;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.1)}
+.card{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px}
+
+/* member roster */
+.mrow-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.avatar{width:22px;height:22px;border-radius:50%;background:var(--appcyan);display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;color:#000;flex:none}
+.mname{font-size:13px;font-weight:600;flex:1}
+.mscope{font-size:10px;color:#868E96}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding-left:30px}
+.ichip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.1);background:#050505;font-size:11px}
+.ichip.dim{background:transparent;opacity:.6}
+.ichip .nm{font-weight:500}
+.ichip .sep{color:#868E96}
+.mut{color:#868E96}
+
+/* forms */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.frow{display:flex;flex-direction:column;gap:4px}
+.frow>span{font-size:12px}
+.inp,.sel{padding:4px 8px;font-size:12px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.1);
+  background:#050505;color:var(--text);outline:none;width:100%;font-family:var(--sans)}
+.btn-acc{padding:6px 14px;background:var(--appcyan);color:#000;border:none;border-radius:var(--r-sm);
+  font-size:12px;font-weight:600;cursor:pointer}
+.okcard{padding:10px;background:#14141a;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.1);
+  font-size:12px;margin-bottom:8px}
+.okcard .ok{margin-bottom:6px;color:#34A853}
+.okcard .fine{font-size:10px;color:#868E96;margin-top:4px;line-height:1.5}
+
+/* pending invites */
+.invrow{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#14141a;border-radius:var(--r-sm);
+  border:1px solid rgba(255,255,255,.1);font-size:11px}
+.invrow .tok{font-family:monospace;user-select:all;flex:1;color:#868E96}
+.invrow .role{padding:1px 6px;background:#050505;border-radius:8px;text-transform:capitalize;font-size:10px;color:#868E96}
+.invrow .exp{font-size:10px;color:#868E96}
+.invrow .exp.soon{color:#ffa726}
+.invrow .rev{padding:2px 8px;background:transparent;color:#ef5350;border:1px solid #ef535044;border-radius:4px;font-size:10px;cursor:pointer}
+
+/* orgs + teams */
+.orow{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#14141a;
+  border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.1);font-size:12px}
+.orow .n{font-weight:600}
+.orow .role{padding:2px 8px;background:#050505;border-radius:10px;font-size:10px;text-transform:capitalize;color:#868E96}
+.empt{font-size:12px;color:#868E96}
+.createform{display:flex;gap:8px}
+
+/* initiatives tree */
+.ipanel{width:100%;max-width:560px}
+.ictl{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.ibtn{background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1);border-radius:4px;
+  padding:2px 8px;font-size:10px;font-weight:600;cursor:pointer}
+.istats{font-size:9px;color:#868E96;display:flex;gap:8px}
+.tree{border:1px solid rgba(255,255,255,.1);border-radius:var(--r-md);overflow:hidden}
+.exp{font-size:9px;color:#868E96;width:12px;text-align:center;flex:none}
+.oprow{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#14141a;border-bottom:1px solid rgba(255,255,255,.1)}
+.oprow .nm{flex:1;font-size:13px;font-weight:700}
+.opbadge{font-size:9px;color:#868E96;background:rgba(0,240,255,.08);padding:1px 6px;border-radius:3px}
+.initrow{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.1);background:rgba(0,240,255,.03)}
+.initrow .nm{flex:1;font-size:12px;font-weight:600}
+.cnt{font-size:9px;color:#868E96}
+.clirow{display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.1)}
+.clirow .nm{flex:1;font-weight:600}
+.prjrow{display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:11px;border-bottom:1px solid rgba(255,255,255,.1);background:#14141a}
+.prjrow .ic{color:var(--magenta)}
+.prjrow .nm{flex:1;font-weight:500}
+.tskrow{display:flex;align-items:center;gap:6px;padding:3px 8px;font-size:11px;border-bottom:1px solid rgba(255,255,255,.1)}
+.tskrow .nm{flex:1}
+.tskrow .st{font-size:8px;color:#868E96;text-transform:uppercase;font-weight:600}
+.grouphead{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#14141a;
+  border-bottom:1px solid rgba(255,255,255,.1);font-size:11px;color:#868E96;font-weight:600}
+.emptybox{padding:20px;text-align:center}
+.emptybox .glyph{font-size:24px;margin-bottom:8px}
+.emptybox p{color:#868E96;font-size:12px}
+.emptybox .fine{font-size:10px;line-height:1.5;margin-top:8px}
+
+/* projects & clients */
+.tabbar{display:flex;gap:4px;margin-bottom:10px}
+.tabbar button{background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96;border-radius:6px;
+  padding:4px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px}
+.tabbar button.on{background:rgba(0,240,255,.13);border-color:var(--appcyan);color:var(--appcyan);font-weight:600}
+.tabbar button .c{font-size:9px;opacity:.7}
+.addrow{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.sbtn{background:transparent;border:1px solid #868E96;color:#868E96;border-radius:4px;padding:2px 8px;
+  font-size:10px;cursor:pointer;font-weight:500;white-space:nowrap}
+.sbtn.acc{border-color:var(--appcyan);color:var(--appcyan)}
+.sbtn.grn{border-color:#66bb6a;color:#66bb6a}
+.sbtn.red{border-color:#ef5350;color:#ef5350}
+.cli-card{padding:10px 12px;margin-bottom:6px}
+.cli-head{display:flex;justify-content:space-between;align-items:center}
+.cli-head .nm{font-size:13px;font-weight:500}
+.subhead{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#868E96;font-weight:600;margin-bottom:4px}
+.prjblk{padding:4px 0 4px 16px;border-left:2px solid rgba(255,255,255,.1);margin-bottom:4px}
+.prjblk .ln{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:500}
+.tsk{padding:2px 0 2px 12px;font-size:11px;display:flex;align-items:center;gap:4px}
+.tsk.done{color:#868E96;text-decoration:line-through}
+
+/* live stints */
+.lspanel{width:100%;max-width:620px;display:flex;flex-direction:column;gap:8px}
+.lstool{display:flex;align-items:center;justify-content:space-between;min-height:24px}
+.lstool .cnt{font-size:11px;color:#868E96}
+.minibtn{background:#14141a;color:var(--text);border:1px solid rgba(255,255,255,.1);border-radius:var(--r-sm);
+  padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.minibtn.amb{border-color:#ffa726;color:#ffa726}
+.minibtn.red{border-color:#ef5350;color:#ef5350}
+.minibtn.grn{border-color:#66bb6a;color:#66bb6a}
+.lsrow{padding:12px 16px}
+.lstop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lsleft{display:flex;align-items:center;gap:10px;min-width:0}
+.lsleft .ic{font-size:16px}
+.lsname{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tag{font-size:8px;padding:1px 5px;border-radius:3px;background:#14141a;color:#868E96;font-weight:700;
+  letter-spacing:.04em;text-transform:capitalize}
+.tag.self{background:#42a5f522;color:#42a5f5}
+.tag.mach{opacity:.7}
+.lsbadge{font-size:10px}
+.drawer{margin-top:10px;border-top:1px solid rgba(255,255,255,.1);padding-top:10px}
+.drawer .note{font-size:10px;color:#868E96;margin-bottom:6px}
+.drawer .ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dtinp{background:#050505;border:1px solid rgba(255,255,255,.1);border-radius:3px;color:var(--text);
+  padding:3px 6px;font-size:11px;font-family:var(--mono)}
+
+/* abandoned stints modal (reused verbatim from index.html) */
+.mod{width:420px;background:rgba(20,20,25,.72);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:18px;backdrop-filter:blur(16px);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.mod .eyeb{color:#ffbe6b}
+.mod h3{font-size:15px;font-weight:700;margin-top:8px}
+.mod .body{font-size:11.5px;color:#a9b2bc;margin-top:8px;line-height:1.5}
+.mod .stint{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:12px;margin-top:12px}
+.mod .stint .top{display:flex;align-items:center;gap:8px;font-size:12px}
+.mod .stint .badge{font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:999px;background:#ffa72622;color:#ffbe6b}
+.mod .stint .mach{margin-left:auto;font-family:var(--mono);font-size:10px;color:#868E96}
+.mod .stint .meta{font-size:10px;color:#868E96;margin-top:6px}
+.mod .stint .exp{font-size:10px;color:#8593a0;margin-top:8px;line-height:1.5}
+.mod .stint .ctl{display:flex;gap:8px;margin-top:10px}
+.mod .stint input{flex:1;background:#111;border:1px solid #2c2c2c;border-radius:4px;color:#ddd;font:400 11px var(--mono);padding:6px 8px}
+.mod .stint .save{border:1px solid #66bb6a55;color:#8bd48f;background:transparent;border-radius:4px;padding:6px 10px;font:600 10.5px var(--sans)}
+.mod .stint .disc{border:1px solid #ef535055;color:#ff8a80;background:transparent;border-radius:4px;padding:6px 10px;font:600 10.5px var(--sans)}
+.mod .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.mod .foot button{border-radius:4px;padding:8px 13px;font:700 11px var(--sans);cursor:pointer}
+.mod .foot .ghost{background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1)}
+.mod .foot .go{background:var(--appcyan);color:#000;border:0}
+.mod .foot.split{justify-content:space-between}
+
+/* other profiles strip */
+.strip{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;align-items:flex-start}
+.pchip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.1);background:#14141a;font-size:11px;color:var(--text);cursor:pointer}
+.pchip.dim{background:transparent;color:#868E96;opacity:.6}
+.pchip.stale{border-style:dashed;background:transparent;color:#868E96;opacity:.8}
+.pchip .nm{font-weight:600}
+.qcount{font-size:9px;font-weight:600;color:#868E96;background:rgba(255,255,255,.1);border-radius:999px;padding:0 5px}
+.queue{border:1px solid rgba(255,255,255,.1);border-radius:8px;background:#14141a;margin-top:2px;min-width:210px}
+.qlist{display:flex;flex-direction:column;gap:2px;padding:4px 0}
+.qitem{display:flex;align-items:center;gap:6px;padding:3px 10px;font-size:11px}
+.pill{font-size:9px;padding:0 4px;border-radius:2px;font-weight:600;flex:none}
+.pill.p2{background:#ff6b6b22;color:#ff6b6b}
+.pill.p5{background:#66bb6a22;color:#66bb6a}
+.pill.pn{background:transparent;color:#868E96}
+.qmore{padding:2px 10px;font-size:10px;color:#868E96}
+.qempty{padding:6px 10px;font-size:11px;color:#868E96}
+
+/* companion status */
+.cs{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;font-size:12px}
+.cs.on{background:rgba(16,172,132,.08);border:1px solid rgba(16,172,132,.2)}
+.cs.off{background:rgba(90,98,112,.08);border:1px solid rgba(90,98,112,.15)}
+.csdot{width:7px;height:7px;border-radius:50%;flex:none}
+.cs.on .csdot{background:#10ac84;box-shadow:0 0 6px rgba(16,172,132,.4)}
+.cs.off .csdot{background:#5a6270;box-shadow:none}
+.csmain{display:flex;align-items:center;gap:4px;color:#e8eaf0;font-weight:500}
+.cstitle{font-size:10px;color:#5a6270;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.csoff{color:#5a6270}
+
+/* schedule */
+.schd{width:100%;max-width:560px;display:flex;flex-direction:column;gap:12px}
+.modes{display:flex;gap:6px}
+.modes button{background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1);
+  border-radius:var(--r-sm);padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer}
+.modes button.on{background:var(--appcyan);color:#000;border-color:var(--appcyan)}
+.sccard{padding:16px}
+.sctitle{font-size:11px;font-weight:700;letter-spacing:.04em}
+.tbadge{font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700}
+.tbadge.ded{background:#42a5f522;color:#42a5f5}
+.tbadge.self{background:#66bb6a22;color:#66bb6a}
+.scmut{font-size:10px;color:#868E96}
+.reqpills{display:flex;gap:8px;flex-wrap:wrap}
+.reqpill{font-size:11px;padding:4px 10px;background:#14141a;border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;font-weight:600}
+.weekrow{display:flex;align-items:center;gap:10px;padding:6px 10px;background:#14141a;
+  border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.1);margin-bottom:5px}
+.weekrow .day{width:86px;font-size:11px;font-weight:600}
+.weekrow .hrs{font-size:11px;font-family:var(--mono);color:#cfcfcf}
+.weekrow .off{font-size:10px;color:#868E96;font-style:italic}
+
+/* shortfalls + requests */
+.sfrow{padding:8px 10px;background:#14141a;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.1)}
+.sfrow.unres{border-color:#ffa72655}
+.sfhead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sfhead .l{font-size:11px;font-weight:600}
+.sfhead .r{font-size:10px;font-weight:600;color:#868E96}
+.sfhead .r.amb{color:#ffa726}
+.sfacts{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.rqcard{padding:12px 14px}
+.rqtop{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.rqtop .ttl{font-size:12px;font-weight:700}
+.rqtop .sub{font-size:10px;color:#868E96;margin-top:2px}
+.rqbtns{display:flex;gap:6px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="#components">Components</a>
+  <span class="verbadge">v6.7.16</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Org &amp; Team</h1>
+  <p>Tabatha starts as a solo attention tool, but the same clock and context data rolls up into orgs, teams, and a five-level work hierarchy. These are the surfaces that make one person's focus legible to their manager, and one manager's roster legible to everyone on it.</p>
+</header>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Org &amp; team surfaces</h2>
+    <span class="meta">14 components · every string lifted verbatim from source</span>
+  </div>
+  <div class="lib app">
+
+    <!-- 1. TeamActivityPanel roster -->
+    <div class="libcard wide" id="team-activity">
+      <div class="stage tall top">
+        <div class="surf w520">
+          <div class="seclabel">Team Activity</div>
+          <p class="blurb">Live status of members in organisations you own / teams you manage. Updates in real time.</p>
+          <div style="display:flex;flex-direction:column;gap:6px">
+
+            <div class="rowcard">
+              <div class="mrow-top">
+                <div class="avatar">P</div>
+                <span class="mname">Priya Raman</span>
+                <span class="mscope">org:owner · team:manager</span>
+              </div>
+              <div class="chips">
+                <div class="ichip"><span>🖥</span><span class="nm">Work Chrome</span><span class="sep">·</span><span>🎯 Q1 Report · 1h 20m</span></div>
+                <div class="ichip"><span>💻</span><span class="nm">Studio Desktop</span><span class="sep">·</span><span>☕ on break</span></div>
+              </div>
+            </div>
+
+            <div class="rowcard">
+              <div class="mrow-top">
+                <div class="avatar">T</div>
+                <span class="mname">Tomás Okafor</span>
+                <span class="mscope">team:manager</span>
+              </div>
+              <div class="chips">
+                <div class="ichip"><span>💼</span><span class="nm">Business Profile</span><span class="sep">·</span><span>⏸ Learning React</span></div>
+                <div class="ichip"><span>📱</span><span class="nm">Phone</span><span class="sep">·</span><span class="mut">no status</span></div>
+              </div>
+            </div>
+
+            <div class="rowcard">
+              <div class="mrow-top">
+                <div class="avatar">W</div>
+                <span class="mname">Wren Halliday</span>
+                <span class="mscope">org:user</span>
+              </div>
+              <div class="chips">
+                <div class="ichip"><span>🌐</span><span class="nm">Tabatha Web</span><span class="sep">·</span><span>🟢 clocked in</span></div>
+                <div class="ichip dim" title="Home Laptop · personal · offline (&gt;5m)"><span>🏠</span><span class="nm">Home Laptop</span><span class="sep">·</span><span class="mut">offline</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">👥</span><div><div class="t">TeamActivityPanel roster</div><div class="d">One row per member, one chip per install of theirs. A manager sees who is clocked in, on break, or drifting, without asking. Chips that miss a heartbeat for five minutes dim to transparent rather than lying about live state.</div><div class="src">src/settings/TeamActivityPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 2. StatusChip 9 states -->
+    <div class="libcard wide" id="status-chip">
+      <div class="stage">
+        <div class="variants" style="max-width:760px">
+          <div class="vlabel">Focus states</div>
+          <div class="vcol"><div class="ichip"><span>🎯 Q1 Report · 1h 20m</span></div></div>
+          <div class="vcol"><div class="ichip"><span>⏸ Learning React</span></div></div>
+          <div class="vcol"><div class="ichip"><span>⚠ over on Q1 Report</span></div></div>
+          <div class="vlabel" style="margin-top:12px">Clock states</div>
+          <div class="vcol"><div class="ichip"><span>☕ on break</span></div></div>
+          <div class="vcol"><div class="ichip"><span>🟢 clocked in</span></div></div>
+          <div class="vcol"><div class="ichip"><span>⚪ clocked out</span></div></div>
+          <div class="vlabel" style="margin-top:12px">Fallbacks</div>
+          <div class="vcol"><div class="ichip"><span class="mut">idle</span></div></div>
+          <div class="vcol"><div class="ichip"><span class="mut">offline</span></div></div>
+          <div class="vcol"><div class="ichip"><span class="mut">no status</span></div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔖</span><div><div class="t">StatusChip, all 9 states</div><div class="d">A strict precedence ladder: focus state beats clock state, clock state beats presence, and presence beats nothing at all. Only the last three render muted, so a live member never reads as grey.</div><div class="src">src/settings/TeamActivityPanel.jsx (StatusChip)</div></div></div>
+    </div>
+
+    <!-- 3. Non-manager gate -->
+    <div class="libcard" id="team-gate">
+      <div class="stage">
+        <div class="surf" style="max-width:340px">
+          <div class="seclabel">Team Activity</div>
+          <p class="blurb">Invite minting and team activity are available to organisation owners and team managers. Ask an owner or manager to send you an invite, or redeem an invite token to join a team.</p>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔒</span><div><div class="t">Non-manager gate</div><div class="d">Read access is enforced server-side, so a regular member would otherwise see an empty panel that looks broken. This note makes the absence deliberate and tells them the way in.</div><div class="src">src/settings/TeamActivityPanel.jsx (!canSeeTeamActivity)</div></div></div>
+    </div>
+
+    <!-- 4. Generate Invite Token -->
+    <div class="libcard" id="invite-token">
+      <div class="stage top">
+        <div class="surf" style="max-width:360px">
+          <div class="seclabel">Generate Invite Token</div>
+          <p class="blurb">Mint a one-shot token for a new member to join. They paste it into Settings → Team Invite Token on their install.</p>
+          <div class="fgrid">
+            <div class="frow"><span>Organisation</span>
+              <select class="sel"><option>Northwind</option><option>Flux</option></select></div>
+            <div class="frow"><span>Team (optional)</span>
+              <select class="sel"><option>— None —</option><option>Platform</option></select></div>
+            <div class="frow"><span>Role</span>
+              <select class="sel"><option>user</option><option>sub_manager</option><option>manager</option><option>read_only</option></select></div>
+            <div class="frow"><span>Expires in (hours)</span>
+              <input class="inp" type="number" value="168" min="1" max="2160"></div>
+            <div style="grid-column:1 / -1"><button class="btn-acc">Generate Invite</button></div>
+          </div>
+          <div class="okcard">
+            <div class="ok">✓ Token generated</div>
+            <input class="inp" style="font-family:monospace" readonly value="tbta_7Q4XKD2M9VFHRN1P">
+            <div class="fine">Expires Jul 23, 2026, 2:30 PM. Share with the new member — they paste into Settings → Team Invite Token.</div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎟</span><div><div class="t">Generate Invite Token</div><div class="d">Minting runs through a security-definer RPC, so only owners and managers can produce a token. One shot, scoped to an org plus optional team, with an explicit role and expiry rather than an open door.</div><div class="src">src/settings/TeamActivityPanel.jsx (handleMint)</div></div></div>
+    </div>
+
+    <!-- 5. Pending Invites -->
+    <div class="libcard" id="pending-invites">
+      <div class="stage">
+        <div class="surf" style="max-width:420px">
+          <div class="seclabel">Pending Invites</div>
+          <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+            <div class="invrow">
+              <span class="tok">tbta_7Q4XKD2M9VFHRN1P</span>
+              <span class="role">user</span>
+              <span class="exp">expires Jul 23 14:30</span>
+              <button class="rev" title="Revoke this invite — anyone who has the token can no longer redeem it">Revoke</button>
+            </div>
+            <div class="invrow">
+              <span class="tok">tbta_B3ZC8LWY6TJK5RQA</span>
+              <span class="role">manager</span>
+              <span class="exp soon">expires Jul 17 08:05</span>
+              <button class="rev" title="Revoke this invite — anyone who has the token can no longer redeem it">Revoke</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📮</span><div><div class="t">Pending Invites</div><div class="d">Unredeemed, unexpired tokens only. The expiry turns amber inside the last 24 hours so a stale invite gets noticed before it dies, and Revoke kills it for anyone still holding it.</div><div class="src">src/settings/TeamActivityPanel.jsx (loadPendingInvites)</div></div></div>
+    </div>
+
+    <!-- 6. Organizations + Teams -->
+    <div class="libcard" id="orgs-teams">
+      <div class="stage top">
+        <div class="surf" style="max-width:380px">
+          <div class="seclabel">Organizations</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 12px">
+            <div class="orow"><span class="n">🏢 Northwind</span><span class="role">owner</span></div>
+            <div class="orow"><span class="n">🏢 Flux</span><span class="role">user</span></div>
+          </div>
+          <p class="empt" style="margin-bottom:12px">No organizations yet. Create one below, or use an invite token to join an existing one.</p>
+
+          <div class="seclabel">Teams</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 12px">
+            <div class="orow"><span class="n">👥 Platform</span><span class="role">manager</span></div>
+          </div>
+          <p class="empt" style="margin-bottom:12px">No teams yet.</p>
+
+          <div class="createform">
+            <input class="inp" type="text" placeholder="New organization name..." style="flex:1">
+            <button class="btn-acc" style="padding:4px 12px">Create</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏢</span><div><div class="t">Organizations + Teams</div><div class="d">Membership rows with the caller's role, plus both empty states shown together. Creating an org makes you its owner, which is what unlocks the invite minting panel below it in Settings.</div><div class="src">src/settings/index.jsx (Cloud Sync section)</div></div></div>
+    </div>
+
+    <!-- 7. InitiativesPanel tree -->
+    <div class="libcard wide" id="initiatives">
+      <div class="stage tall top">
+        <div class="ipanel">
+          <div class="ictl">
+            <div style="display:flex;gap:4px">
+              <button class="ibtn" title="Add Operation">+ Operation</button>
+              <button class="ibtn" title="Add Initiative">+ Initiative</button>
+            </div>
+            <div class="istats">
+              <span>🏢 2</span><span>🎯 4</span><span>👤 6</span><span>📁 9</span><span>✏️ 23</span>
+            </div>
+          </div>
+
+          <div class="tree">
+            <div class="oprow" style="padding-left:8px">
+              <span class="exp">▾</span><span>🏢</span>
+              <span class="nm">Northwind</span>
+              <span class="opbadge">OP · 2 init</span>
+              <button class="ibtn" title="Archive operation">🗑</button>
+            </div>
+
+            <div class="initrow" style="padding-left:24px">
+              <span class="exp">▾</span><span>🎯</span>
+              <span class="nm">Q1 Financial Close</span>
+              <span class="cnt">3c</span>
+              <button class="ibtn" title="Archive initiative">🗑</button>
+            </div>
+
+            <div class="clirow" style="padding-left:40px">
+              <span class="exp">▾</span><span>👤</span>
+              <span class="nm">Meridian Foods</span><span class="cnt">2p</span>
+            </div>
+
+            <div class="prjrow" style="padding-left:56px">
+              <span class="exp">▾</span><span class="ic">📁</span>
+              <span class="nm">Revenue Model</span><span class="cnt">4t</span>
+            </div>
+            <div class="tskrow" style="padding-left:72px">
+              <span class="mut">✏️</span><span class="nm">Q1 revenue charts</span><span class="st">active</span>
+            </div>
+            <div class="tskrow" style="padding-left:72px">
+              <span class="mut">✏️</span><span class="nm">Reconcile Jan ledger</span><span class="st">active</span>
+            </div>
+
+            <div class="prjrow" style="padding-left:56px">
+              <span class="exp">▸</span><span class="ic">📁</span>
+              <span class="nm">Board Deck</span><span class="cnt">3t</span>
+            </div>
+
+            <div class="clirow" style="padding-left:40px">
+              <span class="exp">▸</span><span>👤</span>
+              <span class="nm">Halcyon Group</span><span class="cnt">1p</span>
+            </div>
+
+            <div class="initrow" style="padding-left:24px">
+              <span class="exp">·</span><span>🎯</span>
+              <span class="nm">Platform Migration</span>
+              <span class="cnt">0c</span>
+              <button class="ibtn" title="Archive initiative">🗑</button>
+            </div>
+
+            <div class="oprow" style="padding-left:8px">
+              <span class="exp">▸</span><span>🏢</span>
+              <span class="nm">Flux</span>
+              <span class="opbadge">OP · 2 init</span>
+              <button class="ibtn" title="Archive operation">🗑</button>
+            </div>
+
+            <div class="grouphead">📋 Unassigned Clients (2)</div>
+            <div class="clirow" style="padding-left:24px">
+              <span class="exp">▸</span><span>👤</span><span class="nm">Self</span><span class="cnt">1p</span>
+            </div>
+            <div class="clirow" style="padding-left:24px">
+              <span class="exp">·</span><span>👤</span><span class="nm">Larkspur Studio</span><span class="cnt">0p</span>
+            </div>
+
+            <div class="grouphead">📂 Unassigned Projects (1)</div>
+            <div class="prjrow" style="padding-left:24px">
+              <span class="exp">·</span><span class="ic">📁</span><span class="nm">Inbox Triage</span><span class="cnt">0t</span>
+            </div>
+          </div>
+
+          <div class="card emptybox" style="margin-top:12px">
+            <div class="glyph">🏛️</div>
+            <p>No operations yet. Create one to organize your work hierarchy.</p>
+            <p class="fine mut">Operations → Initiatives → Clients → Projects → Tasks</p>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🌲</span><div><div class="t">InitiativesPanel org tree</div><div class="d">The full five-level hierarchy in one collapsible tree, with cascade counts at every node and dedicated buckets for clients and projects that never got a parent. Indentation is level times 16 plus 8, so depth is readable at a glance.</div><div class="src">src/home/InitiativesPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 8. ProjectsClientsPanel -->
+    <div class="libcard wide" id="projects-clients">
+      <div class="stage top">
+        <div class="surf w480">
+          <div class="tabbar">
+            <button class="on">👤 Clients <span class="c">(6)</span></button>
+            <button>📁 Projects <span class="c">(9)</span></button>
+            <button>✅ Tasks <span class="c">(23)</span></button>
+          </div>
+
+          <div class="addrow">
+            <button class="sbtn acc">+ New client</button>
+            <input class="inp" placeholder="New client name..." style="flex:1">
+            <button class="sbtn grn">+ Add</button>
+          </div>
+
+          <div class="card cli-card">
+            <div class="cli-head">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px">👤</span><span class="nm">Meridian Foods</span></div>
+              <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px" class="mut">2 projects</span><span style="font-size:10px" class="mut">▼</span></div>
+            </div>
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1)">
+              <div class="subhead">Projects</div>
+              <div class="prjblk">
+                <div class="ln"><span>📁 Revenue Model</span><span class="cnt">4 tasks</span></div>
+                <div class="tsk"><span>☐</span><span>Q1 revenue charts</span></div>
+                <div class="tsk done"><span>☑️</span><span>Pull Q4 actuals</span></div>
+              </div>
+              <div class="prjblk">
+                <div class="ln"><span>📁 Board Deck</span><span class="cnt">3 tasks</span></div>
+                <div class="tsk"><span>☐</span><span>Draft narrative slide</span></div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button class="sbtn red" title="Archive this client">🗑 Archive</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="subhead" style="margin-top:10px">Completed (4)</div>
+          <div class="card" style="opacity:.6;overflow:hidden;margin-bottom:12px">
+            <div class="tsk done" style="padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.1)"><span>☑️</span><span style="flex:1">Pull Q4 actuals</span></div>
+            <div class="tsk done" style="padding:6px 10px"><span>☑️</span><span style="flex:1">Confirm audit window</span></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div class="card emptybox" style="padding:14px 8px"><div class="glyph">👤</div><p>No clients yet. Add one to start organizing.</p></div>
+            <div class="card emptybox" style="padding:14px 8px"><div class="glyph">📁</div><p>No projects yet. Add one and optionally link a client.</p></div>
+            <div class="card emptybox" style="padding:14px 8px"><div class="glyph">✅</div><p>All tasks complete! Add a new one to keep going.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🗂</span><div><div class="t">ProjectsClientsPanel</div><div class="d">The flat CRUD view over the same hierarchy the tree renders. Three tabs with live counts, inline add, expandable clients that reveal their projects and tasks, and a dimmed Completed shelf so finished work stays visible without competing.</div><div class="src">src/home/ProjectsClientsPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 9. Live Stints -->
+    <div class="libcard wide" id="live-stints">
+      <div class="stage tall top">
+        <div class="lspanel">
+          <div class="lstool">
+            <span class="cnt">4 install(s) · 2 offline</span>
+            <div style="display:flex;gap:6px">
+              <button class="minibtn">↻ Refresh</button>
+              <button class="minibtn amb">🧹 Clean up all offline (2)</button>
+            </div>
+          </div>
+
+          <div class="card lsrow">
+            <div class="lstop">
+              <div class="lsleft">
+                <span class="ic">💼</span>
+                <div style="min-width:0">
+                  <div class="lsname">Work Chrome
+                    <span class="tag self">this install</span>
+                    <span class="tag">business</span>
+                    <span class="tag mach">🖥 a91f3c</span>
+                  </div>
+                  <div class="lsbadge" style="color:#66bb6a">🟢 clocked in (live)<span class="mut"> · since 9:02 AM Jul 16</span><span class="mut"> · last seen 2:41 PM</span></div>
+                </div>
+              </div>
+              <button class="minibtn red">⏹ Clock out</button>
+            </div>
+          </div>
+
+          <div class="card lsrow">
+            <div class="lstop">
+              <div class="lsleft">
+                <span class="ic">💻</span>
+                <div style="min-width:0">
+                  <div class="lsname">Studio Desktop
+                    <span class="tag">professional</span>
+                    <span class="tag mach">🖥 6b0d27</span>
+                  </div>
+                  <div class="lsbadge" style="color:#66bb6a">☕ on break (live)<span class="mut"> · since 8:30 AM Jul 16</span><span class="mut"> · last seen 2:39 PM</span></div>
+                </div>
+              </div>
+              <button class="minibtn red">⏹ Clock out</button>
+            </div>
+          </div>
+
+          <div class="card lsrow">
+            <div class="lstop">
+              <div class="lsleft">
+                <span class="ic">🖥</span>
+                <div style="min-width:0">
+                  <div class="lsname">Install 9f2a1c
+                    <span class="tag">work</span>
+                    <span class="tag mach">🖥 c4e118</span>
+                  </div>
+                  <div class="lsbadge" style="color:#ffa726">⚪ abandoned<span class="mut"> · since 9:02 AM Jul 14</span><span class="mut"> · last seen 5:47 PM</span></div>
+                </div>
+              </div>
+              <button class="minibtn red">⏹ Reconcile</button>
+            </div>
+            <div class="drawer">
+              <div class="note">This shift was abandoned. Set when it should have ended (defaults to its last heartbeat). The stint is reconstructed and attributed to your matching real profile.</div>
+              <div class="ctl">
+                <input class="dtinp" type="datetime-local" value="2026-07-14T17:47">
+                <button class="minibtn grn">✓ Confirm</button>
+                <button class="minibtn">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card lsrow">
+            <div class="lstop">
+              <div class="lsleft">
+                <span class="ic">🏠</span>
+                <div style="min-width:0">
+                  <div class="lsname">Home Laptop
+                    <span class="tag">personal</span>
+                    <span class="tag mach">🖥 7d92ab</span>
+                  </div>
+                  <div class="lsbadge" style="color:#ffa726">⚪ abandoned (was on break)<span class="mut"> · since 1:15 PM Jul 13</span><span class="mut"> · last seen 4:02 PM</span></div>
+                </div>
+              </div>
+              <button class="minibtn red">⏹ Reconcile</button>
+            </div>
+          </div>
+
+          <div class="card lsrow">
+            <div class="lstop">
+              <div class="lsleft">
+                <span class="ic">📱</span>
+                <div style="min-width:0">
+                  <div class="lsname">Phone
+                    <span class="tag">personal</span>
+                    <span class="tag mach">🖥 22ff81</span>
+                  </div>
+                  <div class="lsbadge mut">⚪ clocked out<span class="mut"> · last seen 11:20 AM</span></div>
+                </div>
+              </div>
+              <button class="minibtn" title="This offline install has no open shift — remove its stale chip">✕ Dismiss</button>
+            </div>
+          </div>
+
+          <div class="card emptybox" style="padding:30px">
+            <div class="glyph">🖥️</div>
+            <p style="font-size:13px">No install activity yet. Once you clock in, your installs appear here.</p>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📡</span><div><div class="t">Live Stints panel</div><div class="d">Every install this user owns, sorted live shift first, then abandoned, then idle. This is the fix for ghost stints: an install that clocked in and vanished leaves a row nothing else could reach, so Reconcile rebuilds the shift from its last heartbeat instead of double-counting hours.</div><div class="src">src/workshifts/index.jsx (LiveStintsView)</div></div></div>
+    </div>
+
+    <!-- 10. AbandonedStintsModal -->
+    <div class="libcard wide" id="abandoned-modal">
+      <div class="stage tall">
+        <div class="mod">
+          <div class="eyebrow eyeb">⚠ Unfinished shifts</div>
+          <h3>2 abandoned shifts to resolve</h3>
+          <div class="body">Another of your installs was left clocked in without clocking out. Fix the end times or discard them before starting a new shift.</div>
+
+          <div class="stint">
+            <div class="top">⚪ <b>Install 9f2a1c</b> <span class="badge">Work</span> <span class="mach">🖥 c4e118</span></div>
+            <div class="meta">Abandoned · clocked in Jul 14, 9:02 AM · last seen Jul 14, 5:47 PM</div>
+            <div class="exp">Set when this shift should have ended (defaults to its last heartbeat). It's reconstructed into your history and attributed to your matching real install.</div>
+            <div class="ctl"><input value="2026-07-14 17:47"><button class="save">✓ Save end time</button><button class="disc">✕ Discard</button></div>
+          </div>
+
+          <div class="stint">
+            <div class="top">⚪ <b>Home Laptop</b> <span class="badge">Personal</span> <span class="mach">🖥 7d92ab</span></div>
+            <div class="meta">Abandoned while on break · clocked in Jul 13, 1:15 PM · last seen Jul 13, 4:02 PM</div>
+            <div class="exp">Set when this shift should have ended (defaults to its last heartbeat). It's reconstructed into your history and attributed to your matching real install.</div>
+            <div class="ctl"><input value="2026-07-13 16:02"><button class="save">✓ Save end time</button><button class="disc">✕ Discard</button></div>
+          </div>
+
+          <div class="foot split">
+            <button class="ghost">Cancel clock-in</button>
+            <button class="go" title="Leave the remaining shifts as-is and clock in anyway">Skip &amp; clock in</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">👻</span><div><div class="t">AbandonedStintsModal</div><div class="d">The same reconciliation, surfaced at the moment it matters: clocking in again. Freshness is re-checked on open, so an install that came back online is never accused of being abandoned, and the user can always skip through.</div><div class="src">src/components/ui/AbandonedStintsModal.jsx</div></div></div>
+    </div>
+
+    <!-- 11. OtherProfilesStrip -->
+    <div class="libcard wide" id="other-profiles">
+      <div class="stage top">
+        <div class="surf w520">
+          <div class="strip">
+            <div>
+              <button class="pchip" aria-expanded="true" title="Studio Desktop · professional — click to view their queue (read-only)">
+                <span>💻</span><span class="nm">Studio Desktop</span><span class="mut">·</span><span>🎯 Q1 Report · 1h 20m</span>
+                <span class="qcount" title="5 queued intents on this device">5</span>
+                <span class="mut">▾</span>
+              </button>
+              <div class="queue">
+                <div class="qlist">
+                  <div class="qitem"><span class="pill p2" title="Priority 2 of 10">P2</span><span>Q1 Report</span><span title="active on that device">🎯</span></div>
+                  <div class="qitem"><span class="pill p5" title="Priority 5 of 10">P5</span><span>Learning React</span></div>
+                  <div class="qitem"><span class="pill pn" title="No priority synced from this device">P—</span><span>Vacation Planning</span></div>
+                  <div class="qmore">+3 more…</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button class="pchip dim" aria-expanded="false" title="Tabatha Web · business — click to view their queue (read-only)">
+                <span>🌐</span><span class="nm">Tabatha Web</span><span class="mut">·</span><span class="mut">idle</span>
+                <span class="mut">▸</span>
+              </button>
+            </div>
+
+            <div>
+              <button class="pchip stale" title="Offline installs (no heartbeat in 5m) — review and clean up in Live Stints">
+                🕘 2 offline · clean up
+              </button>
+            </div>
+          </div>
+
+          <div class="queue" style="max-width:220px;margin-top:12px">
+            <div class="qempty">No queued intents</div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔗</span><div><div class="t">OtherProfilesStrip</div><div class="d">Your other installs as chips in the header, each expanding into a read-only view of that device's intent queue. Stale ghosts collapse into one dashed "offline" chip that routes to Live Stints, instead of cluttering the strip with day-old frozen state.</div><div class="src">src/components/OtherProfilesStrip.jsx</div></div></div>
+    </div>
+
+    <!-- 12. CompanionStatus -->
+    <div class="libcard" id="companion-status">
+      <div class="stage">
+        <div class="variants" style="max-width:320px">
+          <div class="vlabel">Connected, with active app</div>
+          <div class="vcol">
+            <div class="cs on">
+              <span class="csdot"></span>
+              <div style="flex:1;min-width:0">
+                <div class="csmain"><span>💻</span><span>Visual Studio Code</span></div>
+                <div class="cstitle">revenueModel.ts · northwind-finance</div>
+              </div>
+            </div>
+          </div>
+          <div class="vlabel" style="margin-top:14px">Connected, no app yet</div>
+          <div class="vcol">
+            <div class="cs on">
+              <span class="csdot"></span>
+              <div style="flex:1;min-width:0"><div class="csmain"><span>Desktop Connected</span></div></div>
+            </div>
+          </div>
+          <div class="vlabel" style="margin-top:14px">Disconnected</div>
+          <div class="vcol">
+            <div class="cs off">
+              <span class="csdot"></span>
+              <span class="csoff">Desktop offline</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🖧</span><div><div class="t">CompanionStatus</div><div class="d">The extension's read on the desktop companion: a glowing dot when the local socket is up, plus the foreground app and its window title. This is what keeps Tabatha from calling you idle while you are heads-down in another program.</div><div class="src">src/components/CompanionStatus.jsx</div></div></div>
+    </div>
+
+    <!-- 13. Schedule 3 modes -->
+    <div class="libcard wide" id="schedule-modes">
+      <div class="stage tall top">
+        <div class="schd">
+          <div class="modes">
+            <button class="on">🙋 My Schedule</button>
+            <button>👥 Manage</button>
+            <button>📨 Requests (2)</button>
+          </div>
+
+          <div class="card sccard">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <h3 class="sctitle">📋 My Work Profile</h3>
+              <div style="display:flex;gap:6px">
+                <span class="tbadge ded">🕐 Dedicated hours</span>
+                <span class="tbadge self">🧭 Self-managed</span>
+              </div>
+            </div>
+            <div class="scmut" style="margin-top:6px">Your weekly schedule is set by your manager. Propose changes below — they take effect once approved.</div>
+
+            <div style="margin-top:12px">
+              <h4 class="sctitle">Required hours</h4>
+              <div class="reqpills" style="margin-top:6px">
+                <span class="reqpill">Daily: 8h</span>
+                <span class="reqpill">Weekly: 40h</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card sccard">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <h4 class="sctitle">🗓 Weekly schedule <span style="font-weight:400;color:#868E96">· 40h/wk</span></h4>
+              <button class="ibtn">✏️ Propose change</button>
+            </div>
+            <div class="weekrow"><span>✅</span><span class="day">Monday</span><span class="hrs">09:00 → 17:00</span></div>
+            <div class="weekrow"><span>✅</span><span class="day">Tuesday</span><span class="hrs">09:00 → 17:00</span></div>
+            <div class="weekrow"><span>✅</span><span class="day">Wednesday</span><span class="hrs">09:00 → 17:00</span></div>
+            <div class="weekrow"><span>✅</span><span class="day">Thursday</span><span class="hrs">09:00 → 17:00</span></div>
+            <div class="weekrow"><span>✅</span><span class="day">Friday</span><span class="hrs">09:00 → 17:00</span></div>
+            <div class="weekrow"><span>⬜</span><span class="day">Saturday</span><span class="off">Off</span></div>
+            <div class="weekrow" style="margin-bottom:0"><span>⬜</span><span class="day">Sunday</span><span class="off">Off</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🗓</span><div><div class="t">Schedule, 3 modes</div><div class="d">SELF, MANAGE, and REQUESTS behind one mode switch, gated by role. A dedicated-hours member cannot edit their own grid, only propose a change; a self-managed one sets their own hours but still owes the minimums.</div><div class="src">src/workshifts/ScheduleView.jsx</div></div></div>
+    </div>
+
+    <!-- 14. Shortfalls + Requests -->
+    <div class="libcard wide" id="shortfalls">
+      <div class="stage top">
+        <div class="surf w520">
+          <div class="scmut" style="margin-bottom:10px">No shortfalls on record. 🎉</div>
+
+          <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px">
+            <div class="sfrow unres">
+              <div class="sfhead">
+                <span class="l">Daily floor · Jul 14 · missing 1h 20m</span>
+                <span class="r amb">⚠ unresolved</span>
+              </div>
+              <div class="sfacts">
+                <button class="minibtn" style="font-size:10px;padding:3px 10px">🔁 Make up</button>
+                <button class="minibtn" style="font-size:10px;padding:3px 10px">➡ Shift hours</button>
+                <button class="minibtn" style="font-size:10px;padding:3px 10px">📝 Log reason</button>
+              </div>
+            </div>
+            <div class="sfrow">
+              <div class="sfhead"><span class="l">Daily floor · Jul 11 · missing 45m</span><span class="r">✓ made up</span></div>
+            </div>
+            <div class="sfrow">
+              <div class="sfhead"><span class="l">Weekly floor · Jul 6 · missing 2h</span><span class="r">→ shifted</span></div>
+            </div>
+            <div class="sfrow">
+              <div class="sfhead"><span class="l">Daily floor · Jul 3 · missing 3h 10m</span><span class="r">✓ excused</span></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="card rqcard">
+              <div class="rqtop">
+                <div>
+                  <div class="ttl">Dez Marchetti · Make up 1h on Jul 18</div>
+                  <div class="sub">Filed Jul 15, 4:12 PM by Dez Marchetti — “Client call ran into my evening block.”</div>
+                </div>
+                <div class="rqbtns">
+                  <button class="minibtn grn" style="font-size:10px;padding:3px 10px">✓ Approve</button>
+                  <button class="minibtn red" style="font-size:10px;padding:3px 10px">✗ Reject</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card emptybox" style="padding:30px">
+              <div class="glyph" style="font-size:22px;margin-bottom:6px">📭</div>
+              <p>No pending change requests.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⚖️</span><div><div class="t">ShortfallList + Requests inbox</div><div class="d">Missed hours are recorded, not silently forgiven. Each shortfall carries an amber border until it is made up, shifted, or excused with a reason, and a manager clears the resulting proposals from one inbox.</div><div class="src">src/workshifts/ScheduleView.jsx (ShortfallList, RequestsInbox)</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.16</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Work Shifts · Analytics</title>
+<style>
+/* ============================================================
+   Tabatha showcase — faithful reproduction of the live extension.
+   Design tokens pulled from src/styles/global.css (Pop-Art theme):
+   bg #050505, accent-primary #00F0FF, accent-secondary #FF0055,
+   accent-tertiary #FFD700, radius scale 2/4/8 (halved), Inter body,
+   JetBrains Mono for timers. Icons are emoji (the app has no icon lib).
+   Every chart here is hand-rolled CSS — the extension ships no chart
+   library (src/workshifts/index.jsx, src/utils/workAnalytics.js).
+   ============================================================ */
+:root{
+  --bg:#050505;--surface:rgba(20,20,25,.55);--surface-solid:#141414;
+  --border:rgba(255,255,255,.1);--text:#FAFAFA;--muted:#868E96;
+  --cyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a}
+body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;color:var(--text)}
+.shot{width:1280px;height:800px;overflow:hidden;position:relative;background:var(--bg);
+  display:flex;flex-direction:column}
+
+/* header */
+.head{border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;
+  justify-content:space-between;flex:none}
+.head .l{display:flex;align-items:center;gap:10px}
+.head h1{font-size:18px;font-weight:700;margin:0}
+.head .v{font-size:10px;color:var(--muted);display:block;margin-top:1px}
+.views{display:flex;gap:6px}
+.views button{background:var(--surface);color:var(--text);border:1px solid var(--border);
+  border-radius:2px;padding:4px 12px;font:600 11px var(--sans);cursor:pointer}
+.views button.on{background:var(--cyan);color:#000;border-color:var(--cyan)}
+.views .dash{background:var(--surface);font-weight:400}
+
+/* body */
+.body{flex:1;padding:16px 24px;max-width:900px;margin:0 auto;width:100%;overflow:hidden;
+  display:flex;flex-direction:column;gap:10px}
+.glass{background:var(--surface);border:1px solid var(--border);border-radius:8px;backdrop-filter:blur(16px)}
+
+/* live clock */
+.live{padding:11px 16px;display:flex;align-items:center;justify-content:space-between}
+.live .l{display:flex;align-items:center;gap:10px}
+.live .t{font-size:12px;font-weight:600}
+.live .s{font-size:10px;color:var(--muted)}
+.brk{font-size:10px;padding:2px 8px;background:#ffa72622;color:var(--amber);border-radius:10px;font-weight:600}
+
+/* stat cards */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.st{padding:11px;text-align:center}
+.st .v{font-size:20px;font-weight:700;color:var(--cyan);font-variant-numeric:tabular-nums}
+.st .k{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.st .s{font-size:9px;color:var(--muted);margin-top:2px}
+
+/* range */
+.range{display:flex;gap:6px;align-items:center}
+.range .lab{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-right:2px}
+.range button{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:2px;
+  padding:3px 10px;font:600 11px var(--sans);cursor:pointer}
+.range button.on{background:var(--cyan);color:#000;border-color:var(--cyan)}
+.range .grow{flex:1}
+.range .csv{background:var(--cyan);color:#000;border:1px solid var(--border);border-radius:2px;
+  padding:4px 11px;font:600 11px var(--sans);cursor:pointer}
+
+.sectitle{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  margin-bottom:10px}
+
+.cols{display:grid;grid-template-columns:1.35fr 1fr;gap:12px;flex:1;min-height:0}
+.card{padding:12px 14px}
+
+/* daily hours: vertical stacked bars */
+.dh{display:flex;align-items:flex-end;gap:6px;height:96px}
+.dh .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.dh .b-brk{background:var(--amber);opacity:.65;border-radius:2px 2px 0 0}
+.dh .b-wrk{background:var(--cyan);opacity:.75;border-radius:0 0 2px 2px}
+.dh .col.solo .b-wrk{border-radius:2px}
+.dh .zero{height:2px;background:var(--surface);border-radius:2px}
+.dhx{display:flex;gap:6px;margin-top:5px}
+.dhx span{flex:1;text-align:center;font-size:9px;color:var(--muted)}
+.leg{display:flex;gap:12px;justify-content:flex-end;margin-top:8px;font-size:9px;color:var(--muted)}
+.leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+
+/* hour bars */
+.hb{display:flex;align-items:flex-end;gap:2px;height:50px}
+.hb .h{flex:1;background:var(--cyan);opacity:.75;border-radius:1px}
+.hbx{display:flex;margin-top:5px;font-size:9px;color:var(--muted)}
+.hbx span{flex:1}
+.hbx span:nth-child(n+2){text-align:center}
+
+/* weekly bars */
+.wk{display:flex;flex-direction:column;gap:5px}
+.wkr{display:flex;align-items:center;gap:8px}
+.wkr .l{font-size:10px;color:var(--muted);width:62px;flex:none}
+.wkr .tk{flex:1;height:18px;background:var(--surface);border-radius:3px;overflow:hidden;position:relative}
+/* display:block is load-bearing — these fills are <span>s, and height:100% is
+   ignored on an inline box, which renders the bar invisible. */
+.wkr .fl{display:block;height:100%;background:var(--cyan);opacity:.7;border-radius:3px}
+.wkr .d{font-size:10px;font-weight:600;color:var(--cyan);min-width:48px;text-align:right}
+.wkr .n{font-size:9px;color:var(--muted);min-width:42px;text-align:right}
+
+/* per focus */
+.pf{display:flex;flex-direction:column;gap:5px}
+.pfr{display:flex;align-items:center;gap:8px}
+.pfr .i{font-size:10px;color:var(--muted);width:14px;text-align:right}
+.pfr .tk{flex:1;height:18px;background:var(--surface);border-radius:3px;overflow:hidden;position:relative}
+.pfr .fl{display:block;height:100%;background:var(--cyan);opacity:.7;border-radius:3px}
+.pfr .lb{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:500;
+  color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 40px)}
+.pfr .d{font-size:10px;font-weight:600;color:var(--cyan);min-width:46px;text-align:right}
+
+/* break stats */
+.bstat{display:flex;gap:16px;margin-bottom:10px;font-size:11px}
+.bstat b{color:var(--amber)}
+.hb.brk .h{background:var(--amber)}
+
+/* stub */
+.stub{margin-top:10px;padding:7px 11px;background:var(--bg);border-radius:2px;border:1px dashed var(--border);
+  display:flex;align-items:center;gap:8px}
+.stub .s{font-size:10px;color:var(--muted)}
+.soon{font-size:8px;background:#ffab4022;color:#ffab40;font-weight:700;padding:2px 5px;border-radius:3px;
+  letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="shot">
+
+  <div class="head">
+    <div class="l">
+      <span style="font-size:20px">⏱️</span>
+      <div>
+        <h1>Work Shifts</h1>
+        <span class="v">Tabatha v6.7.16-α</span>
+      </div>
+    </div>
+    <div class="views">
+      <button>📋 All Shifts</button>
+      <button>🟢 Live Stints</button>
+      <button>📅 Weekly</button>
+      <button>📋 Schedule</button>
+      <button class="on">📊 Analytics</button>
+      <button class="dash">← Dashboard</button>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- live clock status -->
+    <div class="glass live">
+      <div class="l">
+        <span style="font-size:16px">🟢</span>
+        <div>
+          <div class="t">Currently Clocked In</div>
+          <div class="s">Since 9:02 AM</div>
+        </div>
+      </div>
+      <span class="brk">On Break</span>
+    </div>
+
+    <!-- summary stats -->
+    <div class="stats">
+      <div class="glass st"><div class="v">31h 12m</div><div class="k">Work (range)</div><div class="s">7 shifts</div></div>
+      <div class="glass st"><div class="v">5h 12m</div><div class="k">Avg / Active Day</div><div class="s">6 active days</div></div>
+      <div class="glass st"><div class="v">14</div><div class="k">Breaks</div><div class="s">avg 11m</div></div>
+      <div class="glass st"><div class="v">63</div><div class="k">Ctx Switches</div><div class="s">2.0/h · 9.0/shift</div></div>
+    </div>
+
+    <!-- range -->
+    <div class="range">
+      <span class="lab">Range</span>
+      <button class="on">This week</button>
+      <button>Last 7 days</button>
+      <button>Last 30 days</button>
+      <span class="grow"></span>
+      <button class="csv">⬇ Export CSV</button>
+    </div>
+
+    <div class="cols">
+      <!-- left column -->
+      <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+        <div class="glass card">
+          <div class="sectitle">📈 Daily Hours</div>
+          <div class="dh">
+            <div class="col"><div class="b-brk" style="height:8px"></div><div class="b-wrk" style="height:74px"></div></div>
+            <div class="col"><div class="b-brk" style="height:11px"></div><div class="b-wrk" style="height:88px"></div></div>
+            <div class="col"><div class="b-brk" style="height:7px"></div><div class="b-wrk" style="height:63px"></div></div>
+            <div class="col"><div class="b-brk" style="height:13px"></div><div class="b-wrk" style="height:95px"></div></div>
+            <div class="col"><div class="b-brk" style="height:9px"></div><div class="b-wrk" style="height:81px"></div></div>
+            <div class="col"><div class="zero"></div></div>
+            <div class="col solo"><div class="b-wrk" style="height:26px"></div></div>
+          </div>
+          <div class="dhx">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div class="leg">
+            <span><i style="background:var(--cyan);opacity:.75"></i>Work</span>
+            <span><i style="background:var(--amber);opacity:.65"></i>Break</span>
+          </div>
+        </div>
+
+        <div class="glass card">
+          <div class="sectitle">⏰ Peak Productivity Hours</div>
+          <div class="hb">
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:6%"></div><div class="h" style="height:18%"></div>
+            <div class="h" style="height:52%"></div><div class="h" style="height:88%"></div>
+            <div class="h" style="height:100%"></div><div class="h" style="height:74%"></div>
+            <div class="h" style="height:31%"></div><div class="h" style="height:46%"></div>
+            <div class="h" style="height:79%"></div><div class="h" style="height:92%"></div>
+            <div class="h" style="height:68%"></div><div class="h" style="height:41%"></div>
+            <div class="h" style="height:16%"></div><div class="h" style="height:8%"></div>
+            <div class="h" style="height:4%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+          </div>
+          <div class="hbx"><span>0</span><span>6</span><span>12</span><span>18</span></div>
+        </div>
+
+        <div class="glass card">
+          <div class="sectitle">☕ Break Patterns</div>
+          <div class="bstat">
+            <span><b>14</b> breaks</span>
+            <span><b>11m</b> avg duration</span>
+            <span><b>2h 34m</b> total</span>
+          </div>
+          <div class="hb brk">
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:14%"></div><div class="h" style="height:28%"></div>
+            <div class="h" style="height:42%"></div><div class="h" style="height:71%"></div>
+            <div class="h" style="height:100%"></div><div class="h" style="height:57%"></div>
+            <div class="h" style="height:28%"></div><div class="h" style="height:42%"></div>
+            <div class="h" style="height:28%"></div><div class="h" style="height:14%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+            <div class="h" style="height:3%"></div><div class="h" style="height:3%"></div>
+          </div>
+          <div class="hbx"><span>0</span><span>6</span><span>12</span><span>18</span></div>
+        </div>
+      </div>
+
+      <!-- right column -->
+      <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+        <div class="glass card">
+          <div class="sectitle">📊 Weekly Comparison (last 6 weeks)</div>
+          <div class="wk">
+            <div class="wkr"><span class="l">Wk 06-08</span><span class="tk"><span class="fl" style="width:71%"></span></span><span class="d">28h 40m</span><span class="n">6 shifts</span></div>
+            <div class="wkr"><span class="l">Wk 06-15</span><span class="tk"><span class="fl" style="width:84%"></span></span><span class="d">33h 15m</span><span class="n">7 shifts</span></div>
+            <div class="wkr"><span class="l">Wk 06-22</span><span class="tk"><span class="fl" style="width:62%"></span></span><span class="d">24h 50m</span><span class="n">5 shifts</span></div>
+            <div class="wkr"><span class="l">Wk 06-29</span><span class="tk"><span class="fl" style="width:96%"></span></span><span class="d">38h 05m</span><span class="n">8 shifts</span></div>
+            <div class="wkr"><span class="l">Wk 07-06</span><span class="tk"><span class="fl" style="width:88%"></span></span><span class="d">34h 52m</span><span class="n">7 shifts</span></div>
+            <div class="wkr"><span class="l">Wk 07-13</span><span class="tk"><span class="fl" style="width:79%"></span></span><span class="d">31h 12m</span><span class="n">7 shifts</span></div>
+          </div>
+        </div>
+
+        <div class="glass card" style="flex:1">
+          <div class="sectitle">🎯 Time per Focus (during shifts)</div>
+          <div class="pf">
+            <div class="pfr"><span class="i">1.</span><span class="tk"><span class="fl" style="width:100%"></span><span class="lb">Q1 Report</span></span><span class="d">12h 18m</span></div>
+            <div class="pfr"><span class="i">2.</span><span class="tk"><span class="fl" style="width:58%"></span><span class="lb">Learning React</span></span><span class="d">7h 06m</span></div>
+            <div class="pfr"><span class="i">3.</span><span class="tk"><span class="fl" style="width:34%"></span><span class="lb">Email triage</span></span><span class="d">4h 11m</span></div>
+            <div class="pfr"><span class="i">4.</span><span class="tk"><span class="fl" style="width:21%"></span><span class="lb">Vacation Planning</span></span><span class="d">2h 34m</span></div>
+          </div>
+          <div class="stub">
+            <span class="s">Distraction time vs productive time</span>
+            <span class="soon">COMING SOON</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
