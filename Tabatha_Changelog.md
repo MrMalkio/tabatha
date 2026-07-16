@@ -5,6 +5,19 @@ file.
 
 ---
 
+## [v6.7.16] - Showcase expansion: full component inventory + card captures - _2026-07-16_
+
+### Added
+
+- **Showcase expanded to the whole user-facing surface area** — `showcase/index.html` is now an indexed gallery (sticky in-page nav, grouped sections, client-side filter) fronting **8 surface frames** and **6 new category pages** carrying **90 component cards**: `components-overlays.html` (InBar in 5 states, sticky note, edit dropdown, backburner, Gatekeeper strict/relaxed/inherited/agent, BlockGate, Welcome Back, What's New), `components-focus.html` (FocusBar active/paused/drifted/over-time/edit/checkpoint, FocusInput, queue, backburner dock, CheckpointTimeline, FlipClock, shift controls), `components-data.html` (every hand-rolled chart incl. the 365-day ActivityHeatmap and LogsPanel), `components-org.html` (TeamActivity, StatusChip's 9 states, invites, org tree, Live Stints, abandoned stints, Schedule's 3 modes), `components-settings.html` (all 22 shipped sections, sync chip's 5 states, SettingsSearch, all 12 themes, URL Rules, Developer, Cortex), and `components-primitives.html` (GlassCard, PopButton, ComboInput, TagPicker, CommandPalette, KeyboardShortcuts, LinkMergeModal, UnifiedTimeline). State variants are shown side by side wherever state is the point.
+- **New surface frames** — `popup.html` (the 400×500 Quick Switch popup), `workshifts.html` (Work Shifts → Analytics), and `settings-sections.html` (all 22 sections + the live-preview column).
+- **`npm run capture:showcase`** (plus `capture:shots` / `capture:cards`) — `scripts/capture-screenshots.mjs` now captures all 8 shot frames **and** every `.libcard` to `store-assets/screenshots/components/<page>--<card>.png` via CDP, validating each for dimensions and non-blankness. 98 assets in ~28s. The five Chrome Web Store shots keep their exact names and 1280×800 dimensions, now enforced by an explicit `cws` flag.
+
+### Fixed
+
+- **Showcase: invisible bars in the Work Shifts weekly and per-focus charts** — the fills are `<span>`s, so `height:100%` was silently ignored on an inline box and the bars rendered as empty tracks. They are `display:block` now.
+- **Capture: a fixed CDP debug port made captures attach to the wrong browser** — an orphaned headless Chrome holding port 9333 meant every navigate/screenshot targeted a stale page (capture ran ~500× slower and produced blank cards). Chrome now picks a free port and reports it via `DevToolsActivePort`.
+
 ## [v6.7.15] - Component showcase / display pages - _2026-07-15_
 
 ### Added

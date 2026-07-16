@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Settings</title>
+<style>
+/* ============================================================
+   Tabatha Component Showcase — category page kit.
+   Chrome uses the logo palette (#0F1115 / #00D2FF); component
+   stages render the live app tokens (Pop-Art theme: bg #050505,
+   accent #00F0FF, secondary #FF0055, gold #FFD700). Radius scale
+   is the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Self-contained:
+   inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --purple:#ab47bc;--agent:#b388ff;--backburner:#ff9800;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+/* state variant strip */
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+
+/* shared app-surface tokens */
+.app{--acc:#00F0FF}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;display:flex;align-items:center;gap:7px}
+.mono{font-family:var(--mono)}
+.glass{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;backdrop-filter:blur(16px)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Component CSS — settings surfaces (live app tokens)
+   ============================================================ */
+.st-panel{width:100%;background:#050505;border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  overflow:hidden;color:#FAFAFA}
+
+/* --- 01 settings nav --- */
+.snav{width:220px;background:#080808;border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  display:flex;flex-direction:column;overflow:hidden;color:#FAFAFA}
+.snav-head{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+.snav-head .t{font-size:16px;font-weight:700}
+.snav-head .v{font-size:10px;color:#868E96;margin-top:2px}
+.snav-sync{display:flex;align-items:center;gap:6px;margin-top:10px}
+.snav-sync .mini{padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;
+  color:#34A853;background:rgba(52,168,83,.15)}
+.snav-sync button{background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:4px;
+  color:#c7c7c7;font-size:10px;width:22px;height:20px;cursor:pointer;line-height:1}
+.snav-search{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sinp{width:100%;background:#111;border:1px solid #2c2c2c;border-radius:4px;color:#ddd;
+  font:400 11px var(--sans);padding:7px 9px}
+.sinp::placeholder{color:#5f6771}
+.snav-list{padding:6px 0;display:flex;flex-direction:column}
+.snav-list a{padding:8px 16px;font-size:12px;text-align:left;color:#c2c2c2;text-decoration:none;
+  border-left:3px solid transparent;background:transparent}
+.snav-list a.on{background:rgba(0,240,255,.067);border-left:3px solid #00F0FF;color:#00F0FF;font-weight:600}
+.snav-foot{border-top:1px solid rgba(255,255,255,.1);padding:10px;text-align:center;
+  font-size:10px;color:#868E96}
+.snav-foot b{color:#00F0FF;font-weight:700}
+
+/* --- 02 sync chip --- */
+.pill{padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap}
+.p-fresh{color:#34A853;background:rgba(52,168,83,.15)}
+.p-stale{color:#aaa;background:rgba(170,170,170,.15)}
+.p-err{color:#ff9800;background:rgba(255,152,0,.15)}
+.p-never{color:#ff9800;background:rgba(255,152,0,.15)}
+.p-off{color:#888;background:rgba(136,136,136,.15)}
+
+/* --- 03 settings search --- */
+.ss{width:280px;position:relative}
+.ss-drop{margin-top:4px;max-height:260px;overflow:hidden;background:#050505;
+  border:1px solid rgba(255,255,255,.1);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.ss-row{padding:7px 10px;border-left:2px solid transparent}
+.ss-row.sel{background:rgba(20,20,25,.55);border-left:2px solid #00F0FF}
+.ss-row .l{font-size:11px;font-weight:600}
+.ss-row .s{font-size:9px;color:#868E96}
+.ss-none{margin-top:4px;background:#050505;border:1px solid rgba(255,255,255,.1);border-radius:4px;
+  padding:9px 10px;font-size:10px;color:#868E96}
+
+/* --- 04 theme select --- */
+.tsel{width:320px;background:#111;border:1px solid #2c2c2c;border-radius:4px;overflow:hidden}
+.tsel .o{padding:7px 11px;font-size:12px;color:#ddd;border-bottom:1px solid rgba(255,255,255,.05)}
+.tsel .o:last-child{border-bottom:0}
+.tsel .o.on{background:rgba(0,240,255,.1);color:#00F0FF;font-weight:600}
+
+/* --- 05 theme swatches --- */
+.swgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;width:100%}
+.sw{border:1px solid rgba(255,255,255,.1);border-radius:4px;overflow:hidden}
+.sw .body{height:44px;display:flex;align-items:flex-end;gap:0}
+.sw .bar{height:12px;flex:1}
+.sw .n{font-size:9px;padding:5px 6px;color:#a9b2bc;border-top:1px solid rgba(255,255,255,.06);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* --- 06 field rows --- */
+.frs{width:340px}
+.sectionLabel{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#868E96;font-weight:600;margin:14px 0 4px}
+.fieldRow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
+.tog{width:36px;height:20px;border-radius:10px;position:relative;flex:none;background:#2c2c2c;
+  border:1px solid rgba(255,255,255,.1)}
+.tog.on{background:#00F0FF;border-color:#00F0FF}
+.tog i{position:absolute;top:1px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.tog.on i{left:18px}
+.numinp{width:120px;background:#111;border:1px solid #2c2c2c;border-radius:4px;color:#ddd;
+  font:400 12px var(--sans);padding:5px 8px}
+.selinp{width:140px;background:#111;border:1px solid #2c2c2c;border-radius:4px;color:#ddd;
+  font:400 12px var(--sans);padding:5px 8px}
+
+/* --- 07 funnel stages --- */
+.fun{width:300px;display:flex;flex-direction:column}
+.fun .r{display:flex;align-items:center;justify-content:space-between;padding:7px 0;
+  border-bottom:1px solid rgba(255,255,255,.1);font-size:12px}
+.fun .r .k{font-family:var(--mono);font-size:10px;font-weight:700}
+
+/* --- 08/09/10 url rules --- */
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs .tb{padding:5px 11px;border-radius:999px;font-size:11px;font-weight:600;color:#a9b2bc;
+  border:1px solid rgba(255,255,255,.1);background:transparent}
+.tabs .tb.on{background:#00F0FF;color:#000;border-color:#00F0FF}
+.ucard{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:14px}
+.ucard .lab{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;margin-bottom:10px}
+.uinp{width:100%;background:#111;border:1px solid #2c2c2c;border-radius:4px;color:#ddd;
+  font:400 11px var(--sans);padding:7px 9px;margin-bottom:7px}
+.uinp::placeholder{color:#5f6771}
+.ubtn{background:#00F0FF;color:#000;border:0;border-radius:4px;padding:7px 13px;font:700 11px var(--sans);cursor:pointer}
+.ufoot{font-size:10px;color:#868E96;margin-top:9px;line-height:1.5}
+.ufoot code{font-family:var(--mono);color:#00F0FF}
+.rulecard{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  padding:12px;margin-top:10px;display:flex;align-items:center;gap:10px}
+.rulecard .pat{font-family:var(--mono);font-size:12px;font-weight:600}
+.rulecard .meta{font-size:10px;color:#868E96;margin-top:4px}
+.rulecard .acts{margin-left:auto;display:flex;gap:6px}
+.iconbtn{border:1px solid rgba(255,255,255,.1);background:transparent;color:#c7c7c7;border-radius:4px;
+  padding:5px 8px;font-size:11px;cursor:pointer}
+.iconbtn.danger{background:#ef535022;color:#ef5350;border-color:transparent}
+.emptybox{text-align:center;font-size:11px;color:#868E96;padding:16px;margin-top:10px;
+  border:1px dashed rgba(255,255,255,.1);border-radius:8px}
+
+/* --- 09 domain groups --- */
+.dg{width:100%;max-width:560px}
+.dg .bar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dg .bar .chk{font-size:10px;color:#a9b2bc;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.drow{display:flex;align-items:center;gap:9px;background:rgba(20,20,25,.55);
+  border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:9px 11px;margin-bottom:6px}
+.drow .dom{font-family:var(--mono);font-size:11.5px;font-weight:600}
+.drow .meta{font-size:9px;color:#868E96;margin-top:2px}
+.dchip{font-size:9px;font-weight:600;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.c-acc{background:rgba(0,240,255,.13);color:#00F0FF}
+.c-skip{background:rgba(255,167,38,.13);color:#ffa726}
+.c-target{background:rgba(171,71,188,.18);color:#ab47bc}
+.c-dis{background:rgba(255,255,255,.06);color:#868E96}
+.drow .acts{margin-left:auto;display:flex;gap:5px}
+.drow .acts button{border:1px solid rgba(255,255,255,.1);background:transparent;color:#c7c7c7;
+  border-radius:4px;padding:4px 7px;font-size:10px;cursor:pointer}
+.drow .acts button.star{background:#ab47bc22;border-color:transparent}
+.stubs{display:flex;gap:8px;margin-top:10px}
+.stub{display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.1);background:transparent;
+  color:#5f6771;border-radius:4px;padding:6px 10px;font:600 10.5px var(--sans);opacity:.55}
+.soon{font-size:8px;font-weight:700;background:#ffab4022;color:#ffab40;padding:1px 5px;border-radius:999px}
+
+/* --- 10 intent changes --- */
+.ic{width:100%;max-width:560px}
+.ic .hd{font-size:10px;color:#868E96;margin-bottom:8px}
+.icrow{display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:11px}
+.icrow:nth-child(even){background:rgba(20,20,25,.55)}
+.icrow .ts,.icrow .dm{font-family:var(--mono);font-size:10px;color:#a9b2bc}
+.icrow .ts{min-width:104px}
+.icrow .dm{min-width:96px}
+.oldc{background:#ef535022;color:#ef5350;padding:2px 7px;border-radius:999px;font-size:9px;text-decoration:line-through}
+.newc{background:rgba(0,240,255,.13);color:#00F0FF;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:600}
+.icempty{text-align:center;padding:18px;border:1px dashed rgba(255,255,255,.1);border-radius:8px}
+.icempty .g{font-size:22px}
+.icempty .t{font-size:11.5px;margin-top:6px}
+.icempty .s{font-size:10px;color:#868E96;margin-top:3px}
+
+/* --- 11 developer --- */
+.dev{width:100%;max-width:560px}
+.devhead{display:flex;align-items:center;gap:8px;margin:12px 0 8px}
+.devhead .t{font-size:12px;font-weight:600}
+.devhead .grow{flex:1}
+.devhead .clear{background:#ef535022;color:#ef5350;border:0;border-radius:4px;padding:5px 10px;font:600 10.5px var(--sans);cursor:pointer}
+.console{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;font-family:var(--mono);font-size:10px}
+.lg{display:flex;gap:8px;padding:5px 8px;border-bottom:1px solid #1a1a1a;align-items:baseline}
+.lg:last-child{border-bottom:0}
+.lg .tm{color:#555;min-width:60px}
+.lg .lv{text-transform:uppercase;font-weight:700;min-width:36px}
+.lg .sr{color:#888;min-width:70px}
+.lg .ms{color:#ddd}
+.lg .js{color:#666}
+.l-error{color:#ef5350}.l-warn{color:#ffa726}.l-info{color:#42a5f5}.l-debug{color:#66bb6a}
+.devblurb{font-size:10px;color:#868E96;margin-top:4px;line-height:1.5}
+
+/* --- 13 cortex --- */
+.cx{width:100%;max-width:600px}
+.cx h3{font-size:14px;font-weight:700;margin-bottom:10px}
+.cxgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cx .kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.1);font-size:11.5px}
+.cx .kv .k{color:#868E96}
+.cx .kv .v{text-align:right}
+.ghostbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.gbtn{background:transparent;border:1px solid rgba(255,255,255,.1);color:#c7c7c7;border-radius:4px;
+  padding:6px 10px;font:600 10.5px var(--sans);cursor:pointer}
+
+/* --- 14 recommendations --- */
+.recs{width:100%;max-width:520px}
+.rec{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  padding:12px;margin-bottom:8px}
+.rec .t{font-size:12px;font-weight:600}
+.rec .r{font-size:10.5px;color:#868E96;margin-top:4px;line-height:1.5}
+.rec .ex{font-size:10px;color:#66bb6a;margin-top:6px;font-weight:600}
+.rec .btns{display:flex;gap:6px;margin-top:9px}
+.rec .yes{background:#00F0FF;color:#000;border:0;border-radius:4px;padding:5px 14px;font:700 10.5px var(--sans);cursor:pointer}
+.rec .no{background:#ef535022;color:#ef5350;border:0;border-radius:4px;padding:5px 14px;font:700 10.5px var(--sans);cursor:pointer}
+.decided{opacity:.7;margin-top:10px}
+.decided .d{display:flex;align-items:center;gap:8px;font-size:10.5px;padding:5px 0;
+  border-bottom:1px solid rgba(255,255,255,.06)}
+.decided .st{margin-left:auto;font-size:9px;font-weight:700}
+
+/* --- 15 webhooks --- */
+.wh{width:100%;max-width:520px}
+.wh .flab{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#868E96;display:block;margin:10px 0 5px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.evchip{font-size:9px;padding:3px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.1);
+  color:#a9b2bc;background:transparent;font-family:var(--mono)}
+.evchip.on{background:#00F0FF;color:#fff;border-color:#00F0FF}
+.savebtn{background:#00F0FF;color:#000;border:0;border-radius:4px;padding:7px 13px;
+  font:700 11px var(--sans);margin-top:12px;cursor:pointer}
+
+/* --- 16 about --- */
+.ab{width:100%;max-width:520px}
+.ab .kv{display:flex;justify-content:space-between;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.1);font-size:12.5px}
+.ab .kv .k{color:#868E96}
+.chghead{display:flex;align-items:center;gap:10px;margin:14px 0 8px}
+.chghead .t{font-size:12px;font-weight:600}
+.chghead .tgl{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.1);
+  color:#c7c7c7;border-radius:4px;padding:4px 9px;font:600 10px var(--sans);cursor:pointer}
+.rel{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px}
+.rel .rh{display:flex;align-items:baseline;gap:10px}
+.rel .rv{font-size:15px;font-weight:700;color:#00F0FF}
+.rel .rd{font-size:10px;color:#868E96;font-variant-numeric:tabular-nums}
+.rel .sl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#868E96;margin:9px 0 4px}
+.rel ul{margin-left:16px}
+.rel li{font-size:12px;margin-bottom:2px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <span class="verbadge">v6.7.16</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Settings</h1>
+  <p>Tabatha's settings page is a single React surface with 22 sections behind a sticky left nav, a live sync-health chip, and a keyboard-driven search that jumps straight to a field. Every control below is reproduced from the shipping source, down to the exact labels, placeholder text, and state colors.</p>
+</header>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Settings components</h2>
+    <span class="meta">16 surfaces · strings verbatim from source · Pop-Art theme tokens</span>
+  </div>
+  <div class="lib app">
+
+    <!-- 01 -->
+    <div class="libcard wide" id="settings-nav">
+      <div class="stage tall top">
+        <div class="snav">
+          <div class="snav-head">
+            <div class="t">⚙️ Settings</div>
+            <div class="v">Tabatha v6.7.16-α</div>
+            <div class="snav-sync">
+              <span class="mini">● Synced</span>
+              <button>↻</button>
+              <button>⟳</button>
+            </div>
+          </div>
+          <div class="snav-search">
+            <input class="sinp" placeholder="Search settings&#8230;  ( / )" readonly>
+          </div>
+          <div class="snav-list">
+            <a class="on">🎨 Appearance</a>
+            <a>🕐 FlipClock</a>
+            <a>🎯 Focus Engine</a>
+            <a>🧠 Focus Lifecycle</a>
+            <a>🚪 Intent-Popup</a>
+            <a>🔗 URL Rules</a>
+            <a>🚫 Blocked Sites</a>
+            <a>⏱ Time Tracking</a>
+            <a>📤 Export &amp; Agents</a>
+            <a>⏱️ Work Clock</a>
+            <a>📋 Follow-through</a>
+            <a>🏷 Tags &amp; Associations</a>
+            <a>🅿️ Parked Tabs</a>
+            <a>🍬 Sugar Box</a>
+            <a>📊 Stats &amp; History</a>
+            <a>☁️ Sync &amp; Account</a>
+            <a>🔒 Privacy &amp; Capture</a>
+            <a>🔗 Webhooks</a>
+            <a>🖥️ Desktop Activity</a>
+            <a>🔌 Integrations</a>
+            <a>🛠 Developer</a>
+            <a>ℹ️ About</a>
+          </div>
+          <div class="snav-foot">Made by <b>Malkio</b></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🧭</span><div><div class="t">Settings nav</div><div class="d">The complete shipped section list: all 22 sections, in source order. The 220px rail is sticky and carries the version stamp, the sync-health pill with manual sync and reload buttons, and the search box. The active section gets a 3px accent rule.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 02 -->
+    <div class="libcard" id="sync-chip">
+      <div class="stage">
+        <div class="variants">
+          <div class="vcol"><span class="vlabel">Fresh</span><span class="pill p-fresh">● Synced</span></div>
+          <div class="vcol"><span class="vlabel">Stale</span><span class="pill p-stale">◐ Stale</span></div>
+          <div class="vcol"><span class="vlabel">Error</span><span class="pill p-err">⚠ Sync error</span></div>
+          <div class="vcol"><span class="vlabel">Never</span><span class="pill p-never">⚠ Never</span></div>
+          <div class="vcol"><span class="vlabel">Offline</span><span class="pill p-off">○ Offline</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">☁️</span><div><div class="t">Sync health chip</div><div class="d">One pill, five states, derived from the last successful sync timestamp and the connection state. It lives in the nav header so cloud health is visible from every section without opening Sync &amp; Account.</div><div class="src">src/hooks/useSyncStatus.js</div></div></div>
+    </div>
+
+    <!-- 03 -->
+    <div class="libcard wide" id="settings-search">
+      <div class="stage top">
+        <div class="variants" style="align-items:flex-start;gap:24px">
+          <div class="vcol" style="align-items:stretch">
+            <span class="vlabel">Idle</span>
+            <div class="ss"><input class="sinp" placeholder="Search settings&#8230;  ( / )" readonly></div>
+          </div>
+          <div class="vcol" style="align-items:stretch">
+            <span class="vlabel">Results</span>
+            <div class="ss">
+              <input class="sinp" value="time" readonly>
+              <div class="ss-drop">
+                <div class="ss-row sel"><div class="l">Idle threshold (minutes)</div><div class="s">⏱ Time Tracking</div></div>
+                <div class="ss-row"><div class="l">Context timer (minutes)</div><div class="s">⏱ Time Tracking</div></div>
+                <div class="ss-row"><div class="l">Desktop data retention (days)</div><div class="s">⏱ Time Tracking</div></div>
+                <div class="ss-row"><div class="l">Focus timer default</div><div class="s">🎯 Focus Engine</div></div>
+                <div class="ss-row"><div class="l">Show seconds</div><div class="s">🕐 FlipClock</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="vcol" style="align-items:stretch">
+            <span class="vlabel">No match</span>
+            <div class="ss">
+              <input class="sinp" value="zzz" readonly>
+              <div class="ss-none">No matching settings</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔍</span><div><div class="t">SettingsSearch</div><div class="d">Press <span class="mono">/</span> anywhere on the page to focus it. It indexes every field label across all 22 sections, groups hits by their section, and jumps to and highlights the field on select. Arrow keys move the selection.</div><div class="src">src/settings/SettingsSearch.jsx</div></div></div>
+    </div>
+
+    <!-- 04 -->
+    <div class="libcard" id="appearance">
+      <div class="stage tall top">
+        <div class="tsel">
+          <div class="o on">🎨 Pop Art (Dark/Neon)</div>
+          <div class="o">🏢 Corporate (Light/High Contrast)</div>
+          <div class="o">🌙 Midnight (Deep Dark)</div>
+          <div class="o">🍵 Matcha (Soft Green)</div>
+          <div class="o">📟 Terminal (Hacker)</div>
+          <div class="o">🌸 Sakura (Pink/Soft)</div>
+          <div class="o">📐 Blueprint (Technical)</div>
+          <div class="o">🟨 Neo-Brutalism (Harsh/Bright)</div>
+          <div class="o">🌊 Glass Ocean (Translucent Blue)</div>
+          <div class="o">👾 Retro Pixel (8-Bit/Warm)</div>
+          <div class="o">📖 Solarized Warm (Sepia)</div>
+          <div class="o">⚫ High Contrast Dark (Black/White)</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎨</span><div><div class="t">Appearance theme select</div><div class="d">All 12 shipped themes, shown expanded. Picking one rewrites the CSS custom properties at the document root, so every surface (popup, sidebar, new tab, InBar) reskins at once.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 05 -->
+    <div class="libcard wide" id="theme-swatches">
+      <div class="stage top">
+        <div class="swgrid">
+          <div class="sw"><div class="body" style="background:#050505"><div class="bar" style="background:#00F0FF"></div><div class="bar" style="background:#FF0055"></div></div><div class="n">Pop Art</div></div>
+          <div class="sw"><div class="body" style="background:#FFFFFF"><div class="bar" style="background:#1E3A8A"></div><div class="bar" style="background:#000000"></div></div><div class="n">Corporate</div></div>
+          <div class="sw"><div class="body" style="background:#0B1120"><div class="bar" style="background:#F59E0B"></div><div class="bar" style="background:#8B5CF6"></div></div><div class="n">Midnight</div></div>
+          <div class="sw"><div class="body" style="background:#F5F0E8"><div class="bar" style="background:#4A7C59"></div><div class="bar" style="background:#8B6914"></div></div><div class="n">Matcha</div></div>
+          <div class="sw"><div class="body" style="background:#0A0A0A"><div class="bar" style="background:#00FF41"></div><div class="bar" style="background:#FFB000"></div></div><div class="n">Terminal</div></div>
+          <div class="sw"><div class="body" style="background:#1A1020"><div class="bar" style="background:#F472B6"></div><div class="bar" style="background:#A855F7"></div></div><div class="n">Sakura</div></div>
+          <div class="sw"><div class="body" style="background:#1E293B"><div class="bar" style="background:#38BDF8"></div><div class="bar" style="background:#F97316"></div></div><div class="n">Blueprint</div></div>
+          <div class="sw"><div class="body" style="background:#FFDF00"><div class="bar" style="background:#FF00FF"></div><div class="bar" style="background:#00FFFF"></div></div><div class="n">Neo-Brutalism</div></div>
+          <div class="sw"><div class="body" style="background:#020617"><div class="bar" style="background:#0EA5E9"></div><div class="bar" style="background:#3B82F6"></div></div><div class="n">Glass Ocean</div></div>
+          <div class="sw"><div class="body" style="background:#2D1B2E"><div class="bar" style="background:#D9A066"></div><div class="bar" style="background:#8C4450"></div></div><div class="n">Retro Pixel</div></div>
+          <div class="sw"><div class="body" style="background:#FDF6E3"><div class="bar" style="background:#B58900"></div><div class="bar" style="background:#CB4B16"></div></div><div class="n">Solarized Warm</div></div>
+          <div class="sw"><div class="body" style="background:#000000"><div class="bar" style="background:#FFFF00"></div><div class="bar" style="background:#FF0000"></div></div><div class="n">High Contrast Dark</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🖌</span><div><div class="t">Theme swatches</div><div class="d">The real token triple behind each theme: page background, accent-primary, accent-secondary. Four of the twelve are light themes, which is why every component ships contrast-checked against both ends.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 06 -->
+    <div class="libcard" id="field-rows">
+      <div class="stage tall top">
+        <div class="frs">
+          <div class="fieldRow"><span>Enable InBar</span><span class="tog on"><i></i></span></div>
+          <div class="fieldRow"><span>Auto-park paused tabs</span><span class="tog"><i></i></span></div>
+          <div class="sectionLabel">Timing</div>
+          <div class="fieldRow"><span>Idle threshold (minutes)</span><input class="numinp" value="5" readonly></div>
+          <div class="fieldRow"><span>Focus timer default</span><select class="selinp"><option>25 minutes</option></select></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎛</span><div><div class="t">Field row primitives</div><div class="d">The two atoms every section is built from: a flex label-and-control row with a hairline rule, and a 36x20 toggle whose knob slides from 2px to 18px. Section labels break long panels into groups.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 07 -->
+    <div class="libcard" id="funnel-stages">
+      <div class="stage top">
+        <div class="fun">
+          <div class="r"><span>📥 Unsorted</span><span class="k" style="color:#888">unsorted</span></div>
+          <div class="r"><span>📋 Todo</span><span class="k" style="color:#64b5f6">todo</span></div>
+          <div class="r"><span>🎯 Focus</span><span class="k" style="color:#ff9800">focus</span></div>
+          <div class="r"><span>⚡ Addressing</span><span class="k" style="color:#ab47bc">addressing</span></div>
+          <div class="r"><span>🚧 Roadblocked</span><span class="k" style="color:#ef5350">roadblocked</span></div>
+          <div class="r"><span>✅ Resolved</span><span class="k" style="color:#66bb6a">resolved</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎯</span><div><div class="t">Focus Engine funnel stages</div><div class="d">The six stages a focus moves through, listed read-only so the stage keys and their colors are discoverable. The same colors drive the funnel chips on the dashboard and in the sidebar.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 08 -->
+    <div class="libcard wide" id="url-rules">
+      <div class="stage tall top">
+        <div style="width:100%;max-width:600px">
+          <div class="tabs">
+            <span class="tb on">📐 URL Rules</span>
+            <span class="tb">🌐 Domain Groups</span>
+            <span class="tb">📋 Intent Changes</span>
+          </div>
+          <div class="ucard">
+            <div class="lab">Add URL Rule</div>
+            <input class="uinp" placeholder="URL pattern (e.g. github.com)" readonly>
+            <input class="uinp" placeholder="Default intent (optional)" readonly>
+            <input class="uinp" placeholder="Default context (optional)" readonly>
+            <button class="ubtn">+ Add</button>
+            <div class="ufoot">When a tab matches this pattern, Tabatha auto-assigns the intent/context. Supports wildcards: <code>*</code></div>
+          </div>
+          <div class="rulecard">
+            <div>
+              <div class="pat">github.com/*</div>
+              <div class="meta">Intent: Learning React · Context: Learning React · ✅ Auto-apply · 🎯 Auto-create focus</div>
+            </div>
+            <div class="acts">
+              <button class="iconbtn">✏️</button>
+              <button class="iconbtn danger">🗑</button>
+            </div>
+          </div>
+          <div class="emptybox">No URL rules yet. Add a pattern above to auto-assign intents.</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📐</span><div><div class="t">URL Rules</div><div class="d">Three pill tabs over one section. A rule maps a wildcard URL pattern to a default intent and context, so matching tabs are classified on creation instead of prompting the Gatekeeper. The empty state is shown for reference.</div><div class="src">src/settings/UrlRulesSection.jsx</div></div></div>
+    </div>
+
+    <!-- 09 -->
+    <div class="libcard wide" id="domain-groups">
+      <div class="stage tall top">
+        <div class="dg">
+          <div class="bar">
+            <input class="sinp" style="flex:1" placeholder="Filter domains&#8230;" readonly>
+            <label class="chk"><span class="tog" style="width:26px;height:15px"><i style="width:11px;height:11px;top:1px"></i></span> Show dismissed (3)</label>
+          </div>
+          <div class="drow">
+            <span>⭐</span>
+            <div>
+              <div class="dom">github.com</div>
+              <div class="meta">142 visits · 38 paths · 2h ago</div>
+            </div>
+            <span class="dchip c-acc">● 2 open</span>
+            <span class="dchip c-acc">📐 1 rules</span>
+            <span class="dchip c-target">⭐ targeted</span>
+            <div class="acts"><button class="star">⭐</button><button>🚫</button><button>▼</button></div>
+          </div>
+          <div class="drow">
+            <span>🌐</span>
+            <div>
+              <div class="dom">example.com</div>
+              <div class="meta">19 visits · 6 paths · 2h ago</div>
+            </div>
+            <span class="dchip c-skip">⏭ skipped</span>
+            <div class="acts"><button class="star">⭐</button><button>🚫</button><button>▼</button></div>
+          </div>
+          <div class="drow" style="opacity:.55">
+            <span>🌐</span>
+            <div>
+              <div class="dom">news.example.org</div>
+              <div class="meta">7 visits · 2 paths · 2h ago</div>
+            </div>
+            <span class="dchip c-dis">🚫 dismissed</span>
+            <div class="acts"><button>↩</button><button>▼</button></div>
+          </div>
+          <div class="stubs">
+            <button class="stub">+ Create Rule <span class="soon">SOON</span></button>
+            <button class="stub">🚫 Block Domain <span class="soon">SOON</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🌐</span><div><div class="t">Domain Groups</div><div class="d">Every domain Tabatha has seen, with visit and path counts, how many tabs are open on it now, and whether a rule already covers it. Star a domain to target it, dismiss one to hide it from the list. Two actions are still stubs.</div><div class="src">src/settings/UrlRulesSection.jsx</div></div></div>
+    </div>
+
+    <!-- 10 -->
+    <div class="libcard wide" id="intent-changes">
+      <div class="stage tall top">
+        <div class="variants" style="align-items:flex-start;gap:20px">
+          <div class="vcol" style="align-items:stretch;flex:1;min-width:320px">
+            <span class="vlabel">Populated</span>
+            <div class="ic">
+              <div class="hd">Showing the last 24 intent changes.</div>
+              <div>
+                <div class="icrow"><span class="ts">Jul 16, 3:42 PM</span><span class="dm">github.com</span><span class="oldc">Unsorted</span><span>→</span><span class="newc">Learning React</span></div>
+                <div class="icrow"><span class="ts">Jul 16, 2:18 PM</span><span class="dm">example.com</span><span class="oldc">Vacation Planning</span><span>→</span><span class="newc">Q1 Report</span></div>
+                <div class="icrow"><span class="ts">Jul 16, 1:05 PM</span><span class="dm">github.com</span><span class="oldc">Q1 Report</span><span>→</span><span class="newc">Learning React</span></div>
+                <div class="icrow"><span class="ts">Jul 15, 6:31 PM</span><span class="dm">example.com</span><span class="oldc">Unsorted</span><span>→</span><span class="newc">Vacation Planning</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="vcol" style="align-items:stretch;flex:1;min-width:260px">
+            <span class="vlabel">Empty</span>
+            <div class="icempty">
+              <div class="g">📋</div>
+              <div class="t">No intent changes recorded yet.</div>
+              <div class="s">Changes will appear here when you set or modify tab intents.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📋</span><div><div class="t">Intent Changes</div><div class="d">An audit trail of every re-declared intent, oldest strikethrough on the left and the new one in accent. Useful for spotting a domain you keep reclassifying, which is usually a missing URL rule.</div><div class="src">src/settings/UrlRulesSection.jsx</div></div></div>
+    </div>
+
+    <!-- 11 -->
+    <div class="libcard wide" id="developer">
+      <div class="stage tall top">
+        <div class="dev">
+          <div class="fieldRow"><span>Debug Mode</span><span class="tog on"><i></i></span></div>
+          <div class="devblurb">Shows a diagnostic bar on the Dashboard with raw state and message responses. Useful for debugging service worker communication.</div>
+          <div class="devhead">
+            <span class="t">Event Log (128)</span>
+            <select class="selinp" style="width:110px"><option>All</option><option>Errors</option><option>Warnings</option><option>Info</option><option>Debug</option></select>
+            <button class="iconbtn">↻</button>
+            <button class="clear">Clear</button>
+            <span class="grow"></span>
+          </div>
+          <div class="fieldRow" style="border-bottom:0;padding-top:0"><span style="font-size:11px;color:#868E96">Auto-refresh (2s)</span><span class="tog on"><i></i></span></div>
+          <div class="console">
+            <div class="lg"><span class="tm">3:42:07</span><span class="lv l-info">info</span><span class="sr">[focus]</span><span class="ms">Focus started</span><span class="js">{"label":"Q1 Report"}</span></div>
+            <div class="lg"><span class="tm">3:42:09</span><span class="lv l-debug">debug</span><span class="sr">[tabs]</span><span class="ms">Tab classified from URL rule</span><span class="js">{"host":"github.com"}</span></div>
+            <div class="lg"><span class="tm">3:43:31</span><span class="lv l-warn">warn</span><span class="sr">[sync]</span><span class="ms">Push deferred, watermark behind</span><span class="js">{"pending":3}</span></div>
+            <div class="lg"><span class="tm">3:44:02</span><span class="lv l-error">error</span><span class="sr">[companion]</span><span class="ms">Socket closed before handshake</span><span class="js">{"code":1006}</span></div>
+            <div class="lg"><span class="tm">3:44:05</span><span class="lv l-info">info</span><span class="sr">[companion]</span><span class="ms">Reconnect scheduled</span><span class="js">{"in":5000}</span></div>
+            <div class="lg"><span class="tm">3:45:18</span><span class="lv l-debug">debug</span><span class="sr">[clock]</span><span class="ms">Heartbeat written</span><span class="js">{"stint":"open"}</span></div>
+            <div class="lg"><span class="tm">3:46:00</span><span class="lv l-info">info</span><span class="sr">[settings]</span><span class="ms">Setting persisted</span><span class="js">{"key":"idleThreshold"}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🛠</span><div><div class="t">Developer panel</div><div class="d">The in-extension console. Every service tags its output with a source, so a hung message or a failed sync is traceable without opening the service worker inspector. Level filter, auto-refresh, and a clear button.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 12 -->
+    <div class="libcard" id="retention">
+      <div class="stage tall top">
+        <div class="frs">
+          <div class="fieldRow"><span>Idle threshold (minutes)</span><input class="numinp" value="5" readonly></div>
+          <div class="fieldRow"><span>Context timer (minutes)</span><input class="numinp" value="15" readonly></div>
+          <div class="sectionLabel">Data Retention</div>
+          <div class="fieldRow"><span>Desktop data retention (days)</span><input class="numinp" value="90" readonly></div>
+          <div class="devblurb">Desktop companion activity older than this will be automatically pruned once per day. Set to 0 to keep data indefinitely. Default: 90 days.</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🗑</span><div><div class="t">Data retention</div><div class="d">Time Tracking holds the two thresholds that drive idle detection and the context nudge, plus the retention window. A daily alarm prunes companion activity past the cutoff; 0 disables pruning.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 13 -->
+    <div class="libcard wide" id="cortex">
+      <div class="stage tall top">
+        <div class="cx">
+          <h3>🧠 Cortex — Observation &amp; Optimization</h3>
+          <div class="cxgrid">
+            <div>
+              <div class="kv"><span class="k">Capture status</span><span class="v" style="color:#66bb6a;font-weight:700">ON</span></div>
+              <div class="kv"><span class="k">Observations in ledger</span><span class="v mono">1,284</span></div>
+              <div class="kv"><span class="k">Last capture</span><span class="v mono">3:46:12 PM</span></div>
+              <div class="kv"><span class="k">Last nightly export</span><span class="v mono">Jul 15</span></div>
+              <div class="kv"><span class="k">Capture folder (this machine)</span><span class="v mono" style="font-size:10px">%APPDATA%\Tabatha Desktop\captures\</span></div>
+              <div class="kv"><span class="k">Last frame written (companion)</span><span class="v mono">Jul 16, 3:46:09 PM</span></div>
+            </div>
+            <div>
+              <div class="sectionLabel" style="margin-top:0">Configuration</div>
+              <div class="fieldRow" style="border-bottom:0"><span style="font-size:11.5px">AI routing tier (C8 ladder)</span></div>
+              <select class="selinp" style="width:100%">
+                <option selected>① Harness cron (local files, no key)</option>
+                <option>② Backend proxy (sign-in required)</option>
+                <option disabled>③ Vercel AI Gateway (key pending)</option>
+                <option disabled>④ Bring your own key (Phase 2+)</option>
+              </select>
+              <div class="fieldRow" style="border-bottom:0;margin-top:8px"><span style="font-size:11.5px">Proactivity</span></div>
+              <select class="selinp" style="width:100%">
+                <option selected>Reactive — I approve everything</option>
+              </select>
+              <div class="ghostbtns">
+                <button class="gbtn">Export today's ledger now</button>
+                <button class="gbtn">Set up nightly agent (Claude Code)</button>
+                <button class="gbtn">Set up nightly agent (Codex)</button>
+                <button class="gbtn">Import recommendations&#8230;</button>
+                <button class="gbtn">Preview morning digest</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🧠</span><div><div class="t">CortexPanel status &amp; config</div><div class="d">Cortex watches how work actually happens and proposes changes. This panel proves it is running (frame counts, folder, last write) and exposes the routing ladder: local harness first, backend proxy next, hosted gateway and bring-your-own-key still gated.</div><div class="src">src/settings/CortexPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 14 -->
+    <div class="libcard wide" id="cortex-recs">
+      <div class="stage tall top">
+        <div class="recs">
+          <div class="sectionLabel" style="margin-top:0">Recommendations (3 pending)</div>
+          <div class="rec">
+            <div class="t">⌨️ Bind a hotkey for the tab you reopen most</div>
+            <div class="r">You navigated to the same dashboard 31 times this week, always by typing the URL. A keyboard shortcut removes the round trip through the address bar.</div>
+            <div class="ex">Expected: ~6 min/week</div>
+            <div class="btns"><button class="yes">Yes</button><button class="no">No</button></div>
+          </div>
+          <div class="rec">
+            <div class="t">🔁 Replace a manual step with a built-in export</div>
+            <div class="r">Your weekly copy-paste into a spreadsheet matches an export Tabatha already produces. Switching to the export drops four manual steps.</div>
+            <div class="ex">Expected: ~20 min/week</div>
+            <div class="btns"><button class="yes">Yes</button><button class="no">No</button></div>
+          </div>
+          <div class="rec">
+            <div class="t">📰 Batch your notification checks into one digest</div>
+            <div class="r">You interrupted a focus 14 times to check the same two sites. A single scheduled digest keeps the information without the context switch.</div>
+            <div class="ex">Expected: ~35 min/week</div>
+            <div class="btns"><button class="yes">Yes</button><button class="no">No</button></div>
+          </div>
+          <div class="decided">
+            <div class="sectionLabel">Decided</div>
+            <div class="d"><span>🧩</span><span>Generate a snippet for the report header you retype</span><span class="st" style="color:#00F0FF">executed</span></div>
+            <div class="d"><span>💡</span><span>Move the standup tab out of the morning focus block</span><span class="st" style="color:#66bb6a">approved</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">💡</span><div><div class="t">Cortex recommendations</div><div class="d">Each card states what it noticed, why it matters, and the time it expects to give back, then asks for a yes or no. Nothing runs without approval; decided items drop to a dimmed list marked approved or executed.</div><div class="src">src/settings/CortexPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 15 -->
+    <div class="libcard wide" id="webhooks">
+      <div class="stage tall top">
+        <div class="wh">
+          <div class="fieldRow"><span>Enable Webhooks</span><span class="tog on"><i></i></span></div>
+          <label class="flab">Webhook URL</label>
+          <input class="uinp" placeholder="https://hooks.example.com/tabatha" readonly>
+          <label class="flab">Secret (optional, for signature verification)</label>
+          <input class="uinp" type="password" placeholder="your-webhook-secret" readonly>
+          <label class="flab">Events</label>
+          <div class="chips">
+            <span class="evchip on">focus_started</span>
+            <span class="evchip on">focus_ended</span>
+            <span class="evchip">focus_timer_expired</span>
+            <span class="evchip on">focus_resolved</span>
+            <span class="evchip on">clock_in</span>
+            <span class="evchip on">clock_out</span>
+            <span class="evchip">break_started</span>
+            <span class="evchip">break_ended</span>
+            <span class="evchip">task_created</span>
+            <span class="evchip on">task_completed</span>
+            <span class="evchip">context_drift</span>
+            <span class="evchip">unfocused_nudge</span>
+            <span class="evchip">context_switch</span>
+          </div>
+          <button class="savebtn">Save Webhook Config</button>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔗</span><div><div class="t">Webhooks</div><div class="d">Push any of 13 lifecycle events to an endpoint you control, with an optional shared secret for signature verification. This is how Tabatha feeds time entries and focus state into other tools without an integration.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+    <!-- 16 -->
+    <div class="libcard wide" id="about">
+      <div class="stage tall top">
+        <div class="ab">
+          <div class="kv"><span class="k">Version</span><span>v6.7.16-α</span></div>
+          <div class="kv"><span class="k">Codename</span><span>Attention Operating System</span></div>
+          <div class="kv"><span class="k">Ecosystem</span><span>Flux Family</span></div>
+          <div class="chghead">
+            <span class="t">📜 Changelog</span>
+            <button class="tgl">Show all (48)</button>
+          </div>
+          <div class="rel">
+            <div class="rh"><span class="rv">6.7.16</span><span class="rd">2026-07-16</span></div>
+            <div class="sl">✨ Added</div>
+            <ul>
+              <li>Settings search now indexes every field across all 22 sections.</li>
+              <li>Cortex panel surfaces the capture folder and the last frame written by the companion.</li>
+              <li>Theme swatches preview accent tokens before the theme is applied.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">ℹ️</span><div><div class="t">About &amp; changelog</div><div class="d">Version, codename, and ecosystem, over a changelog rendered from the shipped release feed. It opens on the current release and expands to the full history, so users can see what changed without leaving the extension.</div><div class="src">src/settings/index.jsx</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.16</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+</body>
+</html>

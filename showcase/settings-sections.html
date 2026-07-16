@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Settings · All Sections</title>
+<style>
+/* ============================================================
+   Tabatha showcase — faithful reproduction of the live extension.
+   Design tokens pulled from src/styles/global.css (Pop-Art theme):
+   bg #050505, accent-primary #00F0FF, accent-secondary #FF0055,
+   accent-tertiary #FFD700, radius scale 2/4/8 (halved), Inter body,
+   JetBrains Mono for timers. Icons are emoji (the app has no icon lib).
+   All 22 nav sections are the real shipped list, verbatim and in order
+   (src/settings/index.jsx:86-107). Appearance is the default section.
+   ============================================================ */
+:root{
+  --bg:#050505;--surface:rgba(20,20,25,.55);--surface-solid:#141414;
+  --border:rgba(255,255,255,.1);--text:#FAFAFA;--muted:#868E96;
+  --cyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a}
+body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;color:var(--text)}
+.shot{width:1280px;height:800px;overflow:hidden;position:relative;background:var(--bg);display:flex}
+
+/* ---- left nav (220px, sticky, surface bg) ---- */
+.nav{width:220px;border-right:1px solid var(--border);display:flex;flex-direction:column;
+  background:var(--surface);backdrop-filter:blur(16px);flex:none}
+.nav-head{padding:8px 16px 12px;border-bottom:1px solid var(--border)}
+.nav-head .t{font-size:16px;font-weight:700}
+.nav-head .v{font-size:10px;color:var(--muted);margin-top:1px}
+.syncrow{display:flex;align-items:center;gap:5px;margin-top:8px}
+.pill{flex:1;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;
+  color:#34A853;background:rgba(52,168,83,.15);text-align:center}
+.syncrow button{padding:3px 6px;border:1px solid var(--border);border-radius:2px;font-size:11px;
+  background:transparent;color:var(--muted);cursor:pointer;line-height:1}
+.search{width:100%;margin-top:8px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);
+  border-radius:2px;color:var(--text);font:400 11px var(--sans);outline:none}
+.search::placeholder{color:var(--muted)}
+
+.nav-list{flex:1;overflow:hidden;padding:4px 0}
+.nav-list a{display:block;width:100%;text-align:left;padding:8px 16px;font-size:12px;color:#c2c2c2;
+  text-decoration:none;border-left:3px solid transparent;cursor:pointer}
+.nav-list a.on{background:rgba(0,240,255,.07);border-left-color:var(--cyan);color:var(--cyan);font-weight:600}
+.nav-foot{margin-top:auto;border-top:1px solid var(--border);padding:9px;text-align:center;
+  font-size:10px;color:var(--muted)}
+.nav-foot b{color:var(--cyan);font-weight:700}
+
+/* ---- settings panel ---- */
+.panel{flex:1;padding:24px 32px;max-width:480px;overflow:hidden}
+.panel h2{font-size:20px;font-weight:700}
+.seclab{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;
+  margin:16px 0 10px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
+  border-bottom:1px solid var(--border);font-size:13px}
+.row select,.row input[type=text]{width:140px;background:var(--bg);border:1px solid var(--border);
+  border-radius:2px;color:var(--text);font:400 12px var(--sans);padding:4px 6px;outline:none}
+.row input[type=text]{width:120px}
+.tog{width:36px;height:20px;border-radius:10px;background:var(--border);position:relative;flex:none;cursor:pointer}
+.tog.on{background:var(--cyan)}
+.tog i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+  transition:left .2s}
+.tog.on i{left:18px}
+.mono-val{font-family:var(--mono);font-size:11px;color:#b7b7b7}
+.explain{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px;
+  background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:8px 10px}
+.explain b{color:var(--text)}
+
+/* ---- live preview panel ---- */
+.prev{flex:1;padding:24px;border-left:1px solid var(--border);background:var(--bg);overflow:hidden}
+.prevlab{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;
+  margin-bottom:14px}
+.glass{background:var(--surface);border:1px solid var(--border);border-radius:8px;backdrop-filter:blur(16px);
+  padding:14px}
+.glass .gt{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.glass .gs{font-size:12px;margin-top:6px;color:#cfcfcf}
+.btn-pop{background:var(--cyan);color:#000;font-weight:800;text-transform:uppercase;letter-spacing:.1em;
+  border:2px solid #000;box-shadow:4px 4px 0 var(--magenta);border-radius:4px;padding:10px 20px;
+  font-size:14px;font-family:var(--sans);cursor:pointer}
+.btn-sec{background:transparent;color:#c7c7c7;border:1px solid var(--border);border-radius:4px;
+  padding:10px 20px;font:600 14px var(--sans);cursor:pointer}
+.tiplink{color:var(--cyan);text-decoration:underline;font-size:13px;cursor:pointer}
+.tipbox{background:#222;color:#eee;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;
+  border:1px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.3);display:inline-block;margin-top:8px}
+
+/* theme swatch strip */
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
+.sw{border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.sw .bars{display:flex;height:22px}
+.sw .bars i{flex:1}
+.sw .n{font-size:8.5px;color:var(--muted);padding:3px 5px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.sw.on{border-color:var(--cyan)}
+</style>
+</head>
+<body>
+<div class="shot">
+
+  <!-- ===== nav: all 22 sections, verbatim + in order ===== -->
+  <div class="nav">
+    <div class="nav-head">
+      <div class="t">⚙️ Settings</div>
+      <div class="v">Tabatha v6.7.16-α</div>
+      <div class="syncrow">
+        <span class="pill">● Synced</span>
+        <button>↻</button>
+        <button>⟳</button>
+      </div>
+      <input class="search" type="text" placeholder="Search settings…  ( / )" readonly>
+    </div>
+    <div class="nav-list">
+      <a class="on">🎨 Appearance</a>
+      <a>🕐 FlipClock</a>
+      <a>🎯 Focus Engine</a>
+      <a>🧠 Focus Lifecycle</a>
+      <a>🚪 Intent-Popup</a>
+      <a>🔗 URL Rules</a>
+      <a>🚫 Blocked Sites</a>
+      <a>⏱ Time Tracking</a>
+      <a>📤 Export &amp; Agents</a>
+      <a>⏱️ Work Clock</a>
+      <a>📋 Follow-through</a>
+      <a>🏷 Tags &amp; Associations</a>
+      <a>🅿️ Parked Tabs</a>
+      <a>🍬 Sugar Box</a>
+      <a>📊 Stats &amp; History</a>
+      <a>☁️ Sync &amp; Account</a>
+      <a>🔒 Privacy &amp; Capture</a>
+      <a>🔗 Webhooks</a>
+      <a>🖥️ Desktop Activity</a>
+      <a>🔌 Integrations</a>
+      <a>🛠 Developer</a>
+      <a>ℹ️ About</a>
+    </div>
+    <div class="nav-foot">Made by <b>Malkio</b></div>
+  </div>
+
+  <!-- ===== settings panel: Appearance ===== -->
+  <div class="panel">
+    <h2>Appearance</h2>
+
+    <div class="seclab">Theme</div>
+    <div class="row">
+      <span>Theme</span>
+      <select><option>🎨 Pop Art (Dark/Neon)</option></select>
+    </div>
+    <div class="row">
+      <span>Toolbar Icon Click</span>
+      <select><option>📑 Open Side Panel</option></select>
+    </div>
+    <div class="explain">
+      📑 Clicking the toolbar icon opens Tabatha's side panel. Press Ctrl+Shift+E (⌘⇧E on Mac) to pop open the tab list.
+    </div>
+
+    <div class="seclab">This Browser Profile</div>
+    <div class="row">
+      <span>Install ID</span>
+      <span class="mono-val">9f2a1c4e…8b31</span>
+    </div>
+    <div class="row">
+      <span>Profile Name</span>
+      <input type="text" value="Work Desktop">
+    </div>
+    <div class="row">
+      <span>Classification</span>
+      <select><option>👔 Professional</option></select>
+    </div>
+
+    <div class="seclab">User</div>
+    <div class="row">
+      <span>Your Name</span>
+      <input type="text" value="Marcus">
+    </div>
+
+    <div class="seclab">Intent → Focus Bridge</div>
+    <div class="row">
+      <span>Auto-Queue Mode</span>
+      <select><option>🧠 Smart Dedup</option></select>
+    </div>
+    <div class="explain">
+      🧠 A focus item is auto-created only when the intent doesn't match the active focus and no existing focus has the same label.
+    </div>
+  </div>
+
+  <!-- ===== live preview ===== -->
+  <div class="prev">
+    <div class="prevlab">Live Preview</div>
+
+    <div class="glass">
+      <div class="gt">GlassCard Component</div>
+      <div class="gs">Sample content card</div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-pop">Set Focus</button>
+      <button class="btn-sec">Secondary</button>
+    </div>
+
+    <div style="margin-top:18px">
+      <span class="tiplink">Hover for Tooltip</span>
+      <div class="tipbox">This is a Tooltip preview</div>
+    </div>
+
+    <div class="prevlab" style="margin-top:24px">All 12 themes</div>
+    <div class="swatches">
+      <div class="sw on"><div class="bars"><i style="background:#050505"></i><i style="background:#00F0FF"></i><i style="background:#FF0055"></i></div><div class="n">Pop Art</div></div>
+      <div class="sw"><div class="bars"><i style="background:#FFFFFF"></i><i style="background:#1E3A8A"></i><i style="background:#000000"></i></div><div class="n">Corporate</div></div>
+      <div class="sw"><div class="bars"><i style="background:#0B1120"></i><i style="background:#F59E0B"></i><i style="background:#8B5CF6"></i></div><div class="n">Midnight</div></div>
+      <div class="sw"><div class="bars"><i style="background:#F5F0E8"></i><i style="background:#4A7C59"></i><i style="background:#8B6914"></i></div><div class="n">Matcha</div></div>
+      <div class="sw"><div class="bars"><i style="background:#0A0A0A"></i><i style="background:#00FF41"></i><i style="background:#FFB000"></i></div><div class="n">Terminal</div></div>
+      <div class="sw"><div class="bars"><i style="background:#1A1020"></i><i style="background:#F472B6"></i><i style="background:#A855F7"></i></div><div class="n">Sakura</div></div>
+      <div class="sw"><div class="bars"><i style="background:#1E293B"></i><i style="background:#38BDF8"></i><i style="background:#F97316"></i></div><div class="n">Blueprint</div></div>
+      <div class="sw"><div class="bars"><i style="background:#FFDF00"></i><i style="background:#FF00FF"></i><i style="background:#00FFFF"></i></div><div class="n">Neo-Brutalism</div></div>
+      <div class="sw"><div class="bars"><i style="background:#020617"></i><i style="background:#0EA5E9"></i><i style="background:#3B82F6"></i></div><div class="n">Glass Ocean</div></div>
+      <div class="sw"><div class="bars"><i style="background:#2D1B2E"></i><i style="background:#D9A066"></i><i style="background:#8C4450"></i></div><div class="n">Retro Pixel</div></div>
+      <div class="sw"><div class="bars"><i style="background:#FDF6E3"></i><i style="background:#B58900"></i><i style="background:#CB4B16"></i></div><div class="n">Solarized Warm</div></div>
+      <div class="sw"><div class="bars"><i style="background:#000000"></i><i style="background:#FFFF00"></i><i style="background:#FF0000"></i></div><div class="n">High Contrast</div></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
