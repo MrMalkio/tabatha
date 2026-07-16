@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Roadmap</title>
+<meta name="description" content="What Tabatha is building, what is next, and what has shipped - on a board that uses the product's own funnel stages.">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Roadmap - a kanban board over the CURATED showcase/roadmap.json.
+   The columns are not invented for this page: they are the app's
+   own funnel stages (src/hooks/useFocusEngine.js FUNNEL_STAGES),
+   with the same labels, emoji and colors the product ships. A
+   roadmap rendered in the product's own vocabulary is the point.
+
+   The board is public. roadmap.json is hand-curated for exactly
+   that reason; the internal board is never wired to this page.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+.nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a.back{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a.back:hover{color:var(--text)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+.phead{max-width:1400px;margin:0 auto;padding:56px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:40px;line-height:1.05;letter-spacing:-.025em;margin-top:14px}
+.phead p{font-size:15px;color:#9aa5b1;max-width:76ch;margin-top:16px;line-height:1.65}
+.phead p b{color:#c4ced8;font-weight:600}
+
+.board-wrap{max-width:1400px;margin:0 auto;padding:26px 40px 70px}
+.legend{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;
+  padding-bottom:16px;border-bottom:1px solid var(--border)}
+.legend .lg{font-size:11.5px;color:var(--muted)}
+.legend .grow{flex:1}
+.legend .upd{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+
+/* The board scrolls horizontally inside its own container so the page body
+   never does, even at 6 columns on a laptop. */
+.board{display:grid;grid-template-columns:repeat(6,minmax(232px,1fr));gap:14px;
+  overflow-x:auto;padding-bottom:10px}
+.col{background:rgba(255,255,255,.015);border:1px solid var(--border);
+  border-radius:var(--r-lg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.col-head{display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.col-head .e{font-size:14px}
+.col-head .t{font-weight:700;font-size:12.5px;letter-spacing:.02em}
+.col-head .n{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted);
+  background:rgba(255,255,255,.05);border-radius:999px;padding:1px 7px}
+.col-blurb{font-size:11px;color:var(--muted);line-height:1.55;padding-bottom:2px}
+
+.rcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:11px 12px;display:flex;flex-direction:column;gap:7px;position:relative;
+  border-left:2px solid var(--stage,#888);scroll-margin-top:90px}
+.rcard:hover{border-color:rgba(0,210,255,.32)}
+.rcard.pulse{border-color:rgba(0,210,255,.6);box-shadow:0 0 0 1px rgba(0,210,255,.25)}
+.rcard .t{font-size:13px;font-weight:600;line-height:1.35;padding-right:52px}
+.rcard .d{font-size:11.5px;color:var(--muted);line-height:1.55}
+.rcard .ver{font-family:var(--mono);font-size:9.5px;font-weight:700;color:#66bb6a;
+  border:1px solid rgba(102,187,106,.3);border-radius:999px;padding:1px 6px;align-self:flex-start}
+/* Same pattern as the component cards: absolute + transparent until hover, so
+   the actions add no height and every card in a column stays the same shape. */
+.rfb{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .16s ease}
+.rcard:hover .rfb,.rcard:focus-within .rfb{opacity:1}
+.rfb button{background:rgba(10,12,15,.92);border:1px solid var(--border);border-radius:var(--r-sm);
+  color:var(--muted);font:500 9.5px var(--sans);padding:3px 6px;cursor:pointer}
+.rfb button:hover{color:var(--text);border-color:rgba(0,210,255,.45)}
+.rfb button.bug:hover{color:#ff8a80;border-color:rgba(255,0,85,.45)}
+.rfb button:focus-visible{opacity:1;outline:2px solid var(--cyan);outline-offset:1px}
+.col-empty{font-size:11px;color:#5b6570;padding:10px 2px;font-style:italic}
+
+.loadmsg{padding:40px 0;text-align:center;color:var(--muted);font-size:13px}
+.loadmsg .sub{font-size:11.5px;margin-top:8px;line-height:1.6}
+.loadmsg a{color:var(--cyan)}
+
+.note{margin-top:26px;padding:14px 16px;background:rgba(255,255,255,.02);
+  border:1px solid var(--border);border-radius:var(--r-md);font-size:12px;color:var(--muted);
+  line-height:1.65;max-width:88ch}
+.note b{color:#c4ced8}
+
+footer{max-width:1400px;margin:0 auto;padding:24px 40px 60px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+footer a{color:var(--muted)}
+
+@media (max-width:900px){
+  .nav{padding:12px 16px}.phead{padding:36px 16px 10px}.phead h1{font-size:30px}
+  .board-wrap{padding:20px 16px 50px}
+  .board{grid-template-columns:1fr;overflow-x:visible}
+  footer{padding:24px 16px 50px}
+}
+@media (prefers-reduced-motion:reduce){.rfb,.rcard{transition:none}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <span class="verbadge">v6.7.17</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Roadmap</div>
+  <h1>What we are building</h1>
+  <p>Tabatha tracks your work by moving it through a funnel: unsorted, todo, focus, addressing, roadblocked, resolved. This board is that same funnel, pointed at Tabatha itself. The columns are the product's real stages, not marketing tiers, so <b>Roadblocked</b> is a column here for the same reason it is one in the app: work that is genuinely parked is more honest than work quietly dropped from the list.</p>
+</header>
+
+<div class="board-wrap">
+  <div class="legend">
+    <span class="lg">Curated, not a live feed. Nothing here is a delivery date.</span>
+    <span class="grow"></span>
+    <span class="upd" id="updated"></span>
+  </div>
+
+  <div id="board" class="board" hidden></div>
+  <div id="load" class="loadmsg">Loading the board…</div>
+
+  <p class="note">
+    <b>How to read this.</b> Items move left to right, and only <b>Resolved</b> carries a version you can install today.
+    Anything left of it is intent, not a promise: scope changes, and items get parked when something else turns out to
+    matter more. If something you need is missing, the fastest way onto this board is to
+    <button type="button" id="req" style="background:none;border:0;color:var(--cyan);cursor:pointer;font:inherit;text-decoration:underline;padding:0">request it as a feature</button>.
+  </p>
+</div>
+
+<footer>
+  <span>Tabatha roadmap</span><span class="dot">·</span>
+  <span>columns mirror the app's own funnel stages</span><span class="dot">·</span>
+  <a href="index.html">Component gallery</a>
+</footer>
+
+<script src="assets/site.js" defer></script>
+<script>
+/* Render the board from roadmap.json. Kept separate from site.js: that file is
+   shared chrome for every page, this is only ever the roadmap. */
+(function () {
+  var board = document.getElementById('board');
+  var load = document.getElementById('load');
+
+  document.getElementById('req').addEventListener('click', function () {
+    if (window.TabathaSite) window.TabathaSite.feedback({ type: 'feature' });
+  });
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  fetch('roadmap.json', { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (data) {
+      var upd = document.getElementById('updated');
+      if (data.updated) upd.textContent = 'updated ' + data.updated;
+
+      board.innerHTML = data.stages.map(function (st) {
+        var items = data.items.filter(function (i) { return i.stage === st.id; });
+        return '<section class="col" aria-label="' + esc(st.label) + '">' +
+          '<div class="col-head">' +
+            '<span class="e" aria-hidden="true">' + esc(st.icon) + '</span>' +
+            '<span class="t" style="color:' + esc(st.color) + '">' + esc(st.label) + '</span>' +
+            '<span class="n">' + items.length + '</span>' +
+          '</div>' +
+          '<p class="col-blurb">' + esc(st.blurb) + '</p>' +
+          (items.length ? items.map(function (it) {
+            return '<article class="rcard" id="' + esc(it.id) + '" style="--stage:' + esc(st.color) + '">' +
+              '<div class="rfb">' +
+                '<button type="button" class="bug" data-t="bug" data-c="' + esc(it.title) + '" data-i="' + esc(it.id) + '" ' +
+                  'aria-label="Report a bug in ' + esc(it.title) + '">🐞</button>' +
+                '<button type="button" data-t="feature" data-c="' + esc(it.title) + '" data-i="' + esc(it.id) + '" ' +
+                  'aria-label="Request a feature for ' + esc(it.title) + '">✨</button>' +
+              '</div>' +
+              '<div class="t">' + esc(it.title) + '</div>' +
+              (it.version ? '<span class="ver">v' + esc(it.version) + '</span>' : '') +
+              '<div class="d">' + esc(it.blurb) + '</div>' +
+            '</article>';
+          }).join('') : '<div class="col-empty">Nothing here right now.</div>') +
+        '</section>';
+      }).join('');
+
+      board.hidden = false;
+      load.hidden = true;
+
+      board.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-t]');
+        if (!b || !window.TabathaSite) return;
+        window.TabathaSite.feedback({
+          type: b.getAttribute('data-t'),
+          component: b.getAttribute('data-c'),
+          componentId: 'roadmap-' + b.getAttribute('data-i'),
+        });
+      });
+
+      // Arriving from search: pick the card out so the deep link lands somewhere.
+      if (location.hash.length > 1) {
+        var t = document.getElementById(location.hash.slice(1));
+        if (t) { t.classList.add('pulse'); t.scrollIntoView({ block: 'center' }); }
+      }
+    })
+    .catch(function () {
+      // file:// cannot fetch. Say what is wrong and how to see the board.
+      load.innerHTML = 'The board could not be loaded.' +
+        '<div class="sub">This page reads <b>roadmap.json</b>, which a browser will not fetch from a local ' +
+        '<b>file://</b> page. Serve <b>showcase/</b> over http, or read ' +
+        '<a href="roadmap.json">roadmap.json</a> directly.</div>';
+    });
+})();
+</script>
+</body>
+</html>

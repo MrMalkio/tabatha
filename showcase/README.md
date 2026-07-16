@@ -1,7 +1,8 @@
-# Tabatha Component Showcase
+# Tabatha Component Showcase & Public Site
 
-A polished, on-brand set of static HTML "display" pages covering **every
-user-facing surface** of the extension. Three jobs:
+A polished, on-brand set of static HTML pages covering **every user-facing
+surface** of the extension. It is both an internal reference and the **public
+site** deployed to `tabatha.pondocean.co` on Cloudflare Pages. Four jobs:
 
 1. **Source for the 5 Chrome Web Store screenshots** — each shot page carries a
    `.shot` container of exactly **1280×800**, captured to
@@ -12,19 +13,50 @@ user-facing surface** of the extension. Three jobs:
 3. **A visual regression reference** — `npm run capture:showcase` renders every
    frame and every component card to PNG, so a design change that breaks a
    component shows up in a diff.
+4. **A public feedback and roadmap surface** — site-wide search, a per-component
+   bug/feature reporter, and a kanban roadmap.
 
-Brand-faithful to **Tabatha v6.7.16**.
+Brand-faithful to **Tabatha v6.7.17**.
+
+---
+
+## The two page classes (important)
+
+| Class | Files | Has site chrome? |
+|---|---|---|
+| **Real site pages** (7) | `index.html`, the 6 `components-*.html`, plus `roadmap.html` | **Yes** — header search, "Request a feature", per-card actions |
+| **Surface frames** (8) | `gatekeeper`, `sidebar`, `home`, `settings`, `backdating`, `popup`, `workshifts`, `settings-sections` | **No, deliberately** |
+
+The surface frames are rendered by `scripts/capture-screenshots.mjs` at an exact
+**1280×800 as the whole viewport**. Adding a header, a search box, or purpose
+copy to them would appear in the capture and corrupt the five Chrome Web Store
+screenshots. **Do not add site chrome to those 8 files.** Their explanatory copy
+lives on the hub, where they are presented as cards.
+
+For the same reason, the per-card Report/Request controls are absolutely
+positioned and `opacity: 0` until hover/focus: they add **zero layout height**,
+so `.libcard` bounding boxes stay identical and the 90 card captures do not
+reflow.
 
 ---
 
 ## View it
 
-Open `showcase/index.html` in any browser (double-click, or `file://`). No build
-step, no server, no network calls — every page is self-contained (inline CSS,
-inline SVG logo, emoji icons). The hub embeds the shot pages as live `iframe`
-thumbnails, so the gallery never drifts from the pages themselves. The hub's
-filter box is the only script on any page, and it is progressive enhancement:
-with JS disabled every card is still listed.
+**Offline / `file://`** — open `showcase/index.html` in any browser. Every page
+is self-contained (inline CSS, inline SVG logo, emoji icons) and renders fully.
+Two features need a real origin and will degrade with an explicit message rather
+than break: **search** and the **roadmap board**, both of which `fetch` JSON.
+
+**Over http** (needed for search + roadmap):
+
+```bash
+npm run site:serve            # → http://localhost:8788
+npm run site:serve -- --port 3000
+```
+
+That server also stubs `POST /api/feedback` with a **501**, which is exactly
+what the deployed Function returns before its token is configured — so the
+GitHub-issue fallback can be exercised locally.
 
 ### Surfaces (1280×800 frames)
 
@@ -156,3 +188,90 @@ internally consistent (e.g. 6 active days × 5h 12m = the 31h 12m headline).
 InBar edit dropdown hardcodes the `queued` state class so its active/paused
 styles are dead. The showcase renders both components as *designed* rather than
 as currently wired, and says so in the captions.
+
+---
+
+## Deploying to Cloudflare Pages
+
+The site is deployed at **`tabatha.pondocean.co`**.
+
+| Setting | Value |
+|---|---|
+| **Build command** | `npm run build:search-index` |
+| **Build output directory** | `showcase` |
+| **Root directory** | *(repo root)* |
+| **Functions directory** | `functions` (picked up automatically) |
+
+The build command only regenerates `search-index.json`. There is no bundler:
+the site ships as flat static files exactly as they sit in `showcase/`. If you
+prefer to commit the index (it is committed today), the build command can be
+set to `echo noop` and the site will still deploy correctly.
+
+`showcase/_headers` sets the security headers and the CSP. The CSP allows no
+external origins at all — no CDNs, no external fonts, no third-party scripts —
+because the site genuinely has none. `frame-src 'self'` is required: the hub
+embeds the surface frames as live iframes.
+
+### `/api/feedback` environment variables
+
+Set these in **Pages → Settings → Environment variables**. The Function reads
+them from its `env` binding at request time; **nothing is ever hardcoded**.
+
+| Variable | Required | Notes |
+|---|---|---|
+| `ASANA_TOKEN` | yes | Asana personal access token. Mark it **Encrypted**. |
+| `ASANA_PROJECT` | yes | GID of a **dedicated public-intake project**. Never point this at the internal development board. |
+| `ASANA_WORKSPACE` | no | Workspace GID. Only needed if the token can see more than one workspace. |
+
+**Until these are set the endpoint returns `501` by design** and the client
+silently falls back to opening a **prefilled GitHub issue** against
+`MrMalkio/tabatha`. That fallback is also what runs on `file://` and on any
+upstream failure, so the reporter's words are never lost. The feature is
+therefore fully usable before the backend exists — wiring the token is an
+upgrade, not a prerequisite.
+
+---
+
+## Updating the roadmap
+
+The board reads **`showcase/roadmap.json`**. It is **hand-curated on purpose**:
+the internal Asana board is never wired to this page, because internal task
+names, client names and teammate names must not leak to a public site.
+
+An entry looks like:
+
+```json
+{
+  "id": "smart-deferral",
+  "title": "Smart deferral and task splitting",
+  "blurb": "Defer a task to a future stint and let Tabatha size the slot.",
+  "stage": "todo",
+  "version": "6.6.0"
+}
+```
+
+- `id` — stable slug; it is the deep-link anchor (`roadmap.html#smart-deferral`)
+  and what search links to. Do not recycle ids.
+- `stage` — must be one of the six `stages[].id` values. Those mirror the app's
+  own `FUNNEL_STAGES` (`src/hooks/useFocusEngine.js`): `unsorted`, `todo`,
+  `focus`, `addressing`, `roadblocked`, `resolved`. **Keep them in sync with the
+  source** — the whole point is that the roadmap speaks the product's language.
+- `version` — only on `resolved` items; it renders as the green shipped badge.
+
+After editing, regenerate the index so the new items are searchable:
+
+```bash
+npm run build:search-index
+```
+
+### What may go on this page
+
+Be conservative. **If you are unsure an item is public-safe, leave it out.**
+
+- ✅ Features already announced in `Tabatha_Changelog.md`.
+- ✅ Product-facing work described in plain user language.
+- ❌ Internal task names, plan numbers, client names, teammate names.
+- ❌ Backend vendor, infrastructure, project or host names; anything from
+  `.local` files, keys or credentials.
+- ❌ Unannounced or confidential programs.
+- ❌ Delivery dates. Stages communicate intent; they are not commitments.

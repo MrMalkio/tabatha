@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tabatha - Component Showcase</title>
+<link rel="stylesheet" href="assets/site.css">
 <style>
 /* ============================================================
    Tabatha Component Showcase - gallery hub.
@@ -138,6 +139,7 @@ footer .dot{opacity:.4}
   <span class="grow"></span>
   <a href="#surfaces">Surfaces</a>
   <a href="#library">Library</a>
+  <a href="roadmap.html">Roadmap</a>
   <span class="verbadge">v6.7.16</span>
 </nav>
 
@@ -174,6 +176,11 @@ footer .dot{opacity:.4}
     <h2>Surfaces</h2>
     <span class="meta">8 full-page frames · exact 1280&times;800 · click any card to open full size</span>
   </div>
+  <p class="sec-purpose">A surface is a whole place in Tabatha you can be: the gate that interrupts a new tab, the sidebar that
+    replaces the browser's own tab strip, the dashboard that replaces the new-tab page. They exist because
+    <b>an attention tool cannot live in one panel</b> - the moment you need to declare intent is not the moment you need to
+    review your week, and neither belongs in a popup. Each frame below is the real UI at the size it actually ships, not a
+    mockup of it.</p>
   <div class="shots" id="shotgrid">
     <a class="shotcard lead" href="gatekeeper.html" target="_blank" rel="noopener" data-k="gatekeeper intent popup inpop overlay strict relaxed why are you here friction side quest sugar box park">
       <div class="thumb"><iframe src="gatekeeper.html" scrolling="no" title="Gatekeeper" loading="lazy"></iframe></div>
@@ -216,6 +223,10 @@ footer .dot{opacity:.4}
     <h2>Component library</h2>
     <span class="meta">6 category pages · 90 component cards · state variants throughout</span>
   </div>
+  <p class="sec-purpose">The surfaces above are assembled from these ninety components, grouped by the job they do rather than
+    by where they happen to render. Most are shown in <b>several states</b>, because the states are where the product's
+    opinions live: a focus that has drifted, a stint left open by a machine that went to sleep, a queue with nothing in it.
+    Each card names the file it comes from, so what you read here can be checked against the source.</p>
   <div class="cats" id="catgrid">
 
     <a class="cat" href="components-overlays.html" data-k="overlays content scripts inbar blockgate gatekeeper sticky note paused nub welcome back whats new backburner checkpoint notes agent">
@@ -318,5 +329,6 @@ footer .dot{opacity:.4}
   apply();
 })();
 </script>
+<script src="assets/site.js" defer></script>
 </body>
 </html>

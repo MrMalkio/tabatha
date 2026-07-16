@@ -1,0 +1,30 @@
+# Cloudflare Pages headers for tabatha.pondocean.co
+# Applies to the static site in `showcase/`. `/api/*` is served by the Pages
+# Function in `functions/api/`, which sets its own no-store headers.
+
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  # Self-contained by design: no CDNs, no external fonts, no third-party scripts.
+  # `frame-src 'self'` is required — the hub embeds the surface frames in
+  # iframes. `form-action 'self'` because the feedback modal posts via fetch.
+  # 'unsafe-inline' is needed for style: every page carries its inline <style>
+  # block so it still renders standalone from the filesystem.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'; object-src 'none'
+
+# The search index and roadmap are the only data the site fetches. They change
+# with each deploy, so revalidate rather than serve a stale board.
+/search-index.json
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: application/json; charset=utf-8
+
+/roadmap.json
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: application/json; charset=utf-8
+
+# Shared chrome. Immutable-ish but short: this site is deployed as flat files
+# with no content hashing, so a long TTL would strand users on stale JS.
+/assets/*
+  Cache-Control: public, max-age=3600, must-revalidate
