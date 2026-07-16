@@ -458,8 +458,15 @@
     sb.setAttribute('aria-label', 'Search the site');
     sb.addEventListener('click', function () { openSearch(); });
 
-    var rb = el('button', 'reqbtn', '✨ Request a feature');
+    // The label is wrapped rather than a bare string so it can be dropped on
+    // a phone. `white-space: nowrap` on the full text made this button the
+    // widest rigid thing in the header, and a flex item that cannot shrink
+    // sets a floor under the whole nav: it alone forced the layout viewport
+    // to 427px on a 390px screen, on every page of the site.
+    var rb = el('button', 'reqbtn',
+      '<span aria-hidden="true">✨</span><span class="lbl">Request a feature</span>');
     rb.type = 'button';
+    rb.setAttribute('aria-label', 'Request a feature');
     rb.addEventListener('click', function () { openFeedback({ type: 'feature' }); });
 
     tools.appendChild(sb);
@@ -469,6 +476,56 @@
     var badge = nav.querySelector('.verbadge');
     if (badge) nav.insertBefore(tools, badge);
     else nav.appendChild(tools);
+  }
+
+  /**
+   * Collapse the header links into a drawer on narrow viewports.
+   *
+   * Done here rather than in each page's markup for two reasons: the ten
+   * pages carry the same nav with different link sets, and a parallel
+   * branch is moving these files, so a CSS+JS-only change keeps that
+   * merge to a rename. `.navlinks` is `display: contents` above the
+   * breakpoint, so the desktop nav renders exactly as it did.
+   */
+  function wireNav() {
+    var nav = document.querySelector('.nav');
+    if (!nav || nav.querySelector('.navtoggle')) return;
+    var links = nav.querySelectorAll(':scope > a');
+    if (!links.length) return;
+
+    var box = el('div', 'navlinks');
+    box.id = 'nav-links';
+    // Insert where the first link already sits, so source order (and with
+    // `display: contents`, visual order) is unchanged.
+    links[0].parentNode.insertBefore(box, links[0]);
+    Array.prototype.forEach.call(links, function (a) { box.appendChild(a); });
+
+    var tog = el('button', 'navtoggle', '☰');
+    tog.type = 'button';
+    tog.setAttribute('aria-label', 'Menu');
+    tog.setAttribute('aria-controls', 'nav-links');
+    tog.setAttribute('aria-expanded', 'false');
+
+    function setOpen(open) {
+      box.classList.toggle('open', open);
+      tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+      tog.innerHTML = open ? '✕' : '☰';
+    }
+    tog.addEventListener('click', function () {
+      setOpen(tog.getAttribute('aria-expanded') !== 'true');
+    });
+    // Following a link inside the drawer must not leave it hanging open
+    // behind an in-page anchor jump, which does not reload the page.
+    box.addEventListener('click', function (e) {
+      if (e.target.closest('a')) setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && tog.getAttribute('aria-expanded') === 'true') {
+        setOpen(false); tog.focus();
+      }
+    });
+
+    nav.appendChild(tog);
   }
 
   /** Give all 90 cards their actions without touching 90 blocks of markup. */
@@ -496,6 +553,24 @@
       wrap.appendChild(bug);
       wrap.appendChild(fea);
       card.appendChild(wrap);
+    });
+  }
+
+  /**
+   * The companion download panel's CTA. There is no artifact to link, so the
+   * button does the only honest thing it can: files the request. Prefilled,
+   * because "Request access" and an empty form is just a shrug with a border.
+   */
+  function wireDownload() {
+    var btn = document.getElementById('dl-req');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      openFeedback({
+        type: 'feature',
+        component: 'Desktop Companion',
+        componentId: 'get',
+        title: 'Request access to the desktop companion (v0.2.0, Windows)',
+      });
     });
   }
 
@@ -541,7 +616,9 @@
     sOvl.querySelector('.sx-esc').addEventListener('click', closeSearch);
 
     wireHeader();
+    wireNav();
     wireCards();
+    wireDownload();
     wireKeys();
 
     // Deep link: #component-id lands you on the card, highlighted, so a

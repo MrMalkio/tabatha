@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tabatha - Settings · Sync & Account</title>
 <style>
 :root{
@@ -68,6 +69,41 @@ body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;co
 .orgpill{font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--violet);color:#1a1020}
 .dataline{display:flex;gap:8px;margin-top:6px}
 .note{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.5;background:rgba(0,240,255,.04);border-left:2px solid rgba(0,240,255,.4);padding:10px 12px;border-radius:0 4px 4px 0}
+
+/* ── small-viewport fit ──────────────────────────────────────
+   This page IS the asset: `.shot` is a pinned 1280x800 render and
+   scripts/capture-screenshots.mjs screenshots it at a 1280x800
+   window to produce the Chrome Web Store listing images. So the
+   frame's own layout is untouchable — no reflow, no stacking, no
+   fluid widths. Anything that changed it would silently reshoot
+   the store listing.
+
+   Everything below is therefore gated at max-width:1279px and can
+   never fire at the 1280 capture width. It scales the whole frame
+   as one picture instead of reflowing it:
+
+     base      — body becomes the scroll container. `.shot` keeps
+                 its exact 1280x800 and the user pans it, while
+                 `html` stays hidden so the PAGE never scrolls
+                 sideways.
+     enhanced  — where `zoom` accepts a calculated ratio (Chrome,
+                 the only browser this site's product runs in),
+                 body is zoomed to exactly fit the viewport. zoom
+                 affects layout, unlike transform, so the shrunken
+                 frame reserves the right space and nothing
+                 overflows. `.shot` still computes at 1280x800 —
+                 only the paint is scaled.
+   ──────────────────────────────────────────────────────────── */
+@media (max-width:1279px){
+  html{overflow-x:hidden}
+  body{display:block;min-height:0;overflow-x:auto;overscroll-behavior-x:contain}
+  body>.shot{margin:0 auto}
+}
+@supports (zoom:calc(100vw / 1280px)){
+  @media (max-width:1279px){
+    body{width:1280px;overflow-x:visible;zoom:calc(100vw / 1280px)}
+  }
+}
 </style>
 </head>
 <body>

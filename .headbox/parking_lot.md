@@ -532,6 +532,24 @@
   2. Render two chips (state + stage) to keep the taxonomies separate.
   3. Drop the unused `.focus-state.active` / `.paused` CSS if the queued-only look is intended.
 
+## 2026-07-16 — `04-settings.png` capture is nondeterministic
+- **Noticed while:** Verifying the CWS shots survived the showcase responsive pass (`feat/showcase-responsive`).
+- **What:** Two consecutive `npm run capture:shots` runs against a byte-identical `showcase/settings.html` produce different PNGs (73,664 vs 73,675 bytes). The other 7 shot frames reproduce byte-for-byte. Dimensions stay a correct 1280x800, so `capture-screenshots.mjs` reports OK either way; only the pixels drift. `settings.html` carries `transition`/animation declarations, and `--virtual-time-budget=1500` appears to land mid-transition.
+- **Why it matters:** `04-settings.png` is one of the five CONTRACTUAL Chrome Web Store screenshots. Right now every capture run produces a spurious diff on it, so `git status` cannot tell "the settings surface actually changed" from "the capture ran again". That is exactly the signal you want when a shot page is edited, and it is currently broken for 1 of the 5 store assets.
+- **Options:**
+  1. Add `* { animation: none !important; transition: none !important; }` behind a capture-only flag (e.g. `?capture=1` or a `--headless` media hint) so the frame always settles. ← **suggested**
+  2. Raise `--virtual-time-budget` until the transition provably completes, and assert reproducibility in the script by capturing twice and comparing.
+  3. Accept the drift and stop treating shot PNGs as diffable artifacts.
+
+## 2026-07-16 — Showcase `.verbadge` version is hand-maintained and already drifting
+- **Noticed while:** Bumping to v6.7.19 on `feat/showcase-responsive`.
+- **What:** All 10 site pages hardcode the version in `<span class="verbadge">v6.7.18</span>`, except `showcase/roadmap.html`, which still says **v6.7.17**. `scripts/sync-version.mjs` syncs `package.json`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and `.gemini/agent.md` from `public/manifest.json`, but does not know about `showcase/**`, so nothing catches this.
+- **Why it matters:** The badge is the version the public site claims to be documenting. It is wrong on the roadmap today, and it silently goes stale on all 10 pages at every release. Left alone the whole site will keep claiming 6.7.18 forever.
+- **Options:**
+  1. Teach `sync-version.mjs` the `verbadge` pattern across `showcase/*.html` and wire it into the existing `version:check` drift guard. ← **suggested**
+  2. Render the badge from `search-index.json` (or a tiny `version.json`) at runtime in `site.js`, so there is one source.
+  3. Drop the badge from the site and leave versioning to the changelog page.
+
 ## 2026-07-16 — PRIVACY.md "no screenshots" claim vs Cortex capture
 - **Noticed while:** building the teaser homepage, linking PRIVACY.md from the new /privacy page.
 - **What:** `PRIVACY.md` states, under "What Tabatha explicitly does NOT collect": "**No screenshots** of your pages" and "never *what you did on the page*". The Cortex program (C1, Phase 1) ships `captureVisibleTab` screen capture with a redaction canvas, writing frames to disk. The 2026-07-10 session log records "Captures confirmed working (745 frames/day)".
