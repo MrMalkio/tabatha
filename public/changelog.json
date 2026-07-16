@@ -2,6 +2,26 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.19",
+      "title": "Teaser homepage, waitlist, showcase moves to /show",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Teaser homepage** (`site/index.html`) — the site root is now a held moment rather than a component gallery. It asks the Gatekeeper's own question (\"What are you down for?\") and answers it with a live instrument counting the visitor's real elapsed time on the page, captioned \"Unaccounted for.\" One idea, one input, no feature dump. Tokens are lifted verbatim from the showcase's `:root` (2/4/8 radius, `#050505`, `#00F0FF`, the Inter / JetBrains Mono stacks) so the teaser and the product read as one system. Self-contained: no CDN, no external font, no analytics, no beacon.\n- **Waitlist** (`functions/api/waitlist.js` + `supabase/migrations/028_waitlist.sql`) — the page's only CTA and only real action. Email posts to a Pages Function holding the service-role key in an env binding; **no Supabase key is ever shipped to the browser.** Server-side validation, per-isolate rate limiting, and duplicates treated as success via `ON CONFLICT DO NOTHING` so the endpoint can never be used to test whether an address is on the list. Returns 501 when unconfigured and the page says so plainly rather than faking a signup.\n- **Privacy page** (`site/privacy.html`, generated) — `/privacy` is now a real page, rendered from `PRIVACY.md` by `scripts/build-privacy.mjs` so the published policy cannot drift from the repo's. Linked from the teaser footer and from the signup fine print, because the site now collects email addresses.\n- **Waitlist section in `PRIVACY.md`** — covers what the address is used for (one email, once), that it is unlinked to any browsing data, that the list is not publicly readable, and how to be removed. The policy's scope line now names the website as well as the extension."
+        },
+        {
+          "label": "Changed",
+          "body": "- **`showcase/` is now `site/show/`, and `site/` is the deploy root.** Done as pure renames, so every one of the 24 files retains its history. No page content changed: every internal link and both data fetches were already relative, so `/show/` works exactly as `/` did. Deploy is now `wrangler pages deploy site`.\n- **`_headers` moved to the deploy root** (`site/_headers`) and its data/asset rules repathed under `/show/`. Pages only reads `_headers` at the root of the deployed directory, so left in place it would have silently stopped applying: the CSP, the frame rules and the cache policy would all have quietly vanished.\n- **`scripts/serve-showcase.mjs` now serves the whole deploy root**, resolving directory requests and clean URLs the way Pages does, so `/`, `/show/` and `/privacy` behave locally exactly as deployed. `/api/waitlist` is stubbed at 501 alongside `/api/feedback`.\n- **`scripts/build-search-index.mjs` and `scripts/capture-screenshots.mjs`** read from `site/show/`. The five pinned Chrome Web Store screenshots are untouched: same filenames, same `store-assets/screenshots/` destination, same enforced 1280x800."
+        },
+        {
+          "label": "Security",
+          "body": "- **`tabatha.waitlist` is deny-by-default**: RLS enabled and forced, with **zero policies**. A waitlist signup is anonymous by definition, so there is no identity to scope a policy to and none is written; `service_role` bypasses RLS and is the single intended path in. The inherited `anon` / `authenticated` grants from migration 006's `ALTER DEFAULT PRIVILEGES` are explicitly revoked, so both locks must fail before an address could leak."
+        }
+      ]
+    },
+    {
       "version": "6.7.18",
       "title": "Public site covers the whole product family",
       "date": "2026-07-16",

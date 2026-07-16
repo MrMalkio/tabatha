@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-search-index.mjs — generate `showcase/search-index.json`.
+ * build-search-index.mjs — generate `site/show/search-index.json`.
  *
  * The showcase is a static site, so search is a client-side query over a
  * prebuilt index. This script is the single source of that index: it PARSES
@@ -27,7 +27,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const showcase = join(root, 'showcase');
+const showcase = join(root, 'site', 'show');
 const OUT = join(showcase, 'search-index.json');
 const CHECK = process.argv.includes('--check');
 
@@ -249,7 +249,7 @@ if (CHECK) {
 } else {
   writeFileSync(OUT, json);
   const byType = records.reduce((a, r) => ((a[r.type] = (a[r.type] || 0) + 1), a), {});
-  console.log(`Wrote showcase/search-index.json — ${records.length} records ` +
+  console.log(`Wrote site/show/search-index.json — ${records.length} records ` +
     `(${Object.entries(byType).map(([k, v]) => `${v} ${k}`).join(', ')}), ` +
     `${(json.length / 1024).toFixed(1)} kB`);
   if (cardCount !== EXPECTED_CARDS) {

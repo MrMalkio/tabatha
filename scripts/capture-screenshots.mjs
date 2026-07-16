@@ -32,7 +32,7 @@ import { dirname, join, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
-const showcaseDir = join(root, 'showcase');
+const showcaseDir = join(root, 'site', 'show');
 const outDir = join(root, 'store-assets', 'screenshots');
 const cardDir = join(outDir, 'components');
 

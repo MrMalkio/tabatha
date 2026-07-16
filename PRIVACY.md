@@ -54,6 +54,23 @@ Your data is tied to your sign-in identity so it can be recovered on a new machi
 after a fresh install. You can stop collection at any time by signing out or removing
 the extension.
 
+## The waitlist on our website
+
+Tabatha is not released yet. The only thing our website asks for is an email address,
+so we can tell you when it is.
+
+- We store **the address you type, the date you submitted it, and which page it came
+  from.** That is the whole record.
+- We use it for **exactly one thing**: to email you about Tabatha becoming available.
+  No newsletter, no marketing sequence, no sharing, no selling.
+- It is **not linked to any browsing data.** The waitlist has no connection to the
+  extension's data, because if you are on the waitlist you do not have the extension
+  yet.
+- The list is **not publicly readable** and our own website cannot read it back. The
+  signup form can only add to it.
+- **Ask us and we will remove you**, at the contact address below. You do not need an
+  account to be forgotten, since the waitlist does not create one.
+
 ## Contact
 
 Questions, or a request about your data (access, correction, deletion):
@@ -62,5 +79,6 @@ Questions, or a request about your data (access, correction, deletion):
 
 ---
 
-*This policy covers the Tabatha browser extension. If our practices change, this page
-and its effective date will be updated before the change takes effect.*
+*This policy covers the Tabatha browser extension and the waitlist on the Tabatha
+website. If our practices change, this page and its effective date will be updated
+before the change takes effect.*

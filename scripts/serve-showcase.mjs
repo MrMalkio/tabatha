@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * serve-showcase.mjs — serve `showcase/` over http for local development.
+ * serve-showcase.mjs — serve `site/` over http for local development.
  *
  * The site is static and Cloudflare Pages serves it directly, but two features
  * need a real origin and will not work from a `file://` page: the search index
@@ -19,7 +19,9 @@ import { join, extname, normalize } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'showcase');
+// Serve the whole deploy root, not just the showcase: `/` is the teaser and
+// `/show/` is the showcase, exactly as Pages serves them in production.
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'site');
 const argPort = process.argv.indexOf('--port');
 const PORT = argPort !== -1 ? Number(process.argv[argPort + 1]) : 8788;
 
@@ -34,8 +36,11 @@ const TYPES = {
 };
 
 const server = createServer(async (req, res) => {
-  // Mirror the unconfigured Pages Function so the fallback can be tested.
-  if (req.url.split('?')[0] === '/api/feedback') {
+  // Mirror the unconfigured Pages Functions so both fallback paths can be
+  // tested locally: feedback degrades to the GitHub issue, waitlist degrades
+  // to its "not open yet" message.
+  const route = req.url.split('?')[0];
+  if (route === '/api/feedback' || route === '/api/waitlist') {
     if (req.method !== 'POST') {
       res.writeHead(405, { Allow: 'POST' });
       return res.end('Method Not Allowed');
@@ -43,12 +48,23 @@ const server = createServer(async (req, res) => {
     res.writeHead(501, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       error: 'not_configured',
-      message: 'Local dev server: no backend. The client should fall back to GitHub.',
+      message: 'Local dev server: no backend. The client should fall back.',
     }));
   }
 
-  let pathname = decodeURIComponent(req.url.split('?')[0]);
-  if (pathname === '/') pathname = '/index.html';
+  let pathname = decodeURIComponent(route);
+  // Pages resolves a directory request to its index.html. Do the same, or
+  // `/show/` would 404 locally while working in production.
+  if (pathname.endsWith('/')) pathname += 'index.html';
+  // Pages also serves `foo.html` at the clean URL `/foo`. The teaser links
+  // /privacy, so without this the footer 404s locally but works deployed,
+  // which is the worst way round to find out.
+  else if (!extname(pathname)) {
+    try {
+      const cand = join(root, normalize(pathname).replace(/^([/\\])+/, '') + '.html');
+      if (cand.startsWith(root) && (await stat(cand)).isFile()) pathname += '.html';
+    } catch { /* no such page; fall through to the normal 404 */ }
+  }
 
   // Contain to root: reject any path that escapes after normalisation.
   const rel = normalize(pathname).replace(/^([/\\])+/, '');
@@ -74,7 +90,8 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`showcase → http://localhost:${PORT}/`);
-  console.log(`  roadmap → http://localhost:${PORT}/roadmap.html`);
-  console.log('  /api/feedback stubbed at 501 (exercises the GitHub fallback)');
+  console.log(`site     → http://localhost:${PORT}/`);
+  console.log(`  showcase → http://localhost:${PORT}/show/`);
+  console.log(`  roadmap  → http://localhost:${PORT}/show/roadmap.html`);
+  console.log('  /api/feedback + /api/waitlist stubbed at 501 (exercises the fallbacks)');
 });

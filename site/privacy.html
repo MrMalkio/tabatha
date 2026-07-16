@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy: Tabatha</title>
+<meta name="description" content="What Tabatha collects, what it never collects, and where your data lives.">
+<meta name="theme-color" content="#050505">
+<meta name="robots" content="index, follow">
+<!-- GENERATED FILE. Do not edit.
+     Source: PRIVACY.md — run `npm run site:privacy` after changing it.
+     Edits made here will be overwritten by the next build. -->
+<style>
+:root {
+  --bg:#050505; --text:#F2F5F7; --muted:#9aa5b1; --dim:#4b5560;
+  --border:rgba(255,255,255,.09); --cyan:#00F0FF;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px; --r-md:4px;
+}
+*,*::before,*::after { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--sans); line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap { max-width:760px; margin:0 auto; padding:0 24px 80px; }
+.top {
+  display:flex; align-items:center; justify-content:space-between;
+  height:72px; gap:16px; margin-bottom:24px;
+}
+.brand {
+  font:600 13px/1 var(--mono); letter-spacing:.42em; text-transform:uppercase;
+  color:var(--text); text-decoration:none; white-space:nowrap;
+}
+.brand .dot { color:var(--cyan); }
+.back { font:400 12px var(--sans); color:var(--muted); text-decoration:none; }
+.back:hover { color:var(--text); }
+main { border-top:1px solid var(--border); padding-top:40px; }
+h1 {
+  font:700 clamp(1.7rem,4vw,2.4rem)/1.15 var(--mono);
+  letter-spacing:-.03em; margin:0 0 8px;
+}
+h2 {
+  font:600 clamp(1.05rem,2vw,1.2rem)/1.35 var(--mono);
+  letter-spacing:-.015em; margin:40px 0 12px; color:var(--text);
+}
+p { margin:0 0 16px; color:var(--muted); }
+ul { margin:0 0 16px; padding-left:20px; color:var(--muted); }
+li { margin-bottom:8px; }
+strong { color:var(--text); font-weight:600; }
+em { color:var(--text); font-style:italic; }
+code {
+  font:400 .88em var(--mono); background:rgba(255,255,255,.05);
+  border:1px solid var(--border); border-radius:var(--r-sm); padding:1px 5px;
+}
+a { color:var(--cyan); text-decoration:none; border-bottom:1px solid rgba(0,240,255,.3); }
+a:hover { border-bottom-color:var(--cyan); }
+hr { border:0; border-top:1px solid var(--border); margin:36px 0 24px; }
+hr + p { font-size:13px; color:var(--dim); }
+:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; border-radius:var(--r-sm); }
+@media (max-width:560px) { .wrap { padding:0 18px 56px; } .top { height:64px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/">Tabatha<span class="dot">.</span></a>
+    <a class="back" href="/">Back</a>
+  </header>
+  <main>
+    <h1>Tabatha Privacy Policy</h1>
+    <p><strong>Effective date: 2026-07-15</strong></p>
+    <p>Tabatha is a context and focus manager for your browser, built by Duck &amp; Shark as part of the Flux ecosystem. This policy explains, in plain language, what Tabatha collects, what it never collects, where your data lives, and who can see it.</p>
+    <h2>What Tabatha collects</h2>
+    <p>Tabatha collects <strong>browsing metadata only</strong> — enough to show you where your time and attention go, and nothing more:</p>
+    <ul>
+    <li><strong>Tab URLs and titles</strong> of the pages you visit</li>
+    <li><strong>Timestamps and session durations</strong> (when a focus session or clock-in started and ended, and how long you spent)</li>
+    <li><strong>The Context and Intent labels you type in yourself</strong> (e.g. "Q1 Report", "researching flights")</li>
+    <li><strong>Focus and clock in/out session state</strong></li>
+    </ul>
+    <h2>What Tabatha explicitly does NOT collect</h2>
+    <ul>
+    <li><strong>No screenshots</strong> of your pages</li>
+    <li><strong>No keystrokes</strong> or keylogging of any kind</li>
+    <li><strong>No page content</strong> — form field values, message text, page body text, documents, or anything you read or write inside a page is never captured or transmitted</li>
+    </ul>
+    <p>In short: Tabatha knows <em>which</em> site you were on and <em>for how long</em>, and <em>why you said you were there</em> — never <em>what you did on the page</em>.</p>
+    <h2>Where your data is stored</h2>
+    <p>Your data is stored locally in your browser (<code>chrome.storage</code>) and synced to our cloud backend (a managed Postgres database) roughly every 5 minutes and on changes, tied to your account so it follows you across machines.</p>
+    <p>Access is scoped with row-level security: <strong>each user can only read their own rows.</strong> For team/organization accounts, an organization owner sees only <strong>aggregated, non-identifying team views</strong> (e.g. daily clock totals) — never raw per-user row access through those views.</p>
+    <h2>Selling and sharing: none</h2>
+    <ul>
+    <li>Your data is <strong>never sold</strong>.</li>
+    <li>Your data is <strong>never shared with third parties</strong>.</li>
+    <li>There is <strong>no advertising use and no analytics resale</strong>.</li>
+    <li>Data is used solely to provide Tabatha's own functionality: context and time tracking, cross-device sync, and — for organization accounts — aggregated team reporting to your own organization's owner.</li>
+    </ul>
+    <h2>Your account and control</h2>
+    <p>Your data is tied to your sign-in identity so it can be recovered on a new machine or after a fresh install. You can stop collection at any time by signing out or removing the extension.</p>
+    <h2>The waitlist on our website</h2>
+    <p>Tabatha is not released yet. The only thing our website asks for is an email address, so we can tell you when it is.</p>
+    <ul>
+    <li>We store <strong>the address you type, the date you submitted it, and which page it came from.</strong> That is the whole record.</li>
+    <li>We use it for <strong>exactly one thing</strong>: to email you about Tabatha becoming available. No newsletter, no marketing sequence, no sharing, no selling.</li>
+    <li>It is <strong>not linked to any browsing data.</strong> The waitlist has no connection to the extension's data, because if you are on the waitlist you do not have the extension yet.</li>
+    <li>The list is <strong>not publicly readable</strong> and our own website cannot read it back. The signup form can only add to it.</li>
+    <li><strong>Ask us and we will remove you</strong>, at the contact address below. You do not need an account to be forgotten, since the waitlist does not create one.</li>
+    </ul>
+    <h2>Contact</h2>
+    <p>Questions, or a request about your data (access, correction, deletion):</p>
+    <p><strong><a href="mailto:caspera@duckandshark.com">caspera@duckandshark.com</a></strong> (Duck &amp; Shark — organization contact)</p>
+    <hr>
+    <p><em>This policy covers the Tabatha browser extension and the waitlist on the Tabatha website. If our practices change, this page and its effective date will be updated before the change takes effect.</em></p>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabatha: an attention operating system for your browser</title>
+<meta name="description" content="Tabatha gives every tab a context, an intent, and a clock. Not released yet. Join the waitlist.">
+<meta name="theme-color" content="#050505">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23050505'/><rect x='6' y='9' width='20' height='3' rx='1.5' fill='%2300F0FF'/><rect x='6' y='15' width='13' height='3' rx='1.5' fill='%233a4450'/><rect x='6' y='21' width='8' height='3' rx='1.5' fill='%233a4450'/></svg>">
+
+<!-- Open Graph. No image: nothing external may be fetched under this site's CSP,
+     and a fabricated product shot would be a promise the product has not earned. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Tabatha: an attention operating system for your browser">
+<meta property="og:description" content="Every tab gets a context, an intent, and a clock. Not released yet.">
+<meta name="twitter:card" content="summary">
+
+<style>
+/* ============================================================
+   The Tabatha teaser.
+
+   Tokens are lifted verbatim from the showcase's own :root block
+   (site/show/*.html) so the teaser and the product read as one
+   system: the 2/4/8 halved radius scale, the Inter/JetBrains Mono
+   stacks, #050505, and the cyan/magenta accents.
+
+   Two notes on what is deliberately absent:
+
+   • No <script> inline. The site's CSP is `script-src 'self'`
+     with no 'unsafe-inline', so an inline script would be
+     silently blocked. All behaviour lives in assets/teaser.js.
+
+   • No photography. `img-src 'self' data:` forbids every CDN and
+     stock host, and this project ships no image pipeline, so a
+     real photograph is not merely unchosen here, it is
+     unreachable. The page answers with the one visual it can make
+     honestly: a live instrument reading real data about the
+     current visit. It simulates no product UI.
+   ============================================================ */
+
+:root {
+  --bg:#050505; --panel:#14171c; --panel2:#181c22;
+  --text:#F2F5F7; --muted:#7d8894; --dim:#4b5560;
+  --border:rgba(255,255,255,.09);
+  --cyan:#00F0FF; --magenta:#FF0055;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px; --r-md:4px; --r-lg:8px;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+
+*,*::before,*::after { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--sans); line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  /* The page is a single held moment. It must not scroll sideways on any
+     viewport, whatever the display counter is doing. */
+  overflow-x:hidden;
+}
+
+/* A single hairline grid, fixed behind everything. It is not decoration for
+   its own sake: it is the page's only surface texture, and it exists because
+   the palette is otherwise two colours on near-black. Kept on a fixed,
+   pointer-events:none layer so it never repaints during scroll. */
+.grid-bg {
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 40%, #000 20%, transparent 78%);
+  -webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 40%, #000 20%, transparent 78%);
+}
+
+.wrap { position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:0 24px; }
+
+a { color:inherit; }
+:focus-visible {
+  outline:2px solid var(--cyan); outline-offset:3px; border-radius:var(--r-sm);
+}
+
+/* ── masthead ─────────────────────────────────────────────── */
+.top {
+  display:flex; align-items:center; justify-content:space-between;
+  height:72px; gap:16px;
+}
+.brand {
+  font:600 13px/1 var(--mono); letter-spacing:.42em;
+  text-transform:uppercase; color:var(--text);
+  text-decoration:none; white-space:nowrap;
+}
+.brand .dot { color:var(--cyan); }
+.status {
+  font:400 11px/1 var(--mono); color:var(--dim);
+  letter-spacing:.08em; white-space:nowrap;
+}
+
+/* ── hero ─────────────────────────────────────────────────── */
+/* Asymmetric on purpose: the question and the instrument are in dialogue,
+   so they sit side by side rather than stacked and centred. 1.15fr/1fr keeps
+   the question dominant. */
+.hero {
+  display:grid; grid-template-columns:1.15fr 1fr;
+  gap:64px; align-items:center;
+  min-height:calc(100dvh - 72px);
+  /* Small, and deliberately so. Each column is centred in the row
+     independently, so any padding here is added ENTIRELY below the content and
+     the hero goes visibly bottom-heavy. At 80px it read as a dead zone rather
+     than as breathing room. */
+  padding-bottom:32px;
+}
+
+h1 {
+  margin:0 0 22px;
+  font-family:var(--mono);
+  font-size:clamp(2.1rem, 5.2vw, 3.9rem);
+  font-weight:700;
+  line-height:1.06;
+  letter-spacing:-.035em;
+}
+h1 .q { color:var(--cyan); }
+
+.sub {
+  margin:0 0 36px; max-width:46ch;
+  font-size:clamp(.95rem, 1.5vw, 1.075rem);
+  color:var(--muted); line-height:1.62;
+}
+.sub b { color:var(--text); font-weight:600; }
+
+/* ── the instrument ───────────────────────────────────────── */
+/* The page's one idea. Tabatha's claim is that unexamined time is the
+   problem; rather than assert that, this counts the visitor's own. Every
+   value here is real: elapsed time on this page, measured on this page. */
+.meter {
+  border:1px solid var(--border); border-radius:var(--r-lg);
+  background:linear-gradient(160deg, var(--panel2), var(--panel));
+  padding:26px 26px 22px; position:relative; overflow:hidden;
+}
+.meter-label {
+  font:500 10px/1 var(--mono); letter-spacing:.2em;
+  text-transform:uppercase; color:var(--dim); margin-bottom:14px;
+}
+.clock {
+  font:700 clamp(3rem,7.5vw,4.6rem)/1 var(--mono);
+  letter-spacing:-.045em; color:var(--text);
+  /* Digits must not reflow the box as they change. */
+  font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1;
+  display:block; margin-bottom:4px;
+}
+.clock .s { color:var(--cyan); }
+
+/* Sweeps once per minute. Motivated: it is the seconds hand of the number
+   above it, and it is the only thing on the page that moves on its own. */
+.sweep {
+  height:2px; background:rgba(255,255,255,.06);
+  border-radius:var(--r-sm); overflow:hidden; margin:18px 0 16px;
+}
+.sweep i {
+  display:block; height:100%; width:0%;
+  background:var(--cyan); border-radius:var(--r-sm);
+  transition:width 1s linear;
+}
+.verdict {
+  font-size:13.5px; line-height:1.6; color:var(--muted); margin:0;
+}
+.verdict b { color:var(--text); font-weight:600; }
+
+/* ── the one input ────────────────────────────────────────── */
+.form { max-width:440px; }
+.lbl {
+  display:block; margin-bottom:8px;
+  font:500 11px/1 var(--mono); letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted);
+}
+.row { display:flex; gap:8px; }
+input[type=email] {
+  flex:1; min-width:0;
+  background:#0d1014; border:1px solid var(--border);
+  border-radius:var(--r-md); color:var(--text);
+  font:400 15px var(--sans); padding:13px 14px;
+  transition:border-color .16s var(--ease), background .16s var(--ease);
+}
+/* Placeholder is a hint, never the label: the label above is the real one.
+   #6b7580 on #0d1014 clears WCAG AA for the supporting role it plays. */
+input[type=email]::placeholder { color:#6b7580; }
+input[type=email]:hover { border-color:rgba(255,255,255,.18); }
+input[type=email]:focus {
+  outline:none; border-color:var(--cyan); background:#0f1318;
+  box-shadow:0 0 0 3px rgba(0,240,255,.12);
+}
+input[type=email][aria-invalid=true] { border-color:var(--magenta); }
+
+/* Cyan fill, near-black label. 15.9:1 against #00F0FF: the one CTA on the
+   page is also the highest-contrast thing on it. */
+.go {
+  flex:none; background:var(--cyan); color:#04070a;
+  border:1px solid var(--cyan); border-radius:var(--r-md);
+  font:700 13px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  padding:0 20px; cursor:pointer; white-space:nowrap;
+  transition:filter .16s var(--ease), transform .06s var(--ease);
+}
+.go:hover { filter:brightness(1.12); }
+.go:active { transform:translateY(1px); }
+.go[disabled] { opacity:.55; cursor:progress; }
+
+/* Reserved so a message never shifts the layout when it appears. */
+.msg {
+  min-height:34px; margin:12px 0 0;
+  font:400 13px/1.5 var(--sans); color:var(--muted);
+  display:flex; align-items:flex-start; gap:7px;
+}
+.msg::before {
+  content:''; flex:none; width:5px; height:5px; border-radius:50%;
+  background:currentColor; margin-top:6px; opacity:0;
+}
+.msg[data-state=error]   { color:#ff5c86; }
+.msg[data-state=success] { color:var(--cyan); }
+.msg[data-state=error]::before,
+.msg[data-state=success]::before { opacity:1; }
+
+.fineprint { margin:6px 0 0; font-size:11.5px; color:var(--dim); line-height:1.5; }
+.fineprint a { color:var(--muted); }
+
+/* ── pillars ──────────────────────────────────────────────── */
+/* Four claims, four rows. A hairline ABOVE the group and between rows, never
+   boxing each one: this is a stated position, not a spec sheet. */
+.pillars { border-top:1px solid var(--border); padding:56px 0 72px; }
+.pillars h2 {
+  margin:0 0 30px; font:600 clamp(1.15rem,2vw,1.4rem)/1.3 var(--mono);
+  letter-spacing:-.02em; color:var(--text);
+}
+/* Capped on the LIST, not on each definition. A max-width on the `dd` fights
+   its own 1fr track: the text stopped at its measure while the column ran on
+   to the container edge, leaving a ragged empty third that looked like a
+   broken grid. Constraining the list instead makes the track itself the
+   measure, so the column ends where the text does. */
+.pillars dl { margin:0; max-width:880px; }
+.pillar {
+  display:grid; grid-template-columns:minmax(150px,.3fr) 1fr;
+  gap:10px 40px; padding:20px 0; border-top:1px solid rgba(255,255,255,.05);
+}
+.pillar:first-of-type { border-top:0; }
+.pillar dt { font:600 14.5px/1.4 var(--mono); color:var(--cyan); letter-spacing:-.01em; }
+.pillar dd { margin:0; font-size:14.5px; line-height:1.62; color:var(--muted); }
+
+/* ── footer ───────────────────────────────────────────────── */
+.foot {
+  border-top:1px solid var(--border); padding:26px 0 40px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:16px; flex-wrap:wrap;
+  font:400 12px/1.5 var(--sans); color:var(--dim);
+}
+.foot nav { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+.foot a { color:var(--muted); text-decoration:none; transition:color .16s var(--ease); }
+.foot a:hover { color:var(--text); }
+
+/* Understated by instruction and by intent: the showcase is for whoever goes
+   looking, and this must not compete with the one CTA. It is a quiet cyan
+   only on hover, and it earns its place by being where a curious person's
+   eye lands last. */
+.tell {
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--dim) !important;
+}
+.tell:hover { color:var(--cyan) !important; }
+.tell span { color:rgba(255,255,255,.16); margin-left:7px; }
+
+/* ── entry ────────────────────────────────────────────────── */
+/* Staggered so the question assembles in reading order: the visitor arrives
+   at the input last, which is the order the page wants to be read in.
+   Transform and opacity only. */
+@media (prefers-reduced-motion: no-preference) {
+  .r { opacity:0; transform:translateY(14px); animation:rise .7s var(--ease) forwards; }
+  .r1 { animation-delay:.05s } .r2 { animation-delay:.14s }
+  .r3 { animation-delay:.23s } .r4 { animation-delay:.32s }
+  .r5 { animation-delay:.20s }
+  @keyframes rise { to { opacity:1; transform:none } }
+}
+
+/* The reduced-motion contract is not "the same page, frozen". The sweep is
+   the only thing whose meaning was carried by movement, so it is replaced by
+   a static full rule that reads as a measured bar rather than a stalled one.
+   The counter keeps counting: it is information, not decoration, and it is
+   the entire point of the page. */
+@media (prefers-reduced-motion: reduce) {
+  .sweep i { width:100% !important; transition:none; opacity:.34; }
+  *, *::before, *::after {
+    animation-duration:.001ms !important; animation-iteration-count:1 !important;
+    transition-duration:.001ms !important; scroll-behavior:auto !important;
+  }
+}
+
+/* ── mobile ───────────────────────────────────────────────── */
+/* This page is mine; /show belongs to the responsive pass running alongside.
+   The split collapses to one column and the instrument leads, because on a
+   phone the number is what survives the fold. */
+@media (max-width:860px) {
+  .hero {
+    grid-template-columns:1fr; gap:38px;
+    min-height:0; padding:40px 0 64px; align-items:start;
+  }
+  .hero .ask { order:2; }
+  .hero .meter { order:1; }
+  .sub { margin-bottom:28px; }
+  .pillar { grid-template-columns:1fr; gap:6px; padding:18px 0; }
+  .pillars { padding:44px 0 56px; }
+}
+@media (max-width:560px) {
+  .wrap { padding:0 18px; }
+  .top { height:64px; }
+  .status { display:none; }       /* The clock says this better, one screen down. */
+  .brand { letter-spacing:.3em; font-size:12px; }
+  .row { flex-direction:column; }  /* Full-width tap targets beat a cramped row. */
+  .go { padding:14px 20px; }
+  .foot { flex-direction:column; align-items:flex-start; gap:14px; }
+}
+</style>
+</head>
+<body>
+<div class="grid-bg" aria-hidden="true"></div>
+
+<div class="wrap">
+
+  <header class="top">
+    <a class="brand" href="/">Tabatha<span class="dot">.</span></a>
+    <div class="status">NOT RELEASED YET</div>
+  </header>
+
+  <main>
+    <section class="hero">
+
+      <div class="ask">
+        <h1 class="r r1">What are you<br>down for<span class="q">?</span></h1>
+
+        <p class="sub r r2">
+          Tabatha is an <b>attention operating system</b> for your browser.
+          Every tab gets a context, an intent, and a clock.
+        </p>
+
+        <!-- The only action on this page. -->
+        <form class="form r r3" id="wl" novalidate>
+          <label class="lbl" for="email">Get told when it ships</label>
+          <div class="row">
+            <input id="email" name="email" type="email" inputmode="email"
+                   autocomplete="email" placeholder="you@example.com"
+                   aria-describedby="msg" required>
+            <button class="go" type="submit" id="go">Join</button>
+          </div>
+          <p class="msg" id="msg" role="status" aria-live="polite"></p>
+          <p class="fineprint r r4">
+            One email, when it ships. Nothing else, ever.
+            <a href="/privacy">How we handle it</a>
+          </p>
+        </form>
+      </div>
+
+      <!-- The argument, made with the visitor's own time rather than a claim. -->
+      <aside class="meter r r5" aria-label="Time you have spent on this page">
+        <div class="meter-label">Time on this page</div>
+        <strong class="clock" id="clock">00<span class="s">:</span>00</strong>
+        <div class="sweep" aria-hidden="true"><i id="sweep"></i></div>
+        <p class="verdict">
+          <b>Unaccounted for.</b> Tabatha would have asked you why before
+          it opened.
+        </p>
+      </aside>
+
+    </section>
+
+    <section class="pillars">
+      <h2>What it actually believes</h2>
+      <dl>
+        <div class="pillar">
+          <dt>Context over chaos</dt>
+          <dd>No tab exists in a vacuum. Every one belongs to something you are
+              actually doing, and it inherits that the moment you open it.</dd>
+        </div>
+        <div class="pillar">
+          <dt>Intentional browsing</dt>
+          <dd>Friction is good when it stops you mid-drift. Tabatha asks the
+              question, then gets out of the way. You still choose the
+              distraction. You just choose it on purpose.</dd>
+        </div>
+        <div class="pillar">
+          <dt>Universal time</dt>
+          <dd>Time tracking should not be a second app you forget to start. It
+              belongs in the browser, running whether or not you remembered.</dd>
+        </div>
+        <div class="pillar">
+          <dt>Agent-ready data</dt>
+          <dd>Your context, intent and attention become structured data. An
+              agent can read what you are working on instead of guessing.</dd>
+        </div>
+      </dl>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div>Tabatha, by Duck &amp; Shark. Part of the Flux ecosystem.</div>
+    <nav>
+      <a href="/privacy">Privacy</a>
+      <a class="tell" href="/show/">Show and Tell<span>&#8599;</span></a>
+    </nav>
+  </footer>
+
+</div>
+
+<script src="/assets/teaser.js"></script>
+</body>
+</html>
