@@ -198,9 +198,9 @@ footer .dot{opacity:.4}
       <div class="n">8 surfaces · 90 components →</div>
     </a>
 
-    <a class="cat" href="components-companion.html" data-k="companion desktop tauri rust tray windows window monitor sqlite categorizer websocket 9147 capture updater autostart shipped live tabby desk">
+    <a class="cat" href="components-companion.html" data-k="companion desktop tauri rust tray windows window monitor sqlite categorizer websocket 9147 capture updater autostart download install get built tabby desk">
       <span class="e">🖥️</span>
-      <div class="t">Desktop Companion <span class="statusflag live">Shipped · v0.2.0</span></div>
+      <div class="t">Desktop Companion <span class="statusflag live">Built · v0.2.0</span></div>
       <div class="d">A Windows tray app that watches the rest of the desktop, so the hours you spend outside the
         browser stop reading as idle. It is also how the extension distributes and updates itself.</div>
       <div class="items">Tray · Desk Panel · window monitor · categorizer · local SQLite · WebSocket bridge · opt-in capture · updater · autostart</div>
@@ -218,6 +218,21 @@ footer .dot{opacity:.4}
 
   </div>
   <div class="nores" id="nores-f">No product matches that filter.</div>
+
+  <!-- Entry point to the companion's download panel. Sits under the family
+       grid rather than in it: "which products exist" and "how do I get one"
+       are different questions, and a fourth tile would have left an orphan
+       cell in a three-column grid. The label leads with the outcome so
+       nobody clicks through expecting a file. -->
+  <a class="getstrip" href="components-companion.html#get">
+    <span class="e" aria-hidden="true">🖥️</span>
+    <span class="gs-body">
+      <span class="gs-t">Get the Desktop Companion <span class="statusflag dev">No download yet</span></span>
+      <span class="gs-d">Built and running at v0.2.0 on Windows, but never packaged, signed or published.
+        The panel lists exactly what is blocking a release, and takes a request.</span>
+    </span>
+    <span class="gs-go" aria-hidden="true">→</span>
+  </a>
 </section>
 
 <section id="surfaces">

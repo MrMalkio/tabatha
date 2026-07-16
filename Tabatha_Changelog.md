@@ -5,6 +5,31 @@ file.
 
 ---
 
+## [v6.7.19] - The public site works on a phone - _2026-07-16_
+
+### Fixed
+
+- **The site was not responsive at any width below desktop.** Measured before the fix: **33 of 54** page/width combinations overflowed horizontally. Every one of the 18 pages failed at 390px, and 7 of 10 still failed at 768px. Now 54/54 pass. Breakpoints are **1024 / 768 / 480**, and the rule is that the page body never scrolls sideways: anything intrinsically wide (component stages, the log table, the roadmap rail) scrolls inside its own container instead.
+- **The `.reqbtn` header button alone broke every page.** "✨ Request a feature" with `white-space: nowrap` was a flex item that could not shrink, so it set a 427px floor under the nav and therefore under the whole document, on all 10 site pages. Its label now lives in a `<span class="lbl">` and collapses to the glyph below 768px, with the name kept on `aria-label`.
+- **Four surface frames shipped no `<meta name="viewport">`** (`sidebar`, `home`, `settings`, `backdating`), so a phone laid them out against a 980px virtual viewport. Added.
+- **Per-card actions were unreachable on touch.** `.cardfb` and the roadmap's `.rfb` are revealed on `:hover`, which a touch device never fires, so Bug/Request could not be tapped at all. Now permanently visible under `@media (hover: none)`. Desktop capture is unaffected.
+- **Component stages clipped their contents on a phone.** `.stage` is `overflow: hidden` and the demos inside are pinned-width renders of real app UI (the CommandPalette is 540px because the CommandPalette *is* 540px), so a phone silently cut them in half. The stage now scrolls on its own axis below 900px, start-aligned so the overflowing edge is actually reachable.
+
+### Added
+
+- **Mobile nav drawer.** `site.js` wraps the header links in `.navlinks` and injects a `.navtoggle`; above 768px the wrapper is `display: contents`, so the desktop nav renders exactly as before. Done in JS rather than in markup because the ten pages carry the same nav with different link sets.
+- **Full-height sheet for the search and feedback overlays** below 768px, with the field pinned at the top and the list taking the remaining height. Inputs are 16px to stop iOS zooming the viewport on focus.
+- **Companion download panel** (`showcase/components-companion.html#get`) plus an entry strip on the hub. It is deliberately a **soft state**: there is no artifact to link. It names the platform (Windows 10/11 x64), the real version (**0.2.0**, from `tauri.conf.json`, not the stale README), what the companion actually does *including that it captures the screen*, and an explicit list of what blocks a release (no git remote, no `tauri build` bundle, no code signing, no companion update channel, stale docs, unauthenticated local socket). The CTA files a request rather than pretending to serve a file.
+
+### Changed
+
+- **Hub thumbnails now derive their scale from their own box** (`container-type: inline-size` + `aspect-ratio` + `scale(calc(100cqw / 1280px))`) instead of hard-coded transform/height pairs that only agreed at one viewport. The phone step previously cropped roughly half of every surface.
+- **Roadmap board has three shapes**: six columns at desktop, a snap-scrolling rail from 769-1024px, and stacked below 768px. A 232px column on a 390px screen turns the roadmap into six swipes; stacked, it reads top to bottom.
+- **Surface frames scale rather than reflow.** All 8 stay exactly 1280×800 at the capture width; below 1279px `zoom: calc(100vw / 1280px)` fits the whole frame to the viewport, with body-level scrolling as the fallback where that is unsupported. `.shot`'s own layout is never touched, so the Chrome Web Store screenshots are byte-identical.
+- **Companion status reads "Built · v0.2.0", not "Shipped".** The page previously claimed "Everything on this page is shipped and installable today"; nothing on it is installable, because the binary has never left the machine that compiled it.
+
+---
+
 ## [v6.7.18] - Public site covers the whole product family - _2026-07-16_
 
 ### Added

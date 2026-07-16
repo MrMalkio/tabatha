@@ -244,13 +244,66 @@ footer .dot{opacity:.4}
 
 <header class="phead">
   <div class="kicker">Component Showcase</div>
-  <h1>Desktop Companion <span class="statusflag live">Shipped · v0.2.0</span></h1>
+  <h1>Desktop Companion <span class="statusflag live">Built · v0.2.0</span></h1>
   <p>The browser can only see the browser. The companion is a small Windows tray app that watches
     the rest of the desktop and tells the extension what it finds, so a stint spent in Figma, Excel or a
     call is time your day actually accounts for instead of a five-hour hole labelled "idle". It is a
-    separate product with its own release line, its own palette, and its own database. Everything on this
-    page is shipped and installable today.</p>
+    separate product with its own release line, its own palette, and its own database. Every component
+    below is built and running today. It is not yet something you can download.</p>
 </header>
+
+<!-- Download panel. Soft state on purpose: see the CSS note in
+     assets/site.css and the blocked-on list below. -->
+<div class="dl" id="get">
+  <div class="dl-box">
+    <div class="dl-main">
+      <span class="e" aria-hidden="true">🖥️</span>
+      <div class="dl-body">
+        <div class="dl-title">
+          <h2>Get the companion</h2>
+          <span class="statusflag dev">No public download yet</span>
+        </div>
+        <div class="dl-meta">
+          <span>Windows 10/11 · <b>x64</b></span>
+          <span>Version <b>0.2.0</b></span>
+          <span>Tauri · Rust</span>
+        </div>
+        <p class="dl-desc">The companion is real and it runs, but it exists as a binary on the machine that
+          compiled it and nowhere else. There is <b>no repository, no release and no installer</b> to point
+          you at, so this page will not hand you a link that does not work. Windows only, and not by
+          oversight: the window monitor is bound to Win32 and the capture engine draws through GDI, so
+          macOS and Linux are not a build target away, they are a port.</p>
+        <p class="dl-desc">It watches which application and window is in front, sorts that into categories,
+          keeps it in a local SQLite database, and pushes what it sees to the extension over a loopback
+          WebSocket. It <b>can also capture the screen</b> while the browser is not in front, throttled and
+          redacted, which is the half of the record the extension cannot see. That capture is the reason
+          this is not a casual install, and the reason the release below is gated rather than rushed.</p>
+        <div class="dl-actions">
+          <button type="button" class="dl-cta" id="dl-req">✉️ Request access</button>
+          <span class="dl-note">Goes to the backlog as a request, not to a download.</span>
+        </div>
+      </div>
+    </div>
+    <div class="dl-missing">
+      <div class="h">Blocked on</div>
+      <ul>
+        <li><b>A hosted repository.</b> The source has no git remote. It has never left this machine.</li>
+        <li><b>An installer.</b> Only <code>cargo build --release</code> has run, which yields a bare
+          16 MB exe with no Start-menu entry, no uninstall and no auto-start registration. Bundling
+          (<code>tauri build</code>) has not been run.</li>
+        <li><b>Code signing.</b> No certificate is configured. An unsigned binary that captures the
+          screen and opens a socket will trip SmartScreen, and should.</li>
+        <li><b>A companion update channel.</b> The existing updater ships the <b>extension</b>, not the
+          companion. Handing out 0.2.0 today means every fix is a manual reinstall.</li>
+        <li><b>Docs that match the code.</b> The README still says v0.1.0 and "no screenshots, ever"
+          while a capture engine ships. Publishing against that would deny the most privacy-sensitive
+          thing the product does.</li>
+        <li><b>Auth on the local socket.</b> Port 9147 is loopback-bound but unauthenticated. Any local
+          process can connect. Acceptable on one developer's machine, not on yours.</li>
+      </ul>
+    </div>
+  </div>
+</div>
 
 <section id="components">
   <div class="sec-head">

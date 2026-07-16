@@ -96,6 +96,107 @@
 .devnote .tx b { color: #ffc072; font-weight: 700; }
 @media (max-width: 900px) { .devnote { margin: 18px 20px 0; } }
 
+/* ── download panel ──────────────────────────────────────── */
+/* The companion's "get it" surface. It is deliberately built as a
+   SOFT state rather than a download button, because as of v6.7.19
+   there is nothing to download: the binary exists only on the
+   machine that compiled it. See the copy in components-companion
+   .html for the full accounting. If a release is ever published,
+   `.dl-cta` becomes a real <a download> and `.dl-missing` goes.
+
+   Amber, not cyan: cyan is this site's "go" colour and using it on
+   a control that cannot give you the file would be a lie told in
+   CSS. This borrows `.devnote`'s amber, which already means
+   "honest, but not yet". */
+.dl {
+  max-width: 1180px; margin: 26px auto 0; padding: 0 40px;
+}
+.dl-box {
+  border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-lg, 8px); background: var(--panel, #14171c);
+  overflow: hidden;
+}
+.dl-main { display: flex; align-items: flex-start; gap: 18px; padding: 20px 22px; }
+.dl-main .e { font-size: 30px; line-height: 1; flex: none; }
+.dl-body { flex: 1; min-width: 0; }
+.dl-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dl-title h2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.dl-meta {
+  display: flex; gap: 8px 14px; flex-wrap: wrap; margin-top: 8px;
+  font: 500 11.5px var(--mono, monospace); color: var(--muted, #7d8894);
+}
+.dl-meta b { color: #c4ced8; font-weight: 600; }
+.dl-desc { font-size: 13px; line-height: 1.6; color: #9aa5b1; margin-top: 10px; max-width: 72ch; }
+.dl-desc b { color: #c4ced8; font-weight: 600; }
+
+.dl-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.dl-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 18px; cursor: pointer;
+  border-radius: var(--r-md, 4px); border: 1px solid rgba(255, 167, 38, .55);
+  background: rgba(255, 167, 38, .12); color: #ffc072;
+  font: 600 13px var(--sans, system-ui);
+  transition: background .16s ease;
+}
+.dl-cta:hover { background: rgba(255, 167, 38, .2); }
+.dl-cta:active { transform: translateY(1px); }
+.dl-cta:focus-visible { outline: 2px solid #ffa726; outline-offset: 2px; }
+.dl-note { font-size: 11.5px; color: var(--muted, #7d8894); }
+
+/* The blocked-on list. Named out loud rather than hidden behind a
+   vague "coming soon", because each line is a real task someone has
+   to do before this button can hand over a file. */
+.dl-missing {
+  border-top: 1px solid var(--border, rgba(255,255,255,.09));
+  background: rgba(255, 255, 255, .02); padding: 14px 22px 16px;
+}
+.dl-missing .h {
+  font: 700 9px var(--sans, system-ui); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted, #7d8894);
+}
+.dl-missing ul { margin: 9px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.dl-missing li {
+  font-size: 12px; line-height: 1.5; color: #9aa5b1;
+  padding-left: 16px; position: relative;
+}
+.dl-missing li::before { content: "○"; position: absolute; left: 0; color: #6b7480; font-size: 9px; top: 4px; }
+.dl-missing li b { color: #c4ced8; font-weight: 600; }
+.dl-missing code {
+  font: 500 11px var(--mono, monospace); color: #c8b490;
+  background: rgba(255, 167, 38, .08); border-radius: 2px; padding: 1px 4px;
+}
+
+@media (max-width: 1024px) { .dl { padding: 0 24px; } }
+@media (max-width: 768px) {
+  .dl { padding: 0 16px; }
+  .dl-main { padding: 16px; gap: 12px; }
+  .dl-main .e { font-size: 22px; }
+  .dl-missing { padding: 13px 16px 15px; }
+  .dl-cta { width: 100%; }
+  .dl-actions { gap: 8px; }
+}
+
+/* The hub's entry point into the panel above. Amber for the same
+   reason `.dl-cta` is: this leads somewhere honest, not to a file. */
+.getstrip {
+  display: flex; align-items: center; gap: 14px; margin-top: 18px;
+  padding: 14px 16px; min-height: 44px;
+  border: 1px solid rgba(255, 167, 38, .28); background: rgba(255, 167, 38, .06);
+  border-radius: var(--r-md, 4px); text-decoration: none; color: inherit;
+  transition: border-color .16s ease, background .16s ease;
+}
+.getstrip:hover { border-color: rgba(255, 167, 38, .55); background: rgba(255, 167, 38, .1); }
+.getstrip:focus-visible { outline: 2px solid #ffa726; outline-offset: 2px; }
+.getstrip .e { font-size: 20px; flex: none; }
+.gs-body { flex: 1; min-width: 0; }
+.gs-t { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; }
+.gs-d { display: block; font-size: 12px; color: #9aa5b1; line-height: 1.55; margin-top: 3px; }
+.gs-go { color: #ffc072; flex: none; font-size: 15px; }
+@media (max-width: 768px) {
+  .getstrip { align-items: flex-start; gap: 11px; }
+  .gs-go { display: none; }
+}
+
 /* ── per-card feedback actions ───────────────────────────── */
 /* Absolutely positioned and transparent until hover/focus, so
    they add ZERO layout height. The capture script clips each
@@ -243,14 +344,252 @@
 .fb-done h4 { font-size: 15px; margin: 10px 0 6px; }
 .fb-done p { font-size: 12.5px; color: var(--muted, #7d8894); max-width: 44ch; margin: 0 auto; line-height: 1.6; }
 
-@media (max-width: 700px) {
+/* ── mobile nav drawer ───────────────────────────────────── */
+/* Every page ships the same nav shape: logo, wordmark, .tag, a
+   .grow spacer, 2-4 links, the injected .site-tools, .verbadge.
+   At desktop that is one 64px line. On a phone it is two lines of
+   overflowing text, so site.js wraps the links in `.navlinks` and
+   injects `.navtoggle`.
+
+   `display: contents` is the load-bearing trick: above the drawer
+   breakpoint the wrapper vanishes from layout entirely and the
+   links stay direct flex items of .nav, so the desktop render is
+   byte-identical to before the wrapper existed. */
+.navlinks { display: contents; }
+.navtoggle { display: none; }
+
+@media (max-width: 768px) {
+  .navtoggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; flex: none; order: 99;
+    background: transparent; border: 1px solid var(--border, rgba(255,255,255,.09));
+    border-radius: var(--r-md, 4px); color: var(--text, #F2F5F7);
+    font-size: 15px; cursor: pointer; line-height: 1;
+  }
+  .navtoggle[aria-expanded="true"] { border-color: rgba(0, 210, 255, .45); color: var(--cyan, #00D2FF); }
+
+  .navlinks {
+    display: none;
+    position: absolute; top: 100%; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    /* Fully opaque, and deliberately NOT backdrop-filter'd. `.nav` above
+       already has `backdrop-filter: blur(14px)`, and a filtered child of a
+       filtered ancestor resolves its backdrop against the ancestor's
+       backdrop root instead of its own: the drawer painted see-through and
+       the hero text read straight through the links. A solid fill is also
+       just the right call for a menu you have to read. */
+    background: var(--bg, #0F1115);
+    border-bottom: 1px solid var(--border, rgba(255,255,255,.09));
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
+    padding: 6px 16px 12px; max-height: calc(100dvh - 60px); overflow-y: auto;
+  }
+  .navlinks.open { display: flex; }
+  /* 44px rows: this is the only way to reach another page on a phone. */
+  body .navlinks a {
+    display: flex; align-items: center; min-height: 44px;
+    font-size: 14px; padding: 0 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, .05);
+  }
+  .navlinks a:last-child { border-bottom: 0; }
+}
+
+/* ── responsive layer ────────────────────────────────────── */
+/* Every page defines its own chrome in an inline <style> that
+   comes AFTER this file's <link>, so a bare `.cats {}` here would
+   lose the cascade on source order. The `body` prefix (0,1,1 vs
+   0,1,0) wins without resorting to !important. That is why these
+   selectors look over-qualified: it is deliberate, not noise.
+
+   Breakpoints: 1024 (laptop -> tablet), 768 (tablet -> phone),
+   480 (small phone). Nothing here fires at the 1280 capture
+   width, so the store screenshots cannot be touched by it. */
+
+@media (max-width: 1024px) {
+  body .nav { padding: 12px 20px; }
+  body .hero, body .phead, body section, body footer,
+  body .board-wrap, body .devnote { padding-left: 24px; padding-right: 24px; }
+  body .indexbar { padding-left: 24px; padding-right: 24px; }
+  body .hero { padding-top: 48px; }
+  body .hero h1 { font-size: 40px; }
+  body .phead { padding-top: 40px; }
+  body .phead h1 { font-size: 32px; }
+  /* 6 shot columns -> 2. The lead frame keeps its full-bleed row. */
+  body .shots { grid-template-columns: repeat(2, 1fr); }
+  body .shotcard { grid-column: span 1; }
+  body .shotcard.lead { grid-column: span 2; }
+  body .cats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── hub thumbnails ──────────────────────────────────────── */
+/* Each thumb is a live 1280x800 sibling page in an iframe, shrunk
+   by a hard-coded transform (.75 lead / .28 tile) against a
+   hard-coded box height. Those two numbers only agree at one
+   viewport width; anywhere else the frame is cropped or floats in
+   a letterbox, and the phone step (.37 in a 300px box) cropped
+   roughly half of every surface.
+
+   Below desktop, derive the scale from the box instead of guessing
+   it: `container-type: inline-size` makes 100cqw the thumb's own
+   width, `aspect-ratio` gives it the matching height, and the
+   iframe scales to fit exactly. Correct at every width, and the
+   iframe's 1280x800 content is untouched, so what a phone shows is
+   the whole real surface rather than its top-left corner. */
+@media (max-width: 1024px) {
+  body .thumb {
+    container-type: inline-size;
+    aspect-ratio: 1280 / 800;
+    height: auto;
+  }
+  body .shotcard .thumb iframe,
+  body .shotcard.lead .thumb iframe {
+    width: 1280px; height: 800px;
+    transform: scale(calc(100cqw / 1280px));
+  }
+}
+
+@media (max-width: 768px) {
+  body .nav { padding: 10px 16px; gap: 10px; position: relative; }
+  /* The strapline is the first thing to go: the wordmark already says it. */
+  body .nav .tag { display: none; }
+  body .nav .grow { flex: 1; }
+
+  body .hero, body .phead, body section, body footer,
+  body .board-wrap, body .devnote { padding-left: 16px; padding-right: 16px; }
+  body .indexbar { padding-left: 16px; padding-right: 16px; }
+  body .devnote { margin-left: 0; margin-right: 0; }
+  body .hero { padding-top: 36px; }
+  body .hero h1 { font-size: 30px; max-width: none; }
+  body .hero p { font-size: 15px; }
+  body .phead h1 { font-size: 26px; }
+  body .phead p, body .sec-purpose { font-size: 14px; }
+
+  /* Sticky nav + sticky indexbar together eat a phone screen. The nav
+     stays (it is the only navigation); the in-page index unsticks. */
+  body .indexbar { position: static; }
+  body section { scroll-margin-top: 72px; }
+
+  body .shots, body .cats, body .lib { grid-template-columns: 1fr; }
+  body .shotcard, body .shotcard.lead, body .libcard.wide { grid-column: span 1; }
+
+  /* .sec-head is a baseline-aligned row; `.meta` gets pushed off. */
+  body .sec-head { flex-wrap: wrap; gap: 4px 12px; }
+  body .sec-head .meta { margin-left: 0; flex-basis: 100%; }
+
+  body .searchbtn, body .reqbtn, body .btn { min-height: 44px; }
+  body .indexbar a { min-height: 36px; display: inline-flex; align-items: center; }
+}
+
+@media (max-width: 480px) {
+  body .hero h1 { font-size: 25px; }
+  body .phead h1 { font-size: 22px; }
+  body .sec-head h2 { font-size: 17px; }
+}
+
+/* ── intrinsically-wide content: scroll it, never the page ── */
+/* The rule for the whole site: if a thing cannot honestly shrink,
+   it gets its own scroll container and the page body stays put. */
+
+/* Component stages are pinned-width renders of real app UI (the
+   CommandPalette is 540px because the CommandPalette IS 540px).
+   Scaling them down would misrepresent the component, so below the
+   fold-in point the stage becomes the scroller. `overflow: hidden`
+   at desktop merely CLIPS these on a phone, which reads as a broken
+   card rather than an honest one. */
+@media (max-width: 900px) {
+  body .stage {
+    overflow-x: auto; overflow-y: hidden;
+    /* Centring is correct until the content is wider than the box, at
+       which point it makes the overflowing left edge unreachable by
+       scrolling. Start-align once we are in scrolling territory. */
+    justify-content: flex-start;
+    overscroll-behavior-x: contain;
+  }
+  body .stage > * { margin-left: auto; margin-right: auto; }
+}
+
+/* Log tables keep real column widths and scroll inside the card. */
+@media (max-width: 768px) {
+  body .lgtable { overflow-x: auto; }
+  body .lgtable table { min-width: 460px; }
+}
+
+/* ── roadmap board ───────────────────────────────────────── */
+/* Three shapes, because a kanban means different things at each
+   size. Desktop: six columns. Tablet: the same six as a swipeable
+   rail — the board already scrolls itself, so it only needs a
+   floor under the column width and a hint that there is more to
+   the right. Phone: stacked. A 232px column on a 390px screen
+   turns "what is being built" into six swipes through cramped
+   cards; stacked, each column head is a section and the whole
+   roadmap reads top to bottom in one gesture. */
+@media (max-width: 1024px) and (min-width: 769px) {
+  body .board {
+    grid-template-columns: repeat(6, minmax(240px, 1fr));
+    /* Bleed the rail to the viewport edge so a half-cut card at the
+       right reads as "scroll me" rather than as a layout mistake. */
+    margin-right: -24px; padding-right: 24px;
+    scroll-snap-type: x proximity; overscroll-behavior-x: contain;
+  }
+  body .col { scroll-snap-align: start; }
+}
+@media (max-width: 768px) {
+  body .board { grid-template-columns: 1fr; overflow-x: visible; }
+  body .phead h1 { font-size: 26px; }
+  body .legend { gap: 8px; }
+}
+
+/* ── touch ───────────────────────────────────────────────── */
+/* Per-card actions are hover-revealed. A touch device has no hover,
+   which made every card's Bug/Request unreachable on a phone. Keep
+   them permanently visible there instead. Scoped to hover:none so a
+   desktop capture (hover:hover) still renders clean cards. */
+@media (hover: none) and (max-width: 900px) {
+  .cardfb, body .rfb { opacity: 1; }
+  .cardfb button, body .rfb button { min-height: 32px; padding: 6px 9px; }
+}
+
+/* ── overlays: sheet on a phone ──────────────────────────── */
+@media (max-width: 900px) {
   .nav .site-tools { gap: 6px; }
   .searchbtn { min-width: 0; }
   .searchbtn .lbl, .searchbtn kbd { display: none; }
-  .reqbtn { font-size: 11px; padding: 6px 9px; }
-  .ovl { padding: 6vh 12px 12px; }
 }
+/* Both header buttons collapse to their glyph. Search is the one that has
+   to survive on a phone, so it keeps a full 44px target rather than being
+   squeezed; `aria-label` carries the name for anyone not seeing the icon. */
+@media (max-width: 768px) {
+  .reqbtn .lbl { display: none; }
+  .reqbtn, .searchbtn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; padding: 0; flex: none; font-size: 15px;
+  }
+}
+@media (max-width: 768px) {
+  /* A centred 620px card with 12vh of dead space above it wastes a
+     phone screen and puts the search field under the thumb's reach
+     for nothing. Full-height sheet: the field lands at the top, the
+     result list gets every remaining pixel. */
+  .ovl { padding: 0; overflow: hidden; }
+  .ovl-box {
+    max-width: none; height: 100dvh; border: 0; border-radius: 0;
+    display: flex; flex-direction: column; box-shadow: none;
+  }
+  .ovl-box > form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  /* The scrolling middle of the sheet; head and foot stay pinned. */
+  .sx-results, .fb-body { flex: 1; min-height: 0; overflow-y: auto; }
+  .sx-results { max-height: none; }
+  .sx-item { padding: 11px 10px; }
+  /* 16px keeps iOS from zooming the viewport on focus. */
+  .fb-row input[type="text"], .fb-row input[type="email"], .fb-row textarea { font-size: 16px; }
+  .fb-seg { flex-direction: column; }
+  .fb-seg label { min-height: 44px; }
+  .fb-head .x { min-width: 44px; min-height: 44px; }
+  .fb-foot { flex-wrap: wrap; }
+  .fb-foot .note { flex-basis: 100%; }
+  .sx-foot span:not(.grow):not(#sx-count) { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cardfb, .searchbtn, .reqbtn, .btn { transition: none; }
+  .cardfb, .searchbtn, .reqbtn, .btn, .navtoggle { transition: none; }
   .btn:active, .reqbtn:active { transform: none; }
 }
