@@ -1,7 +1,7 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "6.7.16",
+  "version": "6.7.17",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,9 @@
     "capture:showcase": "node scripts/capture-screenshots.mjs",
     "capture:shots": "node scripts/capture-screenshots.mjs --shots",
     "capture:cards": "node scripts/capture-screenshots.mjs --cards",
+    "build:search-index": "node scripts/build-search-index.mjs",
+    "check:search-index": "node scripts/build-search-index.mjs --check",
+    "site:serve": "node scripts/serve-showcase.mjs",
     "lint": "eslint .",
     "test": "node --test",
     "preview": "vite preview",

@@ -2,6 +2,26 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.17",
+      "title": "Showcase becomes a public site: purpose copy, search, feedback, roadmap",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Site-wide search** — one box in the header of every real page (hub, all 6 category pages, roadmap), querying a prebuilt static index of **147 records**: all 90 component cards, 9 section descriptions, 8 surfaces, 6 pages, and every roadmap item. Fully keyboard-driven: `/` focuses from anywhere, arrows move, Enter opens, Escape closes. `npm run build:search-index` generates `showcase/search-index.json` by **parsing the real page markup** (`scripts/build-search-index.mjs`), so a card renamed in HTML cannot drift out of sync with what search returns; `npm run check:search-index` fails CI if it is stale.\n- **Section purpose copy** — every section header and category page now states what the group of components *is* and what job it does for the user, derived from the shipped source and the four pillars in `Tabatha_Concept.md`.\n- **Per-card Report bug / Request feature** — every one of the 90 cards carries both actions, bound to that exact component (id + name + page prefilled into the form). Injected at runtime from the card's own `id` and caption, so no per-card markup was needed. The controls are absolutely positioned and transparent until hover/focus, which keeps `.libcard` bounding boxes **byte-identical for the card captures**.\n- **Feedback modal + `POST /api/feedback`** — a Cloudflare Pages Function (`functions/api/feedback.js`) files submissions as Asana tasks, reading its token from the `ASANA_TOKEN` env binding (never hardcoded, never logged). With no token configured it returns a clear **501** and the client falls back to opening a **prefilled GitHub issue**, so the feature works before the backend is wired. Also the fallback on `file://` and on any upstream error: the reporter's words are never lost.\n- **Header \"Request a feature\"** — the same modal from every page, with no component prefilled.\n- **Roadmap page** (`showcase/roadmap.html`) — a kanban board whose columns are the product's **real funnel stages** (`FUNNEL_STAGES` in `src/hooks/useFocusEngine.js`: unsorted, todo, focus, addressing, roadblocked, resolved) with their shipped labels, emoji and colors. Fed by a **curated** `showcase/roadmap.json` (34 entries) — deliberately not wired to the internal board, so no internal task or client names can leak.\n- **Cloudflare Pages deployment** — `showcase/_headers` (CSP, no external origins, `frame-src 'self'` for the embedded surfaces), plus deploy, env-var and roadmap-update docs in `showcase/README.md`. `npm run site:serve` serves `showcase/` over http locally (search and the roadmap need a real origin) and stubs `/api/feedback` at 501 to exercise the fallback."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Showcase search: HTML entities rendered literally** — card titles containing `&mdash;` were indexed raw, so results read `Gatekeeper &mdash; agent` and a search for `gatekeeper agent` could not match across the entity. The index builder now decodes named, decimal and hex entities."
+        },
+        {
+          "label": "Notes",
+          "body": "- The 8 surface frames are unchanged and carry **no site chrome**. They are rendered at an exact 1280×800 as the whole viewport by the capture script, so adding a header or search box to them would corrupt the five Chrome Web Store screenshots. Their purpose copy lives on the hub, where they are presented."
+        }
+      ]
+    },
+    {
       "version": "6.7.16",
       "title": "Showcase expansion: full component inventory + card captures",
       "date": "2026-07-16",

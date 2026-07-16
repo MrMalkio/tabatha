@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tabatha - Overlays &amp; Content Scripts</title>
+<link rel="stylesheet" href="assets/site.css">
 <style>
 /* ============================================================
    Tabatha Component Showcase — category page kit.
@@ -295,6 +296,7 @@ footer .dot{opacity:.4}
   <a href="index.html" class="back">&larr; Gallery</a>
   <a href="#inbar">InBar</a>
   <a href="#overlays">Overlays</a>
+  <a href="roadmap.html">Roadmap</a>
   <span class="verbadge">v6.7.16</span>
 </nav>
 
@@ -309,6 +311,7 @@ footer .dot{opacity:.4}
     <h2>InBar states</h2>
     <span class="meta">one 26px strip, five states &middot; src/content/inbar.js</span>
   </div>
+  <p class="sec-purpose">The InBar is the one piece of Tabatha that is always on screen, so it is the one that had to be smallest. It sits on the page you are actually reading and states what you said this tab was for. That is the whole job: <b>a tab with a declared purpose is hard to drift away from without noticing</b>, and noticing is the point. The states below are the interesting part - what it looks like when a focus is paused, when a tab has no intent at all, when an agent is driving, and when you have collapsed it down to a nub because you need the pixels back.</p>
   <div class="lib app">
 
     <div class="libcard" id="inbar-active">
@@ -473,6 +476,7 @@ footer .dot{opacity:.4}
     <h2>Overlays &amp; prompts</h2>
     <span class="meta">full-page interrupts and bar-anchored panels</span>
   </div>
+  <p class="sec-purpose">Everything Tabatha injects that interrupts rather than informs. The <b>Gatekeeper</b> is the load-bearing one: open a new tab with no link behind it and it asks "Why are you here?" before the page resolves. Strict mode wants an answer, Relaxed mode takes a shrug. This is deliberate friction, applied at the one moment it is cheap - before you have started - rather than in a report you read afterwards. The rest hold lines you drew earlier: BlockGate on sites you blocked, Welcome Back after time away, the Backburner prompt when you park something you are blocked on.</p>
   <div class="lib app">
 
     <div class="libcard wide" id="sticky-note">
@@ -756,5 +760,6 @@ footer .dot{opacity:.4}
   <span>self-contained, no network dependencies</span><span class="dot">·</span>
   <span>icons are emoji, exactly as the extension ships</span>
 </footer>
+<script src="assets/site.js" defer></script>
 </body>
 </html>
