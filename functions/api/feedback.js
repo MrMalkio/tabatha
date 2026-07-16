@@ -22,7 +22,7 @@
  * name and notes as plain text, never interpolated into a URL or a command.
  */
 
-const MAX = { title: 140, description: 4000, component: 120, email: 160 };
+const MAX = { title: 140, description: 4000, why: 2000, component: 120, email: 160 };
 
 const json = (status, body) =>
   new Response(JSON.stringify(body), {
@@ -54,6 +54,9 @@ export async function onRequestPost({ request, env }) {
   const type = body.type === 'bug' ? 'bug' : 'feature';
   const title = clean(body.title, MAX.title);
   const description = clean(body.description, MAX.description);
+  // Feature requests only — the client hides the field for bugs, and a bug that
+  // arrives carrying one has nothing useful to say with it.
+  const why = type === 'feature' ? clean(body.why, MAX.why) : '';
   const component = clean(body.component, MAX.component);
   const componentId = clean(body.componentId, MAX.component);
   const email = clean(body.email, MAX.email);
@@ -80,9 +83,14 @@ export async function onRequestPost({ request, env }) {
   const name = `${type === 'bug' ? '🐞' : '✨'} ${component ? `[${component}] ` : ''}${title}`;
   const notes = [
     description,
+    // Surfaced as its own labelled block above the metadata rule: on a feature
+    // request this is the part that decides whether the task gets picked up, so
+    // it must not read as one more footer field.
+    ...(why ? ['', 'WHY THIS MATTERS', why] : []),
     '',
     '───────────────',
     `Type: ${type === 'bug' ? 'Bug report' : 'Feature request'}`,
+    ...(type === 'feature' && !why ? ['Why: (not supplied)'] : []),
     component ? `Component: ${component}${componentId ? ` (#${componentId})` : ''}` : 'Component: (general)',
     page ? `Page: ${page}` : '',
     email ? `Reply to: ${email}` : 'Reply to: (not supplied)',

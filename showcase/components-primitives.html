@@ -302,7 +302,7 @@ footer .dot{opacity:.4}
   <a href="index.html" class="back">← Gallery</a>
   <a href="#components">Components</a>
   <a href="roadmap.html">Roadmap</a>
-  <span class="verbadge">v6.7.16</span>
+  <span class="verbadge">v6.7.18</span>
 </nav>
 
 <header class="phead">
@@ -383,9 +383,11 @@ footer .dot{opacity:.4}
             <span class="tp-collapsed">🏷 Add tags</span>
             <div class="vlabel" style="margin-top:16px">collapsed / populated</div>
             <span class="tp-collapsed filled">💼 › Northwind › Finance › Q1 charts</span>
+            <div class="vlabel" style="margin-top:16px">collapsed / personal</div>
+            <span class="tp-collapsed filled">🏠 › Self › Vacation planning</span>
           </div>
           <div class="vcol">
-            <div class="vlabel">expanded</div>
+            <div class="vlabel">expanded / business selected</div>
             <div class="tp exp">
               <div class="eyebrow">🏷 Tags &amp; Associations</div>
               <div class="grid">
@@ -398,10 +400,23 @@ footer .dot{opacity:.4}
               <div class="donerow"><button class="done">Done ✓</button></div>
             </div>
           </div>
+          <div class="vcol">
+            <div class="vlabel">expanded / personal selected</div>
+            <div class="tp exp">
+              <div class="eyebrow">🏷 Tags &amp; Associations</div>
+              <div class="grid">
+                <div class="f"><label>Realm</label><div class="toggle"><button>💼 Business</button><button class="on">🏠 Personal</button></div></div>
+                <div class="f"><label>Client</label><div class="combo">👤 Self</div></div>
+                <div class="f"><label>Task</label><div class="combo">✏️ Vacation planning</div></div>
+              </div>
+              <div class="hint">🏠 Personal work is attributed to <b>Self</b>. Project is a business-only field, so it is not rendered here.</div>
+              <div class="donerow"><button class="done">Done ✓</button></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="libcap"><span class="e">🏷</span><div><div class="t">TagPicker</div>
-        <div class="d">Binds a focus to Realm › Client › Project › Task. Collapsed it is a dashed affordance that becomes a breadcrumb once filled; expanded it exposes the realm toggle and three ComboInputs, with autofill up the hierarchy.</div>
+        <div class="d">Binds a focus to Realm › Client › Project › Task. Collapsed it is a dashed affordance that becomes a breadcrumb once filled; expanded it exposes the realm toggle and the ComboInputs, with autofill up the hierarchy. Switching to <b>Personal</b> auto-fills the client as <b>Self</b> (always offered as an option, whatever your client list holds) and drops Client and Project from the form unless they already carry a value. Task stays available in both realms.</div>
         <div class="src">src/components/ui/TagPicker.jsx</div></div></div>
     </div>
 
@@ -686,7 +701,7 @@ footer .dot{opacity:.4}
           <div class="vcol" style="flex:1;min-width:0">
             <div class="vlabel">entry</div>
             <div class="cl">
-              <div class="vh"><span class="vn">v6.7.16</span><span class="dt">2026-07-16</span></div>
+              <div class="vh"><span class="vn">v6.7.18</span><span class="dt">2026-07-16</span></div>
               <div class="ti">Primitives &amp; panels showcase</div>
               <div class="sl">✨ Added</div>
               <div class="bd"><ul>
@@ -772,7 +787,7 @@ footer .dot{opacity:.4}
 
 <footer>
   <span>Tabatha component showcase</span><span class="dot">·</span>
-  <span>brand-faithful to v6.7.16</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.18</span><span class="dot">·</span>
   <span>self-contained, no network dependencies</span><span class="dot">·</span>
   <span>icons are emoji, exactly as the extension ships</span>
 </footer>

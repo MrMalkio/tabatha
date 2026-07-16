@@ -38,7 +38,15 @@ const CATEGORY_PAGES = [
   { file: 'components-org.html',        label: 'Org & Team',                 icon: '🏛️' },
   { file: 'components-settings.html',   label: 'Settings',                   icon: '⚙️' },
   { file: 'components-primitives.html', label: 'Primitives & Panels',        icon: '🧱' },
+  // The other two products in the family. Same card contract, so they index
+  // through the identical path — a search for "categorizer" should surface the
+  // extension's, the companion's and the mobile one together.
+  { file: 'components-companion.html',  label: 'Desktop Companion',          icon: '🖥️' },
+  { file: 'components-mobile.html',     label: 'Mobile App',                 icon: '📱' },
 ];
+
+/** Component-card total across every category page above. Update deliberately. */
+const EXPECTED_CARDS = 120;
 
 /** Named entities that appear in the showcase markup. */
 const ENTITIES = {
@@ -74,6 +82,18 @@ function grab(src, re) {
 }
 
 /**
+ * Status/CWS badges live INSIDE the `.t` caption so they sit on the same line
+ * as the title. They are metadata, not part of the name: left in, they produced
+ * records literally called "The Gatekeeper Store shot" and would now yield
+ * "Dashboard In development". So strip them from the name and fold their text
+ * into the keywords instead, where "in development" is genuinely worth matching.
+ */
+const BADGE_RE = /<span class="(?:statusflag|cwsflag|substatus)[^"]*">([\s\S]*?)<\/span>/g;
+const stripBadges = (html) => String(html || '').replace(BADGE_RE, ' ');
+const badgeText = (html) =>
+  [...String(html || '').matchAll(BADGE_RE)].map((m) => text(m[1])).join(' ');
+
+/**
  * Slice out each `.libcard` block. The cards are flat siblings inside
  * `.lib`, and every one carries an id, so we can split on the opening tag
  * and read up to the next card (or the end of the container).
@@ -103,16 +123,19 @@ for (const cat of CATEGORY_PAGES) {
   }
   const html = readFileSync(path, 'utf8');
 
-  // The page itself.
+  // The page itself. The `<h1>` can carry a status badge (the companion and
+  // mobile pages do), so it gets the same strip-to-name / fold-to-keywords
+  // treatment as the cards rather than becoming "Mobile App In development".
+  const h1 = (html.match(/<header class="phead">[\s\S]*?<h1>([\s\S]*?)<\/h1>/) || [])[1] || '';
   records.push({
     type: 'page',
     id: cat.file.replace(/\.html$/, ''),
-    name: grab(html, /<header class="phead">[\s\S]*?<h1>([\s\S]*?)<\/h1>/) || cat.label,
+    name: text(stripBadges(h1)) || cat.label,
     purpose: grab(html, /<header class="phead">[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/),
     icon: cat.icon,
     page: cat.file,
     url: cat.file,
-    keywords: '',
+    keywords: badgeText(h1),
   });
 
   // Section purpose copy (`.sec-purpose`, added by the site build).
@@ -130,7 +153,7 @@ for (const cat of CATEGORY_PAGES) {
 
   // Every component card.
   for (const { id, block } of libcards(html)) {
-    const name = grab(block, /<div class="t">([\s\S]*?)<\/div>/);
+    const name = grab(stripBadges(block), /<div class="t">([\s\S]*?)<\/div>/);
     if (!name) { console.error(`  WARN ${cat.file}#${id} — no .t caption`); continue; }
     records.push({
       type: 'component', id,
@@ -141,9 +164,12 @@ for (const cat of CATEGORY_PAGES) {
       page: cat.file,
       category: cat.label,
       url: `${cat.file}#${id}`,
-      // Variant labels are strong search terms ("paused", "empty", "strict").
-      keywords: [...block.matchAll(/<div class="vlabel">([\s\S]*?)<\/div>/g)]
-        .map((v) => text(v[1])).join(' '),
+      // Variant labels are strong search terms ("paused", "empty", "strict"),
+      // and so is a status badge ("in development", "planned", "shipped").
+      keywords: [
+        ...[...block.matchAll(/<div class="vlabel">([\s\S]*?)<\/div>/g)].map((v) => text(v[1])),
+        badgeText(block),
+      ].filter(Boolean).join(' '),
     });
     cardCount++;
   }
@@ -159,8 +185,22 @@ if (existsSync(hubPath)) {
   while ((s = shotRe.exec(hub))) {
     records.push({
       type: 'surface', id: s[1].replace(/\.html$/, ''),
-      name: text(s[3]), purpose: text(s[4]), icon: '🖼️',
-      page: 'index.html', url: s[1], keywords: s[2],
+      name: text(stripBadges(s[3])), purpose: text(s[4]), icon: '🖼️',
+      page: 'index.html', url: s[1],
+      keywords: [s[2], badgeText(s[3])].filter(Boolean).join(' '),
+    });
+  }
+
+  // The family cards: the only route to the companion and mobile pages, so
+  // they must be findable by product name rather than only by component.
+  const famRe = /<a class="cat" href="([^"]+)" data-k="([^"]*)"[\s\S]*?<span class="e">([\s\S]*?)<\/span>\s*<div class="t">([\s\S]*?)<\/div>\s*<div class="d">([\s\S]*?)<\/div>/g;
+  let f;
+  while ((f = famRe.exec(hub.slice(hub.indexOf('id="famgrid"'), hub.indexOf('id="shotgrid"'))))) {
+    records.push({
+      type: 'page', id: `family-${f[1].replace(/\.html$|^#/, '')}`,
+      name: text(stripBadges(f[4])), purpose: text(f[5]), icon: text(f[3]) || '🧩',
+      page: 'index.html', url: f[1].startsWith('#') ? `index.html${f[1]}` : f[1],
+      keywords: [f[2], badgeText(f[4]), 'product family'].filter(Boolean).join(' '),
     });
   }
 
@@ -212,5 +252,7 @@ if (CHECK) {
   console.log(`Wrote showcase/search-index.json — ${records.length} records ` +
     `(${Object.entries(byType).map(([k, v]) => `${v} ${k}`).join(', ')}), ` +
     `${(json.length / 1024).toFixed(1)} kB`);
-  if (cardCount !== 90) console.error(`  NOTE expected 90 component cards, indexed ${cardCount}`);
+  if (cardCount !== EXPECTED_CARDS) {
+    console.error(`  NOTE expected ${EXPECTED_CARDS} component cards, indexed ${cardCount}`);
+  }
 }

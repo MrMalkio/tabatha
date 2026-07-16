@@ -230,6 +230,7 @@
   fOvl.setAttribute('aria-labelledby', 'fb-title');
 
   var fbCtx = {};
+  var whyNudged = false;   // reset per open; see submit()
 
   function fbShell() {
     fOvl.innerHTML =
@@ -262,6 +263,16 @@
               '<label for="fb-desc" id="fb-desclbl">Description</label>' +
               '<textarea id="fb-desc" name="description" maxlength="4000" required></textarea>' +
             '</div>' +
+            // Feature-request only. A request without a problem behind it is a
+            // proposed solution with nothing to check it against, so this is
+            // asked for separately rather than folded into the description.
+            '<div class="fb-row" id="fb-why-row">' +
+              '<label for="fb-why">Why?</label>' +
+              '<textarea id="fb-why" name="why" maxlength="2000" ' +
+                'placeholder="What problem does this solve, and what does it cost you today?"></textarea>' +
+              '<span class="hint">What are you actually trying to get done, and what is in the way? ' +
+                'This is the part that decides whether it gets built.</span>' +
+            '</div>' +
             '<div class="fb-row">' +
               '<label for="fb-email">Email <span style="font-weight:400;color:var(--muted,#7d8894)">(optional)</span></label>' +
               '<input type="email" id="fb-email" name="email" placeholder="Only if you want a reply">' +
@@ -293,10 +304,14 @@
     document.getElementById('fb-title').textContent = v === 'bug' ? 'Report a bug' : 'Request a feature';
     document.getElementById('fb-desclbl').textContent = v === 'bug'
       ? 'What happened, and what did you expect instead?'
-      : 'What would you like it to do, and what for?';
+      : 'What would you like it to do?';
     document.getElementById('fb-desc').placeholder = v === 'bug'
       ? 'Steps to reproduce, what you saw, and what you expected.'
-      : 'Describe the outcome you are after. Context about why helps more than a proposed solution.';
+      : 'Describe the outcome you are after, not necessarily the solution.';
+    // "Why?" belongs to feature requests only. A bug report already carries its
+    // own why: it is broken. Toggled rather than always-on so the bug path keeps
+    // exactly the fields it had.
+    document.getElementById('fb-why-row').style.display = v === 'bug' ? 'none' : '';
   }
 
   /**
@@ -305,6 +320,7 @@
   function openFeedback(ctx) {
     ctx = ctx || {};
     fbCtx = ctx;
+    whyNudged = false;
     lastFocus = document.activeElement;
     fbShell();
     var t = ctx.type === 'bug' ? 'bug' : 'feature';
@@ -339,6 +355,7 @@
       componentId: fbCtx.componentId || '',
       title: document.getElementById('fb-title-in').value.trim(),
       description: document.getElementById('fb-desc').value.trim(),
+      why: document.getElementById('fb-why').value.trim(),
       email: document.getElementById('fb-email').value.trim(),
       page: here,
       url: location.href,
@@ -349,6 +366,9 @@
   function ghUrl(p) {
     var body = [
       p.description,
+      // Kept as its own titled section rather than appended to the description,
+      // so it survives as a distinct field once the issue is triaged.
+      p.why ? '\n### Why this matters\n\n' + p.why : '',
       '',
       '---',
       p.component ? '- Component: `' + p.component + '`' + (p.componentId ? ' (`#' + p.componentId + '`)' : '') : '',
@@ -392,6 +412,15 @@
 
     if (!p.title) { err.textContent = 'A title is required.'; err.classList.add('show'); document.getElementById('fb-title-in').focus(); return; }
     if (!p.description) { err.textContent = 'A description is required.'; err.classList.add('show'); document.getElementById('fb-desc').focus(); return; }
+    // "Why?" is required-ish on a feature request: asked for insistently once,
+    // then yielded on. A hard block would just teach people to type "because".
+    if (p.type === 'feature' && !p.why && !whyNudged) {
+      whyNudged = true;
+      err.textContent = 'Please say why this matters. A request without a problem behind it is very hard to weigh — but press Send again if you would rather skip it.';
+      err.classList.add('show');
+      document.getElementById('fb-why').focus();
+      return;
+    }
     if (p.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email)) { err.textContent = 'That email address does not look right.'; err.classList.add('show'); document.getElementById('fb-email').focus(); return; }
 
     var btn = document.getElementById('fb-send');

@@ -68,3 +68,9 @@ tabatha-*.zip
 .env.cortex
 .env.cortex.local
 store-assets/_shot_tmp/
+
+# Temp Chrome profiles used by scripts/capture-screenshots.mjs. The script
+# removes them on a clean exit, but an interrupted run leaves ~1200 files
+# behind and `git add -A` will happily stage every one of them.
+.cap-profile
+.cap-profile-cdp

@@ -79,6 +79,8 @@ const CARD_PAGES = [
   'components-org.html',
   'components-settings.html',
   'components-primitives.html',
+  'components-companion.html',
+  'components-mobile.html',
 ];
 
 /** Read width/height from a PNG's IHDR chunk (bytes 16-24). */
