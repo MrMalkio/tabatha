@@ -84,7 +84,8 @@ Replaces the "New Tab" page with a dashboard.
 ### 6. Agent-Ready Data (Markdown Export)
 
 Tabatha maintains a live `context.md` file. This allows AI agents to read your
-current state:
+current state — so they can stop guessing at what you are doing and start helping
+you do better work with surgical accuracy:
 
 > _"User is currently focused on 'Q3 Planning' (High Priority). They have 5 tabs
 > open related to 'Financials'. They have been active for 45 minutes."_

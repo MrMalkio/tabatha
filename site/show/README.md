@@ -202,9 +202,10 @@ v6.7.12 backdating overlap message, the sync-chip states, the abandoned-stint
 modal copy, the full 22-section settings list, all 12 theme names, all 14
 keyboard shortcuts, all 13 webhook events, and all 9 log types.
 
-> The concept doc and store listing use the phrase *"What are you down for?"*,
-> but the **live** overlay reads *"Why are you here?"* — the showcase follows the
-> running code.
+> The concept doc and store listing used to say *"What are you down for?"* while
+> the **live** overlay reads *"Why are you here?"*. The showcase followed the
+> running code, and as of v6.7.20 the teaser H1 and the store listing were
+> corrected to match it, so this drift is closed.
 
 **Deliberately reproduced quirks** (these look like showcase bugs but are real):
 
