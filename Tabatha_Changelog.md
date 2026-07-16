@@ -5,6 +5,15 @@ file.
 
 ---
 
+## [v6.7.17] - Chrome Web Store API publishing pipeline - _2026-07-16_
+
+### Added
+
+- **`scripts/cws-auth.mjs` + `npm run cws:auth`** — one-time OAuth bootstrap for the CWS Items API: auto-locates the downloaded "Tabatha CWS Publisher" `client_secret_*.json` in Downloads, runs a local loopback consent flow (opens the default browser, no code-pasting), and writes `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` into the gitignored `deploy-creds.local`.
+- **`scripts/cws-publish.mjs` + `npm run cws:upload` / `cws:publish` / `cws:status`** — the release pipeline: mints an access token from the stored refresh token, uploads `store-assets/tabatha-store-v<version>.zip` (building it via `build:store` first if missing) to a new (`--new`, writes `CWS_APP_ID`) or existing item, publishes via `publishTarget` (defaults to `trustedTesters` for the staff rollout; `--target default` for the wider unlisted audience), and reports draft `--status`. Surfaces the API's own `itemError` messages verbatim; never logs a token value.
+- **`scripts/lib/deploy-creds.mjs`, `scripts/lib/cws-client.mjs`, `scripts/lib/cws-args.mjs`, `scripts/lib/cws-zip.mjs`** — pure, unit-tested helpers backing both scripts (creds file parse/merge round-trip, client_secret discovery/parsing, argv parsing, store-zip path resolution).
+- **`docs/cws-api-release.md`** — the runbook: one-time auth, the per-release loop (bump → build:store → upload → publish), the `publishTarget` vs. Visibility distinction, and the review-latency expectation for the `identity` + `<all_urls>` permission combination.
+
 ## [v6.7.16] - Showcase expansion: full component inventory + card captures - _2026-07-16_
 
 ### Added
