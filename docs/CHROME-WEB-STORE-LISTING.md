@@ -46,7 +46,7 @@ not stuck re-tagging your whole session by hand.
 
 INTENTIONAL BROWSING
 When you open a new tab with no clear path forward, Tabatha's Gatekeeper steps in with
-one simple question: "What are you down for?" State your intent and go, take a five-
+one simple question: "Why are you here?" State your intent and go, take a five-
 minute Side Quest, Park the tab for later, or stash a distraction in the Sugar Box to
 enjoy as a reward. It's friction, on purpose — enough to turn autopilot tab-opening
 into a small, deliberate choice.
@@ -57,10 +57,10 @@ sessions and clock in/out state as a natural part of using the browser, so where
 time actually goes stays visible without extra effort.
 
 AGENT-READY DATA
-Your current Context, active tabs, and stated intent are structured data — not a
-guess an AI has to make from screenshots. That means the tools and agents you already
-use can understand exactly what you're working on right now, instead of you having to
-explain it every time.
+Your current Context, active tabs, and stated intent are structured data, not something
+an AI has to guess at. That means the tools and agents you already use can understand
+exactly what you're working on right now — instead of you having to explain it every
+time — and help you do better work with surgical accuracy.
 
 Tabatha also includes a command-center sidebar (tab list, priority, time-in-context),
 a New Tab dashboard that replaces the default page with your actual working state, and
@@ -117,7 +117,7 @@ Every entry below maps to a permission actually declared in `public/manifest.jso
 | **storage** | Persists the user's Contexts, Intents, focus-session history, settings, and sync state locally (`chrome.storage`), so the extension retains state across browser restarts and before/between cloud syncs. |
 | **alarms** | Schedules recurring background work on a timer without keeping the service worker alive continuously: periodic cloud sync (~every 5 minutes per `RELEASE-6.4.0.md`), Side Quest timers, and focus-session bookkeeping. |
 | **notifications** | Surfaces native OS notifications for time-sensitive events the user needs even when Chrome isn't focused — e.g. a Side Quest timer expiring ("nudges you back"), or sync errors that need attention. |
-| **webNavigation** | Detects navigation events (e.g. following a link vs. opening a blank tab) so the Context Engine can tell "inherited context via link click" apart from "genuinely new, undirected tab" — the signal the Gatekeeper uses to decide whether to interrupt with "What are you down for?" |
+| **webNavigation** | Detects navigation events (e.g. following a link vs. opening a blank tab) so the Context Engine can tell "inherited context via link click" apart from "genuinely new, undirected tab" — the signal the Gatekeeper uses to decide whether to interrupt with "Why are you here?" |
 | **downloads** | Supports the Markdown export feature (Agent-Ready Data / `context.md`) that lets a user (or the desktop companion) save the current context/intent state to a file on disk for AI agents or personal records to read. |
 | **sidePanel** | Required to render Tabatha's Sidebar Command Center (the tab list, intent dashboard, and time heatmap) using Chrome's native side panel surface rather than a floating window. |
 | **activeTab** | Grants temporary, user-invoked access to the current tab's URL/title (e.g. when the user explicitly interacts with the toolbar popup or a Gatekeeper action) without requiring broader always-on access for that specific interaction. |
@@ -141,12 +141,43 @@ Every entry below maps to a permission actually declared in `public/manifest.jso
 Context and Intent labels the user enters, and focus/clock session state. Concretely:
 tab URLs and titles, timestamps, declared Context/Intent text, and session duration.
 
-**What is explicitly NOT collected:** No screenshots, no keystrokes, no page content
-(form field values, message text, page body text, etc.) are captured or transmitted.
-This matches the existing team commitment in `TEAM-ONBOARDING.md`:
+**What is explicitly NOT collected:** No keystrokes, no page content (form field
+values, message text, page body text, etc.) are captured as text or transmitted.
 
-> "Tabatha tracks **metadata** (which app/site, for how long, your stated intent) —
-> **not** screenshots, not keystrokes, not page contents."
+**Optional screen capture (opt-in, off by default, local-only):** Tabatha ships an
+optional periodic capture of the visible tab (`chrome.tabs.captureVisibleTab`), used to
+let the user — or an AI assistant they run themselves — reconstruct what they were
+working on. Disclosure terms, which match the shipped code:
+
+- **Off by default.** Master enable is `screenshotCapture: false`
+  (`src/background/constants.js:51`); it is written only by the user's own toggle in
+  Settings → Privacy & Capture. No remote or org source can set it.
+- **Redacted before write,** fail-closed (a redaction that cannot be applied discards
+  the frame rather than saving it unredacted).
+- **Written to the user's own machine only** — via the desktop companion over a
+  localhost bridge, or OPFS as fallback. **No upload path exists**: frames are absent
+  from `syncService.js` and from every AI routing tier.
+- **Auto-pruned** — 30 days personal / 90 days org-clocked, by default.
+- Only a relative **file path** (`captureRef`) accompanies the metadata record; image
+  bytes never do.
+
+> **Store-form note:** on Google's "Data usage" form this means the extension does
+> **not** collect "Personally identifiable information" or "Website content" *for
+> transmission* — the capture is a local-only user feature. Declare
+> `activeTab`/`tabs`/`downloads` per §5 and describe capture as a local, opt-in feature
+> in the justification text. Do **not** tick a data-collection type on the basis of
+> capture alone, but do **not** claim "no screenshots" either — that claim is false as
+> of v6.7.20 and contradicts `PRIVACY.md`.
+
+**AI features:** Default routing tier is `harness` — Tabatha writes a local file and
+sends nothing to any AI service. The `proxy` / `gateway` / `byok` tiers are present but
+**not currently selectable in the UI**; each requires sign-in or user-supplied provider
+details, and each is **text-only by design** (`supabase/functions/cortex-proxy/index.ts`
+rejects any non-string `input`). No image ever enters an AI payload.
+
+**Organization accounts:** an org-level capture policy table exists in the schema
+(`org_capture_policy`, migration 023) but is **not read by any client code** — no
+administrator can force capture on today. Do not describe it as a live capability.
 
 **Where it's stored:** Supabase, as part of the Flux ecosystem backend (schema
 `tabatha`). Data sync happens roughly every 5 minutes and on changes. Row-Level
@@ -228,7 +259,7 @@ or pulled from the PS machine, which has real day-to-day usage history (Contexts
 focus time, sync state) rather than a blank fresh-install state. Aim for 1280×800.
 Suggested five, in the order they'd best tell the product's story to a stranger:
 
-1. **The Gatekeeper new-tab prompt** — the "What are you down for?" overlay on an
+1. **The Gatekeeper new-tab prompt** — the "Why are you here?" overlay on an
    intentional new tab, showing Continue / Side Quest / Sugar Box / Park options.
    This is the single most distinctive, recognizable feature — lead with it.
 2. **The sidebar command center with an active focus** — side panel open, showing

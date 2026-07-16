@@ -5,6 +5,55 @@ file.
 
 ---
 
+## [v6.7.21] - Privacy policy correction + teaser H1 matches shipped Gatekeeper - _2026-07-16_
+
+### Fixed
+
+- **`PRIVACY.md` was making false claims and has been corrected.** The published policy
+  (live at `/privacy`, and the privacy URL the Chrome Web Store listing points at) stated
+  that Tabatha collects **"No screenshots of your pages"** and knows "never *what you did
+  on the page*". That has been untrue since the Cortex capture engine shipped: the
+  extension runs `chrome.tabs.captureVisibleTab` on a dwell timer, and the desktop
+  companion captures at the OS level. This was a real disclosure defect, not a wording
+  nit — a privacy policy that under-describes collection is the worst document in this
+  repo to get wrong, and a false disclosure checked against declared behavior is a Chrome
+  Web Store rejection risk on top of the trust problem.
+  The policy now states the truth, which is a defensible story rather than a silent one:
+  capture is **opt-in and off by default** (`screenshotCapture: false`,
+  `src/background/constants.js:51`), frames are **redacted with a fail-closed pass**,
+  written **only to the user's own machine** (companion folder, OPFS fallback), **never
+  uploaded** (no upload path exists — frames appear in neither `syncService.js` nor any
+  AI routing tier), and **auto-pruned** at 30 days personal / 90 days org-clocked.
+  A dated **"What changed"** section was added to the policy itself so the revision is
+  visible to readers rather than being a quiet edit of a published page.
+- **New policy sections** covering the desktop companion's OS-level capture (same terms),
+  AI features (default tier is `harness` = local file only, sends nothing; `proxy` /
+  `gateway` / `byok` are text-only by design, not currently selectable, and require
+  sign-in or user-supplied provider details), and organization accounts — which state
+  accurately that org capture policy (`org_capture_policy`, migration 023) is **schema
+  with no client consumer**, so no admin can force capture on today.
+- **Downstream copies of the false claim synced** — `docs/CHROME-WEB-STORE-LISTING.md` §7
+  (the text pasted into the store's privacy-practices form, now with an explicit
+  data-usage-form note) and `TEAM-ONBOARDING.md` (which the listing had been quoting as
+  its source). `site/privacy.html` regenerated from `PRIVACY.md` via
+  `scripts/build-privacy.mjs`.
+- **Teaser H1 copy drift closed.** `site/index.html` led with *"What are you down for?"*,
+  but the shipped Gatekeeper overlay asks **"Why are you here?"** (`src/content/gatekeeper.js:288`).
+  The teaser now asks the real question; the live elapsed-time instrument and its
+  "Unaccounted for" caption are unchanged and land harder against it. The same drift is
+  fixed in `docs/CHROME-WEB-STORE-LISTING.md` §3 and its permission justifications, where
+  a description promising a prompt the extension does not show would be flagged on review.
+
+### Changed
+
+- **Agent-Ready Data pillar** now closes on what the data is *for*, not just what it is —
+  agents "help you do better work with surgical accuracy". Applied in each surface's own
+  voice: `Tabatha_Concept.md` §6, `site/index.html` pillar, `site/show/index.html` pillar
+  (whose old sub-blurb, *"structured, not screenshots"*, was itself part of the false
+  claim), and the store listing's AGENT-READY DATA block.
+
+---
+
 ## [v6.7.20] - The public site works on a phone - _2026-07-16_
 
 ### Fixed

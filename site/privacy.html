@@ -70,26 +70,48 @@ hr + p { font-size:13px; color:var(--dim); }
   </header>
   <main>
     <h1>Tabatha Privacy Policy</h1>
-    <p><strong>Effective date: 2026-07-15</strong></p>
+    <p><strong>Effective date: 2026-07-16</strong></p>
     <p>Tabatha is a context and focus manager for your browser, built by Duck &amp; Shark as part of the Flux ecosystem. This policy explains, in plain language, what Tabatha collects, what it never collects, where your data lives, and who can see it.</p>
-    <h2>What Tabatha collects</h2>
-    <p>Tabatha collects <strong>browsing metadata only</strong> — enough to show you where your time and attention go, and nothing more:</p>
+    <h2>What changed on 2026-07-16</h2>
+    <p>An earlier version of this policy said Tabatha takes <strong>no screenshots, ever</strong>. That is no longer accurate, and we would rather say so plainly than quietly edit the page.</p>
+    <p>Tabatha now includes an <strong>optional</strong> screen capture feature. It is <strong>off by default</strong>, you have to turn it on yourself, and when it is on the images are written <strong>to your own machine and are never uploaded to us</strong>. The section below describes it honestly. If you never turn it on, nothing about your data has changed.</p>
+    <h2>What Tabatha collects by default</h2>
+    <p>With a fresh install and nothing turned on, Tabatha collects <strong>browsing metadata only</strong> — enough to show you where your time and attention go, and nothing more:</p>
     <ul>
     <li><strong>Tab URLs and titles</strong> of the pages you visit</li>
     <li><strong>Timestamps and session durations</strong> (when a focus session or clock-in started and ended, and how long you spent)</li>
     <li><strong>The Context and Intent labels you type in yourself</strong> (e.g. "Q1 Report", "researching flights")</li>
     <li><strong>Focus and clock in/out session state</strong></li>
     </ul>
-    <h2>What Tabatha explicitly does NOT collect</h2>
+    <h2>What Tabatha never collects</h2>
     <ul>
-    <li><strong>No screenshots</strong> of your pages</li>
     <li><strong>No keystrokes</strong> or keylogging of any kind</li>
-    <li><strong>No page content</strong> — form field values, message text, page body text, documents, or anything you read or write inside a page is never captured or transmitted</li>
+    <li><strong>No page content</strong> — form field values, message text, page body text, documents, or anything you read or write inside a page is never captured as text or transmitted</li>
     </ul>
-    <p>In short: Tabatha knows <em>which</em> site you were on and <em>for how long</em>, and <em>why you said you were there</em> — never <em>what you did on the page</em>.</p>
+    <h2>Screen capture: off unless you turn it on</h2>
+    <p>Tabatha can optionally take periodic snapshots of the tab you are looking at, so that you (or an AI assistant you run yourself) can reconstruct what you were working on. This feature is <strong>opt-in and disabled by default</strong>. Here are the exact terms:</p>
+    <ul>
+    <li><strong>It is off until you switch it on.</strong> The setting lives in Settings under Privacy &amp; Capture. A brand-new install captures nothing.</li>
+    <li><strong>Frames are redacted before they are saved.</strong> Sensitive regions are blacked out (or blurred, if you prefer) by a redaction pass that <strong>fails closed</strong> — if redaction cannot be applied, the frame is discarded rather than saved unredacted.</li>
+    <li><strong>Frames stay on your machine.</strong> They are written to a folder on your own computer by the Tabatha desktop companion, or into your browser's private storage if the companion is not running. <strong>They are not uploaded to us, to any AI service, or to anyone else.</strong> No part of Tabatha sends image data off your device.</li>
+    <li><strong>They expire on their own.</strong> Frames are automatically deleted after 30 days by default. Frames recorded while you were clocked in for an organization are kept for 90 days.</li>
+    <li><strong>You can stop it and delete them at any time.</strong> Turning the setting off stops capture immediately, and the files are ordinary files in a folder you own — you can delete them yourself, whenever you like, without asking us.</li>
+    </ul>
+    <p>Only a <strong>file path</strong> referencing a frame is recorded alongside your metadata. The image itself never travels with it.</p>
+    <h2>The desktop companion</h2>
+    <p>The optional Tabatha desktop companion tracks which application you are using when your browser is not in front, so your time is not lost when you switch to another app. It can also capture your screen at the operating-system level — under <strong>exactly the same terms as above</strong>: off unless you turn it on, redacted, written to your own disk, never uploaded, auto-deleted on the same schedule. Sensitive-window rules can suppress or redact specific regions, and that redaction also fails closed. The companion is Windows-only today.</p>
+    <h2>AI features</h2>
+    <p>Tabatha is built to work with AI assistants. It is important to be precise about what that does and does not mean today:</p>
+    <ul>
+    <li><strong>By default, Tabatha sends nothing to any AI service.</strong> The default mode writes a local file describing your day to your own disk. If an AI assistant reads it, that is an assistant <em>you</em> run on <em>your</em> machine, under your own arrangement with whoever provides it — Tabatha is not the one sending it.</li>
+    <li>Tabatha has <strong>optional</strong> modes that would send a <em>text</em> summary of your day — the metadata described above, including tab titles, plus any voice notes you record — to an AI service. These modes are <strong>not enabled and not currently selectable</strong>, and they require you to sign in or supply your own AI provider details. <strong>No screen captures or images are ever included in these — they are text-only by design.</strong></li>
+    <li>If we turn any of those modes on, we will update this policy and its effective date before the change takes effect.</li>
+    </ul>
     <h2>Where your data is stored</h2>
-    <p>Your data is stored locally in your browser (<code>chrome.storage</code>) and synced to our cloud backend (a managed Postgres database) roughly every 5 minutes and on changes, tied to your account so it follows you across machines.</p>
-    <p>Access is scoped with row-level security: <strong>each user can only read their own rows.</strong> For team/organization accounts, an organization owner sees only <strong>aggregated, non-identifying team views</strong> (e.g. daily clock totals) — never raw per-user row access through those views.</p>
+    <p>Your metadata is stored locally in your browser (<code>chrome.storage</code>) and synced to our cloud backend (a managed Postgres database) roughly every 5 minutes and on changes, tied to your account so it follows you across machines. <strong>Screen captures are not part of this sync and are never sent to our backend.</strong></p>
+    <p>Access is scoped with row-level security: <strong>each user can only read their own rows.</strong> For team/organization accounts, an organization owner sees only <strong>aggregated, non-identifying team views</strong> (e.g. daily clock totals) — never raw per-user row access through those views, and never your screen captures.</p>
+    <h2>Organization accounts</h2>
+    <p>We are building the ability for an organization to set a capture policy for its members. <strong>It is not in effect today.</strong> As Tabatha currently ships, the capture setting is <strong>yours alone</strong>: it is read only from your own device, and <strong>no administrator, owner, or employer can switch capture on, change its mode, or change how long frames are kept on your machine.</strong> If that ever changes, it will be announced here, with an effective date, before it takes effect.</p>
     <h2>Selling and sharing: none</h2>
     <ul>
     <li>Your data is <strong>never sold</strong>.</li>
@@ -112,7 +134,7 @@ hr + p { font-size:13px; color:var(--dim); }
     <p>Questions, or a request about your data (access, correction, deletion):</p>
     <p><strong><a href="mailto:caspera@duckandshark.com">caspera@duckandshark.com</a></strong> (Duck &amp; Shark — organization contact)</p>
     <hr>
-    <p><em>This policy covers the Tabatha browser extension and the waitlist on the Tabatha website. If our practices change, this page and its effective date will be updated before the change takes effect.</em></p>
+    <p><em>This policy covers the Tabatha browser extension, the Tabatha desktop companion, and the waitlist on the Tabatha website. If our practices change, this page and its effective date will be updated before the change takes effect.</em></p>
   </main>
 </div>
 </body>
