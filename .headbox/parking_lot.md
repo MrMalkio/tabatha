@@ -531,3 +531,13 @@
   1. Interpolate the real state: `class="focus-state ${f.focusState || 'queued'}"` and keep the stage text. ← **suggested**
   2. Render two chips (state + stage) to keep the taxonomies separate.
   3. Drop the unused `.focus-state.active` / `.paused` CSS if the queued-only look is intended.
+
+## 2026-07-16 — PRIVACY.md "no screenshots" claim vs Cortex capture
+- **Noticed while:** building the teaser homepage, linking PRIVACY.md from the new /privacy page.
+- **What:** `PRIVACY.md` states, under "What Tabatha explicitly does NOT collect": "**No screenshots** of your pages" and "never *what you did on the page*". The Cortex program (C1, Phase 1) ships `captureVisibleTab` screen capture with a redaction canvas, writing frames to disk. The 2026-07-10 session log records "Captures confirmed working (745 frames/day)".
+- **Why it matters:** The two statements cannot both be true once Cortex ships. A privacy policy that under-describes collection is the highest-consequence doc in the repo to get wrong, and it is currently linked from a public page. Capture appears to be local-only, opt-in and focus-gated, which is a *defensible* story — but it is a different story than "no screenshots", and the policy is what users are entitled to rely on.
+- **Note:** Out of scope for the teaser work, and deliberately NOT silently edited: rewriting the extension's privacy claims needs Malkio's intent, not an agent's inference. The teaser only added a waitlist section covering the email collection it introduces.
+- **Options:**
+  1. Leave as-is until Cortex is user-facing, then update the policy in the same release.
+  2. Update PRIVACY.md now to describe capture accurately (local-only, opt-in, focus-gated, redacted, retention window) so the doc never lags the shipped binary.
+  3. Update now AND gate the wording on the capture setting's default-off state, so the policy is accurate for both the default and opted-in user. ← **suggested**

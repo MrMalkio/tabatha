@@ -1,7 +1,7 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "6.7.18",
+  "version": "6.7.19",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,10 @@
     "capture:cards": "node scripts/capture-screenshots.mjs --cards",
     "build:search-index": "node scripts/build-search-index.mjs",
     "check:search-index": "node scripts/build-search-index.mjs --check",
+    "site:privacy": "node scripts/build-privacy.mjs",
+    "site:check-privacy": "node scripts/build-privacy.mjs --check",
+    "site:build": "node scripts/build-privacy.mjs && node scripts/build-search-index.mjs",
+    "site:deploy": "npm run site:build && npx wrangler@4 pages deploy site --project-name=tabatha",
     "site:serve": "node scripts/serve-showcase.mjs",
     "lint": "eslint .",
     "test": "node --test",
