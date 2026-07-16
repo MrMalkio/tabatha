@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS = {
   ],
   meetingIdleGraceMinutes: 60,            // max meeting duration suppressed before idle can fire anyway
   autoResumeOnReturn: true,               // auto-resume the paused focus when the user returns from idle
+  autoStartNextOnResolve: true,           // on resolve, promote the most-recently-paused intent into the empty slot. false = resolving leaves NOTHING active (the only way to reach an empty slot — pausing keeps the intent as activeFocusId)
   // ── Offline-gap detector (NB-09) ──
   offlineGapThresholdMinutes: 10,         // min heartbeat gap (sleep / browser closed) before retro-pausing a running focus
   // Phase 1 — Auto clock-in (#187)

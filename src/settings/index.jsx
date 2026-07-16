@@ -430,6 +430,12 @@ function FocusLifecyclePanel({ settings, updateSetting }) {
         <span style={fieldLabel}>Auto-resume on return</span>
         <Toggle value={settings.autoResumeOnReturn !== false} onChange={v => updateSetting('autoResumeOnReturn', v)} />
       </div>
+      <Tooltip text="When you mark an intent resolved, pull the most recently paused intent from the queue into focus. Turn OFF to leave nothing active on resolve — the queue stays paused until you pick the next intent yourself." position="bottom">
+        <div style={fieldRow} data-search-id="lifecycle-auto-start-next">
+          <span style={fieldLabel}>Auto-start next intent on resolve</span>
+          <Toggle value={settings.autoStartNextOnResolve !== false} onChange={v => updateSetting('autoStartNextOnResolve', v)} />
+        </div>
+      </Tooltip>
       <div style={fieldRow} data-search-id="lifecycle-meeting-grace">
         <span style={fieldLabel}>Meeting grace (minutes)</span>
         <input type="number" min="5" max="180" value={settings.meetingIdleGraceMinutes ?? 60} onChange={e => updateSetting('meetingIdleGraceMinutes', parseInt(e.target.value) || 60)} style={inputStyle} />

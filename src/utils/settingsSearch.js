@@ -182,6 +182,7 @@ export const SETTINGS_SEARCH_INDEX = [
   { id: 'lifecycle-idle-threshold', section: 'lifecycle', label: 'Idle threshold (minutes)', keywords: ['idle', 'threshold', 'minutes'] },
   { id: 'lifecycle-companion-grace', section: 'lifecycle', label: 'Companion grace (minutes)', keywords: ['companion', 'grace', 'idle suppression', 'desktop'] },
   { id: 'lifecycle-auto-resume', section: 'lifecycle', label: 'Auto-resume on return', keywords: ['resume', 'return', 'unpause'] },
+  { id: 'lifecycle-auto-start-next', section: 'lifecycle', label: 'Auto-start next intent on resolve', keywords: ['auto start', 'next', 'queue', 'resolve', 'resolved', 'complete', 'promote', 'nothing active'] },
   { id: 'lifecycle-meeting-grace', section: 'lifecycle', label: 'Meeting grace (minutes)', keywords: ['meeting', 'video call', 'zoom', 'grace'] },
   { id: 'lifecycle-meeting-domains', section: 'lifecycle', label: 'Meeting domains', keywords: ['meeting', 'zoom', 'google meet', 'teams', 'video call', 'suppress idle'] },
   { id: 'lifecycle-auto-focus', section: 'lifecycle', label: 'Auto-focus suggestions', keywords: ['suggestions', 'auto focus', 'chips', 'suggest'] },
