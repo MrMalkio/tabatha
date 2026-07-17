@@ -1,6 +1,6 @@
 # Feature #186 — Asana Task ↔ Focus Linking
 
-> **Status:** ✅ Shipped · **Version:** v6.8.0
+> **Status:** ✅ Shipped · **Version:** v6.8.1
 > **Depends On:** #54 Asana Integration, #142 Asana URL Parsing, #122 Focus Queue
 > **Created:** 2026-05-26
 
@@ -13,7 +13,7 @@
 
 ## What It Does
 
-Four capabilities:
+Five capabilities:
 
 ### 1. Attach Asana Task to Focus (Manual)
 
@@ -47,6 +47,14 @@ When a user navigates to an Asana task page (`app.asana.com/0/{project_gid}/{tas
 - A parent report includes direct rows plus descendant rows containing that parent GID
 - This permits each hierarchy level to show a rollup without duplicating rows or counting a child twice within one total
 
+### 5. Lightweight Task Context and Explicit Completion
+
+- Visiting a task upserts a `contextOnly` record in Tabatha's existing task store
+- The record captures source ID/URL, project and parent references, freshness, and attention totals—not Asana's broader project-management fields
+- Focuses link to this local task ID, so existing intent/task relationships continue to work
+- Completing the linked task in Tabatha offers a separate **also complete in Asana** confirmation
+- Declining leaves Asana untouched; remote failures leave the local completion intact and visible
+
 ## Data Model Addition
 
 ```json
@@ -77,9 +85,10 @@ https://app.asana.com/0/{project_gid}/{task_gid}/f
 - `asanaService.js` owns task context, timers, focus linking, local persistence, and cloud mirroring
 - `asanaTaskTracking.js` owns pure hierarchy and duration calculations
 - Migration 029 and the widget route expose nested and agent totals in Asana
+- `asana-task-action` is the authenticated, completion-only Edge Function; the Asana PAT never enters extension code
 
 ## Open Questions
 
-- Resolving a focus does not complete the Asana task.
+- Resolving a focus does not silently complete the Asana task; source completion is offered only when the linked Tabatha task is explicitly completed.
 - Should the system sync Asana task status changes back to focus state?
 - Focus linking remains one Asana task per focus; parent rollup is metadata, not an additional focus link.

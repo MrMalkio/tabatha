@@ -989,8 +989,23 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
     setShowCreate(false);
   };
 
-  const handleComplete = async (taskId) => {
-    await sendMessage('UPDATE_TASK', { taskId, updates: { status: 'completed', completedAt: new Date().toISOString() } });
+  const handleComplete = async (task) => {
+    await sendMessage('UPDATE_TASK', { taskId: task.id, updates: { status: 'completed', completedAt: new Date().toISOString() } });
+    const external = task.externalContext;
+    if (external?.provider !== 'asana') return;
+
+    const completeSource = window.confirm(
+      `Also complete “${task.name}” in Asana?\n\nChoose Cancel to keep the completion in Tabatha only.`
+    );
+    if (!completeSource) return;
+
+    const result = await sendMessage('COMPLETE_ASANA_TASK', {
+      taskId: task.id,
+      taskGid: external.externalId || task.asanaGid,
+    });
+    if (!result?.success) {
+      alert(`${result?.error || 'Asana completion failed'}\n\nThe task is still completed in Tabatha.`);
+    }
   };
 
   const handleReopen = async (taskId) => {
@@ -1162,11 +1177,14 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
             const linked = getLinkedIntents(task.id);
             const isCompleted = task.status === 'completed';
             const isEditing = editingId === task.id;
+            const external = task.externalContext?.provider === 'asana' ? task.externalContext : null;
+            const attention = external?.attention;
+            const totalMinutes = Math.round((attention?.totalMs || 0) / 60000);
             return (
               <GlassCard key={task.id} style={{ padding: '10px 14px', opacity: isCompleted ? 0.65 : 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                    <button onClick={() => isCompleted ? handleReopen(task.id) : handleComplete(task.id)}
+                    <button onClick={() => isCompleted ? handleReopen(task.id) : handleComplete(task)}
                       style={{ background: 'transparent', border: `1.5px solid ${isCompleted ? '#66bb6a' : 'var(--color-border)'}`, borderRadius: '50%', width: '16px', height: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: '#66bb6a', padding: 0, flexShrink: 0 }}>
                       {isCompleted ? '✓' : ''}
                     </button>
@@ -1195,6 +1213,24 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
                             })()}
                           </div>
                           {task.description && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{task.description}</div>}
+                          {external && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '3px', fontSize: '9px', color: 'var(--color-text-muted)' }}>
+                              {external.url ? (
+                                <a href={external.url} target="_blank" rel="noreferrer" style={{ color: '#f06a6a', textDecoration: 'none', fontWeight: 600 }}>Asana context ↗</a>
+                              ) : (
+                                <span style={{ color: '#f06a6a', fontWeight: 600 }}>Asana context</span>
+                              )}
+                              {external.parentName && <span>↳ {external.parentName}</span>}
+                              {external.projectName && <span>• {external.projectName}</span>}
+                              {(totalMinutes > 0 || attention?.activeCount > 0) && (
+                                <span>
+                                  • {totalMinutes}m attention ({Math.round((attention?.humanMs || 0) / 60000)}m you · {Math.round((attention?.agentMs || 0) / 60000)}m agents)
+                                  {attention?.activeCount > 0 ? ` · ${attention.activeCount} active` : ''}
+                                </span>
+                              )}
+                              {external.remoteStatus === 'completed' && <span style={{ color: '#66bb6a' }}>• completed in Asana</span>}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

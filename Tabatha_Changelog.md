@@ -5,6 +5,19 @@ file.
 
 ---
 
+## [v6.8.1] - Lightweight Asana task context in Tabatha - _2026-07-17_
+
+### Added
+
+- **Asana task context in existing task views.** Visiting an Asana task now creates or refreshes a compact `contextOnly` task mirror with its source identity, link, project/parent reference, last-seen state, and human/agent attention totals. It uses Tabatha's existing task and focus relationships without importing Asana's assignees, dates, comments, sections, dependencies, or other project-management surface.
+- **Source completion is an explicit choice.** Resolving an Asana-linked task in Tabatha first completes it locally, then offers to complete the source task in Asana. Declining leaves Asana untouched; a failed source update never rolls back the local completion.
+- **Secure Asana completion broker.** The new `asana-task-action` Edge Function accepts only an authenticated, explicit completion request and keeps the Asana PAT server-side.
+
+### Changed
+
+- **Focus links use Tabatha task IDs.** Asana-created focuses now link to the mirrored local task, so the existing task views, intent links, and task-resolution behavior all share one identity.
+- **Sidebar task parity.** The sidebar now reads the unified task service instead of only the legacy task array, allowing external context tasks and their parent labels to appear consistently.
+
 ## [v6.8.0] - Asana task focus and attributed attention tracking - _2026-07-17_
 
 ### Added

@@ -124,6 +124,7 @@ configureCloudWriteService({ supabase, triggerSync });
 configureAsanaService({
   supabase,
   getFocusEngine: focusService.getFocusEngine,
+  setFocusEngine: focusService.setFocusEngine,
   startFocus: focusService.startFocus,
   switchFocus: focusService.switchFocus,
   agentSessionService

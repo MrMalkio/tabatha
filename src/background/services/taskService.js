@@ -23,6 +23,89 @@ export async function handleMessage(type, message) {
   }
 }
 
+/**
+ * Upsert a deliberately small external-task mirror into Tabatha's task store.
+ * The mirror carries context needed for attention/focus without importing the
+ * source system's project-management surface (assignees, due dates, comments,
+ * sections, dependencies, and custom fields intentionally stay external).
+ */
+export async function upsertExternalTaskContext(context = {}) {
+  const provider = cleanExternalToken(context.provider);
+  const externalId = cleanExternalToken(context.externalId);
+  if (!provider || !externalId) throw new Error('External task provider and ID are required');
+
+  const { tabathaOrg } = await getStorage('tabathaOrg');
+  const org = normalizeOrg(tabathaOrg);
+  const id = externalTaskId(provider, externalId);
+  const existing = org.tasks[id] || null;
+  const now = context.lastSeenAt || new Date().toISOString();
+  const externalContext = {
+    ...(existing?.externalContext || {}),
+    provider,
+    externalId,
+    url: context.url || existing?.externalContext?.url || null,
+    workspaceId: context.workspaceId || existing?.externalContext?.workspaceId || null,
+    projectId: context.projectId || existing?.externalContext?.projectId || null,
+    projectName: context.projectName || existing?.externalContext?.projectName || null,
+    parentExternalId: context.parentExternalId || existing?.externalContext?.parentExternalId || null,
+    parentName: context.parentName || existing?.externalContext?.parentName || null,
+    focusMode: !!context.focusMode,
+    lastSeenAt: now,
+    ...(context.attention ? { attention: context.attention } : {}),
+  };
+
+  const task = {
+    id,
+    description: existing?.description || '',
+    projectId: existing?.projectId || null,
+    clientId: existing?.clientId || null,
+    status: existing?.status || 'active',
+    funnelStage: existing?.funnelStage || 'unsorted',
+    linkedIntents: existing?.linkedIntents || [],
+    createdAt: existing?.createdAt || now,
+    completedAt: existing?.completedAt || null,
+    archived: existing?.archived || false,
+    ...existing,
+    name: context.name || existing?.name || `${provider} task ${externalId}`,
+    source: 'external-context',
+    contextOnly: true,
+    externalContext,
+    updatedAt: now,
+  };
+
+  // Compatibility aliases used by the existing task editor and older links.
+  if (provider === 'asana') {
+    task.asanaGid = externalId;
+    task.asanaTaskGid = externalId;
+    task.asanaUrl = externalContext.url;
+  }
+
+  org.tasks[id] = task;
+  await setStorage({ tabathaOrg: org });
+  broadcastTasksUpdated(getActiveOrgTasks(org));
+  return task;
+}
+
+export async function updateExternalTaskState(taskId, updates = {}) {
+  const { tabathaOrg } = await getStorage('tabathaOrg');
+  const org = normalizeOrg(tabathaOrg);
+  const task = org.tasks[taskId];
+  if (!task?.externalContext) return null;
+
+  org.tasks[taskId] = {
+    ...task,
+    externalContext: { ...task.externalContext, ...updates },
+    updatedAt: new Date().toISOString(),
+  };
+  await setStorage({ tabathaOrg: org });
+  broadcastTasksUpdated(getActiveOrgTasks(org));
+  return org.tasks[taskId];
+}
+
+export function externalTaskId(provider, externalId) {
+  return `task_${cleanExternalToken(provider)}_${cleanExternalToken(externalId)}`;
+}
+
 async function getTasks() {
   const { org } = await coldStoreArchivedTasks();
   const { tasks: legacyTasks } = await getStorage('tasks');
@@ -205,4 +288,8 @@ function getActiveOrgTasks(org) {
 
 function broadcastTasksUpdated(tasks) {
   broadcastToExtension({ type: 'TASKS_UPDATED', tasks });
+}
+
+function cleanExternalToken(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '') : '';
 }

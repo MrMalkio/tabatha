@@ -75,8 +75,17 @@ function GroupsList({ tabs }) {
 // SidebarTasksPanel — compact task CRUD
 // ═══════════════════════════════════════
 function SidebarTasksPanel() {
-  const [tasks] = useChromeStorage('tasks', []);
+  const [tasks, setTasks] = useState([]);
   const [newName, setNewName] = useState('');
+
+  useEffect(() => {
+    sendMessage('GET_TASKS').then(result => setTasks(result?.tasks || [])).catch(() => {});
+    const listener = (message) => {
+      if (message?.type === 'TASKS_UPDATED') setTasks(message.tasks || []);
+    };
+    globalThis.chrome.runtime.onMessage.addListener(listener);
+    return () => globalThis.chrome.runtime.onMessage.removeListener(listener);
+  }, []);
 
   const active = useMemo(() => (tasks || []).filter(t => t.status !== 'completed'), [tasks]);
   const completed = useMemo(() => (tasks || []).filter(t => t.status === 'completed'), [tasks]);
@@ -87,7 +96,17 @@ function SidebarTasksPanel() {
     setNewName('');
   };
 
-  const handleComplete = (taskId) => sendMessage('UPDATE_TASK', { taskId, updates: { status: 'completed', completedAt: new Date().toISOString() } });
+  const handleComplete = async (task) => {
+    await sendMessage('UPDATE_TASK', { taskId: task.id, updates: { status: 'completed', completedAt: new Date().toISOString() } });
+    const external = task.externalContext;
+    if (external?.provider !== 'asana') return;
+    if (!window.confirm(`Also complete “${task.name}” in Asana?\n\nChoose Cancel for Tabatha only.`)) return;
+    const result = await sendMessage('COMPLETE_ASANA_TASK', {
+      taskId: task.id,
+      taskGid: external.externalId || task.asanaGid,
+    });
+    if (!result?.success) alert(`${result?.error || 'Asana completion failed'}\n\nThe task is still completed in Tabatha.`);
+  };
   const handleReopen = (taskId) => sendMessage('UPDATE_TASK', { taskId, updates: { status: 'active', completedAt: null } });
 
   return (
@@ -108,9 +127,15 @@ function SidebarTasksPanel() {
       ) : active.map(task => (
         <div key={task.id} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'4px 6px', marginBottom:'2px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)' }}>
           <Tooltip text="Mark complete">
-            <button onClick={() => handleComplete(task.id)} style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'3px', width:'14px', height:'14px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'8px', color:'var(--color-text-muted)', padding:0 }}>○</button>
+            <button onClick={() => handleComplete(task)} style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'3px', width:'14px', height:'14px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'8px', color:'var(--color-text-muted)', padding:0 }}>○</button>
           </Tooltip>
-          <span style={{ fontSize:'11px', fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{task.name}</span>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+              <span style={{ fontSize:'11px', fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{task.name}</span>
+              {task.externalContext?.provider === 'asana' && <span style={{ fontSize:'8px', color:'#f06a6a', fontWeight:600 }}>ASANA</span>}
+            </div>
+            {task.externalContext?.parentName && <div style={{ fontSize:'8px', color:'var(--color-text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>↳ {task.externalContext.parentName}</div>}
+          </div>
         </div>
       ))}
 
