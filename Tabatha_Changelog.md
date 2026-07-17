@@ -5,6 +5,18 @@ file.
 
 ---
 
+## [v6.7.23] - Reach the empty focus slot: no auto-start on resolve + home shows the queue - _2026-07-16_
+
+### Added
+
+- **"Auto-start next intent on resolve" toggle** (Settings → Focus Lifecycle, default ON — existing behaviour unchanged unless you opt out). Resolving an intent has always pulled the most-recently-paused intent out of the queue and straight into focus. Turn this OFF and resolving leaves **nothing** active: the queue stays paused until you pick the next intent yourself. This also makes an empty focus slot reachable for the first time — pausing never clears `activeFocusId` (it only flips `focusState` to `paused`), so `completeFocus` was the only path that emptied the slot, and it immediately re-filled it.
+
+### Fixed
+
+- **The focus queue, backburner, and history no longer vanish from the home page when nothing is active.** They were nested inside the `activeFocus ? … : …` branch, so an empty focus slot rendered only the "What are you focusing on?" input — the queued intents were invisible on the home page (the sidebar showed them; home didn't). They now render regardless of active state, pairing with the toggle above.
+
+---
+
 ## [v6.7.22] - Desktop companion shipped as a real Windows download - _2026-07-16_
 
 ### Added
