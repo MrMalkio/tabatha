@@ -5,8 +5,12 @@
       "version": "Unreleased",
       "title": "Native Asana App Component and supporting task context",
       "date": "2026-07-17",
-      "intro": "> Isolated work rebased directly onto v6.7.22. This work is not merged or released; the native Asana app remains pending Developer Console configuration and live-task validation.",
+      "intro": "> Isolated work rebased directly onto v6.7.22. This work is not merged or released. The native Asana components are configured for `gnge.co`; app installation and live-task validation remain pending.",
       "sections": [
+        {
+          "label": "Native Asana app configuration",
+          "body": "- **Core App Components are active.** Asana app `1214413273944527` now has Entry Point, Modal Form, and Widget enabled. The task action is **Track attention**; Lookup and Rule Actions remain intentionally off.\n- **Production endpoints registered.** The app uses the deployed HMAC-validated `asana-widget` Edge Function for Modal Form and Widget metadata, with attachment URLs matched under `/asana-widget/task/{gid}`.\n- **Workspace-restricted distribution.** The app is visible only to the `gnge.co` workspace. Its short description is saved; the 128x128 icon remains a manual upload because Chrome rejected the protected local-file handoff."
+        },
         {
           "label": "Supporting task actions",
           "body": "#### Added\n\n- **Open source tasks from Tabatha.** Linked task cards in Home and Sidebar now open the task directly in Asana or Anasa. If Anasa does not yet have an internal mirror ID, its task explorer opens with the task name pre-filtered.\n- **Link an existing Asana task.** A task card accepts an Asana task URL or GID, securely retrieves the source metadata, and attaches it to the existing Tabatha task identity instead of creating a duplicate.\n- **Create in Asana.** A local task can create a minimal Asana task from its name and description and link the returned task in the same action. The Asana PAT remains exclusively in the authenticated server action.\n- **Configurable Anasa destination.** Integrations settings include the Anasa base URL, allowing the task link to use the current tailnet deployment and later switch to the public hostname without a code change.\n\n#### Changed\n\n- **Narrow action broker.** `asana-task-action` now supports only authenticated `get`, `create`, and `complete` task operations with bounded inputs; it does not expose general project-management mutation capability.\n- **Linked tasks stay local-first.** Asana metadata refreshes the existing task's external context while preserving its Tabatha-owned status, description, relationships, and task ID."

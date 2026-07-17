@@ -1,6 +1,6 @@
 # Feature #186 — Asana Task ↔ Focus Linking
 
-> **Status:** ✅ Shipped · **Version:** v6.8.1
+> **Status:** Partial — native App Components configured; installation and live-task validation pending · **Base version:** v6.7.22 · **Release:** Unassigned
 > **Depends On:** #54 Asana Integration, #142 Asana URL Parsing, #122 Focus Queue
 > **Created:** 2026-05-26
 
@@ -13,7 +13,7 @@
 
 ## What It Does
 
-Five capabilities:
+Five capabilities are implemented on the isolated branch. The native Asana app is the primary delivery surface; browser-extension helpers remain unmerged and unreleased.
 
 ### 1. Attach Asana Task to Focus (Manual)
 
@@ -81,6 +81,10 @@ https://app.asana.com/0/{project_gid}/{task_gid}/f
 
 ## Implementation Notes
 
+- Asana app `1214413273944527` has Entry Point, Modal Form, and Widget enabled for the restricted `gnge.co` workspace
+- `supabase/functions/asana-widget/index.ts` is the production native App Component service; it validates exact-body Asana HMAC signatures and `expires_at`
+- The Entry Point action is **Track attention**; its Modal Form creates or stops human or named-agent stints and returns an attachment URL matched by the Widget
+- The app is not yet installed into a project and no live timer submission has been made
 - `src/content/asana.js` owns the Asana-only task strip and SPA observation
 - `asanaService.js` owns task context, timers, focus linking, local persistence, and cloud mirroring
 - `asanaTaskTracking.js` owns pure hierarchy and duration calculations

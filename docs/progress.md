@@ -12,11 +12,13 @@
 - Implemented and deployed the HMAC-validated Asana App Component service with Modal Form metadata/submission, Widget metadata, health, auth, and task-attachment routes.
 - Added human and named-agent attention controls, direct and nested-task rollups, per-actor totals, and lightweight task context backed by `flux_time_entries`.
 - Verified Deno formatting/type checks and 4/4 focused service tests; verified the live health route and rejection of unsigned widget requests.
-- Audited Asana app `1214413273944527`: Entry Point, Modal Form, and Widget are still disabled and unconfigured in the Developer Console.
+- Configured Asana app `1214413273944527`: Entry Point, Modal Form, and Widget now report **On**; Lookup and Rule Actions remain intentionally Off.
+- Set the Entry Point action to **Track attention**, registered the deployed metadata and attachment URL pattern, saved the app description, and restricted distribution to `gnge.co`.
+- Attempted the approved 128x128 app-icon upload through both visible controls; Chrome's protected file-upload bridge rejected the local file handoff, so the icon remains the only manual console step.
 
 **Version/merge status:** v6.7.22 remains the authoritative version. The Asana work is isolated, unmerged, and unpushed; no subsequent release number is assigned.
 
-**Next steps:** With explicit action-time confirmation, save the Entry Point, Modal Form, Widget, app listing, and restricted-workspace settings in Asana. Request separate confirmation before installing the app or submitting a real task timer for validation.
+**Next steps:** Manually upload `public/icons/icon128.png`. Request separate confirmation before installing the app into a project or submitting a real task timer for live validation.
 
 ---
 

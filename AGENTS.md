@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 22 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 23 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
 - **Current version:** 6.7.22
-- **Current focus:** Native Tabatha Asana App Component on an isolated branch rebased directly onto v6.7.22. The HMAC-validated backend is deployed; Asana Developer Console components remain disabled pending explicit save confirmation and live-task validation. No merge or push is authorized, and no later release version is assigned yet.
+- **Current focus:** Native Tabatha Asana App Component on an isolated branch rebased directly onto v6.7.22. Entry Point, Modal Form, and Widget are active for the restricted `gnge.co` workspace; installation and live-task validation remain approval-gated. The app icon is the only manual console step. No merge or push is authorized, and no later release version is assigned yet.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -194,6 +194,7 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-07-17 | Codex | One-click Asana and Anasa task actions | Implemented direct open destinations, existing-Asana linking, minimal Asana creation, configurable Anasa routing, and authenticated task-action function v2 on an isolated post-v6.7.22 branch. Not merged or released. | Treat the native Asana app as the priority; retain these extension actions as unmerged supporting work. |
 | 2026-07-17 | Codex | Asana attention + lightweight task context | Implemented Asana task-page human/agent attention controls, nested rollups, `contextOnly` task mirrors, local task identity links, and opt-in source completion on an isolated post-v6.7.22 branch. Backend pieces are deployed; the extension changes are not merged or released. | Validate the native App Component first; do not install or merge the extension branch without approval. |
 | 2026-07-17 | Codex | Native Asana App Component rebase | Rebased the isolated Asana work directly onto v6.7.22, preserved the former tip as `Koda/asana-widget-pre-rebase`, and deployed the HMAC-validated Modal Form/Widget service. Corrected Headbox to keep v6.7.22 as the authoritative version. No merge or push performed. | With explicit confirmation, save Entry Point, Modal Form, Widget, listing, and workspace settings in Asana app 1214413273944527; then separately confirm installation/live-task validation. |
+| 2026-07-17 | Codex | Native Asana app configuration | Enabled Entry Point (**Track attention**), Modal Form, and Widget in app 1214413273944527; registered production endpoints; saved the short description; and restricted distribution to `gnge.co`. Chrome rejected the approved icon upload through both controls. No install, live timer, merge, or push performed. | Manually upload `public/icons/icon128.png`, then explicitly approve project installation and live-task validation. |
 
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->

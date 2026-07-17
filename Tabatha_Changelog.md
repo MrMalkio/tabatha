@@ -7,7 +7,13 @@ file.
 
 ## [Unreleased] - Native Asana App Component and supporting task context - _2026-07-17_
 
-> Isolated work rebased directly onto v6.7.22. This work is not merged or released; the native Asana app remains pending Developer Console configuration and live-task validation.
+> Isolated work rebased directly onto v6.7.22. This work is not merged or released. The native Asana components are configured for `gnge.co`; app installation and live-task validation remain pending.
+
+### Native Asana app configuration
+
+- **Core App Components are active.** Asana app `1214413273944527` now has Entry Point, Modal Form, and Widget enabled. The task action is **Track attention**; Lookup and Rule Actions remain intentionally off.
+- **Production endpoints registered.** The app uses the deployed HMAC-validated `asana-widget` Edge Function for Modal Form and Widget metadata, with attachment URLs matched under `/asana-widget/task/{gid}`.
+- **Workspace-restricted distribution.** The app is visible only to the `gnge.co` workspace. Its short description is saved; the 128x128 icon remains a manual upload because Chrome rejected the protected local-file handoff.
 
 ### Supporting task actions
 
