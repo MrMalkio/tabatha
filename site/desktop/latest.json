@@ -1,0 +1,11 @@
+{
+  "version": "0.2.1",
+  "notes": "Tabatha Desktop Companion v0.2.1 — security hardening (origin-gated :9147 socket), honest tracking/day-roll, live category rules, and the Tauri remote-update mechanism.",
+  "pub_date": "2026-07-17T22:02:47.615Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUS0hyeDRKQmNUYzF3Z2RVNStTNVNIYkhjb0xPYkhHL21CY0pZd1BlMjV1Ni93T1lxOUVmQmhkR24vRE8wenRDVVlzRCtRSDBjQldEMFBkenNtYXlIQWNlbWQ4U3RCY2dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MzI1NjQ5CWZpbGU6VGFiYXRoYSBEZXNrdG9wXzAuMi4xX3g2NC1zZXR1cC5leGUKL1dmbWJvUlJtQzhVNW9PZmJRK0JZcjZodTd2UW15K1hPd3o0UjQrbnY0eFQwUitSRm1sKzNISnE3RkxrTmpWM0FsVWF6dndpcU1OQUVxdGQ4d2ZRQXc9PQo=",
+      "url": "https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.2.1/Tabatha.Desktop_0.2.1_x64-setup.exe"
+    }
+  }
+}
