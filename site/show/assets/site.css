@@ -97,17 +97,14 @@
 @media (max-width: 900px) { .devnote { margin: 18px 20px 0; } }
 
 /* ── download panel ──────────────────────────────────────── */
-/* The companion's "get it" surface. It is deliberately built as a
-   SOFT state rather than a download button, because as of v6.7.19
-   there is nothing to download: the binary exists only on the
-   machine that compiled it. See the copy in components-companion
-   .html for the full accounting. If a release is ever published,
-   `.dl-cta` becomes a real <a download> and `.dl-missing` goes.
-
-   Amber, not cyan: cyan is this site's "go" colour and using it on
-   a control that cannot give you the file would be a lie told in
-   CSS. This borrows `.devnote`'s amber, which already means
-   "honest, but not yet". */
+/* The companion's "get it" surface. Through v6.7.21 this was a
+   deliberately SOFT state — amber, no download — because the binary
+   existed only on the machine that compiled it. As of the
+   desktop-v0.2.0 GitHub release there is a real Windows installer,
+   so `.dl-cta.ready` (cyan, this site's "go" colour) is a genuine
+   <a download> and `.dl-missing` now carries install caveats rather
+   than release blockers. The amber base rules below are kept for
+   any future product whose download is not yet real. */
 .dl {
   max-width: 1180px; margin: 26px auto 0; padding: 0 40px;
 }
@@ -142,6 +139,31 @@
 .dl-cta:active { transform: translateY(1px); }
 .dl-cta:focus-visible { outline: 2px solid #ffa726; outline-offset: 2px; }
 .dl-note { font-size: 11.5px; color: var(--muted, #7d8894); }
+
+/* Ready state. When a real release exists the CTA turns cyan — this
+   site's "go" colour — because now it CAN hand you the file. This is
+   the promotion the amber note above anticipates. */
+.dl-cta.ready {
+  border-color: rgba(0, 210, 255, .5); background: rgba(0, 210, 255, .12);
+  color: var(--cyan, #00D2FF); text-decoration: none;
+}
+.dl-cta.ready:hover { background: rgba(0, 210, 255, .2); }
+.dl-cta.ready:focus-visible { outline-color: var(--cyan, #00D2FF); }
+
+/* The verifiable facts of a real download: exact bytes and a sha256
+   the user can check against the file they just saved. Monospace so
+   the digest reads as something to compare, not prose. */
+.dl-facts { margin-top: 14px; display: grid; gap: 6px; }
+.dl-fact {
+  font: 500 11.5px var(--mono, monospace); color: #9aa5b1;
+  display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+}
+.dl-fact .k {
+  font: 700 9px var(--sans, system-ui); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted, #7d8894); flex: none; min-width: 62px;
+}
+.dl-fact .v { color: #c4ced8; word-break: break-all; }
+.dl-note.limit { display: block; margin-top: 12px; line-height: 1.5; max-width: 72ch; }
 
 /* The blocked-on list. Named out loud rather than hidden behind a
    vague "coming soon", because each line is a real task someone has
@@ -187,6 +209,12 @@
 }
 .getstrip:hover { border-color: rgba(255, 167, 38, .55); background: rgba(255, 167, 38, .1); }
 .getstrip:focus-visible { outline: 2px solid #ffa726; outline-offset: 2px; }
+/* Promoted: a real release exists, so the strip goes cyan like the
+   rest of the site's "go" affordances. */
+.getstrip.ready { border-color: rgba(0, 210, 255, .3); background: rgba(0, 210, 255, .06); }
+.getstrip.ready:hover { border-color: rgba(0, 210, 255, .55); background: rgba(0, 210, 255, .1); }
+.getstrip.ready:focus-visible { outline-color: var(--cyan, #00D2FF); }
+.getstrip.ready .gs-go { color: var(--cyan, #00D2FF); }
 .getstrip .e { font-size: 20px; flex: none; }
 .gs-body { flex: 1; min-width: 0; }
 .gs-t { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; }

@@ -5,6 +5,46 @@ file.
 
 ---
 
+## [v6.7.22] - Desktop companion shipped as a real Windows download - _2026-07-16_
+
+### Added
+
+- **The desktop companion is now downloadable.** It was built and running at v0.2.0 but
+  existed only as a bare `.exe` on the machine that compiled it — no installer, no host.
+  Ran the Tauri bundler to produce a real **NSIS installer** (`4,666,565` bytes, sha256
+  `674ec83c…d8846`) plus an MSI, and published both as a **GitHub release** on
+  `MrMalkio/tabatha` under the tag **`desktop-v0.2.0`** — deliberately distinct from the
+  extension's `ext-v*` update channel so the two release lines cannot collide. The source
+  repo is separate and unpublished; only the built artifact is hosted.
+- **The showcase companion card now offers the real file.** `site/show/components-companion.html`
+  and the `site/show/index.html` entry strip replace the honest "request access" soft state
+  with a genuine download card: version 0.2.0, Windows x64, 4.45 MB, the full SHA-256, a
+  direct release-asset link, and a `.msi` alternative. The CTA is promoted from amber
+  ("honest, but not yet") to cyan ("go"). Verified responsive with no horizontal overflow
+  at 1280/768/480; the sha256 wraps within bounds on mobile.
+
+### Fixed
+
+- **Companion README corrected.** `tabatha-desktop/README.md` claimed the companion takes
+  **"no screenshots, no keyloggers, no content capture"** and was stamped v0.1.0. A GDI
+  screen-capture engine ships as of v0.2.0 (`screen_capture.rs`, merged to master), so the
+  screenshot claim was false. The README now describes capture honestly under the same
+  terms as the privacy policy — opt-in, off by default, redacted fail-closed, written only
+  to the user's own machine, never uploaded, auto-pruned 30d personal / 90d org-clocked —
+  fixes the stale version references, and documents the local-socket limitation.
+
+### Security (disclosed, not yet fixed)
+
+- **Documented the companion's unauthenticated local socket.** The companion's WebSocket on
+  `127.0.0.1:9147` (loopback-only, never network-exposed) does not authenticate local
+  callers. Because WebSocket connections bypass the same-origin policy, **any web page you
+  visit** can connect and — most seriously — silently enable OS screen capture via
+  `CAPTURE_CONFIG`. Full assessment and a staged, non-breaking fix in
+  `docs/security/companion-socket-auth.md`; surfaced publicly on the companion card as
+  "local-only interface, authentication hardening in progress" (no exploit recipe). The fix
+  is **not** shipped here — it must land on both the companion and the extension bridge
+  together to avoid breaking the existing connection.
+
 ## [v6.7.21] - Privacy policy correction + teaser H1 matches shipped Gatekeeper - _2026-07-16_
 
 ### Fixed
