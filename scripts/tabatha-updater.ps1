@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Tabatha self-hosted remote-update client (no Chrome Web Store dependency).
 
@@ -148,8 +148,12 @@ try {
   New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
   Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
 
+  if (-not (Test-Path $extractDir)) {
+    Log "ERROR: extraction did not produce $extractDir. Aborting - current install left untouched."
+    exit 1
+  }
   if (-not (Test-BuildValid $extractDir)) {
-    Log "ERROR: downloaded build failed validation (manifest/key/entry files). Aborting — current install left untouched."
+    Log "ERROR: downloaded build failed validation (manifest/key/entry files). Aborting - current install left untouched."
     exit 1
   }
   $newVersion = Get-InstalledVersion $extractDir

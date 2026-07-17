@@ -5,6 +5,12 @@ file.
 
 ---
 
+## [v6.7.24] - Staff auto-update swap step fixed - _2026-07-17_
+
+### Fixed
+
+- **Staff auto-update client silently failed every swap** (`scripts/tabatha-updater.ps1`). Root cause: the script (and `scripts/install-tabatha-staff.ps1`, same pattern) was saved as UTF-8 **without a byte-order mark**, and contains em-dash characters inside executable `Log` string literals. Windows PowerShell 5.1 (`powershell.exe`, the interpreter staff machines actually run) decodes BOM-less `.ps1` files using the system ANSI codepage instead of UTF-8 — the em-dash's multi-byte UTF-8 sequence gets misdecoded, which corrupted the tokenizer's parse of the surrounding statements and silently skipped the `Expand-Archive` extraction call and the `Test-BuildValid` validation gate entirely. Execution fell through straight to reading a version from a directory that was never extracted, producing the empty-version log line and a swap failure ("Cannot find path '...\extracted'"). Fixed by adding a UTF-8 BOM to both scripts (the encoding Windows PowerShell 5.1 requires to correctly read non-ASCII bytes). Also added an explicit post-extraction existence check in the updater so any future extraction failure fails loudly at validation instead of surfacing as a confusing error at swap time. Verified end-to-end against the live channel: stable path went v6.7.19 -> v6.7.23, and a second run correctly no-ops (idempotent, no orphaned staging/old dirs). `mirror-extension.ps1` is plain ASCII and does not share this defect.
+
 ## [v6.7.23] - Update-channel test + re-sync - _2026-07-17_
 
 ### Fixed
