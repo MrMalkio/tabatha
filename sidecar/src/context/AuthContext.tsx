@@ -102,6 +102,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const deviceId = await getDeviceId();
       const surface = surfaceForDevice();
+      // Key on (profile_id, local_id) — the full unique index from migration
+      // 017 (the extension's own upsert target). A partial index on
+      // (profile_id, browser) exists too but ON CONFLICT can't target it.
+      // local_id is stable per surface so the user's mobile presence collapses
+      // to one row (also satisfying the mobile-surface uniqueness in mig 013).
+      const localId = `sidecar-${surface}`;
       const { data, error } = await supabase
         .from('browser_profiles')
         .upsert(
@@ -111,11 +117,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             profile_name: deviceLabel(),
             classification: 'professional',
             extension_installed: false,
-            local_id: deviceId,
+            local_id: localId,
             machine_id: deviceId,
             last_seen_at: new Date().toISOString(),
           },
-          { onConflict: 'profile_id,browser' }
+          { onConflict: 'profile_id,local_id' }
         )
         .select('id')
         .maybeSingle();
