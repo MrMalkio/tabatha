@@ -47,12 +47,6 @@ file.
 - **Asana full-screen awareness is deterministic.** Task context is synchronized from the live Asana page rather than relying only on a background title regex, so the InBar follows SPA task changes and `focus=true` navigation.
 - **Offline-first timer behavior.** Task stints are committed to local extension storage first. Supabase mirroring is best-effort, so a network or auth outage cannot lose or block an active task timer.
 
-## [v6.7.23] - Update-channel test + re-sync - _2026-07-17_
-
-### Fixed
-
-- **Self-hosted update channel had drifted to v6.7.15** — `publish:update` was not run for several releases, so remote staff installs would not have auto-updated past 6.7.15. This release re-publishes the channel and was used to verify the end-to-end auto-update path (publish -> latest.json -> client pull -> stable-path swap) works.
-
 ## [v6.7.22] - Desktop companion shipped as a real Windows download - _2026-07-16_
 
 ### Added
