@@ -908,3 +908,13 @@ React Native so a real mobile app is an incremental step later.
 **Next steps:** User to verify end-to-end on a phone (sign in → create intent → see it
 sync → 1-min-timer push). Then v0.0.2: instant desktop realtime ingest, native
 iOS/Android (Expo run), checkpoint-staleness pushes, richer stash/awareness.
+
+**Autonomous verification + fix (same session):** minted a real user session for
+mr@duckandshark.com (admin `generateLink` + `verifyOtp`) and ran the app's exact
+RLS-scoped queries — **14/14 pass**. Caught + fixed a real bug: `browser_profiles`
+upsert used `onConflict (profile_id,browser)` (a partial index ON CONFLICT can't
+target) → device registration silently failed; switched to the full
+`(profile_id,local_id)` index (the extension's own target) and redeployed. Push
+pipeline confirmed: an expired sidecar focus was scanned by `send-focus-push` and
+delivered to a **real registered device** (existing FCM subscription on the account).
+**PR #23 → staging.** Asana Flux Development project update posted.
