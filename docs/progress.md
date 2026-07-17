@@ -3,6 +3,27 @@
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
 
+## Session - 2026-07-17 (One-click Asana and Anasa task actions, v6.8.2)
+
+**Goal:** Let a user move between Tabatha, Asana, and Anasa from an existing task context without expanding Tabatha into a project-management system.
+
+**Done:**
+- Added one-click **Open in Asana** and **Open in Anasa** destinations to linked task cards in Home and Sidebar. Anasa opens a known internal task directly or pre-filters its task explorer by the Tabatha task name.
+- Added **Link Asana** using an existing task URL/GID and **Create in Asana** using the local task name/description. Both operations preserve the existing Tabatha task ID and user-owned local fields.
+- Expanded the authenticated server action to the narrow `get`, `create`, and `complete` operation set with bounded inputs; the Asana PAT remains server-side.
+- Added a configurable Anasa base URL for the current tailnet deployment and future public hostname.
+- Bumped and atomically built v6.8.2 into the fixed `dist` path.
+
+**Verification:** 639/639 Node tests pass, focused ESLint and `git diff --check` pass, production Vite build passes, and the deployed anonymous server-action probe correctly returns HTTP 401.
+
+**Deployment:** `asana-task-action` was deployed through the Supabase Management API as ACTIVE version 2 after the local CLI upload transport hung.
+
+**Pending:** Chrome/Browser extension installation is still waiting on the required action-time confirmation. Anasa's intended public hostname is DNS-pending, so Settings can temporarily hold its working tailnet base URL.
+
+**Next steps:** With user confirmation, load `C:\Users\mrmal\Le Dev\Tabatha\dist` unpacked in the authorized browser, reload it, and smoke-test open/link/create against signed-in Asana plus the configured Anasa deployment.
+
+---
+
 ## Session - 2026-07-17 (Asana task focus, attributed attention, and task context, v6.8.1)
 
 **Goal:** Turn the earlier Asana widget foundation into a direct task-page workflow for setting focus and tracking human or agent attention, with correct nested-task attribution.

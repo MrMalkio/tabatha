@@ -14,6 +14,7 @@ import { useOrgData } from '../hooks/useOrgData';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 import { formatTime } from '../utils/formatTime';
 import { isLiveConcurrent } from '../utils/stintReconciliation';
+import { anasaTaskHref, asanaTaskHref, hasAsanaTask } from '../utils/taskDestinationLinks';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
 import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 
@@ -74,7 +75,7 @@ function GroupsList({ tabs }) {
 // ═══════════════════════════════════════
 // SidebarTasksPanel — compact task CRUD
 // ═══════════════════════════════════════
-function SidebarTasksPanel() {
+function SidebarTasksPanel({ anasaBaseUrl }) {
   const [tasks, setTasks] = useState([]);
   const [newName, setNewName] = useState('');
 
@@ -109,6 +110,23 @@ function SidebarTasksPanel() {
   };
   const handleReopen = (taskId) => sendMessage('UPDATE_TASK', { taskId, updates: { status: 'active', completedAt: null } });
 
+  const handleLinkAsana = async (task) => {
+    const reference = window.prompt('Paste the existing Asana task URL or GID:');
+    if (!reference?.trim()) return;
+    const result = await sendMessage('LINK_ASANA_TASK', { taskId: task.id, reference: reference.trim() });
+    if (!result?.success) alert(result?.error || 'Could not link the Asana task.');
+  };
+
+  const handleCreateAsana = async (task) => {
+    if (!window.confirm(`Create “${task.name}” in Asana and link it here?`)) return;
+    const result = await sendMessage('CREATE_AND_LINK_ASANA_TASK', {
+      taskId: task.id,
+      name: task.name,
+      description: task.description || '',
+    });
+    if (!result?.success) alert(result?.error || 'Could not create the Asana task.');
+  };
+
   return (
     <motion.div key="tasks" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.12}}>
       {/* Quick create */}
@@ -136,6 +154,18 @@ function SidebarTasksPanel() {
             </div>
             {task.externalContext?.parentName && <div style={{ fontSize:'8px', color:'var(--color-text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>↳ {task.externalContext.parentName}</div>}
           </div>
+          {hasAsanaTask(task) ? (
+            <>
+              <a href={asanaTaskHref(task)} target="_blank" rel="noreferrer" title="Open in Asana" style={{ fontSize:'9px', color:'#f06a6a', textDecoration:'none' }}>A↗</a>
+              <a href={anasaTaskHref(task, anasaBaseUrl)} target="_blank" rel="noreferrer" title="Open in Anasa" style={{ fontSize:'9px', color:'#67e8f9', textDecoration:'none' }}>N↗</a>
+              <button onClick={() => handleLinkAsana(task)} title="Link a different Asana task" style={{ ...btn('var(--color-text-muted)'), padding:'0 3px', border:'none' }}>🔗</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => handleLinkAsana(task)} title="Link an Asana task" style={{ ...btn('var(--color-text-muted)'), padding:'0 3px', border:'none' }}>🔗</button>
+              <button onClick={() => handleCreateAsana(task)} title="Create in Asana" style={{ ...btn('#f06a6a'), padding:'0 3px', border:'none' }}>+</button>
+            </>
+          )}
         </div>
       ))}
 
@@ -746,7 +776,7 @@ function Sidebar() {
 
           {/* ── TASKS PANEL ── */}
           {panel === 'tasks' && (
-            <SidebarTasksPanel />
+            <SidebarTasksPanel anasaBaseUrl={settings.anasaBaseUrl} />
           )}
 
           {/* ── TABS PANEL ── */}

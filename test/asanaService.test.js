@@ -155,6 +155,118 @@ test('COMPLETE_ASANA_TASK requires an explicit signed-in remote action and recor
 
   assert.equal(result.success, true);
   assert.equal(calls[0].name, 'asana-task-action');
-  assert.deepEqual(calls[0].options.body, { taskGid: '300', completed: true });
+  assert.deepEqual(calls[0].options.body, { action: 'complete', taskGid: '300' });
   assert.equal(chrome._storage.tabathaOrg.tasks.task_asana_300.externalContext.remoteStatus, 'completed');
+});
+
+test('LINK_ASANA_TASK resolves a pasted URL and attaches context to an existing local task', async () => {
+  const calls = [];
+  const supabase = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
+    functions: {
+      invoke: async (name, options) => {
+        calls.push({ name, options });
+        return {
+          data: {
+            task: {
+              taskGid: '300',
+              taskName: 'Resolved from Asana',
+              taskUrl: 'https://app.asana.com/0/10/300',
+              workspaceGid: '9526911872029',
+              projectGid: '10',
+              projectName: 'Flux',
+            },
+          },
+          error: null,
+        };
+      },
+    },
+  };
+  const { chrome, sender } = setup({
+    supabase,
+    store: {
+      tabathaOrg: { clients: {}, projects: {}, operations: {}, initiatives: {}, tasks: {
+        local_task: { id: 'local_task', name: 'Local task', status: 'active', linkedIntents: [], createdAt: '2026-07-17T00:00:00.000Z' },
+      } },
+    },
+  });
+  const result = await asana.handleMessage('LINK_ASANA_TASK', {
+    taskId: 'local_task',
+    reference: 'https://app.asana.com/0/10/300/f',
+  }, sender);
+
+  assert.equal(result.success, true);
+  assert.deepEqual(calls[0].options.body, { action: 'get', taskGid: '300' });
+  assert.equal(chrome._storage.tabathaOrg.tasks.local_task.externalContext.externalId, '300');
+  assert.equal(chrome._storage.tabathaOrg.tasks.local_task.contextOnly, false);
+  assert.equal(chrome._storage.asanaTaskTracking.relations['300'].localTaskId, 'local_task');
+});
+
+test('LINK_ASANA_TASK also preserves a legacy task in the legacy task store', async () => {
+  const supabase = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
+    functions: {
+      invoke: async () => ({
+        data: { task: { taskGid: '301', taskName: 'Legacy linked', taskUrl: 'https://app.asana.com/0/0/301' } },
+        error: null,
+      }),
+    },
+  };
+  const { chrome, sender } = setup({
+    supabase,
+    store: {
+      tasks: [{ id: 'legacy_task', name: 'Legacy local', description: 'Keep me', status: 'active' }],
+      tabathaOrg: { clients: {}, projects: {}, operations: {}, initiatives: {}, tasks: {} },
+    },
+  });
+  const result = await asana.handleMessage('LINK_ASANA_TASK', {
+    taskId: 'legacy_task',
+    reference: '301',
+  }, sender);
+
+  assert.equal(result.success, true);
+  assert.equal(chrome._storage.tasks[0].id, 'legacy_task');
+  assert.equal(chrome._storage.tasks[0].description, 'Keep me');
+  assert.equal(chrome._storage.tasks[0].externalContext.externalId, '301');
+  assert.equal(chrome._storage.tabathaOrg.tasks.legacy_task, undefined);
+});
+
+test('CREATE_AND_LINK_ASANA_TASK creates a minimal workspace task and preserves the Tabatha identity', async () => {
+  const calls = [];
+  const supabase = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
+    functions: {
+      invoke: async (name, options) => {
+        calls.push({ name, options });
+        return {
+          data: { task: { taskGid: '999', taskName: 'New remote', taskUrl: 'https://app.asana.com/0/0/999' } },
+          error: null,
+        };
+      },
+    },
+  };
+  const { chrome, sender } = setup({
+    supabase,
+    store: {
+      tabathaOrg: { clients: {}, projects: {}, operations: {}, initiatives: {}, tasks: {
+        local_task: { id: 'local_task', name: 'New remote', description: 'Small context note', status: 'active', linkedIntents: [], createdAt: '2026-07-17T00:00:00.000Z' },
+      } },
+    },
+  });
+  const result = await asana.handleMessage('CREATE_AND_LINK_ASANA_TASK', {
+    taskId: 'local_task',
+    name: 'New remote',
+    description: 'Small context note',
+  }, sender);
+
+  assert.equal(result.success, true);
+  assert.equal(result.created, true);
+  assert.deepEqual(calls[0].options.body, {
+    action: 'create',
+    name: 'New remote',
+    notes: 'Small context note',
+    workspaceGid: '9526911872029',
+    projectGid: null,
+  });
+  assert.equal(chrome._storage.tabathaOrg.tasks.local_task.asanaGid, '999');
 });

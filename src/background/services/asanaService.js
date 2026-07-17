@@ -20,10 +20,12 @@ import {
   stopTaskSession,
   summarizeTaskTime,
 } from '../../utils/asanaTaskTracking.js';
+import { parseAsanaUrl } from '../../utils/taskUrlResolver.js';
 
 const STORAGE_KEY = 'asanaTaskTracking';
 const HISTORY_CAP = 5000;
 const COMPLETE_TASK_FUNCTION = 'asana-task-action';
+const DEFAULT_ASANA_WORKSPACE_GID = '9526911872029';
 
 let injectedDeps = {};
 let opChain = Promise.resolve();
@@ -66,6 +68,7 @@ function updateRelation(state, task) {
     parentTaskName: task.parentTaskName || state.relations[task.taskGid]?.parentTaskName || null,
     projectGid: task.projectGid || state.relations[task.taskGid]?.projectGid || null,
     projectName: task.projectName || state.relations[task.taskGid]?.projectName || null,
+    localTaskId: task.localTaskId || state.relations[task.taskGid]?.localTaskId || null,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -73,6 +76,7 @@ function updateRelation(state, task) {
 async function mirrorTaskContext(task, state) {
   const sessions = [...Object.values(state.active), ...state.history];
   const localTask = await upsertExternalTaskContext({
+    taskId: state.relations[task.taskGid]?.localTaskId || undefined,
     provider: 'asana',
     externalId: task.taskGid,
     name: task.taskName,
@@ -85,6 +89,10 @@ async function mirrorTaskContext(task, state) {
     focusMode: task.focusMode,
     attention: summarizeTaskTime(task.taskGid, sessions),
   });
+  if (state.relations[task.taskGid]?.localTaskId !== localTask.id) {
+    state.relations[task.taskGid].localTaskId = localTask.id;
+    await writeState(state);
+  }
 
   // Refresh any ancestor mirrors the user has already encountered. Missing
   // ancestors are intentionally not created from a breadcrumb alone.
@@ -272,21 +280,8 @@ async function setTaskFocus(message) {
 async function completeAsanaTask(message) {
   const taskGid = String(message.taskGid || message.externalId || '').trim();
   if (!/^\d+$/.test(taskGid)) return { success: false, error: 'A valid Asana task GID is required' };
-  if (!injectedDeps.supabase?.functions?.invoke) {
-    return { success: false, error: 'Asana completion is not configured' };
-  }
-
-  const { data: authData } = await injectedDeps.supabase.auth.getSession();
-  if (!authData?.session) {
-    return { success: false, error: 'Sign in to Tabatha before completing a task in Asana' };
-  }
-
-  const { data, error } = await injectedDeps.supabase.functions.invoke(COMPLETE_TASK_FUNCTION, {
-    body: { taskGid, completed: true },
-  });
-  if (error || data?.error) {
-    return { success: false, error: data?.error || error?.message || 'Asana completion failed' };
-  }
+  const action = await invokeAsanaTaskAction({ action: 'complete', taskGid });
+  if (!action.success) return action;
 
   const localTaskId = message.taskId || `task_asana_${taskGid}`;
   await updateExternalTaskState(localTaskId, {
@@ -294,6 +289,79 @@ async function completeAsanaTask(message) {
     remoteCompletedAt: new Date().toISOString(),
   });
   return { success: true, taskGid, remoteStatus: 'completed' };
+}
+
+async function invokeAsanaTaskAction(body) {
+  if (!injectedDeps.supabase?.functions?.invoke) {
+    return { success: false, error: 'Asana task actions are not configured' };
+  }
+  const { data: authData } = await injectedDeps.supabase.auth.getSession();
+  if (!authData?.session) {
+    return { success: false, error: 'Sign in to Tabatha before changing Asana tasks' };
+  }
+  const { data, error } = await injectedDeps.supabase.functions.invoke(COMPLETE_TASK_FUNCTION, { body });
+  if (error || data?.error) {
+    return { success: false, error: data?.error || error?.message || 'Asana task action failed' };
+  }
+  return { success: true, data };
+}
+
+function taskFromAction(data) {
+  const remote = data?.task || data || {};
+  return normalizeAsanaTask({
+    taskGid: remote.taskGid || remote.gid,
+    taskName: remote.taskName || remote.name,
+    taskUrl: remote.taskUrl || remote.permalinkUrl || remote.permalink_url,
+    workspaceGid: remote.workspaceGid || remote.workspace?.gid,
+    projectGid: remote.projectGid || remote.projects?.[0]?.gid,
+    projectName: remote.projectName || remote.projects?.[0]?.name,
+    parentTaskGid: remote.parentTaskGid || remote.parent?.gid,
+    parentTaskName: remote.parentTaskName || remote.parent?.name,
+  });
+}
+
+async function attachAsanaTask(localTaskId, remoteData) {
+  const task = taskFromAction(remoteData);
+  if (!task) return { success: false, error: 'Asana returned an invalid task' };
+  const state = await readState();
+  updateRelation(state, { ...task, localTaskId });
+  await writeState(state);
+  const localTask = await mirrorTaskContext(task, state);
+  return {
+    success: true,
+    taskGid: task.taskGid,
+    taskUrl: task.taskUrl,
+    localTaskId: localTask.id,
+    localTask,
+  };
+}
+
+async function linkExistingAsanaTask(message) {
+  const reference = String(message.reference || message.taskGid || '').trim();
+  const parsed = parseAsanaUrl(reference);
+  const taskGid = /^\d+$/.test(reference) ? reference : parsed?.taskGid;
+  if (!taskGid) return { success: false, error: 'Paste a valid Asana task URL or GID' };
+  if (!message.taskId) return { success: false, error: 'A Tabatha task ID is required' };
+
+  const action = await invokeAsanaTaskAction({ action: 'get', taskGid });
+  if (!action.success) return action;
+  return attachAsanaTask(message.taskId, action.data);
+}
+
+async function createAndLinkAsanaTask(message) {
+  if (!message.taskId) return { success: false, error: 'A Tabatha task ID is required' };
+  const name = String(message.name || '').trim();
+  if (!name) return { success: false, error: 'Task name is required' };
+
+  const action = await invokeAsanaTaskAction({
+    action: 'create',
+    name,
+    notes: String(message.description || '').trim(),
+    workspaceGid: message.workspaceGid || DEFAULT_ASANA_WORKSPACE_GID,
+    projectGid: message.projectGid || null,
+  });
+  if (!action.success) return action;
+  return { ...(await attachAsanaTask(message.taskId, action.data)), created: true };
 }
 
 function statusForTask(taskGid, state, now = Date.now()) {
@@ -384,6 +452,10 @@ export async function handleMessage(type, message, sender) {
       return serialized(() => setTaskFocus(message));
     case 'COMPLETE_ASANA_TASK':
       return serialized(() => completeAsanaTask(message));
+    case 'LINK_ASANA_TASK':
+      return serialized(() => linkExistingAsanaTask(message));
+    case 'CREATE_AND_LINK_ASANA_TASK':
+      return serialized(() => createAndLinkAsanaTask(message));
     default:
       return undefined;
   }

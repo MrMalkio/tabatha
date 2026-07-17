@@ -85,7 +85,9 @@ https://app.asana.com/0/{project_gid}/{task_gid}/f
 - `asanaService.js` owns task context, timers, focus linking, local persistence, and cloud mirroring
 - `asanaTaskTracking.js` owns pure hierarchy and duration calculations
 - Migration 029 and the widget route expose nested and agent totals in Asana
-- `asana-task-action` is the authenticated, completion-only Edge Function; the Asana PAT never enters extension code
+- `asana-task-action` is the authenticated, narrow task-action Edge Function (`get`, `create`, `complete`); the Asana PAT never enters extension code
+- Existing Tabatha task cards can open Asana or Anasa, attach an Asana URL/GID without changing the local task ID, or create and attach a minimal Asana task in one action
+- The Anasa base URL is configurable so the same button can target a tailnet deployment while public DNS is pending
 
 ## Open Questions
 

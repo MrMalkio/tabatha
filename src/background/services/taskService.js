@@ -34,10 +34,12 @@ export async function upsertExternalTaskContext(context = {}) {
   const externalId = cleanExternalToken(context.externalId);
   if (!provider || !externalId) throw new Error('External task provider and ID are required');
 
-  const { tabathaOrg } = await getStorage('tabathaOrg');
+  const { tabathaOrg, tasks: legacyRaw } = await getStorage(['tabathaOrg', 'tasks']);
   const org = normalizeOrg(tabathaOrg);
-  const id = externalTaskId(provider, externalId);
-  const existing = org.tasks[id] || null;
+  const legacyTasks = Array.isArray(legacyRaw) ? legacyRaw : [];
+  const id = context.taskId || externalTaskId(provider, externalId);
+  const legacyIndex = legacyTasks.findIndex(task => task?.id === id);
+  const existing = org.tasks[id] || (legacyIndex >= 0 ? legacyTasks[legacyIndex] : null);
   const now = context.lastSeenAt || new Date().toISOString();
   const externalContext = {
     ...(existing?.externalContext || {}),
@@ -67,8 +69,8 @@ export async function upsertExternalTaskContext(context = {}) {
     archived: existing?.archived || false,
     ...existing,
     name: context.name || existing?.name || `${provider} task ${externalId}`,
-    source: 'external-context',
-    contextOnly: true,
+    source: existing?.source || (context.taskId ? 'org' : 'external-context'),
+    contextOnly: existing?.contextOnly ?? !context.taskId,
     externalContext,
     updatedAt: now,
   };
@@ -80,26 +82,39 @@ export async function upsertExternalTaskContext(context = {}) {
     task.asanaUrl = externalContext.url;
   }
 
-  org.tasks[id] = task;
-  await setStorage({ tabathaOrg: org });
-  broadcastTasksUpdated(getActiveOrgTasks(org));
+  if (org.tasks[id] || legacyIndex < 0) {
+    org.tasks[id] = task;
+    await setStorage({ tabathaOrg: org });
+  } else {
+    legacyTasks[legacyIndex] = task;
+    await setStorage({ tasks: legacyTasks });
+  }
+  await broadcastUnifiedTasks();
   return task;
 }
 
 export async function updateExternalTaskState(taskId, updates = {}) {
-  const { tabathaOrg } = await getStorage('tabathaOrg');
+  const { tabathaOrg, tasks: legacyRaw } = await getStorage(['tabathaOrg', 'tasks']);
   const org = normalizeOrg(tabathaOrg);
-  const task = org.tasks[taskId];
+  const legacyTasks = Array.isArray(legacyRaw) ? legacyRaw : [];
+  const legacyIndex = legacyTasks.findIndex(task => task?.id === taskId);
+  const task = org.tasks[taskId] || (legacyIndex >= 0 ? legacyTasks[legacyIndex] : null);
   if (!task?.externalContext) return null;
 
-  org.tasks[taskId] = {
+  const next = {
     ...task,
     externalContext: { ...task.externalContext, ...updates },
     updatedAt: new Date().toISOString(),
   };
-  await setStorage({ tabathaOrg: org });
-  broadcastTasksUpdated(getActiveOrgTasks(org));
-  return org.tasks[taskId];
+  if (org.tasks[taskId]) {
+    org.tasks[taskId] = next;
+    await setStorage({ tabathaOrg: org });
+  } else {
+    legacyTasks[legacyIndex] = next;
+    await setStorage({ tasks: legacyTasks });
+  }
+  await broadcastUnifiedTasks();
+  return next;
 }
 
 export function externalTaskId(provider, externalId) {
@@ -288,6 +303,10 @@ function getActiveOrgTasks(org) {
 
 function broadcastTasksUpdated(tasks) {
   broadcastToExtension({ type: 'TASKS_UPDATED', tasks });
+}
+
+async function broadcastUnifiedTasks() {
+  broadcastTasksUpdated(await getTasks());
 }
 
 function cleanExternalToken(value) {

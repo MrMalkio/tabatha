@@ -5,6 +5,20 @@ file.
 
 ---
 
+## [v6.8.2] - One-click Asana and Anasa task actions - _2026-07-17_
+
+### Added
+
+- **Open source tasks from Tabatha.** Linked task cards in Home and Sidebar now open the task directly in Asana or Anasa. If Anasa does not yet have an internal mirror ID, its task explorer opens with the task name pre-filtered.
+- **Link an existing Asana task.** A task card accepts an Asana task URL or GID, securely retrieves the source metadata, and attaches it to the existing Tabatha task identity instead of creating a duplicate.
+- **Create in Asana.** A local task can create a minimal Asana task from its name and description and link the returned task in the same action. The Asana PAT remains exclusively in the authenticated server action.
+- **Configurable Anasa destination.** Integrations settings include the Anasa base URL, allowing the task link to use the current tailnet deployment and later switch to the public hostname without a code change.
+
+### Changed
+
+- **Narrow action broker.** `asana-task-action` now supports only authenticated `get`, `create`, and `complete` task operations with bounded inputs; it does not expose general project-management mutation capability.
+- **Linked tasks stay local-first.** Asana metadata refreshes the existing task's external context while preserving its Tabatha-owned status, description, relationships, and task ID.
+
 ## [v6.8.1] - Lightweight Asana task context in Tabatha - _2026-07-17_
 
 ### Added

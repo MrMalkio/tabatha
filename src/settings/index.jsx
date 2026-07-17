@@ -1933,6 +1933,18 @@ function Settings() {
                     <span style={fieldLabel}>Enable Asana sync</span>
                     <Toggle value={!!settings.asanaWidgetEnabled} onChange={v => updateSetting('asanaWidgetEnabled', v)} />
                   </div>
+                  <div style={fieldRow}>
+                    <span style={fieldLabel}>Anasa task URL</span>
+                    <input
+                      type="url" placeholder="https://anasa.duckandshark.com"
+                      value={settings.anasaBaseUrl || ''}
+                      onChange={(e) => updateSetting('anasaBaseUrl', e.target.value)}
+                      style={{ ...inputStyle, width: '250px' }}
+                    />
+                  </div>
+                  <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '5px 0 0', lineHeight: 1.5 }}>
+                    Used by one-click Anasa links on task cards. A tailnet deployment URL can be used while public DNS is pending.
+                  </p>
                   <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '8px 0 0', lineHeight: 1.5, fontStyle: 'italic' }}>
                     📘 See <strong>docs/guides/asana-integration.md</strong> for full setup instructions.
                   </p>

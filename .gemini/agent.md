@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 6.8.1
+- **Current version:** 6.8.2
 - **Current focus:** Cortex program (Plans 039/040-044) on top of staging v6.6.0 (NB-03 to NB-09 merged in: time-editing overhaul, offline-gap detector, abandoned stints, work-shifts analytics, settings search). Phase 1 browser-regression-verified; Phases 2-5 partial (companion capture on tabatha-desktop feat/cortex-capture; voice v0 + self-correction shipped). Awaiting Malkio: extension RELOAD + re-smoke-test -> v7.0.0, companion merge/deploy, proxy secret. See docs/cortex/HANDOFF.md.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
@@ -191,6 +191,7 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 | 2026-07-16 | Codex | Overlock context contribution | Replaced the legacy webhook token with HMAC-SHA256 over the exact request body so privacy-bounded Tabatha events can be verified by Caspera's Overlock connector. All 623 tests pass. | Configure the Overlock webhook URL and shared secret, then observe one week of contribution usage. |
+| 2026-07-17 | Codex | One-click Asana and Anasa task actions | Added direct open destinations, existing-Asana linking, minimal Asana creation, configurable Anasa routing, and deployed the authenticated task-action function v2. All 639 tests and the production build pass. | Confirm unpacked-extension installation, configure the working Anasa base URL, and browser-smoke-test open/link/create. |
 | 2026-07-17 | Codex | Asana attention + lightweight task context | Shipped v6.8.1: Asana task-page focus/human/agent controls, nested rollups, `contextOnly` task mirrors in Home/Sidebar, local task identity links, and opt-in source completion through a deployed authenticated Edge Function. 634 tests and production build green. Chrome has a disabled legacy v6.7.22 card under a different ID. | Confirm Load unpacked for the pinned v6.8.1 `dist`, then verify the mirror and Tabatha-only / Tabatha+Asana completion. |
 
 <!-- END HEADBOX                                                        -->

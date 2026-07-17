@@ -32,6 +32,7 @@ import { useOrgData } from '../hooks/useOrgData';
 
 import { formatTime } from '../utils/formatTime';
 import { isLiveConcurrent } from '../utils/stintReconciliation';
+import { anasaTaskHref, asanaTaskHref, hasAsanaTask } from '../utils/taskDestinationLinks';
 import { logger } from '../services/logger';
 import CompanionStatus from '../components/CompanionStatus';
 import UnifiedTimeline from '../components/UnifiedTimeline';
@@ -942,7 +943,7 @@ function FocusInput({ onStart, orgData, clients, projects }) {
 // TasksPanel — Task management
 // ════════════════════════════════════════════
 
-function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
+function TasksPanel({ actions, allItems, onLinkRequest, orgData, anasaBaseUrl }) {
   const [tasks, setTasks] = useChromeStorage('tasks', []);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -1010,6 +1011,23 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
 
   const handleReopen = async (taskId) => {
     await sendMessage('UPDATE_TASK', { taskId, updates: { status: 'active', completedAt: null } });
+  };
+
+  const handleLinkAsana = async (task) => {
+    const reference = window.prompt('Paste the existing Asana task URL or GID:');
+    if (!reference?.trim()) return;
+    const result = await sendMessage('LINK_ASANA_TASK', { taskId: task.id, reference: reference.trim() });
+    if (!result?.success) alert(result?.error || 'Could not link the Asana task.');
+  };
+
+  const handleCreateAsana = async (task) => {
+    if (!window.confirm(`Create “${task.name}” in Asana and link it to this Tabatha task?`)) return;
+    const result = await sendMessage('CREATE_AND_LINK_ASANA_TASK', {
+      taskId: task.id,
+      name: task.name,
+      description: task.description || '',
+    });
+    if (!result?.success) alert(result?.error || 'Could not create the Asana task.');
   };
 
   const handleDelete = async (taskId) => {
@@ -1180,6 +1198,8 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
             const external = task.externalContext?.provider === 'asana' ? task.externalContext : null;
             const attention = external?.attention;
             const totalMinutes = Math.round((attention?.totalMs || 0) / 60000);
+            const asanaHref = asanaTaskHref(task);
+            const anasaHref = anasaTaskHref(task, anasaBaseUrl);
             return (
               <GlassCard key={task.id} style={{ padding: '10px 14px', opacity: isCompleted ? 0.65 : 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -1215,11 +1235,8 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
                           {task.description && <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '2px' }}>{task.description}</div>}
                           {external && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '3px', fontSize: '9px', color: 'var(--color-text-muted)' }}>
-                              {external.url ? (
-                                <a href={external.url} target="_blank" rel="noreferrer" style={{ color: '#f06a6a', textDecoration: 'none', fontWeight: 600 }}>Asana context ↗</a>
-                              ) : (
-                                <span style={{ color: '#f06a6a', fontWeight: 600 }}>Asana context</span>
-                              )}
+                              <a href={asanaHref} target="_blank" rel="noreferrer" style={{ color: '#f06a6a', textDecoration: 'none', fontWeight: 600 }}>Asana ↗</a>
+                              <a href={anasaHref} target="_blank" rel="noreferrer" style={{ color: '#67e8f9', textDecoration: 'none', fontWeight: 600 }}>Anasa ↗</a>
                               {external.parentName && <span>↳ {external.parentName}</span>}
                               {external.projectName && <span>• {external.projectName}</span>}
                               {(totalMinutes > 0 || attention?.activeCount > 0) && (
@@ -1248,6 +1265,16 @@ function TasksPanel({ actions, allItems, onLinkRequest, orgData }) {
                       </>
                     ) : (
                       <>
+                        {!hasAsanaTask(task) ? (
+                          <>
+                            <button onClick={() => handleLinkAsana(task)} style={actionBtn}>🔗 Asana</button>
+                            <button onClick={() => handleCreateAsana(task)} style={{ ...actionBtn, color: '#f06a6a', borderColor: '#f06a6a' }}>+ Asana</button>
+                          </>
+                        ) : (
+                          <Tooltip text="Link a different Asana task">
+                            <button onClick={() => handleLinkAsana(task)} style={actionBtn}>🔗</button>
+                          </Tooltip>
+                        )}
                         {!isCompleted && (
                           <Tooltip text="Start a focus from this task">
                             <button onClick={() => handleStartIntent(task)} style={actionBtn}>🎯</button>
@@ -2144,7 +2171,7 @@ function Home() {
             <IntentsPanel intentHistory={intentHistory} allItems={allItems} tabs={tabs} timeTracking={timeTracking} actions={actions} onLinkRequest={handleLinkRequest} />
           )}
           {activePanel === 'tasks' && (
-            <TasksPanel actions={actions} allItems={allItems} onLinkRequest={handleLinkRequest} orgData={orgData} />
+            <TasksPanel actions={actions} allItems={allItems} onLinkRequest={handleLinkRequest} orgData={orgData} anasaBaseUrl={settings.anasaBaseUrl} />
           )}
           {activePanel === 'projects' && (
             <ProjectsClientsPanel orgData={orgData} />

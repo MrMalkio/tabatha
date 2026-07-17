@@ -150,7 +150,7 @@ export const SETTINGS_SEARCH_INDEX = [
   { id: 'section-privacy', section: 'privacy', label: 'Privacy & Capture', keywords: ['privacy', 'screenshot', 'keystroke', 'capture', 'incognito'] },
   { id: 'section-webhooks', section: 'webhooks', label: 'Webhooks', keywords: ['webhook', 'zapier', 'make', 'events', 'endpoint'] },
   { id: 'section-desktop', section: 'desktop', label: 'Desktop Activity', keywords: ['companion', 'desktop', 'activity', 'timeline', 'switches'] },
-  { id: 'section-integrations', section: 'integrations', label: 'Integrations', keywords: ['asana', 'supabase', 'companion', 'external', 'services'] },
+  { id: 'section-integrations', section: 'integrations', label: 'Integrations', keywords: ['asana', 'anasa', 'tasks', 'supabase', 'companion', 'external', 'services'] },
   { id: 'section-developer', section: 'developer', label: 'Developer', keywords: ['debug', 'logs', 'developer', 'diagnostics'] },
   { id: 'section-about', section: 'about', label: 'About', keywords: ['version', 'changelog', 'about', 'flux'] },
 

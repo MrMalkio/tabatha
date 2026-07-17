@@ -22,6 +22,9 @@ export const DEFAULT_SETTINGS = {
   checkpointIntervalFraction: 0.33,
   checkpointStaleMinutes: 30,
   checkpointAutoPostAsana: false,
+  // Task destination opened by the lightweight task-context bridge. This can
+  // point at a tailnet deployment until the public Anasa hostname is live.
+  anasaBaseUrl: 'https://anasa.duckandshark.com',
   // ── Intelligent Focus Lifecycle (Plan 036) ──
   // Phase 1 — Smart Idle Engine
   autoPauseEnabled: true,                 // master toggle: false = idle never touches focus state at all
