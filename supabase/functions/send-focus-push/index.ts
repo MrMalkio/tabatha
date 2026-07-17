@@ -1,12 +1,13 @@
 // Supabase Edge Function: send-focus-push
-// Invoked every minute by pg_cron. Scans for Sidecar-created active focuses
-// whose timer has expired and sends a Web Push to the owner's subscriptions —
-// the phone equivalent of the extension's timer-expiry modal. Dedup via
-// tabatha.push_dedup so each focus fires once per kind.
+// Invoked every minute by pg_cron. Delivers the desktop-equivalent focus
+// notifications to the Sidecar's Web Push subscriptions:
+//   • timer_expired    — a Sidecar focus's timer ran out
+//   • drifted          — a focus flipped to focus_state='drifted'
+//   • checkpoint_stale — an active Sidecar focus's last checkpoint is >30m old
+// Dedup via tabatha.push_dedup so each (focus, kind) fires once.
 //
-// Secrets (set via `supabase secrets set`):
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (provided by the platform)
-//   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:...)
+// Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (platform),
+//          VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
@@ -24,20 +25,24 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false },
 });
 
+const CHECKPOINT_STALE_MS = 30 * 60 * 1000;
+
 type FocusRow = {
   id: string;
   profile_id: string;
+  client_id: string;
   label: string;
   timer_minutes: number;
   created_at: string;
+  focus_state: string;
   tags: Record<string, any> | null;
 };
 
-function isExpired(f: FocusRow): boolean {
-  const startIso = f.tags?._startedAt || f.created_at;
-  const start = new Date(startIso).getTime();
-  const end = start + (f.timer_minutes || 15) * 60000;
-  return Date.now() >= end;
+const results = { scanned: 0, fired: 0, errors: 0, byKind: {} as Record<string, number> };
+
+function timerExpired(f: FocusRow): boolean {
+  const start = new Date(f.tags?._startedAt || f.created_at).getTime();
+  return Date.now() >= start + (f.timer_minutes || 15) * 60000;
 }
 
 async function alreadyFired(focusId: string, kind: string): Promise<boolean> {
@@ -50,84 +55,97 @@ async function alreadyFired(focusId: string, kind: string): Promise<boolean> {
   return !!data;
 }
 
-Deno.serve(async () => {
-  const results = { scanned: 0, fired: 0, errors: 0 };
+async function deliver(profileId: string, focusId: string, kind: string, payload: object) {
+  if (await alreadyFired(focusId, kind)) return;
 
-  // Active, sidecar-sourced focuses (they carry a reliable _startedAt).
-  const { data: focuses, error } = await admin
-    .from('focus_items')
-    .select('id, profile_id, label, timer_minutes, created_at, tags')
-    .eq('focus_state', 'active')
-    .contains('tags', { _src: 'sidecar' })
-    .limit(500);
+  const { data: subs } = await admin
+    .from('push_subscriptions')
+    .select('id, endpoint, p256dh, auth')
+    .eq('profile_id', profileId);
 
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  }
-
-  for (const f of (focuses ?? []) as FocusRow[]) {
-    results.scanned++;
-    if (!isExpired(f)) continue;
-    if (await alreadyFired(f.id, 'timer_expired')) continue;
-
-    const { data: subs } = await admin
-      .from('push_subscriptions')
-      .select('id, endpoint, p256dh, auth')
-      .eq('profile_id', f.profile_id);
-
-    if (!subs || subs.length === 0) {
-      // No device to notify — still mark fired so we don't re-scan forever.
-      await admin.from('push_dedup').insert({
-        profile_id: f.profile_id,
-        focus_item_id: f.id,
-        kind: 'timer_expired',
-      });
-      continue;
-    }
-
-    const payload = JSON.stringify({
-      title: '⏰ Focus timer up',
-      body: `"${f.label}" — time's up. Keep going, wrap up, or switch?`,
-      tag: `focus-${f.id}`,
-      requireInteraction: true,
-      url: '/sidecar',
-      data: { focusId: f.id, kind: 'timer_expired' },
-    });
-
+  if (subs && subs.length) {
+    const body = JSON.stringify(payload);
     for (const s of subs) {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          payload
+          body
         );
-        await admin
-          .from('push_subscriptions')
-          .update({ last_ok_at: new Date().toISOString(), last_error: null })
-          .eq('id', s.id);
+        await admin.from('push_subscriptions').update({ last_ok_at: new Date().toISOString(), last_error: null }).eq('id', s.id);
         results.fired++;
+        results.byKind[kind] = (results.byKind[kind] || 0) + 1;
       } catch (e) {
         results.errors++;
         const status = (e as any)?.statusCode;
         if (status === 404 || status === 410) {
-          // Subscription gone — clean it up.
           await admin.from('push_subscriptions').delete().eq('id', s.id);
         } else {
-          await admin
-            .from('push_subscriptions')
-            .update({ last_error: String((e as any)?.message || e) })
-            .eq('id', s.id);
+          await admin.from('push_subscriptions').update({ last_error: String((e as any)?.message || e) }).eq('id', s.id);
         }
       }
     }
+  }
+  await admin.from('push_dedup').insert({ profile_id: profileId, focus_item_id: focusId, kind });
+}
 
-    await admin.from('push_dedup').insert({
-      profile_id: f.profile_id,
-      focus_item_id: f.id,
-      kind: 'timer_expired',
+Deno.serve(async () => {
+  // ── Pass A: timer expiry (Sidecar-sourced active focuses) ──
+  const { data: sidecarActive } = await admin
+    .from('focus_items')
+    .select('id, profile_id, client_id, label, timer_minutes, created_at, focus_state, tags')
+    .eq('focus_state', 'active')
+    .contains('tags', { _src: 'sidecar' })
+    .limit(500);
+
+  for (const f of (sidecarActive ?? []) as FocusRow[]) {
+    results.scanned++;
+    if (timerExpired(f)) {
+      await deliver(f.profile_id, f.id, 'timer_expired', {
+        title: '⏰ Focus timer up',
+        body: `"${f.label}" — time's up. Keep going, wrap up, or switch?`,
+        tag: `focus-${f.id}`,
+        requireInteraction: true,
+        url: '/sidecar',
+        data: { focusId: f.id, kind: 'timer_expired' },
+      });
+    }
+
+    // ── Pass C: checkpoint staleness ──
+    const { data: cp } = await admin
+      .from('focus_checkpoints')
+      .select('created_at')
+      .eq('focus_client_id', f.client_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (cp && Date.now() - new Date(cp.created_at).getTime() > CHECKPOINT_STALE_MS) {
+      await deliver(f.profile_id, f.id, 'checkpoint_stale', {
+        title: '📋 Checkpoint due',
+        body: `"${f.label}" — it's been a while. Log a quick checkpoint?`,
+        tag: `cp-${f.id}`,
+        url: '/sidecar',
+        data: { focusId: f.id, kind: 'checkpoint_stale' },
+      });
+    }
+  }
+
+  // ── Pass B: drift (any focus that flipped to drifted) ──
+  const { data: drifted } = await admin
+    .from('focus_items')
+    .select('id, profile_id, client_id, label, timer_minutes, created_at, focus_state, tags')
+    .eq('focus_state', 'drifted')
+    .limit(500);
+
+  for (const f of (drifted ?? []) as FocusRow[]) {
+    results.scanned++;
+    await deliver(f.profile_id, f.id, 'drifted', {
+      title: '⚠️ Focus drifted',
+      body: `"${f.label}" — you've wandered off. Back to it, or switch?`,
+      tag: `drift-${f.id}`,
+      url: '/sidecar',
+      data: { focusId: f.id, kind: 'drifted' },
     });
   }
 
-  return new Response(JSON.stringify(results), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return new Response(JSON.stringify(results), { headers: { 'Content-Type': 'application/json' } });
 });

@@ -918,3 +918,25 @@ target) → device registration silently failed; switched to the full
 pipeline confirmed: an expired sidecar focus was scanned by `send-focus-push` and
 delivered to a **real registered device** (existing FCM subscription on the account).
 **PR #23 → staging.** Asana Flux Development project update posted.
+
+## 2026-07-17 (cont.) — Tabby Sidecar v0.1.0
+
+Merged v0.0.1 PR #23 to staging (kept in the main repo — shares Supabase
+schema/migrations). Built + deployed v0.1.0:
+- **Full Focus parity:** edit (label/timer/stage/client/project/backdate),
+  checkpoint notes + timeline (new `focus_checkpoints` table, migration 032),
+  sub-intents (tags._parent), backburner dock (tags._backburner + snooze),
+  on/off-computer toggle. **Pause now pins the current focus** at the top
+  (AsyncStorage currentFocusId) instead of demoting to queue.
+- **Clock:** "Your shift" (was "this phone's shift"); surfaces other devices on
+  the clock. **off-device → off-computer** rename; create CTA dropped "(off-device)".
+- **PWA:** manifest + icons + Apple meta injected post-export (scripts/build-web.mjs)
+  → installable to Home Screen (unlocks iOS push). **Phone Focus Mode** via Page
+  Visibility (leave-detection → nudge).
+- **Push parity:** send-focus-push now covers timer + drift + checkpoint-staleness.
+- **Fix:** browser_profiles upsert → (profile_id,local_id) full index.
+Re-verified 4/4 new RLS paths (checkpoints + tag ops) with a minted session;
+`tsc` clean on all new code. Deployed Worker (v0.1.0), edge fn redeployed.
+
+**Sync-limit note:** checkpoints/sub-intents/backburner are Sidecar-side until the
+extension syncs those fields — full desktop round-trip is the next extension slice.
