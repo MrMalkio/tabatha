@@ -5,36 +5,40 @@ file.
 
 ---
 
-## [v6.8.2] - One-click Asana and Anasa task actions - _2026-07-17_
+## [Unreleased] - Native Asana App Component and supporting task context - _2026-07-17_
 
-### Added
+> Isolated work rebased directly onto v6.7.22. This work is not merged or released; the native Asana app remains pending Developer Console configuration and live-task validation.
+
+### Supporting task actions
+
+#### Added
 
 - **Open source tasks from Tabatha.** Linked task cards in Home and Sidebar now open the task directly in Asana or Anasa. If Anasa does not yet have an internal mirror ID, its task explorer opens with the task name pre-filtered.
 - **Link an existing Asana task.** A task card accepts an Asana task URL or GID, securely retrieves the source metadata, and attaches it to the existing Tabatha task identity instead of creating a duplicate.
 - **Create in Asana.** A local task can create a minimal Asana task from its name and description and link the returned task in the same action. The Asana PAT remains exclusively in the authenticated server action.
 - **Configurable Anasa destination.** Integrations settings include the Anasa base URL, allowing the task link to use the current tailnet deployment and later switch to the public hostname without a code change.
 
-### Changed
+#### Changed
 
 - **Narrow action broker.** `asana-task-action` now supports only authenticated `get`, `create`, and `complete` task operations with bounded inputs; it does not expose general project-management mutation capability.
 - **Linked tasks stay local-first.** Asana metadata refreshes the existing task's external context while preserving its Tabatha-owned status, description, relationships, and task ID.
 
-## [v6.8.1] - Lightweight Asana task context in Tabatha - _2026-07-17_
+### Lightweight Asana task context in Tabatha
 
-### Added
+#### Added
 
 - **Asana task context in existing task views.** Visiting an Asana task now creates or refreshes a compact `contextOnly` task mirror with its source identity, link, project/parent reference, last-seen state, and human/agent attention totals. It uses Tabatha's existing task and focus relationships without importing Asana's assignees, dates, comments, sections, dependencies, or other project-management surface.
 - **Source completion is an explicit choice.** Resolving an Asana-linked task in Tabatha first completes it locally, then offers to complete the source task in Asana. Declining leaves Asana untouched; a failed source update never rolls back the local completion.
 - **Secure Asana completion broker.** The new `asana-task-action` Edge Function accepts only an authenticated, explicit completion request and keeps the Asana PAT server-side.
 
-### Changed
+#### Changed
 
 - **Focus links use Tabatha task IDs.** Asana-created focuses now link to the mirrored local task, so the existing task views, intent links, and task-resolution behavior all share one identity.
 - **Sidebar task parity.** The sidebar now reads the unified task service instead of only the legacy task array, allowing external context tasks and their parent labels to appear consistently.
 
-## [v6.8.0] - Asana task focus and attributed attention tracking - _2026-07-17_
+### Asana task focus and attributed attention tracking
 
-### Added
+#### Added
 
 - **Task controls inside Asana.** Every Asana task page now gets a compact Tabatha strip with separate **Set focus**, **My time**, and **Agent time** actions. The strip survives Asana's single-page navigation, uses the visible task title, and labels `?focus=true` / `/f` pages as focused-task context.
 - **Human versus agent attention.** Human time and multiple named agents can run concurrently on the same task. Agent timers open and close Tabatha's existing tab-scoped controller spans, so Cortex observations and task time share the same attribution boundary.
@@ -42,7 +46,7 @@ file.
 - **Asana-linked focus reuse.** Set focus creates a focus with the Asana task/project/ancestor metadata, or switches back to the existing unresolved focus for that task instead of creating duplicates.
 - **Widget data bridge.** Migration 029 extends `flux_time_entries` with source-task, hierarchy, controller, agent, focus, and metadata fields. The existing Asana widget now includes descendant rollups and agent-attention totals.
 
-### Changed
+#### Changed
 
 - **Asana full-screen awareness is deterministic.** Task context is synchronized from the live Asana page rather than relying only on a background title regex, so the InBar follows SPA task changes and `focus=true` navigation.
 - **Offline-first timer behavior.** Task stints are committed to local extension storage first. Supabase mirroring is best-effort, so a network or auth outage cannot lose or block an active task timer.

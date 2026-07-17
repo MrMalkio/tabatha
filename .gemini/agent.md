@@ -6,14 +6,14 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 21 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 22 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 6.8.2
-- **Current focus:** Cortex program (Plans 039/040-044) on top of staging v6.6.0 (NB-03 to NB-09 merged in: time-editing overhaul, offline-gap detector, abandoned stints, work-shifts analytics, settings search). Phase 1 browser-regression-verified; Phases 2-5 partial (companion capture on tabatha-desktop feat/cortex-capture; voice v0 + self-correction shipped). Awaiting Malkio: extension RELOAD + re-smoke-test -> v7.0.0, companion merge/deploy, proxy secret. See docs/cortex/HANDOFF.md.
+- **Current version:** 6.7.22
+- **Current focus:** Native Tabatha Asana App Component on an isolated branch rebased directly onto v6.7.22. The HMAC-validated backend is deployed; Asana Developer Console components remain disabled pending explicit save confirmation and live-task validation. No merge or push is authorized, and no later release version is assigned yet.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
 - **Build command:** `npm run build`
@@ -191,8 +191,9 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 | 2026-07-16 | Codex | Overlock context contribution | Replaced the legacy webhook token with HMAC-SHA256 over the exact request body so privacy-bounded Tabatha events can be verified by Caspera's Overlock connector. All 623 tests pass. | Configure the Overlock webhook URL and shared secret, then observe one week of contribution usage. |
-| 2026-07-17 | Codex | One-click Asana and Anasa task actions | Added direct open destinations, existing-Asana linking, minimal Asana creation, configurable Anasa routing, and deployed the authenticated task-action function v2. All 639 tests and the production build pass. | Confirm unpacked-extension installation, configure the working Anasa base URL, and browser-smoke-test open/link/create. |
-| 2026-07-17 | Codex | Asana attention + lightweight task context | Shipped v6.8.1: Asana task-page focus/human/agent controls, nested rollups, `contextOnly` task mirrors in Home/Sidebar, local task identity links, and opt-in source completion through a deployed authenticated Edge Function. 634 tests and production build green. Chrome has a disabled legacy v6.7.22 card under a different ID. | Confirm Load unpacked for the pinned v6.8.1 `dist`, then verify the mirror and Tabatha-only / Tabatha+Asana completion. |
+| 2026-07-17 | Codex | One-click Asana and Anasa task actions | Implemented direct open destinations, existing-Asana linking, minimal Asana creation, configurable Anasa routing, and authenticated task-action function v2 on an isolated post-v6.7.22 branch. Not merged or released. | Treat the native Asana app as the priority; retain these extension actions as unmerged supporting work. |
+| 2026-07-17 | Codex | Asana attention + lightweight task context | Implemented Asana task-page human/agent attention controls, nested rollups, `contextOnly` task mirrors, local task identity links, and opt-in source completion on an isolated post-v6.7.22 branch. Backend pieces are deployed; the extension changes are not merged or released. | Validate the native App Component first; do not install or merge the extension branch without approval. |
+| 2026-07-17 | Codex | Native Asana App Component rebase | Rebased the isolated Asana work directly onto v6.7.22, preserved the former tip as `Koda/asana-widget-pre-rebase`, and deployed the HMAC-validated Modal Form/Widget service. Corrected Headbox to keep v6.7.22 as the authoritative version. No merge or push performed. | With explicit confirmation, save Entry Point, Modal Form, Widget, listing, and workspace settings in Asana app 1214413273944527; then separately confirm installation/live-task validation. |
 
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->

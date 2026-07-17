@@ -3,7 +3,24 @@
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
 
-## Session - 2026-07-17 (One-click Asana and Anasa task actions, v6.8.2)
+## Session - 2026-07-17 (Native Asana App Component, unreleased branch based on v6.7.22)
+
+**Goal:** Deliver the Tabatha integration as a real Asana App Component before treating the browser-extension helpers as a release.
+
+**Done:**
+- Rebased the isolated Asana work directly onto v6.7.22 and preserved the former feature tip at `Koda/asana-widget-pre-rebase`.
+- Implemented and deployed the HMAC-validated Asana App Component service with Modal Form metadata/submission, Widget metadata, health, auth, and task-attachment routes.
+- Added human and named-agent attention controls, direct and nested-task rollups, per-actor totals, and lightweight task context backed by `flux_time_entries`.
+- Verified Deno formatting/type checks and 4/4 focused service tests; verified the live health route and rejection of unsigned widget requests.
+- Audited Asana app `1214413273944527`: Entry Point, Modal Form, and Widget are still disabled and unconfigured in the Developer Console.
+
+**Version/merge status:** v6.7.22 remains the authoritative version. The Asana work is isolated, unmerged, and unpushed; no subsequent release number is assigned.
+
+**Next steps:** With explicit action-time confirmation, save the Entry Point, Modal Form, Widget, app listing, and restricted-workspace settings in Asana. Request separate confirmation before installing the app or submitting a real task timer for validation.
+
+---
+
+## Session - 2026-07-17 (One-click Asana and Anasa task actions, unreleased branch based on v6.7.22)
 
 **Goal:** Let a user move between Tabatha, Asana, and Anasa from an existing task context without expanding Tabatha into a project-management system.
 
@@ -12,7 +29,7 @@
 - Added **Link Asana** using an existing task URL/GID and **Create in Asana** using the local task name/description. Both operations preserve the existing Tabatha task ID and user-owned local fields.
 - Expanded the authenticated server action to the narrow `get`, `create`, and `complete` operation set with bounded inputs; the Asana PAT remains server-side.
 - Added a configurable Anasa base URL for the current tailnet deployment and future public hostname.
-- Bumped and atomically built v6.8.2 into the fixed `dist` path.
+- Built a branch candidate into the fixed `dist` path before the priority was corrected to the native Asana app. It was not installed or released, and version metadata is restored to v6.7.22.
 
 **Verification:** 639/639 Node tests pass, focused ESLint and `git diff --check` pass, production Vite build passes, and the deployed anonymous server-action probe correctly returns HTTP 401.
 
@@ -20,11 +37,11 @@
 
 **Pending:** Chrome/Browser extension installation is still waiting on the required action-time confirmation. Anasa's intended public hostname is DNS-pending, so Settings can temporarily hold its working tailnet base URL.
 
-**Next steps:** With user confirmation, load `C:\Users\mrmal\Le Dev\Tabatha\dist` unpacked in the authorized browser, reload it, and smoke-test open/link/create against signed-in Asana plus the configured Anasa deployment.
+**Next steps:** Keep this supporting extension work isolated. Finish and validate the native Asana App Component first; do not install or merge the extension branch without approval.
 
 ---
 
-## Session - 2026-07-17 (Asana task focus, attributed attention, and task context, v6.8.1)
+## Session - 2026-07-17 (Asana task focus, attributed attention, and task context, unreleased branch based on v6.7.22)
 
 **Goal:** Turn the earlier Asana widget foundation into a direct task-page workflow for setting focus and tracking human or agent attention, with correct nested-task attribution.
 
@@ -36,15 +53,15 @@
 - Added lightweight `contextOnly` Asana mirrors to Tabatha's existing task store: source identity/link, project and parent references, freshness, attention summary, and source completion state—without importing Asana's project-management surface.
 - Linked Asana-created focuses to the mirrored local task ID and brought the sidebar onto the unified task service.
 - Added an explicit completion choice: Tabatha completes locally first, then may complete the Asana source through the authenticated `asana-task-action` Edge Function. Declining or a remote error never undoes the local resolution.
-- Updated Feature #186, the integration guide, Settings copy, changelog, version mirrors, and built v6.8.1 into the fixed `dist` path atomically.
+- Updated Feature #186, the integration guide, Settings copy, and changelog, and produced an isolated branch build. That build was not installed or released; version metadata is restored to v6.7.22.
 
 **Verification:** 634/634 Node tests pass; targeted service/test ESLint passes; widget route syntax check passes; production Vite build passes and includes `assets/asana.js`. The two full-router ESLint findings are pre-existing `chrome` global declarations, not introduced by this change.
 
 **Deployment:** Migration 029 was applied through the Supabase Management API after the local CLI login-role transport failed. Verification returned all seven attribution columns and one `029 / asana_attention_attribution` migration-ledger row. The completion-only `asana-task-action` function was deployed through the Management API as ACTIVE version 1 after the CLI's upload transport failed.
 
-**Blocked/pending:** Windows control reached the managed Chrome profile and found a disabled legacy Tabatha v6.7.22 card (`jbdk…`) with a different extension ID from the pinned v6.8.1 build (`hokn…`). Installing the fixed-path `dist` as a new unpacked extension is staged at `chrome://extensions`; the UI safety layer requires an action-time confirmation before the actual Load unpacked installation.
+**Blocked/pending:** Windows control reached the managed Chrome profile and found a disabled Tabatha v6.7.22 card (`jbdk…`). No extension installation is authorized; the native Asana App Component is the priority.
 
-**Next steps:** After install confirmation, load `C:\Users\mrmal\Le Dev\Tabatha\dist`, refresh an open Asana task, smoke-test Set focus/My time/Agent time/parent label, verify the mirrored task in Home/Sidebar, then complete it locally once with and once without the Asana option.
+**Next steps:** Validate equivalent focus, human/agent attention, parent rollup, task context, and optional source completion through the native Asana app before reconsidering the extension helpers.
 
 ---
 
