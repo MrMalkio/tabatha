@@ -1,0 +1,16 @@
+{
+  "name": "tabby-sidecar",
+  "main": "worker.js",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+  "routes": [
+    {
+      "pattern": "tabatha.pondocean.co/sidecar*",
+      "zone_name": "pondocean.co"
+    }
+  ]
+}

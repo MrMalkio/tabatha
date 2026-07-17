@@ -872,3 +872,39 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 - No central feature registry exists; docs/features/*.md is the canonical list.
 
 **Next steps:** Reconcile #214 with the Asana skill matrix definition; slot #210/#213/#214 into Phase 3/4 prioritization; define the AI-counterpart boundary for #211 (which phases ship without AI).
+
+---
+
+## 2026-07-17 — Tabby Sidecar v0.0.1 (Plan 039)
+
+**Goal:** Ship the extension sidebar as a mobile web companion at
+`tabatha.pondocean.co/sidecar`, synced to the user's Tabatha account, built in
+React Native so a real mobile app is an incremental step later.
+
+**Done (LIVE):**
+- New Expo + React Native Web app in `sidecar/` (SPA web export, `baseUrl:/sidecar`).
+  Auth-gated single shell + custom bottom tab bar: Focus, Tasks, Clock, Recent, Settings.
+- Direct Supabase data layer (schema `tabatha`, publishable key, owner-RLS): reads
+  `focus_items` (active + full queue + history), `tasks_registry`, `clock_sessions`,
+  `intent_history`; writes off-device intents (`tags._src='sidecar'`, `_off=true`),
+  a phone clock (own open session → `browser_profile_status` + closed `clock_sessions`),
+  and registers the phone as its own `browser_profiles` mobile surface.
+- Auth: Google OAuth + magic link (web flows, no chrome.identity). Redirect allowlist
+  patched via Management API to add `/sidecar` URLs (existing entries preserved).
+- Web Push: SW at `/sidecar/sw.js`, subscription capture → `push_subscriptions`
+  (migration 030), edge fn `send-focus-push` (deployed + smoke-tested HTTP 200,
+  `npm:web-push` + VAPID), pg_cron every-minute trigger (migration 031, key in Vault).
+- Deploy: Cloudflare Worker `tabby-sidecar` on route `tabatha.pondocean.co/sidecar*`
+  (Pages root site untouched — verified 200 on both). App renders login UI live.
+
+**Key findings / decisions:**
+- This worktree branched at v6.5.0; remote Supabase is at migration 029 (unmerged
+  branches). Used placeholder-then-repair to push only 030/031 without phantom drift.
+- Sync is push+pull-on-signin, not realtime → v0.0.1 is account-synced ("appears on
+  the extension's next pull"); instant desktop round-trip deferred (user-chosen).
+- `focus_items` is a synced subset (no live startedAt) → live countdown only for
+  sidecar-created focuses (carry `_startedAt`).
+
+**Next steps:** User to verify end-to-end on a phone (sign in → create intent → see it
+sync → 1-min-timer push). Then v0.0.2: instant desktop realtime ingest, native
+iOS/Android (Expo run), checkpoint-staleness pushes, richer stash/awareness.
