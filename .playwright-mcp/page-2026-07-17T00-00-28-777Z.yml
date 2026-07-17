@@ -1,0 +1,462 @@
+- generic [active] [ref=f1e1]:
+  - navigation [ref=f1e2]:
+    - generic [ref=f1e8]: Tabatha
+    - generic [ref=f1e9]:
+      - button "Search the site" [ref=f1e10] [cursor=pointer]:
+        - generic [ref=f1e11]: 🔍
+      - button "Request a feature" [ref=f1e12] [cursor=pointer]:
+        - generic [ref=f1e13]: ✨
+    - generic [ref=f1e14]: v6.7.18
+    - button "Menu" [ref=f1e15] [cursor=pointer]: ☰
+  - banner [ref=f1e16]:
+    - generic [ref=f1e17]: Component Showcase
+    - heading "An Attention OS for your browser." [level=1] [ref=f1e18]
+    - paragraph [ref=f1e19]: "Every user-facing surface of Tabatha - the browser extension, the desktop companion, and the mobile app - rendered from each product's own design system: the halved corner-radius scale, the Pop-Art dark palette, emoji-native iconography, and JetBrains Mono timers. Five of these double as the Chrome Web Store screenshots, captured at an exact 1280×800."
+    - generic [ref=f1e20]:
+      - generic [ref=f1e21]:
+        - generic [ref=f1e22]: 🧭
+        - generic [ref=f1e23]: Context Over Chaos
+        - generic [ref=f1e24]: every tab has a purpose
+      - generic [ref=f1e25]:
+        - generic [ref=f1e26]: 🚪
+        - generic [ref=f1e27]: Intentional Browsing
+        - generic [ref=f1e28]: good friction, on purpose
+      - generic [ref=f1e29]:
+        - generic [ref=f1e30]: ⏱️
+        - generic [ref=f1e31]: Universal Time
+        - generic [ref=f1e32]: tracking built into the browser
+      - generic [ref=f1e33]:
+        - generic [ref=f1e34]: 🤖
+        - generic [ref=f1e35]: Agent-Ready Data
+        - generic [ref=f1e36]: better work, with surgical accuracy
+  - generic [ref=f1e38]:
+    - link "Family" [ref=f1e39] [cursor=pointer]:
+      - /url: "#family"
+    - link "Surfaces" [ref=f1e40] [cursor=pointer]:
+      - /url: "#surfaces"
+    - link "Library" [ref=f1e41] [cursor=pointer]:
+      - /url: "#library"
+    - link "Overlays" [ref=f1e42] [cursor=pointer]:
+      - /url: components-overlays.html
+    - link "Focus & Time" [ref=f1e43] [cursor=pointer]:
+      - /url: components-focus.html
+    - link "Data" [ref=f1e44] [cursor=pointer]:
+      - /url: components-data.html
+    - link "Org & Team" [ref=f1e45] [cursor=pointer]:
+      - /url: components-org.html
+    - link "Settings" [ref=f1e46] [cursor=pointer]:
+      - /url: components-settings.html
+    - link "Primitives" [ref=f1e47] [cursor=pointer]:
+      - /url: components-primitives.html
+    - link "Companion" [ref=f1e48] [cursor=pointer]:
+      - /url: components-companion.html
+    - link "Mobile" [ref=f1e49] [cursor=pointer]:
+      - /url: components-mobile.html
+    - searchbox "Filter surfaces and categories" [ref=f1e50]
+  - generic [ref=f1e51]:
+    - generic [ref=f1e52]:
+      - heading "The family" [level=2] [ref=f1e53]
+      - generic [ref=f1e54]: 3 products · one day, counted once
+    - paragraph [ref=f1e55]: "Tabatha is three programs that share one clock. They exist separately because attention does not respect process boundaries but operating systems do: an extension can see your tabs and nothing else, a desktop app can see your windows but not what is inside a tab, and neither is in your pocket at 8am. Splitting them is not an architecture preference, it is the only way to see a whole day. Splitting them is also the hard part - so the rule underneath all three is that one shift exists at a time, wherever you started it, and each program yields to whichever of them can actually see what you are doing right now."
+    - generic [ref=f1e56]:
+      - link "🧩 Browser Extension Shipped The core product, and the only one that knows why you opened something. It gates new tabs, binds every tab to a Context, and runs the Focus Engine the other two report into. Chrome MV3 · 8 surfaces · 90 components · self-updating channel 8 surfaces · 90 components →" [ref=f1e57] [cursor=pointer]:
+        - /url: "#surfaces"
+        - generic [ref=f1e58]: 🧩
+        - generic [ref=f1e59]:
+          - text: Browser Extension
+          - generic [ref=f1e60]: Shipped
+        - generic [ref=f1e61]: The core product, and the only one that knows why you opened something. It gates new tabs, binds every tab to a Context, and runs the Focus Engine the other two report into.
+        - generic [ref=f1e62]: Chrome MV3 · 8 surfaces · 90 components · self-updating channel
+        - generic [ref=f1e63]: 8 surfaces · 90 components →
+      - link "🖥️ Desktop Companion Built · v0.2.0 A Windows tray app that watches the rest of the desktop, so the hours you spend outside the browser stop reading as idle. It is also how the extension distributes and updates itself. Tray · Desk Panel · window monitor · categorizer · local SQLite · WebSocket bridge · opt-in capture · updater · autostart 15 surfaces & subsystems →" [ref=f1e64] [cursor=pointer]:
+        - /url: components-companion.html
+        - generic [ref=f1e65]: 🖥️
+        - generic [ref=f1e66]:
+          - text: Desktop Companion
+          - generic [ref=f1e67]: Built · v0.2.0
+        - generic [ref=f1e68]: A Windows tray app that watches the rest of the desktop, so the hours you spend outside the browser stop reading as idle. It is also how the extension distributes and updates itself.
+        - generic [ref=f1e69]: Tray · Desk Panel · window monitor · categorizer · local SQLite · WebSocket bridge · opt-in capture · updater · autostart
+        - generic [ref=f1e70]: 15 surfaces & subsystems →
+      - link "📱 Mobile App In development Android. Tracks where phone time goes, carries the same shift out of the building, and syncs to your own desktop over your own network before it ever reaches for the cloud. Dashboard · Settings · persistent notification · native usage monitor · categorizer · hybrid LAN-first sync · Focus Hub and timeline planned 15 screens & services · not yet installable →" [ref=f1e71] [cursor=pointer]:
+        - /url: components-mobile.html
+        - generic [ref=f1e72]: 📱
+        - generic [ref=f1e73]:
+          - text: Mobile App
+          - generic [ref=f1e74]: In development
+        - generic [ref=f1e75]: Android. Tracks where phone time goes, carries the same shift out of the building, and syncs to your own desktop over your own network before it ever reaches for the cloud.
+        - generic [ref=f1e76]: Dashboard · Settings · persistent notification · native usage monitor · categorizer · hybrid LAN-first sync · Focus Hub and timeline planned
+        - generic [ref=f1e77]: 15 screens & services · not yet installable →
+    - link "Get the Desktop Companion Windows · v0.2.0 A 4.45 MB installer for Windows 10/11. Unsigned for now, so SmartScreen will warn on first run; the panel carries the direct link, the SHA-256 and what to know before you install." [ref=f1e78] [cursor=pointer]:
+      - /url: components-companion.html#get
+      - generic [ref=f1e79]: 🖥️
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]:
+          - text: Get the Desktop Companion
+          - generic [ref=f1e82]: Windows · v0.2.0
+        - generic [ref=f1e83]: A 4.45 MB installer for Windows 10/11. Unsigned for now, so SmartScreen will warn on first run; the panel carries the direct link, the SHA-256 and what to know before you install.
+  - generic [ref=f1e84]:
+    - generic [ref=f1e85]:
+      - heading "Extension surfaces" [level=2] [ref=f1e86]
+      - generic [ref=f1e87]: 8 full-page frames · exact 1280×800 · click any card to open full size
+    - paragraph [ref=f1e88]: "A surface is a whole place in Tabatha you can be: the gate that interrupts a new tab, the sidebar that replaces the browser's own tab strip, the dashboard that replaces the new-tab page. They exist because an attention tool cannot live in one panel - the moment you need to declare intent is not the moment you need to review your week, and neither belongs in a popup. Each frame below is the real UI at the size it actually ships, not a mockup of it."
+    - generic [ref=f1e89]:
+      - link "Gatekeeper 01 The Gatekeeper Store shot \"Why are you here?\" - good friction before every undirected new tab. Continue, Side Quest, Sugar Box, or Park. ↗" [ref=f1e90] [cursor=pointer]:
+        - /url: gatekeeper.html
+        - iframe [ref=f1e92]:
+          - generic [ref=f2e4]:
+            - heading "Why are you here? Strict" [level=1] [ref=f2e5]:
+              - text: Why are you here?
+              - generic [ref=f2e6]: Strict
+            - generic [ref=f2e7]: Define your intent to proceed.
+            - generic [ref=f2e8]:
+              - button "🧑 I'm working" [ref=f2e9] [cursor=pointer]
+              - button "🤖 Agent" [ref=f2e10] [cursor=pointer]
+            - generic [ref=f2e11]: Finalize Q1 revenue charts
+            - generic [ref=f2e14]:
+              - generic [ref=f2e15]: Active focuses
+              - generic [ref=f2e16]:
+                - generic [ref=f2e17]: 🎯 Q1 Report
+                - generic [ref=f2e18]: Focus
+              - generic [ref=f2e19]:
+                - generic [ref=f2e20]: ⏸ Learning React
+                - generic [ref=f2e21]: Todo
+              - generic [ref=f2e22]: Common
+              - generic [ref=f2e23]: 📧 Email triage
+            - generic [ref=f2e25]:
+              - button "Continue" [ref=f2e26] [cursor=pointer]
+              - button "⚔️ Side Quest" [ref=f2e27] [cursor=pointer]
+              - button "🍬 Sugar Box" [ref=f2e28] [cursor=pointer]
+              - button "🅿️ Park" [ref=f2e29] [cursor=pointer]
+              - button "🔖 Later" [ref=f2e30] [cursor=pointer]
+              - button "🚫 Nevermind" [ref=f2e31] [cursor=pointer]
+            - generic [ref=f2e32]: Any button proceeds — each classifies your decision differently
+            - generic [ref=f2e33] [cursor=pointer]: Skip intent for this domain
+        - generic [ref=f1e93]:
+          - generic [ref=f1e94]: "01"
+          - generic [ref=f1e95]:
+            - generic [ref=f1e96]:
+              - text: The Gatekeeper
+              - generic [ref=f1e97]: Store shot
+            - generic [ref=f1e98]: "\"Why are you here?\" - good friction before every undirected new tab. Continue, Side Quest, Sugar Box, or Park."
+          - generic [ref=f1e99]: ↗
+      - link "Sidebar 02 Sidebar Store shot Active focus, elapsed time, priority-coded tab list. ↗" [ref=f1e100] [cursor=pointer]:
+        - /url: sidebar.html
+        - iframe [ref=f1e102]:
+          - complementary [ref=f3e19]:
+            - generic [ref=f3e20]:
+              - generic [ref=f3e21]: Tabatha
+              - generic [ref=f3e22]: Deep Work
+              - generic [ref=f3e23]: 9t · 3h 12m
+              - generic [ref=f3e24]: ● Synced
+              - generic [ref=f3e25] [cursor=pointer]: ⚙️
+              - generic [ref=f3e26] [cursor=pointer]: ⏱️
+              - generic [ref=f3e27] [cursor=pointer]: 🏠
+            - generic [ref=f3e28]:
+              - generic [ref=f3e29]: 🟢
+              - generic [ref=f3e30]: 3:12:47
+              - generic [ref=f3e31]: ⏹
+              - generic [ref=f3e32]: ☕
+            - generic [ref=f3e33]:
+              - generic [ref=f3e34] [cursor=pointer]: 🎯
+              - generic [ref=f3e35] [cursor=pointer]: 📋
+              - generic [ref=f3e36] [cursor=pointer]: 📑
+              - generic [ref=f3e37] [cursor=pointer]: 📌
+              - generic [ref=f3e38] [cursor=pointer]: 📦
+            - generic [ref=f3e39]:
+              - generic [ref=f3e40]:
+                - generic [ref=f3e41]: NOW
+                - generic [ref=f3e42]: Finalize Q1 revenue charts
+                - generic [ref=f3e43]: P2
+              - generic [ref=f3e44]:
+                - generic [ref=f3e45]:
+                  - text: 🎯 FOCUS
+                  - generic [ref=f3e46]: Focus
+                - generic [ref=f3e47]:
+                  - generic [ref=f3e48]:
+                    - generic [ref=f3e49]: Q1 Report
+                    - generic [ref=f3e50]: 5 tabs · 2 wins · 47m elapsed
+                  - generic [ref=f3e51]:
+                    - text: 47:12
+                    - generic [ref=f3e52]: 13m remaining
+                - generic [ref=f3e53]:
+                  - button "✓ Resolved" [ref=f3e54] [cursor=pointer]
+                  - button "⏸ Pause" [ref=f3e55] [cursor=pointer]
+                  - button "+5m" [ref=f3e56] [cursor=pointer]
+                  - button "✏️" [ref=f3e57] [cursor=pointer]
+                  - button "📋 🟠" [ref=f3e58] [cursor=pointer]
+                  - button "📊" [ref=f3e59] [cursor=pointer]
+                  - button "📌 Sub" [ref=f3e60] [cursor=pointer]
+              - generic [ref=f3e61]:
+                - generic [ref=f3e62]: TRACKED TABS
+                - generic [ref=f3e63]: 5 tabs
+              - generic [ref=f3e64]:
+                - generic [ref=f3e66]: 💼
+                - generic [ref=f3e67]:
+                  - generic [ref=f3e68]: Q1 Revenue Model - Sheets
+                  - generic [ref=f3e69]: Q1 Report · 22m
+                - generic [ref=f3e70]: 22m
+              - generic [ref=f3e71]:
+                - generic [ref=f3e73]: 📚
+                - generic [ref=f3e74]:
+                  - generic [ref=f3e75]: Board deck template
+                  - generic [ref=f3e76]: Q1 Report · 11m
+                - generic [ref=f3e77]: 11m
+              - generic [ref=f3e78]:
+                - generic [ref=f3e80]: 💬
+                - generic [ref=f3e81]:
+                  - generic [ref=f3e82]: "#finance-team - Slack"
+                  - generic [ref=f3e83]: Q1 Report · 6m
+                - generic [ref=f3e84]: 6m
+              - generic [ref=f3e85]:
+                - generic [ref=f3e87]: 🎓
+                - generic [ref=f3e88]:
+                  - generic [ref=f3e89]: useEffect cleanup - React docs
+                  - generic [ref=f3e90]: Learning React · paused
+                - generic [ref=f3e91]: 4m
+              - generic [ref=f3e92]:
+                - generic [ref=f3e94]: 📧
+                - generic [ref=f3e95]:
+                  - generic [ref=f3e96]: Inbox (3) - Gmail
+                  - generic [ref=f3e97]: Email triage · 2m
+                - generic [ref=f3e98]: 2m
+        - generic [ref=f1e103]:
+          - generic [ref=f1e104]: "02"
+          - generic [ref=f1e105]:
+            - generic [ref=f1e106]:
+              - text: Sidebar
+              - generic [ref=f1e107]: Store shot
+            - generic [ref=f1e108]: Active focus, elapsed time, priority-coded tab list.
+          - generic [ref=f1e109]: ↗
+      - link "Home 03 New Tab Dashboard Store shot Quick Access, working state, Return to Flow. ↗" [ref=f1e110] [cursor=pointer]:
+        - /url: home.html
+        - iframe [ref=f1e112]:
+          - generic [ref=f4e2]:
+            - navigation [ref=f4e3]:
+              - generic [ref=f4e4] [cursor=pointer]: ⏱️
+              - generic [ref=f4e5] [cursor=pointer]: 🎯
+              - generic [ref=f4e6] [cursor=pointer]: 🔍
+              - generic [ref=f4e7] [cursor=pointer]: 📊
+              - generic [ref=f4e8] [cursor=pointer]: 📈
+              - generic [ref=f4e9] [cursor=pointer]: 📋
+            - generic [ref=f4e10]:
+              - generic [ref=f4e11]:
+                - generic [ref=f4e12]:
+                  - heading "Good afternoon, Cas" [level=1] [ref=f4e13]
+                  - generic [ref=f4e14]:
+                    - text: 9 tabs open · 3h 12m active today
+                    - generic [ref=f4e15]: Deep Work
+                - generic [ref=f4e16]:
+                  - generic [ref=f4e17]: "2"
+                  - generic [ref=f4e18]: ":"
+                  - generic [ref=f4e19]: "4"
+                  - generic [ref=f4e20]: "7"
+                  - generic [ref=f4e21]: PM
+                - generic [ref=f4e22]:
+                  - generic [ref=f4e23]: 🍬 3
+                  - generic [ref=f4e24]: 🅿️ 5
+                  - generic [ref=f4e25]: v6.7.14-α
+                  - generic [ref=f4e26]: 🎨
+                  - generic [ref=f4e27]: ⚙️
+              - generic [ref=f4e28]:
+                - generic [ref=f4e29]: 🌊
+                - generic [ref=f4e30]:
+                  - generic [ref=f4e31]: Return to Flow
+                  - generic [ref=f4e32]: You were on Q1 Report before you stepped away 12m ago - restore its 5 tabs?
+                - button "Restore session" [ref=f4e33] [cursor=pointer]
+                - button "Not now" [ref=f4e34] [cursor=pointer]
+              - generic [ref=f4e35]:
+                - generic [ref=f4e36]:
+                  - generic [ref=f4e37]:
+                    - generic [ref=f4e38]:
+                      - text: 🎯 CURRENT FOCUS
+                      - generic [ref=f4e39]: Focus
+                    - generic [ref=f4e40]:
+                      - generic [ref=f4e41]:
+                        - generic [ref=f4e42]: Q1 Report
+                        - generic [ref=f4e43]:
+                          - generic [ref=f4e44]: 5 tabs
+                          - generic [ref=f4e45]: 2 windows
+                          - generic [ref=f4e46]: 47m elapsed
+                          - generic [ref=f4e47]: 8 switches
+                        - generic [ref=f4e48]: 💼 Acme › Finance › Q1 revenue charts
+                      - generic [ref=f4e49]:
+                        - text: 47:12
+                        - generic [ref=f4e50]: 13M REMAINING
+                    - generic [ref=f4e51]:
+                      - button "✓ Resolved" [ref=f4e52] [cursor=pointer]
+                      - button "+5m" [ref=f4e53] [cursor=pointer]
+                      - button "⏸ Pause" [ref=f4e54] [cursor=pointer]
+                      - button "✏️ Edit" [ref=f4e55] [cursor=pointer]
+                      - button "🏷" [ref=f4e56] [cursor=pointer]
+                      - button "📌 Sub-focus" [ref=f4e57] [cursor=pointer]
+                      - button "📋 🟠 (2)" [ref=f4e58] [cursor=pointer]
+                      - button "📊" [ref=f4e59] [cursor=pointer]
+                  - generic [ref=f4e60]: 🚀 Quick Access
+                  - generic [ref=f4e61]:
+                    - generic [ref=f4e62] [cursor=pointer]:
+                      - generic [ref=f4e63]: 📊
+                      - generic [ref=f4e64]: Sheets
+                    - generic [ref=f4e65] [cursor=pointer]:
+                      - generic [ref=f4e66]: 📚
+                      - generic [ref=f4e67]: Notion
+                    - generic [ref=f4e68] [cursor=pointer]:
+                      - generic [ref=f4e69]: 💬
+                      - generic [ref=f4e70]: Slack
+                    - generic [ref=f4e71] [cursor=pointer]:
+                      - generic [ref=f4e72]: 📧
+                      - generic [ref=f4e73]: Gmail
+                    - generic [ref=f4e74] [cursor=pointer]:
+                      - generic [ref=f4e75]: 🐙
+                      - generic [ref=f4e76]: GitHub
+                    - generic [ref=f4e77] [cursor=pointer]:
+                      - generic [ref=f4e78]: 🎨
+                      - generic [ref=f4e79]: Figma
+                    - generic [ref=f4e80] [cursor=pointer]:
+                      - generic [ref=f4e81]: 📅
+                      - generic [ref=f4e82]: Calendar
+                    - generic [ref=f4e83] [cursor=pointer]:
+                      - generic [ref=f4e84]: 🎓
+                      - generic [ref=f4e85]: React
+                - generic [ref=f4e86]:
+                  - generic [ref=f4e87]:
+                    - generic [ref=f4e88]:
+                      - generic [ref=f4e89]: 🎯 Focuses Today
+                      - generic [ref=f4e90]: "4"
+                    - generic [ref=f4e91]:
+                      - generic [ref=f4e92]: ⏱ Focus Time
+                      - generic [ref=f4e93]: 2h 51m
+                    - generic [ref=f4e94]:
+                      - generic [ref=f4e95]: ✅ Completion 7d
+                      - generic [ref=f4e96]: 82% 18/22
+                    - generic [ref=f4e97]:
+                      - generic [ref=f4e98]: 🔥 Streak
+                      - generic [ref=f4e99]: 6d
+                  - generic [ref=f4e100]:
+                    - generic [ref=f4e101]: 🔝 Top Focuses
+                    - generic [ref=f4e102]:
+                      - generic [ref=f4e103]:
+                        - generic [ref=f4e104]: Q1 Report
+                        - generic [ref=f4e106]: 2h51m
+                      - generic [ref=f4e107]:
+                        - generic [ref=f4e108]: Learning React
+                        - generic [ref=f4e110]: 1h18m
+                      - generic [ref=f4e111]:
+                        - generic [ref=f4e112]: Email triage
+                        - generic [ref=f4e114]: 37m
+                      - generic [ref=f4e115]:
+                        - generic [ref=f4e116]: Vacation Planning
+                        - generic [ref=f4e118]: 19m
+                    - generic [ref=f4e119]: 📊 Activity - last 20 weeks
+        - generic [ref=f1e113]:
+          - generic [ref=f1e114]: "03"
+          - generic [ref=f1e115]:
+            - generic [ref=f1e116]:
+              - text: New Tab Dashboard
+              - generic [ref=f1e117]: Store shot
+            - generic [ref=f1e118]: Quick Access, working state, Return to Flow.
+          - generic [ref=f1e119]: ↗
+      - link "Settings 04 Sync & Account Store shot Cloud Sync health chip and org, metadata only. ↗" [ref=f1e120] [cursor=pointer]:
+        - /url: settings.html
+        - iframe [ref=f1e122]
+        - generic [ref=f1e123]:
+          - generic [ref=f1e124]: "04"
+          - generic [ref=f1e125]:
+            - generic [ref=f1e126]:
+              - text: Sync & Account
+              - generic [ref=f1e127]: Store shot
+            - generic [ref=f1e128]: Cloud Sync health chip and org, metadata only.
+          - generic [ref=f1e129]: ↗
+      - link "Backdating 05 Backdating Store shot Credited minutes, overlaps kept, checkpoint timeline. ↗" [ref=f1e130] [cursor=pointer]:
+        - /url: backdating.html
+        - iframe [ref=f1e132]
+        - generic [ref=f1e133]:
+          - generic [ref=f1e134]: "05"
+          - generic [ref=f1e135]:
+            - generic [ref=f1e136]:
+              - text: Backdating
+              - generic [ref=f1e137]: Store shot
+            - generic [ref=f1e138]: Credited minutes, overlaps kept, checkpoint timeline.
+          - generic [ref=f1e139]: ↗
+      - 'link "Quick Switch 06 Quick Switch The 400×500 toolbar popup: search every tab by its Context, not just its title. ↗" [ref=f1e140] [cursor=pointer]':
+        - /url: popup.html
+        - iframe [ref=f1e142]
+        - generic [ref=f1e143]:
+          - generic [ref=f1e144]: "06"
+          - generic [ref=f1e145]:
+            - generic [ref=f1e146]: Quick Switch
+            - generic [ref=f1e147]: "The 400×500 toolbar popup: search every tab by its Context, not just its title."
+          - generic [ref=f1e148]: ↗
+      - link "Work Shifts 07 Work Shifts · Analytics Daily hours, peak productivity, break patterns, time per focus. Every chart is hand-rolled CSS. ↗" [ref=f1e149] [cursor=pointer]:
+        - /url: workshifts.html
+        - iframe [ref=f1e151]
+        - generic [ref=f1e152]:
+          - generic [ref=f1e153]: "07"
+          - generic [ref=f1e154]:
+            - generic [ref=f1e155]: Work Shifts · Analytics
+            - generic [ref=f1e156]: Daily hours, peak productivity, break patterns, time per focus. Every chart is hand-rolled CSS.
+          - generic [ref=f1e157]: ↗
+      - link "Settings sections 08 Settings · All 22 Sections The full nav, the Appearance section, and the live-preview column with all 12 themes. ↗" [ref=f1e158] [cursor=pointer]:
+        - /url: settings-sections.html
+        - iframe [ref=f1e160]
+        - generic [ref=f1e161]:
+          - generic [ref=f1e162]: "08"
+          - generic [ref=f1e163]:
+            - generic [ref=f1e164]: Settings · All 22 Sections
+            - generic [ref=f1e165]: The full nav, the Appearance section, and the live-preview column with all 12 themes.
+          - generic [ref=f1e166]: ↗
+  - generic [ref=f1e167]:
+    - generic [ref=f1e168]:
+      - heading "Extension component library" [level=2] [ref=f1e169]
+      - generic [ref=f1e170]: 6 category pages · 90 component cards · state variants throughout
+    - paragraph [ref=f1e171]: "The surfaces above are assembled from these ninety components, grouped by the job they do rather than by where they happen to render. Most are shown in several states, because the states are where the product's opinions live: a focus that has drifted, a stint left open by a machine that went to sleep, a queue with nothing in it. Each card names the file it comes from, so what you read here can be checked against the source."
+    - generic [ref=f1e172]:
+      - 'link "🪟 Overlays & Content Scripts Everything Tabatha injects into pages it does not own: the always-on status bar, the intent gate, the block wall. InBar (active · paused · no-intent · agent · nub) · Sticky note · Edit dropdown · Backburner prompt · Checkpoint card · Notes panel · Gatekeeper (strict · relaxed · inherited · agent) · BlockGate · Welcome Back · What''s New 16 cards →" [ref=f1e173] [cursor=pointer]':
+        - /url: components-overlays.html
+        - generic [ref=f1e174]: 🪟
+        - generic [ref=f1e175]: Overlays & Content Scripts
+        - generic [ref=f1e176]: "Everything Tabatha injects into pages it does not own: the always-on status bar, the intent gate, the block wall."
+        - generic [ref=f1e177]: InBar (active · paused · no-intent · agent · nub) · Sticky note · Edit dropdown · Backburner prompt · Checkpoint card · Notes panel · Gatekeeper (strict · relaxed · inherited · agent) · BlockGate · Welcome Back · What's New
+        - generic [ref=f1e178]: 16 cards →
+      - 'link "🎯 Focus & Time The Focus Engine and the clock: declaring intent, tracking it, and correcting it after the fact. FocusBar (active · paused · drifted · over-time · edit · checkpoint) · FocusInput (empty · pending) · FocusQueue · BackburnerDock · FocusHistory · Now Bar · CheckpointTimeline · FlipClock · Shift Controls · StagePicker · Priority picker 15 cards →" [ref=f1e179] [cursor=pointer]':
+        - /url: components-focus.html
+        - generic [ref=f1e180]: 🎯
+        - generic [ref=f1e181]: Focus & Time
+        - generic [ref=f1e182]: "The Focus Engine and the clock: declaring intent, tracking it, and correcting it after the fact."
+        - generic [ref=f1e183]: FocusBar (active · paused · drifted · over-time · edit · checkpoint) · FocusInput (empty · pending) · FocusQueue · BackburnerDock · FocusHistory · Now Bar · CheckpointTimeline · FlipClock · Shift Controls · StagePicker · Priority picker
+        - generic [ref=f1e184]: 15 cards →
+      - link "📈 Data & Analytics Every chart in the product, hand-rolled in CSS. The extension ships no charting library at all. Stat cards · Top Focuses · Time by Category · Context Distribution · ActivityHeatmap (365 days) · Daily Hours · Peak Hours · Break Patterns · Weekly comparison · Time per Focus · LogsPanel (chips · table · empty) · Range selector 15 cards →" [ref=f1e185] [cursor=pointer]:
+        - /url: components-data.html
+        - generic [ref=f1e186]: 📈
+        - generic [ref=f1e187]: Data & Analytics
+        - generic [ref=f1e188]: Every chart in the product, hand-rolled in CSS. The extension ships no charting library at all.
+        - generic [ref=f1e189]: Stat cards · Top Focuses · Time by Category · Context Distribution · ActivityHeatmap (365 days) · Daily Hours · Peak Hours · Break Patterns · Weekly comparison · Time per Focus · LogsPanel (chips · table · empty) · Range selector
+        - generic [ref=f1e190]: 15 cards →
+      - 'link "🏛️ Org & Team Multi-install and multi-person surfaces: who is working, on what, and which shifts were left open. TeamActivityPanel · StatusChip (9 states) · Invite tokens · Orgs & Teams · InitiativesPanel tree · ProjectsClientsPanel · Live Stints · AbandonedStintsModal · OtherProfilesStrip · CompanionStatus · Schedule (3 modes) · Shortfalls & Requests 14 cards →" [ref=f1e191] [cursor=pointer]':
+        - /url: components-org.html
+        - generic [ref=f1e192]: 🏛️
+        - generic [ref=f1e193]: Org & Team
+        - generic [ref=f1e194]: "Multi-install and multi-person surfaces: who is working, on what, and which shifts were left open."
+        - generic [ref=f1e195]: TeamActivityPanel · StatusChip (9 states) · Invite tokens · Orgs & Teams · InitiativesPanel tree · ProjectsClientsPanel · Live Stints · AbandonedStintsModal · OtherProfilesStrip · CompanionStatus · Schedule (3 modes) · Shortfalls & Requests
+        - generic [ref=f1e196]: 14 cards →
+      - link "⚙️ Settings All 22 shipped sections, the fuzzy search, the theme system, and the Cortex observation panel. Nav (all 22) · Sync chip (5 states) · SettingsSearch (idle · results · empty) · Themes (12) · Swatches · Field rows & toggles · Funnel stages · URL Rules (3 tabs) · Domain Groups · Intent Changes · Developer · Retention · Cortex · Webhooks · About 16 cards →" [ref=f1e197] [cursor=pointer]:
+        - /url: components-settings.html
+        - generic [ref=f1e198]: ⚙️
+        - generic [ref=f1e199]: Settings
+        - generic [ref=f1e200]: All 22 shipped sections, the fuzzy search, the theme system, and the Cortex observation panel.
+        - generic [ref=f1e201]: Nav (all 22) · Sync chip (5 states) · SettingsSearch (idle · results · empty) · Themes (12) · Swatches · Field rows & toggles · Funnel stages · URL Rules (3 tabs) · Domain Groups · Intent Changes · Developer · Retention · Cortex · Webhooks · About
+        - generic [ref=f1e202]: 16 cards →
+      - link "🧱 Primitives & Panels The shared building blocks every surface is assembled from, plus the global overlays. GlassCard · PopButton (3 sizes) · ComboInput · TagPicker · StagePicker · VoiceInput · Tooltip · CommandPalette · KeyboardShortcuts (14) · LinkMergeModal · TasksPanel · Tab-list rows · PriorityPill · ChangelogView · UnifiedTimeline 14 cards →" [ref=f1e203] [cursor=pointer]:
+        - /url: components-primitives.html
+        - generic [ref=f1e204]: 🧱
+        - generic [ref=f1e205]: Primitives & Panels
+        - generic [ref=f1e206]: The shared building blocks every surface is assembled from, plus the global overlays.
+        - generic [ref=f1e207]: GlassCard · PopButton (3 sizes) · ComboInput · TagPicker · StagePicker · VoiceInput · Tooltip · CommandPalette · KeyboardShortcuts (14) · LinkMergeModal · TasksPanel · Tab-list rows · PriorityPill · ChangelogView · UnifiedTimeline
+        - generic [ref=f1e208]: 14 cards →
+  - contentinfo [ref=f1e209]:
+    - generic [ref=f1e210]: Tabatha component showcase
+    - generic [ref=f1e211]: ·
+    - generic [ref=f1e212]: brand-faithful to v6.7.18
+    - generic [ref=f1e213]: ·
+    - generic [ref=f1e214]: self-contained, no network dependencies
+    - generic [ref=f1e215]: ·
+    - generic [ref=f1e216]: icons are emoji, exactly as the extension ships

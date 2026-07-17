@@ -5,6 +5,12 @@ file.
 
 ---
 
+## [v6.7.23] - Update-channel test + re-sync - _2026-07-17_
+
+### Fixed
+
+- **Self-hosted update channel had drifted to v6.7.15** — `publish:update` was not run for several releases, so remote staff installs would not have auto-updated past 6.7.15. This release re-publishes the channel and was used to verify the end-to-end auto-update path (publish -> latest.json -> client pull -> stable-path swap) works.
+
 ## [v6.7.22] - Desktop companion shipped as a real Windows download - _2026-07-16_
 
 ### Added

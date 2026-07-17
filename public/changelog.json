@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.23",
+      "title": "Update-channel test + re-sync",
+      "date": "2026-07-17",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Self-hosted update channel had drifted to v6.7.15** — `publish:update` was not run for several releases, so remote staff installs would not have auto-updated past 6.7.15. This release re-publishes the channel and was used to verify the end-to-end auto-update path (publish -> latest.json -> client pull -> stable-path swap) works."
+        }
+      ]
+    },
+    {
       "version": "6.7.22",
       "title": "Desktop companion shipped as a real Windows download",
       "date": "2026-07-16",
