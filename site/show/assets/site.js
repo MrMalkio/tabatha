@@ -557,9 +557,10 @@
   }
 
   /**
-   * The companion download panel's CTA. There is no artifact to link, so the
-   * button does the only honest thing it can: files the request. Prefilled,
-   * because "Request access" and an empty form is just a shrug with a border.
+   * The companion download panel's CTA used to file an access request because
+   * there was no artifact to link. As of the desktop-v0.2.0 release the CTA is
+   * a real <a download> pointing at the GitHub release asset, so there is no
+   * button to wire. Kept as a guarded no-op in case the panel reverts.
    */
   function wireDownload() {
     var btn = document.getElementById('dl-req');

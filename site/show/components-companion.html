@@ -249,11 +249,14 @@ footer .dot{opacity:.4}
     the rest of the desktop and tells the extension what it finds, so a stint spent in Figma, Excel or a
     call is time your day actually accounts for instead of a five-hour hole labelled "idle". It is a
     separate product with its own release line, its own palette, and its own database. Every component
-    below is built and running today. It is not yet something you can download.</p>
+    below is built and running today, and it is now something you can download for Windows.</p>
 </header>
 
-<!-- Download panel. Soft state on purpose: see the CSS note in
-     assets/site.css and the blocked-on list below. -->
+<!-- Download panel. Real state as of the desktop-v0.2.0 release:
+     the NSIS installer below is a live GitHub release asset. The
+     amber soft-state that lived here (a "request access" button and
+     a blocked-on list) is in git history; it was correct while there
+     was no artifact to link. -->
 <div class="dl" id="get">
   <div class="dl-box">
     <div class="dl-main">
@@ -261,45 +264,49 @@ footer .dot{opacity:.4}
       <div class="dl-body">
         <div class="dl-title">
           <h2>Get the companion</h2>
-          <span class="statusflag dev">No public download yet</span>
+          <span class="statusflag live">Windows download</span>
         </div>
         <div class="dl-meta">
           <span>Windows 10/11 · <b>x64</b></span>
           <span>Version <b>0.2.0</b></span>
+          <span><b>4.45 MB</b> installer</span>
           <span>Tauri · Rust</span>
         </div>
-        <p class="dl-desc">The companion is real and it runs, but it exists as a binary on the machine that
-          compiled it and nowhere else. There is <b>no repository, no release and no installer</b> to point
-          you at, so this page will not hand you a link that does not work. Windows only, and not by
-          oversight: the window monitor is bound to Win32 and the capture engine draws through GDI, so
-          macOS and Linux are not a build target away, they are a port.</p>
-        <p class="dl-desc">It watches which application and window is in front, sorts that into categories,
-          keeps it in a local SQLite database, and pushes what it sees to the extension over a loopback
-          WebSocket. It <b>can also capture the screen</b> while the browser is not in front, throttled and
-          redacted, which is the half of the record the extension cannot see. That capture is the reason
-          this is not a casual install, and the reason the release below is gated rather than rushed.</p>
+        <p class="dl-desc">The companion watches which application and window is in front, sorts that into
+          categories, keeps it in a local SQLite database, and pushes what it sees to the extension over a
+          loopback WebSocket, so a stint spent in Figma, Excel or a call is time your day accounts for.
+          <b>Windows only</b>, and not by oversight: the window monitor is bound to Win32 and the capture
+          engine draws through GDI, so macOS and Linux are a port, not a build flag.</p>
+        <p class="dl-desc">It can <b>also capture the screen</b> while the browser is not in front — but that
+          is <b>off by default</b>, redacted with a fail-closed pass when on, written only to your own machine
+          and <b>never uploaded</b>, and auto-deleted after 30 days (90 while clocked in for an org). A fresh
+          install captures nothing until you turn it on.</p>
         <div class="dl-actions">
-          <button type="button" class="dl-cta" id="dl-req">✉️ Request access</button>
-          <span class="dl-note">Goes to the backlog as a request, not to a download.</span>
+          <a class="dl-cta ready"
+             href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.2.0/Tabatha-Desktop-0.2.0-x64-setup.exe"
+             download>⬇️ Download for Windows</a>
+          <span class="dl-note">NSIS installer · 4.45 MB · from the <code>desktop-v0.2.0</code> GitHub release.</span>
+        </div>
+        <div class="dl-facts">
+          <div class="dl-fact"><span class="k">Version</span><span class="v">0.2.0 · Windows x64</span></div>
+          <div class="dl-fact"><span class="k">Size</span><span class="v">4,666,565 bytes (4.45 MB)</span></div>
+          <div class="dl-fact"><span class="k">SHA-256</span><span class="v">674ec83c1410d3d4063898e3f1e53b69df79258dc892a6d85f4f2d74067d8846</span></div>
+          <div class="dl-fact"><span class="k">Also</span><span class="v"><a href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.2.0/Tabatha-Desktop-0.2.0-x64.msi">.msi build</a> · <a href="https://github.com/MrMalkio/tabatha/releases/tag/desktop-v0.2.0">release page &amp; checksums</a></span></div>
         </div>
       </div>
     </div>
     <div class="dl-missing">
-      <div class="h">Blocked on</div>
+      <div class="h">Before you install</div>
       <ul>
-        <li><b>A hosted repository.</b> The source has no git remote. It has never left this machine.</li>
-        <li><b>An installer.</b> Only <code>cargo build --release</code> has run, which yields a bare
-          16 MB exe with no Start-menu entry, no uninstall and no auto-start registration. Bundling
-          (<code>tauri build</code>) has not been run.</li>
-        <li><b>Code signing.</b> No certificate is configured. An unsigned binary that captures the
-          screen and opens a socket will trip SmartScreen, and should.</li>
-        <li><b>A companion update channel.</b> The existing updater ships the <b>extension</b>, not the
-          companion. Handing out 0.2.0 today means every fix is a manual reinstall.</li>
-        <li><b>Docs that match the code.</b> The README still says v0.1.0 and "no screenshots, ever"
-          while a capture engine ships. Publishing against that would deny the most privacy-sensitive
-          thing the product does.</li>
-        <li><b>Auth on the local socket.</b> Port 9147 is loopback-bound but unauthenticated. Any local
-          process can connect. Acceptable on one developer's machine, not on yours.</li>
+        <li><b>It is unsigned.</b> No code-signing certificate is configured yet, so Windows SmartScreen
+          will warn on first run — "More info → Run anyway". Verify the SHA-256 above against the file you
+          downloaded if you want certainty about what you're running.</li>
+        <li><b>The local interface is not yet authenticated.</b> The companion opens a WebSocket on
+          <code>127.0.0.1:9147</code> for the extension bridge. It is loopback-only and never reachable
+          from your network, but it does not yet authenticate local callers — authentication hardening is
+          in progress. Treat this as a trusted single-user-machine build.</li>
+        <li><b>Updates are manual.</b> The companion has no auto-update channel of its own yet, so a future
+          fix means downloading a new installer from the release page rather than an in-app update.</li>
       </ul>
     </div>
   </div>
