@@ -1,7 +1,7 @@
 # Feature #186 — Asana Task ↔ Focus Linking
 
-> **Status:** 📋 Planned · **Version:** v0.2.0  
-> **Depends On:** #54 Asana Integration, #142 Asana URL Parsing, #122 Focus Queue  
+> **Status:** ✅ Shipped · **Version:** v6.8.0
+> **Depends On:** #54 Asana Integration, #142 Asana URL Parsing, #122 Focus Queue
 > **Created:** 2026-05-26
 
 ## User Context (Quotes)
@@ -13,7 +13,7 @@
 
 ## What It Does
 
-Two capabilities:
+Four capabilities:
 
 ### 1. Attach Asana Task to Focus (Manual)
 
@@ -22,18 +22,30 @@ At focus creation or during editing, user can link an Asana task:
 - **Search/paste Asana URL** → extracts GID via URL parsing (#142)
 - **Browse Asana tasks** → pulls from synced project list
 - Focus stores `asanaTaskGid`, displays task name + project
-- Time tracked against focus → pushed to Asana time entry (if Asana time tracking widget is active)
+- Reopening the task switches to its unresolved focus instead of duplicating it
 
 ### 2. Auto-Focus from Asana Task URL (URL-Triggered)
 
-When user navigates to an Asana task page (`app.asana.com/0/{project_gid}/{task_gid}`):
+When a user navigates to an Asana task page (`app.asana.com/0/{project_gid}/{task_gid}`):
 
-- System detects isolated task page via URL pattern
-- **Prompt:** "Create a focus for [Task Name]?" with options:
-  - ✅ "Start Focus" → creates focus with Asana task linked
-  - 📋 "Queue for Later" → adds to queue (#185)
-  - ❌ "Skip" → treats as normal browsing
-- Task name and project extracted from page or API
+- A compact task strip appears with **Set focus**, **My time**, and **Agent time**
+- `?focus=true` and `/f` pages immediately update the InBar to the visible task title
+- SPA navigation is observed, so moving between tasks refreshes Tabatha without a page reload
+- Task name and visible parent breadcrumb are extracted without reading descriptions
+
+### 3. Human and Agent Task Time
+
+- Human and named-agent timers are separate and may run concurrently
+- Agent timers open a matching tab-scoped Cortex controller span
+- Local storage is canonical; Supabase/widget mirroring is best-effort
+- Each entry records the Asana task, actor, agent name, Tabatha focus, tab/window, and timestamps
+
+### 4. Parent and Nested Rollups
+
+- A stint is stored once against the subtask where it began
+- Known ancestor GIDs are stored on that same row
+- A parent report includes direct rows plus descendant rows containing that parent GID
+- This permits each hierarchy level to show a rollup without duplicating rows or counting a child twice within one total
 
 ## Data Model Addition
 
@@ -42,12 +54,11 @@ When user navigates to an Asana task page (`app.asana.com/0/{project_gid}/{task_
   "focus": {
     "id": "focus_xyz",
     "label": "Fix authentication flow",
-    "asanaTask": {
-      "gid": "1234567890",
-      "name": "Fix authentication flow",
-      "project": "Tabatha Development",
-      "url": "https://app.asana.com/0/...",
-      "linkedAt": "2026-05-26T10:00:00Z"
+    "tags": {
+      "asanaTaskGid": "1234567890",
+      "asanaParentTaskGid": "1234567880",
+      "asanaAncestorTaskGids": ["1234567880", "1234567000"],
+      "asanaTaskUrl": "https://app.asana.com/0/..."
     }
   }
 }
@@ -62,14 +73,13 @@ https://app.asana.com/0/{project_gid}/{task_gid}/f
 
 ## Implementation Notes
 
-- Extends `SET_INTENT` / `START_FOCUS` handlers with optional `asanaTask` payload
-- URL detection: add Asana task page pattern to URL rules engine (#147)
-- Task name extraction: try page title first (`{task_name} - Asana`), fall back to API call
-- Focus card UI: show Asana icon + task name when linked
-- Edit modal: "Link Asana Task" field with URL paste or search
+- `src/content/asana.js` owns the Asana-only task strip and SPA observation
+- `asanaService.js` owns task context, timers, focus linking, local persistence, and cloud mirroring
+- `asanaTaskTracking.js` owns pure hierarchy and duration calculations
+- Migration 029 and the widget route expose nested and agent totals in Asana
 
 ## Open Questions
 
-- Should resolving a focus auto-complete the Asana task? (Probably not — but should offer a prompt)
+- Resolving a focus does not complete the Asana task.
 - Should the system sync Asana task status changes back to focus state?
-- Multiple Asana tasks per focus, or 1:1 only?
+- Focus linking remains one Asana task per focus; parent rollup is metadata, not an additional focus link.

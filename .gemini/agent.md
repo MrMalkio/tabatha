@@ -6,13 +6,13 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 19 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 21 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
 ## Project State
 
-- **Current version:** 6.7.22
+- **Current version:** 6.8.0
 - **Current focus:** Cortex program (Plans 039/040-044) on top of staging v6.6.0 (NB-03 to NB-09 merged in: time-editing overhaul, offline-gap detector, abandoned stints, work-shifts analytics, settings search). Phase 1 browser-regression-verified; Phases 2-5 partial (companion capture on tabatha-desktop feat/cortex-capture; voice v0 + self-correction shipped). Awaiting Malkio: extension RELOAD + re-smoke-test -> v7.0.0, companion merge/deploy, proxy secret. See docs/cortex/HANDOFF.md.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
@@ -190,5 +190,8 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-07-10 | Claude (Fable 5, evening) | Missing-features hunt, NB-01/02, version discipline, capture visibility | Root-caused Malkio's "features removed": fork-gap (branch forked pre-NB-09), not deletion — 3-analyst audit cleared all cortex commits. Merged staging v6.6.0 (NB-03→NB-09) + NB-01/02 schedule profiles (v6.7.0); rescued+ported an at-risk awareness identity fix (Live Stints no-op) extended to GET_OTHER_QUEUE/getOwnAbandonedStints; surfaced real capture folder+last-frame in Cortex panel; guarded capture reconnect-flap; backfilled changelog. Version rule reconciled (git tops ~6.7; per-commit discipline instituted 6.7.1→6.7.4). Migrations 025/026/027 applied to Flux. Captures confirmed working (745 frames/day). 591 unit + 22/22 browser regression PASS. | Malkio: reload (v6.7.4), Supabase re-sign-in + ghost card (computer-use blocked in scheduled run — walkthroughs given) |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
+| 2026-07-16 | Codex | Overlock context contribution | Replaced the legacy webhook token with HMAC-SHA256 over the exact request body so privacy-bounded Tabatha events can be verified by Caspera's Overlock connector. All 623 tests pass. | Configure the Overlock webhook URL and shared secret, then observe one week of contribution usage. |
+| 2026-07-17 | Codex | Asana task focus + attributed attention | Shipped v6.8.0 Asana task-page controls: Set focus, human time, named-agent time, `focus=true` InBar sync, nested parent rollups, local-first persistence, live Supabase/widget attribution schema, 630 tests and production build green. | Malkio: reload Tabatha at chrome://extensions, refresh an Asana task, then verify the task strip and native widget totals. |
+
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->

@@ -28,7 +28,7 @@ router.get("/", async (req, res) => {
   try {
     const { task, user } = req.query;
 
-    if (!task) {
+    if (!task || !/^\d+$/.test(task)) {
       return res.status(400).json({ error: "Missing task parameter" });
     }
 
@@ -42,7 +42,10 @@ router.get("/", async (req, res) => {
       const { data, error } = await supabase
         .from("flux_time_entries")
         .select("*")
-        .eq("task_gid", task)
+        // Direct entries plus descendant entries whose immutable ancestor
+        // chain contains this task. Each row appears once, so a parent's total
+        // rolls up nested subtasks without double-counting.
+        .or(`task_gid.eq.${task},ancestor_task_gids.cs.{${task}}`)
         .order("started_at", { ascending: false });
 
       if (error) {
@@ -95,6 +98,9 @@ router.get("/", async (req, res) => {
     // 5. Aggregate stats
     const userTotals = aggregateByUser(entries);
     const teamTotal = sumDurations(entries);
+    const directTotal = sumDurations(entries.filter((e) => e.task_gid === task));
+    const rolledUpTotal = Math.max(0, teamTotal - directTotal);
+    const agentTotal = sumDurations(entries.filter((e) => e.controller === "ai-agent"));
     const uniqueUsers = Object.keys(userTotals);
     const lastEntry = getLastEntry(entries);
 
@@ -138,6 +144,24 @@ router.get("/", async (req, res) => {
       text: formatDuration(teamTotal),
       icon_url: ICONS.TEAM,
     });
+
+    if (rolledUpTotal > 0) {
+      fields.push({
+        name: "Nested task rollup",
+        type: "text_with_icon",
+        text: formatDuration(rolledUpTotal),
+        icon_url: ICONS.CLOCK,
+      });
+    }
+
+    if (agentTotal > 0) {
+      fields.push({
+        name: "Agent attention",
+        type: "text_with_icon",
+        text: formatDuration(agentTotal),
+        icon_url: ICONS.TIMER,
+      });
+    }
 
     // Per-user breakdown (top 5 contributors)
     const sortedUsers = Object.entries(userTotals)

@@ -1917,8 +1917,8 @@ function Settings() {
                     </span>
                   </div>
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0 0 8px', lineHeight: 1.5 }}>
-                    Push time entries from Tabatha clock sessions to your Asana workspace via the Flux Asana Widget.
-                    Requires the Flux Widget Server running locally.
+                    Asana task pages include Set focus, My time, and named Agent time controls automatically.
+                    The optional Flux Widget Server renders those totals inside Asana, including nested-task rollups.
                   </p>
                   <div style={fieldRow}>
                     <span style={fieldLabel}>Widget Server URL</span>

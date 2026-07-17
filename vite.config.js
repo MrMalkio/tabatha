@@ -24,7 +24,8 @@ export default defineConfig({
         background: resolve(__dirname, 'src/background/background.js'),
         gatekeeper: resolve(__dirname, 'src/content/gatekeeper.js'),
         blockgate: resolve(__dirname, 'src/content/blockgate.js'),
-        inbar: resolve(__dirname, 'src/content/inbar.js')
+        inbar: resolve(__dirname, 'src/content/inbar.js'),
+        asana: resolve(__dirname, 'src/content/asana.js')
       },
       output: {
         entryFileNames: `assets/[name].js`,

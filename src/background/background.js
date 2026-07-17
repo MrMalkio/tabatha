@@ -87,6 +87,8 @@ import {
   flushCloudOutbox
 } from './services/cloudWriteService.js';
 import * as feedbackService from './services/feedbackService.js'; // B2: in-app feedback → Asana
+import * as asanaService from './services/asanaService.js';
+import { configureAsanaService } from './services/asanaService.js';
 import * as awarenessService from './services/awarenessService.js';
 import {
   configureAwarenessService,
@@ -119,6 +121,13 @@ configureCompanionInstallService({ supabase, companionBridge });
 // Cloud writes (profile name via outbox; org/invite via direct RPC). The SW is
 // the single auth owner — page contexts route every mutation here.
 configureCloudWriteService({ supabase, triggerSync });
+configureAsanaService({
+  supabase,
+  getFocusEngine: focusService.getFocusEngine,
+  startFocus: focusService.startFocus,
+  switchFocus: focusService.switchFocus,
+  agentSessionService
+});
 
 configureNotificationService({
   getTabData,
@@ -210,6 +219,7 @@ const services = [
   autoFocusService,
   domainHistoryService,
   feedbackService,
+  asanaService,
   captureService,
   cortexService,
   agentSessionService,

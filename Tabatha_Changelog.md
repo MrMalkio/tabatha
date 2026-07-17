@@ -5,6 +5,27 @@ file.
 
 ---
 
+## [v6.8.0] - Asana task focus and attributed attention tracking - _2026-07-17_
+
+### Added
+
+- **Task controls inside Asana.** Every Asana task page now gets a compact Tabatha strip with separate **Set focus**, **My time**, and **Agent time** actions. The strip survives Asana's single-page navigation, uses the visible task title, and labels `?focus=true` / `/f` pages as focused-task context.
+- **Human versus agent attention.** Human time and multiple named agents can run concurrently on the same task. Agent timers open and close Tabatha's existing tab-scoped controller spans, so Cortex observations and task time share the same attribution boundary.
+- **Nested task rollups without duplicate rows.** Each stint stays directly attached to its originating task and carries its known ancestor GIDs. Parent totals include descendant time exactly once per parent report, while direct, human, and agent totals remain independently available.
+- **Asana-linked focus reuse.** Set focus creates a focus with the Asana task/project/ancestor metadata, or switches back to the existing unresolved focus for that task instead of creating duplicates.
+- **Widget data bridge.** Migration 029 extends `flux_time_entries` with source-task, hierarchy, controller, agent, focus, and metadata fields. The existing Asana widget now includes descendant rollups and agent-attention totals.
+
+### Changed
+
+- **Asana full-screen awareness is deterministic.** Task context is synchronized from the live Asana page rather than relying only on a background title regex, so the InBar follows SPA task changes and `focus=true` navigation.
+- **Offline-first timer behavior.** Task stints are committed to local extension storage first. Supabase mirroring is best-effort, so a network or auth outage cannot lose or block an active task timer.
+
+## [v6.7.23] - Update-channel test + re-sync - _2026-07-17_
+
+### Fixed
+
+- **Self-hosted update channel had drifted to v6.7.15** — `publish:update` was not run for several releases, so remote staff installs would not have auto-updated past 6.7.15. This release re-publishes the channel and was used to verify the end-to-end auto-update path (publish -> latest.json -> client pull -> stable-path swap) works.
+
 ## [v6.7.22] - Desktop companion shipped as a real Windows download - _2026-07-16_
 
 ### Added

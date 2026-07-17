@@ -1,113 +1,70 @@
 # Asana Integration Guide
 
-> Connect Tabatha clock sessions to Asana time entries via the Flux Widget Server.
+> Track a human's or agent's attention directly from an Asana task, create a linked Tabatha focus, and roll subtask time into parent totals.
 
-## Prerequisites
+## What Works in the Extension
 
-| Requirement | Details |
-|---|---|
-| **Flux Asana Widget Server** | Local Express/HTTPS server (`tabatha-asana-widget` repo) |
-| **Asana Personal Access Token** | Generate at [Asana Developer Console](https://app.asana.com/0/developer-console) |
-| **Asana Workspace GID** | Find in Asana URL or API |
-| **Node.js ≥18** | Required for the widget server |
+No separate Asana installation is required for the page controls. With Tabatha v6.8.0 loaded, opening an Asana task shows a compact Tabatha strip above the InBar:
 
-## Setup Steps
+- **Set focus** creates a Tabatha focus linked to the task, or reuses its existing unresolved focus.
+- **My time** starts a human-attention stint for the task.
+- **Agent time** starts a stint for the name entered in the Agent name field and opens a matching tab-scoped agent-controller span.
+- **Stop** closes only that human or named-agent stint. Human and agent stints may overlap intentionally.
+- `?focus=true` and `/f` task URLs update the InBar to the visible task title automatically.
 
-### 1. Clone and Configure the Widget Server
+Tabatha reads only the current task GID, the visible title, and the visible parent-task breadcrumb. It does not read task descriptions.
 
-```bash
-cd your-projects-dir
-git clone <flux-asana-widget-repo-url>
-cd tabatha-asana-widget
-npm install
-```
+## Parent and Subtask Time
 
-Create `.env`:
-```env
-ASANA_PAT=your_personal_access_token
-ASANA_WORKSPACE_GID=your_workspace_gid
-PORT=8443
-```
+Every stint is stored once against the task where it began. The row also carries every parent GID Tabatha knows:
 
-### 2. Generate SSL Certificates
+- The subtask reports the stint as direct time.
+- Each parent reports the same row as rolled-up descendant time.
+- A single parent's total never counts that row twice.
+- Human and agent totals remain separate at every level.
 
-The widget server runs over HTTPS (required for Chrome extension communication):
+Asana exposes the immediate parent in the task UI. As more levels are visited, Tabatha's local relation map completes the ancestor chain for deeper nesting.
 
-```bash
-mkdir certs
-openssl req -x509 -newkey rsa:2048 -keyout certs/key.pem -out certs/cert.pem -days 365 -nodes -subj "/CN=localhost"
-```
+## Storage and Sync
 
-### 3. Start the Widget Server
+Local extension storage is canonical. Starting or stopping a timer succeeds locally even when offline or signed out.
 
-```bash
-npm start
-# or: node server.js
-```
+When Tabatha has a working Supabase connection, it also mirrors the stint to `public.flux_time_entries`. Migration `029_asana_attention_attribution.sql` adds:
 
-Verify it's running:
-```bash
-curl -k https://localhost:8443/health
-# Expected: {"status":"ok"}
-```
+- `source_task_gid`, `parent_task_gid`, and `ancestor_task_gids`
+- `controller` (`human` or `ai-agent`) and `agent_name`
+- `tabatha_focus_id` and structured `metadata`
 
-### 4. Configure Tabatha
+The Flux Asana Widget route includes direct rows plus descendant rows whose ancestor chain contains the task. It surfaces nested-task and agent-attention totals when present.
 
-1. Open Tabatha Settings → **🔌 Integrations**
-2. Set **Widget Server URL** to `https://localhost:8443`
-3. Enable **Asana sync** toggle
+## Optional Asana Widget Server
 
-### 5. Verify Connection
+The page controls do not require the server. The server is only needed to render a native Flux summary attachment inside Asana.
 
-After clocking in and completing a focus session:
+The server lives in this repository at `flux-asana-widget/`.
 
-1. Check the Developer panel logs for `[asana]` entries
-2. Verify time entries appear in your Asana workspace
+1. Install its dependencies with `npm install` in that directory.
+2. Configure `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ASANA_CLIENT_SECRET`, `PORT`, and `BASE_URL` in its ignored `.env` file.
+3. Provide an HTTPS certificate when registering it as an Asana App Component; HTTP is suitable only for local route testing.
+4. Start it with `npm start` and verify `/health`.
+5. In Tabatha Settings → Integrations, enter the server URL and enable Asana sync.
 
-## How It Works
+## Verification
 
-```
-┌─────────────┐    CLOCK_OUT    ┌──────────────┐    POST /time    ┌─────────────┐
-│   Tabatha    │ ─────────────→ │  syncService  │ ──────────────→ │ Widget Srv  │
-│  Extension   │                │  (background) │                 │ (localhost)  │
-└─────────────┘                └──────────────┘                 └──────┬──────┘
-                                                                       │
-                                                                       ▼
-                                                                 ┌─────────────┐
-                                                                 │  Asana API   │
-                                                                 │ (time entry) │
-                                                                 └─────────────┘
-```
-
-**Data pushed on clock-out:**
-- Focus label → Asana task description
-- Elapsed time → duration_minutes
-- Clock-in/out timestamps → started_at / completed_at
-- Client/project tags → mapped to Asana project (if configured)
+1. Reload the unpacked Tabatha extension after rebuilding it.
+2. Open an Asana task, preferably with `?focus=true`.
+3. Confirm the InBar title and Tabatha task strip match the task.
+4. Click **My time**, wait briefly, then stop it.
+5. Enter an agent name, click **Agent time**, and confirm the violet agent-controller state appears; stop it.
+6. On a subtask with a visible parent, confirm the strip says that time rolls up to the parent.
+7. If the native Asana widget is configured, refresh its attachment and confirm direct/nested and agent totals.
 
 ## Troubleshooting
 
-| Issue | Fix |
+| Issue | Check |
 |---|---|
-| `ERR_CERT_AUTHORITY_INVALID` | Visit `https://localhost:8443` in Chrome, click "Advanced → Proceed" to trust the self-signed cert |
-| `ECONNREFUSED` | Widget server not running — `npm start` |
-| No time entries appearing | Check Asana PAT permissions — needs `default` scope |
-| Stale data | Force sync via Settings → Sync & Account → "Sync now" |
-
-## Database Table
-
-Time entries are also stored locally in Supabase migration `004_flux_time_entries`:
-
-```sql
-CREATE TABLE tabatha.flux_time_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  install_id UUID NOT NULL,
-  focus_label TEXT,
-  duration_minutes INTEGER,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  asana_task_gid TEXT,
-  synced_to_asana BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
+| Task strip does not appear | Reload Tabatha at `chrome://extensions`, then refresh the Asana tab. |
+| InBar shows the previous task | Refresh the Asana page once; Tabatha also rechecks SPA navigation every three seconds. |
+| Parent is not shown | Open the task's full-screen/focused view so Asana renders the parent breadcrumb. |
+| Timer works locally but not in the widget | Confirm Supabase sign-in and that migration 029 is applied. |
+| Native widget is empty | Confirm the widget server can reach Supabase and the App Component points to its HTTPS URL. |

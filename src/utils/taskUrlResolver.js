@@ -12,11 +12,12 @@ export function parseAsanaUrl(url) {
     const u = new URL(url);
     if (!u.hostname.includes('asana.com')) return null;
     const path = u.pathname;
+    const focusMode = u.searchParams.get('focus') === 'true' || /\/f\/?$/.test(path);
     let m;
 
     // V1: /1/{workspace_gid}/task/{task_gid}
     m = path.match(/^\/1\/(\d+)\/task\/(\d+)/);
-    if (m) return { platform: 'asana', workspaceGid: m[1], taskGid: m[2], type: 'task' };
+    if (m) return { platform: 'asana', workspaceGid: m[1], taskGid: m[2], type: 'task', focusMode };
 
     // V1: /1/{workspace_gid}/project/{project_gid}
     m = path.match(/^\/1\/(\d+)\/project\/(\d+)/);
@@ -32,15 +33,15 @@ export function parseAsanaUrl(url) {
 
     // V0: /0/search/{project_gid}/{task_gid}
     m = path.match(/^\/0\/search\/(\d+)\/(\d+)/);
-    if (m) return { platform: 'asana', projectGid: m[1], taskGid: m[2], type: 'task' };
+    if (m) return { platform: 'asana', projectGid: m[1], taskGid: m[2], type: 'task', focusMode };
 
     // V0: /0/0/{task_gid} (standalone task)
     m = path.match(/^\/0\/0\/(\d+)/);
-    if (m) return { platform: 'asana', taskGid: m[1], type: 'task' };
+    if (m) return { platform: 'asana', taskGid: m[1], type: 'task', focusMode };
 
     // V0: /0/{project_gid}/{task_gid} (task in project)
     m = path.match(/^\/0\/(\d+)\/(\d+)/);
-    if (m) return { platform: 'asana', projectGid: m[1], taskGid: m[2], type: 'task' };
+    if (m) return { platform: 'asana', projectGid: m[1], taskGid: m[2], type: 'task', focusMode };
 
     // V0: /0/inbox/{notification_gid}
     m = path.match(/^\/0\/inbox\/(\d+)/);

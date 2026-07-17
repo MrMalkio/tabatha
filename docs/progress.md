@@ -3,6 +3,34 @@
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
 
+## Session - 2026-07-17 (Asana task focus and attributed attention, v6.8.0)
+
+**Goal:** Turn the earlier Asana widget foundation into a direct task-page workflow for setting focus and tracking human or agent attention, with correct nested-task attribution.
+
+**Done:**
+- Added an Asana-only task strip with **Set focus**, **My time**, **Agent time**, named concurrent agent stints, live elapsed state, and explicit stop controls.
+- Added deterministic Asana SPA and `?focus=true` / `/f` detection so the InBar follows the visible task title without relying only on tab-title regexes.
+- Added `asanaService` and pure tracking primitives for local-first stint persistence, focus reuse, tab-scoped agent-controller spans, parent relation learning, cycle-safe ancestor chains, and direct/rolled-up human/agent totals.
+- Extended `flux_time_entries` in migration 029 and updated the native widget query to include nested-task rollups and agent attention.
+- Updated Feature #186, the integration guide, Settings copy, changelog, version mirrors, and built v6.8.0 into the fixed `dist` path atomically.
+
+**Verification:** 630/630 Node tests pass; targeted ESLint passes; widget route syntax check passes; production Vite build passes and includes `assets/asana.js`.
+
+**Deployment:** Migration 029 was applied through the Supabase Management API after the local CLI login-role transport failed. Verification returned all seven attribution columns and one `029 / asana_attention_attribution` migration-ledger row.
+
+**Blocked/pending:** Chrome's protected extensions page cannot be controlled by the browser automation channel, so Malkio must click Reload on the Tabatha card and refresh Asana.
+
+**Next steps:** Reload Tabatha, refresh an open Asana task, smoke-test Set focus/My time/Agent time/parent label, then verify the native Asana widget totals.
+
+---
+
+## Session - 2026-07-16 (Overlock contribution signing)
+
+Tabatha's configurable webhook output now signs the exact JSON request body with HMAC-SHA256.
+Caspera can accept privacy-bounded activity events through the Overlock connector without trusting
+a reversible token. Targets configured without a secret remain backward compatible. Test suite:
+623 passing.
+
 ---
 
 ## Session - 2026-05-29 (Plan 036 Intelligent Focus Lifecycle — v6.0.0) — CHECKPOINT
