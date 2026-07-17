@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { getDeviceId } from '../lib/device';
 
@@ -17,6 +18,8 @@ export type FocusItem = {
   browser_profile_id?: string | null;
 };
 
+const CURRENT_KEY = 'tabby.sidecar.currentFocusId';
+
 function uuid(): string {
   return 'xxxxxxxxxxxx4xxxyxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -28,24 +31,44 @@ function uuid(): string {
 export function isSidecarSourced(f: FocusItem): boolean {
   return f.tags?._src === 'sidecar';
 }
+export function isOffComputer(f: FocusItem): boolean {
+  return !!f.tags?._off;
+}
 export function startedAtOf(f: FocusItem): number {
   const iso = f.tags?._startedAt || f.created_at;
   const t = new Date(iso).getTime();
   return Number.isFinite(t) ? t : Date.now();
 }
+function snoozedUntil(f: FocusItem): number {
+  const t = f.tags?._snoozeUntil ? new Date(f.tags._snoozeUntil).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
 
 /**
  * Live focus/queue state read directly from Supabase `focus_items`.
- * Polls (20s) + refetches after every mutation, and exposes a manual refresh.
+ * Polls (15s) + refetches after every mutation, exposes a manual refresh.
+ * Tracks a locally-pinned "current focus" so pausing keeps it at the top
+ * (mirrors the extension sidebar) instead of demoting it into the queue.
  */
 export function useFocus(
   profileId: string | null,
   browserProfileId: string | null
 ) {
   const [items, setItems] = useState<FocusItem[]>([]);
+  const [currentId, setCurrentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true);
+
+  const persistCurrent = useCallback(async (id: string | null) => {
+    setCurrentId(id);
+    try {
+      if (id) await AsyncStorage.setItem(CURRENT_KEY, id);
+      else await AsyncStorage.removeItem(CURRENT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -72,8 +95,16 @@ export function useFocus(
 
   useEffect(() => {
     mounted.current = true;
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(CURRENT_KEY);
+        if (saved && mounted.current) setCurrentId(saved);
+      } catch {
+        /* ignore */
+      }
+    })();
     load();
-    const iv = setInterval(() => load(), 20000);
+    const iv = setInterval(() => load(), 15000);
     return () => {
       mounted.current = false;
       clearInterval(iv);
@@ -82,14 +113,19 @@ export function useFocus(
 
   const patch = useCallback(
     async (id: string, updates: Record<string, any>) => {
-      // Optimistic
-      setItems((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, ...updates } : it))
-      );
+      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...updates } : it)));
       await supabase.from('focus_items').update(updates).eq('id', id);
       load();
     },
     [load]
+  );
+
+  const mergeTags = useCallback(
+    (id: string, tagPatch: Record<string, any>) => {
+      const cur = items.find((i) => i.id === id);
+      return patch(id, { tags: { ...(cur?.tags || {}), ...tagPatch } });
+    },
+    [items, patch]
   );
 
   const createIntent = useCallback(
@@ -97,26 +133,25 @@ export function useFocus(
       label: string,
       timerMinutes: number,
       realm: string,
-      opts: { active?: boolean; tags?: Record<string, any> } = {}
+      opts: { active?: boolean; parentId?: string; tags?: Record<string, any> } = {}
     ) => {
-      if (!profileId) return;
+      if (!profileId) return null;
       const deviceId = await getDeviceId();
       const clientId = `sidecar-${uuid()}`;
       const nowIso = new Date().toISOString();
       const active = opts.active !== false;
 
-      // Single-active among sidecar items: pause other sidecar-active focuses.
       if (active) {
         const toPause = items.filter(
           (f) => f.focus_state === 'active' && isSidecarSourced(f)
         );
-        for (const f of toPause) {
-          await supabase
-            .from('focus_items')
-            .update({ focus_state: 'paused' })
-            .eq('id', f.id);
-        }
+        for (const f of toPause)
+          await supabase.from('focus_items').update({ focus_state: 'paused' }).eq('id', f.id);
       }
+
+      const parentClient = opts.parentId
+        ? items.find((i) => i.id === opts.parentId)?.client_id
+        : undefined;
 
       const row = {
         profile_id: profileId,
@@ -132,80 +167,106 @@ export function useFocus(
           _src: 'sidecar',
           _off: true,
           _startedAt: nowIso,
+          ...(parentClient ? { _parent: parentClient } : {}),
           ...(opts.tags || {}),
         },
       };
-      await supabase.from('focus_items').insert(row);
-      // Intent history breadcrumb.
+      const { data } = await supabase.from('focus_items').insert(row).select('id').maybeSingle();
       await supabase.from('intent_history').insert({
         profile_id: profileId,
-        action: 'inherit',
+        action: opts.parentId ? 'side_quest' : 'inherit',
         context: label.trim(),
         focus_id: clientId,
         browser_profile_id: browserProfileId,
         timestamp: nowIso,
       });
+      if (active && data?.id) await persistCurrent(data.id);
       load();
+      return data?.id || null;
     },
-    [profileId, browserProfileId, items, load]
+    [profileId, browserProfileId, items, load, persistCurrent]
   );
 
-  // ── action helpers ─────────────────────────────────────────
   const actions = {
-    switchTo: (id: string) =>
-      (async () => {
-        const others = items.filter(
-          (f) => f.focus_state === 'active' && isSidecarSourced(f) && f.id !== id
-        );
-        for (const f of others)
-          await supabase
-            .from('focus_items')
-            .update({ focus_state: 'paused' })
-            .eq('id', f.id);
-        await patch(id, {
-          focus_state: 'active',
-          tags: {
-            ...(items.find((i) => i.id === id)?.tags || {}),
-            _startedAt: new Date().toISOString(),
-          },
-        });
-      })(),
+    switchTo: async (id: string) => {
+      const others = items.filter(
+        (f) => f.focus_state === 'active' && isSidecarSourced(f) && f.id !== id
+      );
+      for (const f of others)
+        await supabase.from('focus_items').update({ focus_state: 'paused' }).eq('id', f.id);
+      await persistCurrent(id);
+      await patch(id, {
+        focus_state: 'active',
+        tags: { ...(items.find((i) => i.id === id)?.tags || {}), _startedAt: new Date().toISOString(), _backburner: false, _snoozeUntil: null },
+      });
+    },
     pause: (id: string) => patch(id, { focus_state: 'paused' }),
     resume: (id: string) =>
       patch(id, {
         focus_state: 'active',
-        tags: {
-          ...(items.find((i) => i.id === id)?.tags || {}),
-          _startedAt: new Date().toISOString(),
-        },
+        tags: { ...(items.find((i) => i.id === id)?.tags || {}), _startedAt: new Date().toISOString() },
       }),
-    resolve: (id: string) =>
-      patch(id, {
+    resolve: async (id: string) => {
+      if (currentId === id) await persistCurrent(null);
+      return patch(id, {
         focus_state: 'completed',
         funnel_stage: 'resolved',
         completed_at: new Date().toISOString(),
-      }),
+      });
+    },
     extend: (id: string, mins: number) => {
       const cur = items.find((i) => i.id === id);
       return patch(id, { timer_minutes: (cur?.timer_minutes || 15) + mins });
     },
     setPriority: (id: string, p: number) => patch(id, { priority: p }),
     setStage: (id: string, stage: string) => patch(id, { funnel_stage: stage }),
+    updateFocus: (
+      id: string,
+      u: { label?: string; timerMinutes?: number; funnelStage?: string; startedAt?: string; tags?: Record<string, any> }
+    ) => {
+      const cur = items.find((i) => i.id === id);
+      const updates: Record<string, any> = {};
+      if (u.label != null) updates.label = u.label;
+      if (u.timerMinutes != null) updates.timer_minutes = u.timerMinutes;
+      if (u.funnelStage != null) updates.funnel_stage = u.funnelStage;
+      const nextTags = { ...(cur?.tags || {}), ...(u.tags || {}) };
+      if (u.startedAt) nextTags._startedAt = u.startedAt;
+      updates.tags = nextTags;
+      return patch(id, updates);
+    },
+    toggleOffComputer: (id: string) => {
+      const cur = items.find((i) => i.id === id);
+      return mergeTags(id, { _off: !cur?.tags?._off });
+    },
+    setCurrent: (id: string | null) => persistCurrent(id),
+    sendToBackburner: (id: string) => {
+      if (currentId === id) persistCurrent(null);
+      return patch(id, { focus_state: 'paused', tags: { ...(items.find((i) => i.id === id)?.tags || {}), _backburner: true } });
+    },
+    resumeBackburner: (id: string) => mergeTags(id, { _backburner: false, _snoozeUntil: null }),
+    snoozeBackburner: (id: string, mins: number) =>
+      mergeTags(id, { _backburner: true, _snoozeUntil: new Date(Date.now() + mins * 60000).toISOString() }),
+    dismissBackburner: async (id: string) => {
+      if (currentId === id) await persistCurrent(null);
+      return patch(id, { focus_state: 'completed', tags: { ...(items.find((i) => i.id === id)?.tags || {}), _backburner: false } });
+    },
   };
 
   // ── derived views ──────────────────────────────────────────
-  const activeFocus =
-    items
-      .filter((f) => f.focus_state === 'active')
-      .sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] || null;
+  const notDone = items.filter((f) => f.focus_state !== 'completed' && f.funnel_stage !== 'resolved');
+  const backburner = notDone.filter((f) => f.tags?._backburner);
+  const nonBB = notDone.filter((f) => !f.tags?._backburner);
 
-  const queue = items
-    .filter(
-      (f) =>
-        f.focus_state !== 'completed' &&
-        f.funnel_stage !== 'resolved' &&
-        (!activeFocus || f.id !== activeFocus.id)
-    )
+  // Current focus: the locally-pinned one if still open, else most-recent active.
+  let currentFocus: FocusItem | null =
+    (currentId && nonBB.find((f) => f.id === currentId)) || null;
+  if (!currentFocus) {
+    currentFocus =
+      nonBB.filter((f) => f.focus_state === 'active').sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] || null;
+  }
+
+  const queue = nonBB
+    .filter((f) => !currentFocus || f.id !== currentFocus.id)
     .sort(
       (a, b) =>
         (a.priority || 5) - (b.priority || 5) ||
@@ -223,13 +284,15 @@ export function useFocus(
 
   return {
     items,
-    activeFocus,
+    currentFocus,
     queue,
+    backburner,
     history,
     loading,
     refreshing,
     refresh: () => load(true),
     createIntent,
     actions,
+    snoozedUntil,
   };
 }

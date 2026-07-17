@@ -132,7 +132,7 @@ export default function SettingsScreen() {
       </Card>
 
       <Btn label="Sign out" color={colors.red} onPress={signOut} />
-      <Text style={styles.version}>Tabby Sidecar v0.0.1</Text>
+      <Text style={styles.version}>Tabby Sidecar v0.1.0</Text>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
