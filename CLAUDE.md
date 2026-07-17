@@ -6,7 +6,7 @@
 ---
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 19 | Status: active         -->
+<!-- HEADBOX v0.1.0 | Main: v0.1.0 | Uses: 20 | Status: active         -->
 <!-- Owner: Malkio | Workspace: c:\Users\mrmal\Le Dev\Tabatha            -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 
@@ -190,6 +190,8 @@ See `.headbox/plan-registry.md` for the full list of plans. Always check this fi
 | 2026-07-10 | Claude (Fable 5, evening) | Missing-features hunt, NB-01/02, version discipline, capture visibility | Root-caused Malkio's "features removed": fork-gap (branch forked pre-NB-09), not deletion — 3-analyst audit cleared all cortex commits. Merged staging v6.6.0 (NB-03→NB-09) + NB-01/02 schedule profiles (v6.7.0); rescued+ported an at-risk awareness identity fix (Live Stints no-op) extended to GET_OTHER_QUEUE/getOwnAbandonedStints; surfaced real capture folder+last-frame in Cortex panel; guarded capture reconnect-flap; backfilled changelog. Version rule reconciled (git tops ~6.7; per-commit discipline instituted 6.7.1→6.7.4). Migrations 025/026/027 applied to Flux. Captures confirmed working (745 frames/day). 591 unit + 22/22 browser regression PASS. | Malkio: reload (v6.7.4), Supabase re-sign-in + ghost card (computer-use blocked in scheduled run — walkthroughs given) |
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
+| 2026-07-16 | Codex | Overlock context contribution | Replaced the legacy webhook token with HMAC-SHA256 over the exact request body so privacy-bounded Tabatha events can be verified by Caspera's Overlock connector. All 623 tests pass. | Configure the Overlock webhook URL and shared secret, then observe one week of contribution usage. |
+
 <!-- END HEADBOX                                                        -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 | 2026-05-30 | Claude (Opus) | Feature Intake #210-214 | Captured 5 new feature specs from user: #210 Priority Challenge & Accountability Interrupts, #211 Audio Input & Voice Control, #212 InPop Intent Dropdown Header, #213 Focus/Task Data Architecture Normalization, #214 Priority Matrix & Lazy Priority (two-tier). All in docs/features/. #214 flags reconcile-with-Asana-skill for canonical matrix terms. | Reconcile #214 against Asana skill priority matrix; prioritize into Phase 3/4; spec AI-counterpart boundary for #211 |

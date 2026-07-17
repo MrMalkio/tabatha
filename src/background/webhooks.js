@@ -49,12 +49,17 @@ export async function fireWebhook(eventType, payload = {}) {
       data: payload,
     };
 
-    // Optional HMAC signature header
+    // Optional HMAC-SHA256 signature over the exact request body. Overlock's
+    // Tabatha connector verifies this before accepting privacy-bounded events.
     const headers = { 'Content-Type': 'application/json' };
     if (config.secret) {
-      // Simple hash-based signature (SHA-256 not available in service workers without crypto.subtle)
-      // Use a basic signature approach
-      headers['X-Tabatha-Signature'] = btoa(config.secret + ':' + eventType + ':' + body.timestamp);
+      const encoded = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw', encoded.encode(config.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const signature = await crypto.subtle.sign('HMAC', key, encoded.encode(JSON.stringify(body)));
+      headers['X-Tabatha-Signature'] = Array.from(new Uint8Array(signature))
+        .map(byte => byte.toString(16).padStart(2, '0')).join('');
     }
 
     const response = await fetch(config.url, {
