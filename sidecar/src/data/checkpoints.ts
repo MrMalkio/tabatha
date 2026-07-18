@@ -21,25 +21,33 @@ export const PROGRESS_LEVELS: { key: string; label: string; icon: string; color:
 export function useCheckpoints(profileId: string | null, focusClientId: string | null) {
   const [notes, setNotes] = useState<Checkpoint[]>([]);
   const [loading, setLoading] = useState(false);
+  // QA P2 (v0.3.0 report): guard against setState-after-unmount — this hook is
+  // mounted/unmounted as panels toggle while its query is in flight.
+  const mounted = useRef(true);
 
   const load = useCallback(async () => {
     if (!profileId || !focusClientId) {
-      setNotes([]);
+      if (mounted.current) setNotes([]);
       return;
     }
-    setLoading(true);
+    if (mounted.current) setLoading(true);
     const { data } = await supabase
       .from('focus_checkpoints')
       .select('id, focus_client_id, text, progress_level, created_at')
       .eq('profile_id', profileId)
       .eq('focus_client_id', focusClientId)
       .order('created_at', { ascending: false });
+    if (!mounted.current) return;
     if (data) setNotes(data as Checkpoint[]);
     setLoading(false);
   }, [profileId, focusClientId]);
 
   useEffect(() => {
+    mounted.current = true;
     load();
+    return () => {
+      mounted.current = false;
+    };
   }, [load]);
 
   const add = useCallback(

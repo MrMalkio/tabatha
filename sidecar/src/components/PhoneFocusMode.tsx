@@ -131,7 +131,10 @@ export default function PhoneFocusMode({
         // is harmless but pointless, so skip it.
         const cf = focusRef.current;
         if (cf && cf.focus_state === 'active' && pauseRef.current) {
-          pauseRef.current(cf.id);
+          // QA P2 (v0.3.0): the pause action is async — swallow rejections so a
+          // network failure at backgrounding time can't surface as an
+          // unhandled-promise-rejection in a page that's being hidden.
+          Promise.resolve(pauseRef.current(cf.id)).catch(() => {});
         }
       } else {
         if (leftAt.current) setLastAway(Date.now() - leftAt.current);
