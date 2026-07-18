@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.30",
+      "title": "Widget carve-out: docs only",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **`docs/WIDGET-VERSIONING.md`** — proposal (not executed) for splitting the Asana widget onto its own `0.x` version line, separate from the extension's `6.x` line, per Plan 040 Addendum 4. Written as part of untangling `feat/companion-update-manifest`/`feat/site-sidecar-promo` from `Koda/asana-widget-pre-rebase`; no widget code, version files, or branches were touched."
+        }
+      ]
+    },
+    {
       "version": "6.7.29",
       "title": "Marketing site: Tabby Sidecar promotion",
       "date": "2026-07-18",

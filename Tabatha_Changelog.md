@@ -5,6 +5,12 @@ file.
 
 ---
 
+## [v6.7.30] - Widget carve-out: docs only - _2026-07-18_
+
+### Added
+
+- **`docs/WIDGET-VERSIONING.md`** — proposal (not executed) for splitting the Asana widget onto its own `0.x` version line, separate from the extension's `6.x` line, per Plan 040 Addendum 4. Written as part of untangling `feat/companion-update-manifest`/`feat/site-sidecar-promo` from `Koda/asana-widget-pre-rebase`; no widget code, version files, or branches were touched.
+
 ## [v6.7.29] - Marketing site: Tabby Sidecar promotion - _2026-07-18_
 
 > Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
