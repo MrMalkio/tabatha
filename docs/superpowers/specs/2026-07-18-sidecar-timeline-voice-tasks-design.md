@@ -320,3 +320,29 @@ epic's implementation plan:
 - **Design-gated (Koda vet before build):** Epic 3, Epic 9 (Epic 9 additionally
   builds from the 6.7.24+/6.8.2 extension worktree, never this branch).
 - **Design-first:** Epic 8 (dedup v2) — not assignable until designed.
+
+---
+
+## Addendum 6 — Time extensions tracked as first-class context (Malkio, 2026-07-18, binding)
+
+> "Time extensions to be tracked and added to the timeline almost like a
+> checkpoint. That context needs to be tracked, along with all others. to be
+> used. for the users benefit."
+
+**Shipped in Sidecar v0.4.3 (migration 039):**
+- `focus_events.kind` CHECK widened with two *context kinds* that never open/close
+  tracked intervals (`computeIntervals` ignores them by design, pinned by unit test):
+  - `extend` — meta `{addedMinutes, fromMinutes, toMinutes}`; emitted by
+    `actions.extend` (the "+5m" button and any future extend/let-me-cook control).
+  - `snooze` — meta `{mins, until}`; emitted by `actions.snoozeBackburner`.
+    Deferral history is Feature #208 (Smart Deferral) groundwork.
+- Context View timeline renders `extend` events as amber ⏳ nodes alongside
+  checkpoint and start/resume nodes; tooltip shows `+Xm (→ Ym)` + date +
+  cumulative tracked time. The fill line's end already rescales because
+  `timer_minutes` grows on extend.
+
+**Follow-through (owed by the extension-side focus_events adoption work):** the
+Chrome extension's timer extension paths — "+time" on timer expiry popups,
+snooze, and the planned "let me cook" option (sticky note 022 / Plan 022) —
+MUST emit the same `extend` events with the same meta shape, so the timeline
+and future analytics see extensions from every surface, not just Sidecar.
