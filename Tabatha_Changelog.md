@@ -5,6 +5,16 @@ file.
 
 ---
 
+## [6.7.23] - Marketing site: Tabby Sidecar - _2026-07-17_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **Sidecar entry point on the teaser homepage.** A top-right "Sign in" control links to the live Tabby Sidecar mobile companion at `/sidecar`, styled in the teaser's own token system.
+- **Tabby Sidecar on the showcase.** The `/show` family section now presents Tabby Sidecar as a shipped mobile web companion (sign in, queue and active focus, create intent, run the clock, Web Push, PWA install), with an "Open Tabby Sidecar" strip. The native iOS/Android app is reframed as the next step.
+- **Roadmap.** Added a Resolved card for Tabby Sidecar (mobile web companion) and a Todo card for the native iOS and Android app.
+
 ## [Unreleased] - Native Asana App Component and supporting task context - _2026-07-17_
 
 > Isolated work rebased directly onto v6.7.22. This work is not merged or released; the native Asana app remains pending Developer Console configuration and live-task validation.

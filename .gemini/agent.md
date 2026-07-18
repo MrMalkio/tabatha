@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 6.7.22
+- **Current version:** 6.7.23
 - **Current focus:** Native Tabatha Asana App Component on an isolated branch rebased directly onto v6.7.22. The HMAC-validated backend is deployed; Asana Developer Console components remain disabled pending explicit save confirmation and live-task validation. No merge or push is authorized, and no later release version is assigned yet.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`
