@@ -5,6 +5,14 @@ file.
 
 ---
 
+## [v6.7.27] - Changelog drift gate no longer trips on Windows line endings - _2026-07-18_
+
+### Fixed
+
+- **`build-changelog --check` failed on every fresh Windows checkout** (`core.autocrlf=true` smudges `public/changelog.json` to CRLF while the generator emits LF, so the byte compare always mismatched). The check now normalizes CRLF before comparing — purely content-driven, as intended.
+
+---
+
 ## [v6.7.26] - Changelog JSON regenerated after restoration merges - _2026-07-18_
 
 ### Fixed
