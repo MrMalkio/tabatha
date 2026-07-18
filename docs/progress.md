@@ -940,3 +940,20 @@ Re-verified 4/4 new RLS paths (checkpoints + tag ops) with a minted session;
 
 **Sync-limit note:** checkpoints/sub-intents/backburner are Sidecar-side until the
 extension syncs those fields — full desktop round-trip is the next extension slice.
+
+## 2026-07-17 (cont.) — Tabby Sidecar v0.2.0 + showcase-update skill
+
+- **Fixed** the pause→resume timer restart (freeze elapsed, shift start).
+- **Shipped the landscape Context View** into `/sidecar` (real data via
+  useFocus/useClock; auto-switch on large landscape; brand BL / day-countdown TR
+  / time BM; giant focus + timer + up-next; view-only w/ toggle). Added a
+  `dayResetHour` setting for the 1440 countdown.
+- **Realtime** (migration 033): focus_items + browser_profile_status in the
+  realtime publication; useFocus subscribes. Verified query OK + subscribe
+  SUBSCRIBED via a minted session. tsc clean. Deployed v0.2.0.
+- **Marketing site** (via background agent, verified live): homepage Sign-in
+  button → /sidecar, /show reflagged "Tabby Sidecar · Shipped", roadmap cards
+  added; branch pushed.
+- **New skill** `.claude/skills/showcase-site-update` — checklist-driven updates
+  to the existing showcase site (tiles/roadmap/search-index/version/deploy/verify)
+  so "Update the */show with…" lands everywhere and ships safely.

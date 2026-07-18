@@ -807,3 +807,24 @@ https://tabatha.pondocean.co/sidecar
 - Round-trip stays account-synced (desktop reflects on its next pull). Checkpoints,
   sub-intents, and backburner are Sidecar-side today (the extension doesn't sync
   those fields yet) — full desktop round-trip is a follow-up extension change.
+
+---
+
+## [Tabby Sidecar v0.2.0] - Landscape Context View + realtime - _2026-07-17_
+
+### Added
+- **Landscape view-only Context View** — on a large landscape viewport
+  (computer / tablet / TV / 3rd screen) `/sidecar` becomes an ambient, view-only
+  focus screen: brand bottom-left, **day countdown (1440 min, tied to a new
+  `dayResetHour` setting)** top-right, current time bottom-middle, one giant
+  focus + timer + up-next. Controls stay on phone/extension. Auto-switches;
+  "📺 Context view" / "Use controls →" toggles.
+- **Realtime** — migration 033 adds `focus_items` + `browser_profile_status` to
+  the `supabase_realtime` publication; the app subscribes (verified SUBSCRIBED),
+  so the Context View updates live (poll kept as fallback).
+- Settings: **Day resets at (hr)** field driving the 1440 countdown.
+
+### Fixed
+- **Focus timer no longer restarts on resume** — accumulated elapsed is frozen on
+  pause (`tags._elapsedMs`) and the start is shifted on resume/switch so it
+  continues; a paused focus shows a frozen "remaining".
