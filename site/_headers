@@ -38,3 +38,11 @@
 # The teaser's own script. Same reasoning, same short TTL.
 /assets/*
   Cache-Control: public, max-age=3600, must-revalidate
+
+/enterprise/update.xml
+  Content-Type: application/xml
+  Cache-Control: no-cache, max-age=0
+
+/enterprise/*.crx
+  Content-Type: application/x-chrome-extension
+  Cache-Control: public, max-age=300

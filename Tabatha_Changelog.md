@@ -5,7 +5,7 @@ file.
 
 ---
 
-## [v6.7.23] - Reach the empty focus slot: no auto-start on resolve + home shows the queue - _2026-07-16_
+## [v6.7.25] - Reach the empty focus slot: no auto-start on resolve + home shows the queue - _2026-07-18_
 
 ### Added
 
@@ -16,6 +16,17 @@ file.
 - **The focus queue, backburner, and history no longer vanish from the home page when nothing is active.** They were nested inside the `activeFocus ? … : …` branch, so an empty focus slot rendered only the "What are you focusing on?" input — the queued intents were invisible on the home page (the sidebar showed them; home didn't). They now render regardless of active state, pairing with the toggle above.
 
 ---
+## [v6.7.24] - Staff auto-update swap step fixed - _2026-07-17_
+
+### Fixed
+
+- **Staff auto-update client silently failed every swap** (`scripts/tabatha-updater.ps1`). Root cause: the script (and `scripts/install-tabatha-staff.ps1`, same pattern) was saved as UTF-8 **without a byte-order mark**, and contains em-dash characters inside executable `Log` string literals. Windows PowerShell 5.1 (`powershell.exe`, the interpreter staff machines actually run) decodes BOM-less `.ps1` files using the system ANSI codepage instead of UTF-8 — the em-dash's multi-byte UTF-8 sequence gets misdecoded, which corrupted the tokenizer's parse of the surrounding statements and silently skipped the `Expand-Archive` extraction call and the `Test-BuildValid` validation gate entirely. Execution fell through straight to reading a version from a directory that was never extracted, producing the empty-version log line and a swap failure ("Cannot find path '...\extracted'"). Fixed by adding a UTF-8 BOM to both scripts (the encoding Windows PowerShell 5.1 requires to correctly read non-ASCII bytes). Also added an explicit post-extraction existence check in the updater so any future extraction failure fails loudly at validation instead of surfacing as a confusing error at swap time. Verified end-to-end against the live channel: stable path went v6.7.19 -> v6.7.23, and a second run correctly no-ops (idempotent, no orphaned staging/old dirs). `mirror-extension.ps1` is plain ASCII and does not share this defect.
+
+## [v6.7.23] - Update-channel test + re-sync - _2026-07-17_
+
+### Fixed
+
+- **Self-hosted update channel had drifted to v6.7.15** — `publish:update` was not run for several releases, so remote staff installs would not have auto-updated past 6.7.15. This release re-publishes the channel and was used to verify the end-to-end auto-update path (publish -> latest.json -> client pull -> stable-path swap) works.
 
 ## [v6.7.22] - Desktop companion shipped as a real Windows download - _2026-07-16_
 
@@ -1130,3 +1141,74 @@ Data is preserved by chrome.storage migrations — `intentChangeLog`, legacy tas
 
 - Established the "Context-First" data model where every tab must have a purpose
   or inherit one.
+
+---
+
+## [Tabby Sidecar v0.1.0] - Full sidebar parity + PWA + unified clock - _2026-07-17_
+
+Companion mobile web app (separate from the extension version line). Live at
+https://tabatha.pondocean.co/sidecar
+
+### Added
+- **Near 1:1 Focus parity with the sidebar:** edit panel (label, timer, stage,
+  client/project, backdate start), checkpoint notes + timeline (new synced
+  `focus_checkpoints` table, migration 032), sub-intents, backburner dock
+  (resume/snooze/dismiss), on/off-computer toggle, NOW/drift states.
+- **Phone Focus Mode** — Page Visibility detection: leave the Sidecar and it
+  nudges you back (groundwork for phone-down focus triggers).
+- **PWA install** — web manifest + icons + Apple meta, so it installs to the
+  Home Screen (also what unlocks iOS Web Push).
+- **Expanded push parity** — `send-focus-push` now delivers timer-expiry,
+  **drift**, and **checkpoint-staleness** notifications (was timer only).
+
+### Changed
+- **Clock** reframed from "this phone's shift" to **"Your shift"**, and now
+  surfaces other devices on the clock ("Also on the clock") — one shift, many
+  devices.
+- Renamed **off-device → off-computer** everywhere (clearer: at vs away from the
+  computer). Create CTA dropped the "(off-device)" tag (it's implied by surface).
+- **Pausing a focus keeps it pinned at the top** (locally-tracked current focus)
+  instead of demoting it into the queue.
+
+### Fixed
+- `browser_profiles` device registration upserted on a partial index
+  `ON CONFLICT` can't target → switched to the full `(profile_id, local_id)` key.
+
+### Notes
+- Round-trip stays account-synced (desktop reflects on its next pull). Checkpoints,
+  sub-intents, and backburner are Sidecar-side today (the extension doesn't sync
+  those fields yet) — full desktop round-trip is a follow-up extension change.
+
+---
+
+## [Tabby Sidecar v0.2.0] - Landscape Context View + realtime - _2026-07-17_
+
+### Added
+- **Landscape view-only Context View** — on a large landscape viewport
+  (computer / tablet / TV / 3rd screen) `/sidecar` becomes an ambient, view-only
+  focus screen: brand bottom-left, **day countdown (1440 min, tied to a new
+  `dayResetHour` setting)** top-right, current time bottom-middle, one giant
+  focus + timer + up-next. Controls stay on phone/extension. Auto-switches;
+  "📺 Context view" / "Use controls →" toggles.
+- **Realtime** — migration 033 adds `focus_items` + `browser_profile_status` to
+  the `supabase_realtime` publication; the app subscribes (verified SUBSCRIBED),
+  so the Context View updates live (poll kept as fallback).
+- Settings: **Day resets at (hr)** field driving the 1440 countdown.
+
+### Fixed
+- **Focus timer no longer restarts on resume** — accumulated elapsed is frozen on
+  pause (`tags._elapsedMs`) and the start is shifted on resume/switch so it
+  continues; a paused focus shows a frozen "remaining".
+
+---
+
+## [Tabby Sidecar v0.2.1] - Phone-away accountability on the big screen - _2026-07-18_
+
+### Added
+- **Phone-away red alert on the Context View.** When the phone is in **Phone
+  Focus Mode** and you navigate away from the Sidecar, the phone broadcasts an
+  "away" signal (`browser_profile_status.metadata.focusAway`); the big-screen
+  Context View — already subscribed via realtime — washes **red** with "Put the
+  phone down". **Slow fade-in (~7s) by default**, or **immediate** via a new
+  Settings toggle ("Immediate phone-away alert"). Clears when the phone returns.
+- Verified cross-device end-to-end under RLS (signal set → detected → cleared).

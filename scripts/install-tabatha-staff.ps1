@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   One-time installer for Tabatha on STAFF / multi-machine installs (e.g. the
   PS machine), with self-hosted remote updates — no Chrome Web Store needed.
