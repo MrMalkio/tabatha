@@ -80,6 +80,12 @@ export default function SettingsScreen() {
   const [chaperoneOn, setChaperoneOn] = useState(!!cp.enabled);
   const [quietHours, setQuietHours] = useState<{ start: number; end: number } | null>(cp.quietHours ?? null);
 
+  // Plan 040 Addendum 7 — proactive voice check-ins. Master toggle defaults
+  // OFF (proactive speech must be opt-in); staleMinutes defaults 30.
+  const [voiceOn, setVoiceOn] = useState(!!sc.voiceCheckin?.enabled);
+  const [voiceStaleMin, setVoiceStaleMin] = useState(String(sc.voiceCheckin?.staleMinutes ?? 30));
+  const [voiceMsg, setVoiceMsg] = useState<string | null>(null);
+
   // Epic 8 v1 (#194) — work schedule + clock-in nudge
   const [workDays, setWorkDays] = useState<Record<string, DaySchedule>>(normalizeWorkDays(sc.workDays));
   const [clockInNudgeOn, setClockInNudgeOn] = useState(!!sc.nudges?.clockInCheck?.enabled);
@@ -199,6 +205,16 @@ export default function SettingsScreen() {
     };
     await saveSidecarSettings({ nudges: nextNudges });
     setNudgeMsg('Nudge settings saved.');
+  };
+
+  // Addendum 7 — same shallow-merge rule: `voiceCheckin` is one key under
+  // `sidecar`, always sent as the full {enabled, staleMinutes} object.
+  const saveVoiceCheckin = async () => {
+    let n = parseInt(voiceStaleMin, 10);
+    if (!Number.isFinite(n) || n < 1) n = 30;
+    setVoiceStaleMin(String(n));
+    await saveSidecarSettings({ voiceCheckin: { enabled: voiceOn, staleMinutes: n } });
+    setVoiceMsg('Voice check-in settings saved.');
   };
 
   const onConnectAsana = async () => {
@@ -397,6 +413,42 @@ export default function SettingsScreen() {
             thumbColor="#fff"
           />
         </View>
+      </Card>
+
+      <Card style={{ marginBottom: 14 }}>
+        <SectionLabel>Voice check-ins</SectionLabel>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>Proactive spoken check-ins</Text>
+            <Text style={styles.rowSub}>
+              With a focus running and no checkpoint for a while, Tabby asks aloud
+              “How's it going?” and listens for your answer. Say things like “extend 10
+              minutes”, “pause”, “done”, or just describe your progress.
+            </Text>
+          </View>
+          <Switch
+            value={voiceOn}
+            onValueChange={setVoiceOn}
+            trackColor={{ true: colors.accent, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+        <Text style={[styles.rowTitle, { marginTop: 12 }]}>Ask after (min without a checkpoint)</Text>
+        <TextInput
+          value={voiceStaleMin}
+          onChangeText={setVoiceStaleMin}
+          keyboardType="number-pad"
+          inputMode="numeric"
+          style={styles.input}
+        />
+        <Text style={styles.rowSub}>
+          Your nudge quiet hours (below) are respected. The manual 🎙 Check in button on
+          the Focus screen works regardless of this toggle.
+        </Text>
+        <View style={{ marginTop: 10 }}>
+          <Btn label="Save voice settings" onPress={saveVoiceCheckin} filled />
+        </View>
+        {voiceMsg && <Text style={styles.msg}>{voiceMsg}</Text>}
       </Card>
 
       <Card style={{ marginBottom: 14 }}>

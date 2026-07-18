@@ -50,17 +50,25 @@ export function useCheckpoints(profileId: string | null, focusClientId: string |
     };
   }, [load]);
 
+  // Returns the inserted checkpoint's id (or null on failure) so callers can
+  // undo the write — the voice check-in confirmation strip (Plan 040
+  // Addendum 7) deletes by this id. Existing callers ignore the return value.
   const add = useCallback(
-    async (text: string, level: string) => {
-      if (!profileId || !focusClientId) return;
-      await supabase.from('focus_checkpoints').insert({
-        profile_id: profileId,
-        focus_client_id: focusClientId,
-        text: text.trim(),
-        progress_level: level,
-        source: 'sidecar',
-      });
+    async (text: string, level: string): Promise<string | null> => {
+      if (!profileId || !focusClientId) return null;
+      const { data } = await supabase
+        .from('focus_checkpoints')
+        .insert({
+          profile_id: profileId,
+          focus_client_id: focusClientId,
+          text: text.trim(),
+          progress_level: level,
+          source: 'sidecar',
+        })
+        .select('id')
+        .single();
       load();
+      return (data as { id: string } | null)?.id ?? null;
     },
     [profileId, focusClientId, load]
   );

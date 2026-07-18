@@ -20,6 +20,7 @@ import {
 import { useCheckpoints, PROGRESS_LEVELS } from '../data/checkpoints';
 import { useVoiceCapture } from '../lib/speech';
 import PhoneFocusMode from '../components/PhoneFocusMode';
+import VoiceCheckIn from '../components/VoiceCheckIn';
 import { Btn, Card, Chip, Empty, MicButton, SectionLabel } from '../ui/kit';
 import {
   colors,
@@ -179,6 +180,10 @@ export default function FocusScreen() {
           <View style={{ marginTop: 8 }}>
             <StageRow current={cf.funnel_stage} onChange={(s) => actions.setStage(cf.id, s)} />
           </View>
+
+          {/* Voice check-in (Plan 040 Addendum 7) — manual 🎙 + proactive
+              "How's it going?" prompt; sits by the checkpoint composer. */}
+          <VoiceCheckIn focus={cf} actions={actions} />
 
           {showEdit && <EditPanel key={cf.id} focus={cf} onSave={(u) => { actions.updateFocus(cf.id, u); setShowEdit(false); }} />}
           {showCp && <CheckpointPanel profileId={profile?.id ?? null} focus={cf} />}

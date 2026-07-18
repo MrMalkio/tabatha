@@ -6,6 +6,8 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
+import { claimAudio, releaseAudio } from './audioGate';
+
 export type ChaperoneScenario = 'pickup' | 'repeat' | 'return';
 
 export interface ChaperoneSettings {
@@ -71,14 +73,22 @@ export function playChaperoneLine(
     const Audio = (window as any).Audio;
     const audio = new Audio(audioSrc(merged.pack, scenario));
     lastAudio = audio;
+    // Hold the shared audio gate while the line plays so voice-check-in TTS
+    // won't start talking over it (Addendum 7: chaperone wins on conflict).
+    // Same 'chaperone' channel across lines, so a replaced/interrupted line
+    // simply keeps the claim until the newest one ends.
+    claimAudio('chaperone');
+    audio.onended = () => releaseAudio('chaperone');
+    audio.onerror = () => releaseAudio('chaperone');
     const playPromise = audio.play?.();
     if (playPromise?.catch) {
       // Autoplay can be blocked before the user has interacted with the
       // page — this is theater, not a critical path, so we just drop it.
-      playPromise.catch(() => {});
+      playPromise.catch(() => releaseAudio('chaperone'));
     }
     return true;
   } catch {
+    releaseAudio('chaperone');
     return false;
   }
 }
