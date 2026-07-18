@@ -5,6 +5,16 @@ file.
 
 ---
 
+## [v6.7.35] - Marketing site: Tabby Sidecar v0.7.0 + Extension 6.7.34 milestone - _2026-07-18_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **Tabby Sidecar v0.7.0 reflected on the showcase.** The `/show` family tile and "Open Tabby Sidecar" strip now cover the Tasks view with Asana personal-access-token sync (subtasks, blocked badges, tracked time, start-task-into-focus), timer extensions and snoozes as ⏳ nodes on the Context View timeline, proactive voice check-ins (Tabatha asks how it's going out loud, applies your spoken answer with a visible Undo, opt-in and quiet-hours aware), and the self-healing PWA (auto-update + crash recovery screen).
+- **Extension 6.7.34 reflected on the showcase.** The Browser Extension family tile now mentions Context View customization from Settings (day countdown, up-next, timeline, checkpoint preview, phone-away fade, day-reset hour — synced with the phone) and the Desktop Companion pairing card. The Desktop Companion tile and detail page describe the new hardened, one-tap pairing token exchange (Desktop Companion 0.3.1) in place of the earlier open local socket.
+- **Roadmap.** Added Resolved cards for the Sidecar Tasks/Asana sync, timer-extension timeline nodes, self-healing PWA, proactive voice check-ins, extension Context View customization, and hardened companion pairing. Added a Todo card for Tabby Watch (Wear OS).
+
 ## [v6.7.34] - Changelog backfill for 6.7.32/6.7.33 - docs only - _2026-07-18_
 
 > Documentation-only version bump (version-per-commit rule).
