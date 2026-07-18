@@ -37,6 +37,7 @@ export default function SettingsScreen() {
   const [timer, setTimer] = useState(String(sc.defaultTimer || 15));
   const [dayReset, setDayReset] = useState(String(sc.dayResetHour ?? 0));
   const [awayImmediate, setAwayImmediate] = useState(!!sc.focusAwayImmediate);
+  const [showCheckpoints, setShowCheckpoints] = useState(sc.showCheckpoints !== false); // default ON
   const [pushOn, setPushOn] = useState(pushPermission() === 'granted' && !!sc.pushEnabled);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [chaperoneOn, setChaperoneOn] = useState(!!cp.enabled);
@@ -224,6 +225,20 @@ export default function SettingsScreen() {
           <Switch
             value={awayImmediate}
             onValueChange={async (v) => { setAwayImmediate(v); await saveSidecarSettings({ focusAwayImmediate: v }); }}
+            trackColor={{ true: colors.accent, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+        <View style={[styles.switchRow, { marginTop: 14 }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>Checkpoint counter</Text>
+            <Text style={styles.rowSub}>
+              Show a small "📋 N checkpoints · last note" line under the current focus.
+            </Text>
+          </View>
+          <Switch
+            value={showCheckpoints}
+            onValueChange={async (v) => { setShowCheckpoints(v); await saveSidecarSettings({ showCheckpoints: v }); }}
             trackColor={{ true: colors.accent, false: colors.border }}
             thumbColor="#fff"
           />

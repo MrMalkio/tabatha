@@ -3,8 +3,21 @@ import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 import { useAuth } from '../context/AuthContext';
 import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
 import { useChaperoneOnPhoneAway } from '../lib/chaperone';
+import { useCheckpoints, PROGRESS_LEVELS } from '../data/checkpoints';
 import { supabase } from '../lib/supabase';
-import { colors, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+
+// Coarse "how long ago" for the last-checkpoint preview — matches the rest of
+// the view's compact, glanceable style (no seconds precision needed here).
+function relTime(iso: string, now: number): string {
+  const ms = Math.max(0, now - new Date(iso).getTime());
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
 function useTick(ms = 1000) {
   const [n, setN] = useState(Date.now());
@@ -46,6 +59,22 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   const resetHour = profile?.settings?.sidecar?.dayResetHour ?? 0;
   const day = dayLeft(resetHour);
   const immediateAlert = !!profile?.settings?.sidecar?.focusAwayImmediate;
+  const showCheckpoints = profile?.settings?.sidecar?.showCheckpoints !== false; // default ON
+
+  // Checkpoint counter + last-note preview for the current focus (read-only,
+  // ambient — Settings can turn it off). Reuses the existing
+  // `focus_checkpoints` hook rather than a bespoke query; that hook has no
+  // realtime/poll of its own, so a light interval here keeps the count fresh
+  // if a checkpoint lands from the phone while this view is up on a TV.
+  const { notes: cpNotes, reload: reloadCp } = useCheckpoints(
+    profile?.id ?? null,
+    currentFocus?.client_id ?? null
+  );
+  useEffect(() => {
+    if (!showCheckpoints || !currentFocus?.client_id) return;
+    const iv = setInterval(reloadCp, 20000);
+    return () => clearInterval(iv);
+  }, [showCheckpoints, currentFocus?.client_id, reloadCp]);
 
   // Personality Interrupts v0 (#182 Epic 10) — rides this same phoneAway signal.
   useChaperoneOnPhoneAway(phoneAway, profile?.settings?.chaperone);
@@ -94,6 +123,13 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   }, [phoneAway, immediateAlert, alertOpacity]);
 
   const cf = currentFocus;
+  // B2b: when there's no current focus (active or paused), show the pending
+  // queue as priority-ordered choose-from cards instead of a bare "no active
+  // focus" message. Excludes sub-intents (`_parent`) — they belong under a
+  // parent that isn't on screen. `queue` from `useFocus` is already sorted
+  // priority-first. Still strictly view-only: no press handlers — selection
+  // happens from the phone or extension.
+  const pending = !cf ? queue.filter((q) => !q.tags?._parent) : [];
   const stage = cf ? FUNNEL_STAGES[cf.funnel_stage] || FUNNEL_STAGES.unsorted : null;
   const cfElapsed = cf ? elapsedMsOf(cf, now) : 0;
   const dur = cf ? (cf.timer_minutes || 15) * 60000 : 0;
@@ -135,54 +171,87 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
       </View>
 
       {/* main */}
-      <View style={styles.main}>
-        <View style={styles.left}>
-          {cf ? (
-            <>
-              <Text style={styles.eyebrow}>
-                {shift?.state === 'on_break' ? 'ON BREAK' : 'IN FOCUS'}
-                {stage ? `   ·   ` : ''}
-                <Text style={{ color: stage?.color }}>{stage ? `${stage.icon} ${stage.label}` : ''}</Text>
-                {isOffComputer(cf) ? '   ·   🚶 off-computer' : ''}
-              </Text>
-              <Text style={[styles.focusLabel, { fontSize: Math.min(width * 0.052, 84) }]} numberOfLines={4}>{cf.label}</Text>
-              <View style={styles.metaRow}>
-                <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
-                <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
-              </View>
-              {queue.filter((q) => !q.tags?._parent).length > 0 && (
-                <View style={styles.next}>
-                  <Text style={styles.nextHdr}>UP NEXT</Text>
-                  {queue.filter((q) => !q.tags?._parent).slice(0, 3).map((q) => (
-                    <View key={q.id} style={styles.qrow}>
-                      <Text style={[styles.qp, { color: priorityColor(q.priority || 5), borderColor: priorityColor(q.priority || 5) }]}>P{q.priority || 5}</Text>
-                      <Text style={styles.qt} numberOfLines={1}>{q.label}</Text>
-                    </View>
-                  ))}
+      {pending.length > 0 ? (
+        <View style={styles.pendingWrap}>
+          <Text style={styles.pendingHdr}>Choose a focus · {pending.length} pending</Text>
+          <View style={styles.pendingGrid}>
+            {pending.slice(0, 12).map((q) => {
+              const s = FUNNEL_STAGES[q.funnel_stage] || FUNNEL_STAGES.unsorted;
+              return (
+                <View key={q.id} style={styles.pendingCard}>
+                  <View style={styles.pendingCardTop}>
+                    <Text style={[styles.pendingP, { color: priorityColor(q.priority || 5), borderColor: priorityColor(q.priority || 5) }]}>P{q.priority || 5}</Text>
+                    <Text style={{ color: s.color, fontSize: 22 }}>{s.icon}</Text>
+                  </View>
+                  <Text style={styles.pendingLabel} numberOfLines={4}>{q.label}</Text>
+                  <Text style={[styles.pendingStage, { color: s.color }]}>{s.label}</Text>
                 </View>
-              )}
-            </>
-          ) : (
-            <Text style={styles.idle}>No active focus.{'\n'}Set one from your phone or extension.</Text>
-          )}
+              );
+            })}
+          </View>
         </View>
+      ) : (
+        <View style={styles.main}>
+          <View style={styles.left}>
+            {cf ? (
+              <>
+                <Text style={styles.eyebrow}>
+                  {shift?.state === 'on_break' ? 'ON BREAK' : 'IN FOCUS'}
+                  {stage ? `   ·   ` : ''}
+                  <Text style={{ color: stage?.color }}>{stage ? `${stage.icon} ${stage.label}` : ''}</Text>
+                  {isOffComputer(cf) ? '   ·   🚶 off-computer' : ''}
+                </Text>
+                <Text style={[styles.focusLabel, { fontSize: Math.min(width * 0.052, 84) }]} numberOfLines={4}>{cf.label}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
+                  <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
+                </View>
+                {showCheckpoints && cpNotes.length > 0 && (() => {
+                  const last = cpNotes[0];
+                  const lastLevel = PROGRESS_LEVELS.find((l) => l.key === last.progress_level);
+                  return (
+                    <Text style={styles.cpLine} numberOfLines={1}>
+                      📋 {cpNotes.length} checkpoint{cpNotes.length === 1 ? '' : 's'}
+                      {'  ·  last: '}
+                      {last.text ? `“${last.text}” ` : ''}
+                      {lastLevel?.icon || ''} {relTime(last.created_at, now)}
+                    </Text>
+                  );
+                })()}
+                {queue.filter((q) => !q.tags?._parent).length > 0 && (
+                  <View style={styles.next}>
+                    <Text style={styles.nextHdr}>UP NEXT</Text>
+                    {queue.filter((q) => !q.tags?._parent).slice(0, 3).map((q) => (
+                      <View key={q.id} style={styles.qrow}>
+                        <Text style={[styles.qp, { color: priorityColor(q.priority || 5), borderColor: priorityColor(q.priority || 5) }]}>P{q.priority || 5}</Text>
+                        <Text style={styles.qt} numberOfLines={1}>{q.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={styles.idle}>No active focus.{'\n'}Set one from your phone or extension.</Text>
+            )}
+          </View>
 
-        {/* timer */}
-        <View style={styles.right}>
-          {cf && (
-            <>
-              <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
-              <Text style={[styles.timerBig, { fontSize: big, color: accent }]}>
-                {remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed)}
-              </Text>
-              <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
-              {dur > 0 && (
-                <View style={styles.track}><View style={[styles.fill, { width: `${frac * 100}%`, backgroundColor: accent }]} /></View>
-              )}
-            </>
-          )}
+          {/* timer */}
+          <View style={styles.right}>
+            {cf && (
+              <>
+                <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
+                <Text style={[styles.timerBig, { fontSize: big, color: accent }]}>
+                  {remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed)}
+                </Text>
+                <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
+                {dur > 0 && (
+                  <View style={styles.track}><View style={[styles.fill, { width: `${frac * 100}%`, backgroundColor: accent }]} /></View>
+                )}
+              </>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* footer */}
       <View style={styles.foot}>
@@ -228,6 +297,7 @@ const styles = StyleSheet.create({
   meta: { color: colors.textMuted, fontSize: 20 },
   metaB: { color: colors.textPrimary, fontWeight: '700', fontVariant: ['tabular-nums'] },
   metaP: { fontSize: 16, fontWeight: '700', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 2 },
+  cpLine: { color: colors.textMuted, fontSize: 15, marginTop: 10 },
   next: { marginTop: 40, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 20, gap: 12, maxWidth: 640 },
   nextHdr: { color: colors.textMuted, fontSize: 12, letterSpacing: 3, fontWeight: '700' },
   qrow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -240,6 +310,14 @@ const styles = StyleSheet.create({
   track: { width: '80%', height: 6, backgroundColor: colors.border, borderRadius: 3, marginTop: 26, overflow: 'hidden' },
   fill: { height: 6, borderRadius: 3 },
   idle: { color: colors.textMuted, fontSize: 30, fontWeight: '600', lineHeight: 42 },
+  pendingWrap: { flex: 1, justifyContent: 'center' },
+  pendingHdr: { color: colors.textMuted, fontSize: 15, letterSpacing: 3, fontWeight: '700', textTransform: 'uppercase', textAlign: 'center', marginBottom: 28 },
+  pendingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, justifyContent: 'center' },
+  pendingCard: { width: 300, minHeight: 150, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 22, justifyContent: 'space-between' },
+  pendingCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pendingP: { fontSize: 15, fontWeight: '700', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+  pendingLabel: { color: colors.textPrimary, fontSize: 24, fontWeight: '800', lineHeight: 30, marginTop: 16 },
+  pendingStage: { fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginTop: 14 },
   foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 },
   brand: { flexDirection: 'row', alignItems: 'baseline', gap: 10, flex: 1 },
   logo: { color: colors.textPrimary, fontWeight: '800', fontSize: 22 },

@@ -301,13 +301,36 @@ export function useFocus(
   const backburner = notDone.filter((f) => f.tags?._backburner);
   const nonBB = notDone.filter((f) => !f.tags?._backburner);
 
-  // Current focus: the locally-pinned one if still open, else most-recent active.
-  let currentFocus: FocusItem | null =
-    (currentId && nonBB.find((f) => f.id === currentId)) || null;
-  if (!currentFocus) {
-    currentFocus =
-      nonBB.filter((f) => f.focus_state === 'active').sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] || null;
-  }
+  // Current focus (B2/B2b — data-driven, not device-pin-dependent): an
+  // `active` focus always wins; else the most-recent `paused` (non-resolved)
+  // focus keeps showing — paused is not gone, so a Context View running on a
+  // different device shouldn't fall back to "no active focus" just because
+  // the pin lives in *this* device's AsyncStorage. Only truly empty (no
+  // active and no paused candidate — e.g. the last one was resolved) falls
+  // through to null, at which point the caller (ContextView) renders the
+  // pending queue as B2b's choose-from cards. `currentId` (the local pin) is
+  // a same-device tiebreaker only: within whichever tier is in play
+  // (active, then paused), the pinned item wins that tier if it qualifies —
+  // it never overrides the active-beats-paused precedence.
+  // Known limitation: within a tier, "most recent" is ordered by
+  // startedAtOf() (this reuses the same heuristic the pre-existing
+  // most-recent-active logic used) which reflects when a focus was last
+  // started/resumed, not when it was paused — there's no `_pausedAt`/
+  // `updated_at` on FocusItem to rank by actual pause time. With >1 paused
+  // candidate this can pick one that was started earlier but paused later
+  // over one started later but paused first. Acceptable for this pass (no
+  // schema change); revisit if multi-paused ordering becomes a real problem.
+  const activeCandidates = nonBB.filter((f) => f.focus_state === 'active');
+  const pausedCandidates = nonBB.filter((f) => f.focus_state === 'paused');
+  const pickTier = (tier: FocusItem[]): FocusItem | null =>
+    (currentId && tier.find((f) => f.id === currentId)) ||
+    tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] ||
+    null;
+  const currentFocus: FocusItem | null = activeCandidates.length
+    ? pickTier(activeCandidates)
+    : pausedCandidates.length
+      ? pickTier(pausedCandidates)
+      : null;
 
   const queue = nonBB
     .filter((f) => !currentFocus || f.id !== currentFocus.id)
