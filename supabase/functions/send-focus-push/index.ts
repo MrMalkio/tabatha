@@ -13,11 +13,16 @@
 // fires once). `focus_away` is NOT focus-scoped (see the Pass D comment
 // below for why it uses its own per-episode marker instead).
 //
+// Web Push send-and-cleanup (fan out to push_subscriptions, mark
+// last_ok_at, delete on 404/410, else stamp last_error) lives in
+// ../_shared/webpush.ts, shared with send-schedule-nudges (Epic 8) so
+// that logic isn't duplicated per function.
+//
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (platform),
 //          VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import webpush from 'npm:web-push@3.6.7';
+import { configureWebPush, sendPushToProfile } from '../_shared/webpush.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -25,7 +30,7 @@ const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!;
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:ops@duckandshark.com';
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+configureWebPush({ subject: VAPID_SUBJECT, publicKey: VAPID_PUBLIC, privateKey: VAPID_PRIVATE });
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   db: { schema: 'tabatha' },
@@ -65,33 +70,11 @@ async function alreadyFired(focusId: string, kind: string): Promise<boolean> {
 async function deliver(profileId: string, focusId: string, kind: string, payload: object) {
   if (await alreadyFired(focusId, kind)) return;
 
-  const { data: subs } = await admin
-    .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth')
-    .eq('profile_id', profileId);
+  const { fired, errors } = await sendPushToProfile(admin, profileId, payload);
+  results.fired += fired;
+  results.errors += errors;
+  if (fired) results.byKind[kind] = (results.byKind[kind] || 0) + fired;
 
-  if (subs && subs.length) {
-    const body = JSON.stringify(payload);
-    for (const s of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          body
-        );
-        await admin.from('push_subscriptions').update({ last_ok_at: new Date().toISOString(), last_error: null }).eq('id', s.id);
-        results.fired++;
-        results.byKind[kind] = (results.byKind[kind] || 0) + 1;
-      } catch (e) {
-        results.errors++;
-        const status = (e as any)?.statusCode;
-        if (status === 404 || status === 410) {
-          await admin.from('push_subscriptions').delete().eq('id', s.id);
-        } else {
-          await admin.from('push_subscriptions').update({ last_error: String((e as any)?.message || e) }).eq('id', s.id);
-        }
-      }
-    }
-  }
   await admin.from('push_dedup').insert({ profile_id: profileId, focus_item_id: focusId, kind });
 }
 
@@ -114,39 +97,16 @@ async function deliver(profileId: string, focusId: string, kind: string, payload
 // PhoneFocusMode signals a new state, since `signal()` replaces `metadata`
 // wholesale on every leave/return transition.
 async function deliverAwayAlert(profileId: string, browserProfileId: string, meta: Record<string, any>) {
-  const { data: subs } = await admin
-    .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth')
-    .eq('profile_id', profileId);
-
-  if (subs && subs.length) {
-    const body = JSON.stringify({
-      title: '👀 You walked off',
-      body: 'Put the phone down — get back to it.',
-      tag: 'focus-away',
-      url: '/sidecar',
-      data: { kind: 'focus_away' },
-    });
-    for (const s of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          body
-        );
-        await admin.from('push_subscriptions').update({ last_ok_at: new Date().toISOString(), last_error: null }).eq('id', s.id);
-        results.fired++;
-        results.byKind.focus_away = (results.byKind.focus_away || 0) + 1;
-      } catch (e) {
-        results.errors++;
-        const status = (e as any)?.statusCode;
-        if (status === 404 || status === 410) {
-          await admin.from('push_subscriptions').delete().eq('id', s.id);
-        } else {
-          await admin.from('push_subscriptions').update({ last_error: String((e as any)?.message || e) }).eq('id', s.id);
-        }
-      }
-    }
-  }
+  const { fired, errors } = await sendPushToProfile(admin, profileId, {
+    title: '👀 You walked off',
+    body: 'Put the phone down — get back to it.',
+    tag: 'focus-away',
+    url: '/sidecar',
+    data: { kind: 'focus_away' },
+  });
+  results.fired += fired;
+  results.errors += errors;
+  if (fired) results.byKind.focus_away = (results.byKind.focus_away || 0) + fired;
 
   // Stamp the episode as notified regardless of whether any subs existed, so
   // a device that enables push mid-episode doesn't fire a stale alert for an
