@@ -119,7 +119,7 @@ export default function FocusScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />}
     >
-      <PhoneFocusMode />
+      <PhoneFocusMode currentFocus={cf} onPause={actions.pause} />
       {cf ? (
         <Card style={{ marginBottom: 12 }}>
           {/* NOW bar */}
