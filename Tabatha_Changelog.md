@@ -5,6 +5,23 @@ file.
 
 ---
 
+## [v6.7.34] - Changelog backfill for 6.7.32/6.7.33 - docs only - _2026-07-18_
+
+> Documentation-only version bump (version-per-commit rule).
+
+## [v6.7.33] - Companion pairing: WS Stage-2 HELLO client - _2026-07-18_
+
+### Added
+
+- **Companion HELLO handshake (client side).** The background's companion bridge now sends `HELLO` (pairing token + surface/profile hint) as its first WebSocket message, matching Desktop Companion 0.3.1's Stage-2 auth. Handles `HELLO_ACK` (post-open sync fires after ack, or after a 2s fallback for 0.3.0 companions) and `HELLO_REJECTED` (60s reconnect backoff + "pairing required" banner).
+- **Pairing card** in Settings → Desktop Activity: paste the token from the companion tray's "Pair Extension" action (password field; token stored in extension storage only, never logged).
+
+## [v6.7.32] - Context View customization from the extension - _2026-07-18_
+
+### Added
+
+- **📺 Context View settings section** (Epic 9): toggles for day countdown, up-next, bottom timeline, checkpoint counter/last-note preview, phone-away fade mode (slow/immediate), and day-reset hour. Writes go through the new atomic `update_profile_settings` Cloud Sync RPC (migration 038), shared with Tabby Sidecar — no more cross-surface settings clobbering.
+
 ## [v6.7.31] - Marketing site: Tabby Sidecar v0.4.0 milestone - _2026-07-18_
 
 > Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
