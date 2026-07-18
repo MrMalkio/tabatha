@@ -118,6 +118,85 @@ function Toggle({ value, onChange }) {
 }
 
 const LOG_COLORS = { error: '#ef5350', warn: '#ffa726', info: '#42a5f5', debug: '#66bb6a' };
+// ── CompanionPairingCard (Stage-2 handshake, companion 0.3.1+) ──
+// The companion tray's "Pair Extension" action copies a pairing token to the
+// clipboard; the user pastes it here. Stored in chrome.storage.local
+// (companionPairingToken) by the background via COMPANION_SET_PAIRING_TOKEN —
+// the token is never displayed back or logged (password input, presence flag
+// only). Without a token, the extension still sends HELLO with token:null
+// (TOFU open mode on an unpaired companion works as before).
+function CompanionPairingCard() {
+  const [pairingRequired] = useChromeStorage('companionPairingRequired', false);
+  const [tokenDraft, setTokenDraft] = useState('');
+  const [hasToken, setHasToken] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    // Presence check only — the token value never enters React state.
+    try {
+      chrome.storage.local.get('companionPairingToken').then((got) => {
+        setHasToken(!!got?.companionPairingToken);
+      }).catch(() => {});
+    } catch { /* non-extension context (dev preview) */ }
+  }, []);
+
+  const apply = async (token) => {
+    setBusy(true);
+    setMsg(null);
+    const res = await sendMessage('COMPANION_SET_PAIRING_TOKEN', { token });
+    setBusy(false);
+    if (res?.ok) {
+      setHasToken(!!res.hasToken);
+      setTokenDraft('');
+      setMsg(res.hasToken ? '✓ Token saved — reconnecting to the companion.' : '✓ Token cleared.');
+    } else {
+      setMsg('⚠ ' + (res?.error || 'Could not save the token.'));
+    }
+  };
+
+  return (
+    <>
+      <div style={sectionLabel} data-search-id="desktop-pairing">Companion Pairing</div>
+      {pairingRequired && (
+        <div style={{ padding: '8px 12px', marginBottom: '8px', borderRadius: 'var(--radius-sm)', fontSize: '12px', fontWeight: 500, background: 'rgba(255,167,38,0.12)', color: '#ffa726', border: '1px solid #ffa72633' }}>
+          The desktop companion requires pairing. Use its tray menu's "Pair Extension" action to copy a token, then paste it below.
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap' }}>
+        <input
+          type="password"
+          value={tokenDraft}
+          onChange={e => setTokenDraft(e.target.value)}
+          placeholder={hasToken ? 'Token saved — paste to replace' : 'Paste pairing token'}
+          autoComplete="off"
+          style={{ ...inputStyle, width: '220px' }}
+        />
+        <button
+          onClick={() => apply(tokenDraft.trim())}
+          disabled={busy || !tokenDraft.trim()}
+          style={{ padding: '6px 14px', background: 'var(--color-accent-primary)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', opacity: busy || !tokenDraft.trim() ? 0.5 : 1 }}
+        >
+          {busy ? '…' : 'Save & Pair'}
+        </button>
+        {hasToken && (
+          <button
+            onClick={() => apply('')}
+            disabled={busy}
+            style={{ padding: '6px 10px', background: 'transparent', color: '#ef5350', border: '1px solid #ef5350', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}
+          >
+            Clear token
+          </button>
+        )}
+      </div>
+      {msg && <p style={{ fontSize: '11px', color: msg.startsWith('⚠') ? '#ef5350' : '#34A853', margin: '4px 0 0' }}>{msg}</p>}
+      <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', margin: '4px 0 16px', lineHeight: 1.5 }}>
+        Pairing secures the link between this browser and the desktop companion. Without a token, an unpaired companion still connects in open mode.
+      </p>
+    </>
+  );
+}
+
 // ── DesktopActivityPanel ──
 function DesktopActivityPanel({ settings, updateSetting }) {
   const [companionSessions, setCompanionSessions] = useChromeStorage('companionRecentSessions', []);
@@ -207,6 +286,9 @@ function DesktopActivityPanel({ settings, updateSetting }) {
           {statusMsg}
         </div>
       )}
+
+      {/* ── Companion Pairing (Stage-2 HELLO handshake) ── */}
+      <CompanionPairingCard />
 
       {/* ── Timeline Display ── */}
       <div style={sectionLabel}>Timeline Display</div>

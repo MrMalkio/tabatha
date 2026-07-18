@@ -157,6 +157,13 @@ export const COMPANION_WS_URL = 'ws://localhost:9147';
 export const COMPANION_HEARTBEAT_MS = 30000;
 export const COMPANION_RECONNECT_BASE_MS = 5000;
 export const COMPANION_RECONNECT_MAX_MS = 30000;
+// Stage-2 handshake (companion 0.3.1+): how long to wait for HELLO_ACK before
+// proceeding with post-open sync anyway (an older 0.3.0 companion never acks),
+// and how long to back off between reconnect attempts after HELLO_REJECTED
+// (pairing required — hammering the socket won't fix it, the user has to
+// paste a token).
+export const COMPANION_HELLO_ACK_TIMEOUT_MS = 2000;
+export const COMPANION_REJECTED_RECONNECT_MS = 60000;
 
 // ── Checkpoint Progress Notes (Plan 025) ──
 export const PROGRESS_VALUES = {

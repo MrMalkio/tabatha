@@ -6,13 +6,21 @@
 
 import {
   COMPANION_HEARTBEAT_MS,
+  COMPANION_HELLO_ACK_TIMEOUT_MS,
   COMPANION_RECONNECT_BASE_MS,
   COMPANION_RECONNECT_MAX_MS,
+  COMPANION_REJECTED_RECONNECT_MS,
   COMPANION_WS_URL
 } from '../constants.js';
 import { broadcastToExtension } from './notificationService.js';
 import { setSessionFromCompanion } from './clockService.js';
 import { isVersionNewer } from '../../utils/semver.js';
+import { getInstallIdentity } from '../../services/installIdentity.js';
+
+// chrome.storage.local key for the Stage-2 pairing token the user pastes from
+// the companion tray's "Pair Extension" action. Read at HELLO time only —
+// NEVER logged, never included in any diagnostic/broadcast payload.
+const PAIRING_TOKEN_KEY = 'companionPairingToken';
 
 // Re-export the shared comparator so existing importers (and tests) that pull
 // `isVersionNewer` from companionService keep working unchanged. The single
@@ -40,6 +48,16 @@ class CompanionBridge {
     this.lastMessageAt = null;
     this.lastActivityAt = null;
     this.desktopIdle = false;
+    // Stage-2 handshake state (companion 0.3.1+). HELLO is the FIRST message
+    // after onopen; post-open sync (focus push + clock pull) is deferred until
+    // HELLO_ACK or a short fallback timeout (older 0.3.0 companions never ack).
+    // pairingRejected latches after HELLO_REJECTED so reconnects back off to a
+    // long fixed interval instead of hammering a companion that requires a
+    // token the user hasn't pasted yet.
+    this.helloAcked = false;
+    this.postOpenSyncDone = false;
+    this.helloTimeoutTimer = null;
+    this.pairingRejected = false;
   }
 
   initialize() {
@@ -63,11 +81,12 @@ class CompanionBridge {
         this._startHeartbeat();
         this._updateStorageStatus(true);
         this._emit('connected', {});
-        this._syncCurrentFocus();
-        // FIX-2: pull the companion's current clock state on connect so a
-        // companion that was already clocked-in (or out) before the extension
-        // came up reflects immediately, without waiting for a change broadcast.
-        this.requestClockState();
+        // Stage-2 (companion 0.3.1+): HELLO must be the FIRST message on the
+        // wire. The pre-existing post-open sync (focus push + clock pull) is
+        // deferred until HELLO_ACK — or a short fallback timeout so an older
+        // 0.3.0 companion that never acks still gets synced. See
+        // _runPostOpenSync for what runs after the gate.
+        this._beginHandshake();
       };
 
       this.ws.onmessage = (event) => {
@@ -88,6 +107,7 @@ class CompanionBridge {
         this.connected = false;
         this.ws = null;
         this._stopHeartbeat();
+        this._resetHandshake();
         this._updateStorageStatus(false);
         this._emit('disconnected', {});
         this._scheduleReconnect();
@@ -101,6 +121,7 @@ class CompanionBridge {
   disconnect() {
     this._clearReconnect();
     this._stopHeartbeat();
+    this._resetHandshake();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -111,11 +132,125 @@ class CompanionBridge {
 
   _scheduleReconnect() {
     this._clearReconnect();
+    // After HELLO_REJECTED, use a long fixed backoff instead of the normal
+    // exponential ramp — reconnecting faster can't succeed until the user
+    // pastes a pairing token, so don't spam the companion.
+    const delay = this.pairingRejected ? COMPANION_REJECTED_RECONNECT_MS : this.reconnectDelay;
     this.reconnectTimer = setTimeout(() => {
       this.connect();
-      this.reconnectDelay = Math.min(this.reconnectDelay * 2, COMPANION_RECONNECT_MAX_MS);
-      console.debug(`[CompanionBridge] Next reconnect delay: ${this.reconnectDelay}ms`);
-    }, this.reconnectDelay);
+      if (!this.pairingRejected) {
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, COMPANION_RECONNECT_MAX_MS);
+        console.debug(`[CompanionBridge] Next reconnect delay: ${this.reconnectDelay}ms`);
+      }
+    }, delay);
+  }
+
+  // ── Stage-2 HELLO handshake (companion 0.3.1+) ────────────────────────
+  // Sends HELLO as the first post-open message, then arms a fallback timer:
+  // if no HELLO_ACK arrives within COMPANION_HELLO_ACK_TIMEOUT_MS (an older
+  // 0.3.0 companion never acks), post-open sync proceeds anyway.
+  async _beginHandshake() {
+    this.helloAcked = false;
+    this.postOpenSyncDone = false;
+    let token = null;
+    try {
+      const got = await chrome.storage.local.get(PAIRING_TOKEN_KEY);
+      token = got?.[PAIRING_TOKEN_KEY] || null;
+    } catch { /* storage unavailable — send token: null (TOFU open mode) */ }
+    let profileHint = null;
+    try {
+      // Stable per-profile install id (migration 017 lineage) — the same
+      // localId syncService keys browser_profiles upserts on. Never invent a
+      // separate identity scheme for the companion.
+      const identity = await getInstallIdentity();
+      profileHint = identity?.localId || null;
+    } catch { /* identity unavailable — hint stays null */ }
+
+    const sent = this.send({
+      type: 'HELLO',
+      token,
+      client_info: { surface: 'background', profile_hint: profileHint }
+    });
+    if (!sent) return; // socket died between onopen and here; onclose handles it
+
+    this._clearHelloTimeout();
+    this.helloTimeoutTimer = setTimeout(() => {
+      // No ack — assume a pre-0.3.1 companion and proceed.
+      this._runPostOpenSync('ack_timeout');
+    }, COMPANION_HELLO_ACK_TIMEOUT_MS);
+  }
+
+  // The post-open sync that used to run directly in onopen: push our current
+  // focus and pull the companion's clock state. Gated so it runs exactly once
+  // per connection (first of HELLO_ACK / fallback timeout wins).
+  _runPostOpenSync(reason) {
+    if (this.postOpenSyncDone || !this.connected) return;
+    this.postOpenSyncDone = true;
+    this._clearHelloTimeout();
+    console.debug(`[CompanionBridge] Post-open sync (${reason})`);
+    this._syncCurrentFocus();
+    // FIX-2: pull the companion's current clock state on connect so a
+    // companion that was already clocked-in (or out) before the extension
+    // came up reflects immediately, without waiting for a change broadcast.
+    this.requestClockState();
+  }
+
+  _clearHelloTimeout() {
+    if (this.helloTimeoutTimer) {
+      clearTimeout(this.helloTimeoutTimer);
+      this.helloTimeoutTimer = null;
+    }
+  }
+
+  _resetHandshake() {
+    this._clearHelloTimeout();
+    this.helloAcked = false;
+    this.postOpenSyncDone = false;
+  }
+
+  _handleHelloAck() {
+    this.helloAcked = true;
+    this.pairingRejected = false;
+    this.reconnectDelay = COMPANION_RECONNECT_BASE_MS;
+    // Handshake accepted — clear any stale "pairing required" flag the UI
+    // may be showing from an earlier rejection.
+    chrome.storage.local.set({ companionPairingRequired: false });
+    this._emit('helloAck', {});
+    this._runPostOpenSync('hello_ack');
+  }
+
+  _handleHelloRejected() {
+    // Companion requires a (correct) pairing token. Latch the rejected state
+    // so reconnects back off to the long fixed interval, surface "pairing
+    // required" for the settings UI, and don't run post-open sync. The token
+    // itself is NEVER logged.
+    console.warn('[CompanionBridge] HELLO_REJECTED — companion requires pairing');
+    this.pairingRejected = true;
+    this._resetHandshake();
+    chrome.storage.local.set({ companionPairingRequired: true });
+    this._emit('helloRejected', {});
+    // The companion may close the socket itself; if it doesn't, close from
+    // our side so the connection isn't half-open (onclose schedules the
+    // backed-off reconnect either way).
+    if (this.ws) {
+      try { this.ws.close(); } catch { /* already closing */ }
+    }
+  }
+
+  // Called when the user saves a new pairing token: clear the rejected latch
+  // and retry immediately with the fresh token.
+  retryPairing() {
+    this.pairingRejected = false;
+    this.reconnectDelay = COMPANION_RECONNECT_BASE_MS;
+    chrome.storage.local.set({ companionPairingRequired: false });
+    if (this.connected && this.ws) {
+      // Re-handshake on a live socket isn't part of the protocol — bounce the
+      // connection so HELLO goes out fresh as the first message.
+      try { this.ws.close(); } catch { /* ignore */ }
+    } else {
+      this._clearReconnect();
+      this.connect();
+    }
   }
 
   _clearReconnect() {
@@ -205,6 +340,15 @@ class CompanionBridge {
     // Plan 036: any inbound message proves the companion is alive.
     this.lastMessageAt = Date.now();
     switch (msg.type) {
+      // Stage-2 handshake replies (companion 0.3.1+).
+      case 'HELLO_ACK':
+        this._handleHelloAck();
+        break;
+
+      case 'HELLO_REJECTED':
+        this._handleHelloRejected();
+        break;
+
       case 'APP_SWITCH':
         this._handleAppSwitch(msg);
         break;
@@ -526,7 +670,9 @@ export function getConnectionStatus() {
     connected: companionBridge.isConnected,
     status: companionBridge.status,
     activeApp: companionBridge.activeApp,
-    clock: companionBridge.clockState
+    clock: companionBridge.clockState,
+    helloAcked: companionBridge.helloAcked,
+    pairingRequired: companionBridge.pairingRejected
   };
 }
 
@@ -588,6 +734,24 @@ export async function handleMessage(type, message) {
         return { sent: true };
       }
       return { connected: false };
+
+    // Stage-2 pairing: store (or clear) the pairing token pasted from the
+    // companion tray's "Pair Extension" action, then retry the handshake with
+    // it. The token value is never logged and never echoed back in the reply.
+    case 'COMPANION_SET_PAIRING_TOKEN': {
+      const token = typeof message.token === 'string' ? message.token.trim() : '';
+      try {
+        if (token) {
+          await chrome.storage.local.set({ [PAIRING_TOKEN_KEY]: token });
+        } else {
+          await chrome.storage.local.remove(PAIRING_TOKEN_KEY);
+        }
+      } catch (e) {
+        return { ok: false, error: e?.message || 'Failed to store token' };
+      }
+      companionBridge.retryPairing();
+      return { ok: true, hasToken: !!token };
+    }
 
     default:
       return undefined;
