@@ -327,7 +327,16 @@ const styles = StyleSheet.create({
   // (huge top-left title, huge bottom-right ring); z-index keeps the title
   // readable over the ring's upper edge where they intersect.
   mainV2: { flex: 1, position: 'relative' },
-  titleCol: { position: 'absolute', top: 0, left: 0, width: '66%', maxWidth: 920, zIndex: 3 },
+  // QA fix (dev-cv harness, layout v2 first render): `titleCol` had no
+  // `bottom`/`height`, so as an absolutely-positioned box it grew to its
+  // natural content height instead of respecting `mainV2`'s flex-computed
+  // box. With a 3-line title + a checkpoint preview line + a 3-row "UP
+  // NEXT" list, the column measured ~709px against a ~601px `mainV2` at
+  // 1280x800 — the last 1-2 queue rows spilled ~100px past the parent,
+  // straight into the FocusTimeline/footer band below. `bottom: 0` +
+  // `overflow: 'hidden'` bounds the column to the real available height so
+  // it clips gracefully instead of overlapping the footer.
+  titleCol: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '66%', maxWidth: 920, zIndex: 3, overflow: 'hidden' },
   ringZone: { position: 'absolute', right: 0, bottom: 0, zIndex: 1, alignItems: 'center', justifyContent: 'center' },
   eyebrow: { color: colors.accent, fontSize: 15, letterSpacing: 3, fontWeight: '700', marginBottom: 18, textTransform: 'uppercase' },
   focusLabelHuge: { color: colors.textPrimary, fontWeight: '800', letterSpacing: -2, marginBottom: 22 },
