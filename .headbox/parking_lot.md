@@ -476,3 +476,21 @@
   1. Keep parked; run as a dedicated audit later with multi-machine access ← **suggested**
   2. Start it now (pauses Sidecar work)
   3. Fold only the Anasa-vs-Asana review into Plan 040 Epic 3 (already planned)
+
+## 2026-07-18 — Body doubling plugin (#215)
+- **Noticed while:** Plan 040 feature intake (voice transcript)
+- **What:** Queue + one-click pairing of live Tabatha users for co-working (BYO Meet/Twitch/Kick/YT-Live links; Tabatha = pairing/presence/frame). Spec: docs/features/215-body-doubling.md
+- **Why it matters:** human-powered accountability sibling of #182; potential community/network feature
+- **Options:**
+  1. Keep parked until the Plan 040 epic stack lands ← **suggested (owner's call)**
+  2. Research-only task now (science of body doubling), build later
+  3. MVP presence-queue inside the org layer sooner
+
+## 2026-07-18 — Agentic assistant engine (Hermes/OpenClaw) for Chaperone/Flux
+- **Noticed while:** same intake
+- **What:** Full agentic personality assistant ("click to engage", caller-aware, Flux/second-brain context) to run on Hermes first (lighter), OpenClaw if needed — both installed. v0 pre-recorded slice is in Plan 040 Epic 10; the engine work is Flux-track.
+- **Why it matters:** the target state of #182; overlaps the parked portfolio track (Flux as assistant)
+- **Options:**
+  1. Park with the portfolio track; revisit at Flux planning ← **suggested**
+  2. Prototype Hermes TTS pipeline early behind a flag
+  3. Fold into the native-app milestone (call/SMS awareness anyway needs native)

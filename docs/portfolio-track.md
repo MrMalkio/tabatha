@@ -68,3 +68,12 @@ Sidecar task integration (Plan 040, Epic 3) — pending the Anasa-vs-Asana revie
 - Machine posture: powerful daily-driver + always-on (less stable) machine + VPS;
   possibly a Mac laptop; Heimdall + Chrome Remote Desktop to patch in. Consider
   Hermes / OpenClaw for an always-on autonomous agent.
+
+### Addition 2026-07-18 (assistant intake)
+The personality assistant vision ("don't you dare touch that phone" → caller-aware
+"oh wait, it's your mom — answer that"; supervisor/coworker/digital body-doubler)
+is the **Flux/Chaperone (#182)** end-state. Engine decision: **Hermes first**
+(lighter), OpenClaw if a mix is needed — both installed. A no-AI v0 (pre-recorded
+lines on cross-device triggers) ships within Tabatha/Sidecar (Plan 040 Epic 10);
+the agentic engine + "click to engage" belongs to this parked Flux track.
+Related new feature: #215 Body Doubling (human-powered variant, parked).

@@ -236,3 +236,24 @@ The user's Asana PAT is already available on this machine (asana-cli credential 
 7. **Epic 8 (#194)** — schedule nudges on the push cron.
 8. **Anasa review** → **Epic 3** — Asana(PAT) tasks + subtasks-as-sub-intents.
 9. **Epic 9** — Context View customization (extension-side, from current line) — alongside the repo-reconciliation chore.
+
+---
+
+## Addendum 3 — 2026-07-18 (personality/audio + body doubling intake)
+
+- **Epic 10 — Personality Interrupts v0 (#182 slice).** Pre-recorded audio lines
+  played by the **Context View / extension** when the phone-side trigger fires on
+  the existing `focusAway` realtime rail (pickup/navigate-away now; call/SMS/
+  caller-ID = native-tier, parked with #164/#183). Personality packs, intensity,
+  quiet hours in `settings.chaperone`; empty threats are theater, config-gated,
+  never real actions. **No AI required** — this is audio assets + the Epic 0
+  channel. Sequence: after Epic 1 (Voice Capture) — same audio domain, tiny lift.
+  Full agentic Chaperone (TTS, context interpolation, "click to engage" with
+  Hermes-first/OpenClaw engine + Flux context) stays Flux-track; enrichment
+  recorded in `docs/features/182-chaperone-mode.md`.
+- **#215 Body Doubling** — created and **parked by owner's call** ("own thing,
+  down the timeline"): queue + one-click pairing of live-working users, BYO
+  Meet/Twitch/Kick/YouTube link, Tabatha provides pairing/presence/frame. First
+  step when picked up: research the science of body doubling.
+- **Principle recorded** in `Tabatha_Concept.md`: **Progressive Simplicity** —
+  capability grows while upfront surface shrinks ("just do and just say").
