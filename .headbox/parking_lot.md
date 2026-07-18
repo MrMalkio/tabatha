@@ -467,3 +467,12 @@
   3. **DB pre-create of Reggie & Po** (po@ / reggie@duckandshark.com) — pending (P0.7).
   4. **Physical rollout** to testers — pending (P0.8).
 - **Why it matters:** Records the production milestone against the loose-thread items already in this lot so they don't get re-raised, and surfaces the remaining pre-team-live gates in one place.
+
+## 2026-07-18 — Portfolio audit (cross-project)
+- **Noticed while:** cleaning up the Sidecar feature requests (Plan 040 brainstorm)
+- **What:** Owner brain-dumped the whole ecosystem (Headbox, Caspera + Abulia/Arbor/Collab/Overlock/Anasa, SteadyStars/SS-Avengers, Flux/Tabatha/screensaver, Agent Vault, Heimdall/Bifrost, Bond) and asked for a full "what's actually close to v1 + dependency map" audit. Captured in `docs/portfolio-track.md`.
+- **Why it matters:** it's the owner's top-level prioritization problem (thought→action friction), but it spans repos + machines (needs Heimdall + old machine) — its own dedicated effort, not a Sidecar-session task.
+- **Options:**
+  1. Keep parked; run as a dedicated audit later with multi-machine access ← **suggested**
+  2. Start it now (pauses Sidecar work)
+  3. Fold only the Anasa-vs-Asana review into Plan 040 Epic 3 (already planned)
