@@ -5,6 +5,16 @@ file.
 
 ---
 
+## [v6.7.29] - Marketing site: Tabby Sidecar promotion - _2026-07-18_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **Sidecar entry point on the teaser homepage.** A top-right "Sign in" control links to the live Tabby Sidecar mobile companion at `/sidecar`, styled in the teaser's own token system.
+- **Tabby Sidecar on the showcase.** The `/show` family section now presents Tabby Sidecar as a shipped mobile web companion (sign in, queue and active focus, create intent, run the clock, Web Push, PWA install), with an "Open Tabby Sidecar" strip. The native iOS/Android app is reframed as the next step.
+- **Roadmap.** Added a Resolved card for Tabby Sidecar (mobile web companion) and a Todo card for the native iOS and Android app.
+
 ## [v6.7.28] - Desktop companion updater manifest - _2026-07-18_
 
 > Marketing site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
