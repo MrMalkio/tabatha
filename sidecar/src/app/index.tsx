@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +15,7 @@ import TasksScreen from '../screens/TasksScreen';
 import ClockScreen from '../screens/ClockScreen';
 import RecentScreen from '../screens/RecentScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ContextView from '../screens/ContextView';
 import { colors } from '../lib/theme';
 
 type TabKey = 'focus' | 'tasks' | 'clock' | 'recent' | 'settings';
@@ -29,6 +31,11 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
 export default function Index() {
   const { session, loading, profile } = useAuth();
   const [tab, setTab] = useState<TabKey>('focus');
+  const { width, height } = useWindowDimensions();
+  // Large landscape viewport (computer / tablet / TV) → view-only Context View.
+  const isLarge = width >= 900 && width > height;
+  const [override, setOverride] = useState<null | 'app' | 'context'>(null);
+  const showContext = isLarge && (override ?? 'context') === 'context';
 
   if (loading) {
     return (
@@ -41,6 +48,8 @@ export default function Index() {
 
   if (!session) return <LoginScreen />;
 
+  if (showContext) return <ContextView onExit={() => setOverride('app')} />;
+
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       {/* Header */}
@@ -49,10 +58,17 @@ export default function Index() {
           <Text style={styles.brand}>Tabby</Text>
           <Text style={styles.brandSub}>Sidecar</Text>
         </View>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {(profile?.display_name || 'T').charAt(0).toUpperCase()}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {isLarge && (
+            <Pressable onPress={() => setOverride('context')} style={styles.ctxBtn}>
+              <Text style={styles.ctxBtnTxt}>📺 Context view</Text>
+            </Pressable>
+          )}
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {(profile?.display_name || 'T').charAt(0).toUpperCase()}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -118,6 +134,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { color: colors.accent, fontWeight: '700', fontSize: 14 },
+  ctxBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+  ctxBtnTxt: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,

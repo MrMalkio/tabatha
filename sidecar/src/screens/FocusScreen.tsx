@@ -13,6 +13,7 @@ import {
   useFocus,
   isSidecarSourced,
   isOffComputer,
+  elapsedMsOf,
   startedAtOf,
   type FocusItem,
 } from '../data/focus';
@@ -100,11 +101,13 @@ export default function FocusScreen() {
   };
 
   const cf = currentFocus;
+  const cfElapsed = cf ? elapsedMsOf(cf, now) : 0;
   let remaining: number | null = null;
   let over = false;
-  if (cf && isSidecarSourced(cf) && cf.focus_state === 'active') {
+  if (cf && isSidecarSourced(cf)) {
+    // Continues across pauses (frozen while paused), never restarts on resume.
     const dur = (cf.timer_minutes || 15) * 60000;
-    remaining = dur - (now - startedAtOf(cf));
+    remaining = dur - cfElapsed;
     over = remaining < 0;
   }
 
@@ -129,7 +132,7 @@ export default function FocusScreen() {
                 {isOffComputer(cf) ? <Chip label="🚶 off-computer" color={colors.accent} /> : <Chip label="💻 at computer" color={colors.textMuted} />}
               </View>
               <Text style={styles.cfLabel}>{cf.label}</Text>
-              <Text style={styles.cfMeta}>{formatElapsedMs(now - startedAtOf(cf))} elapsed · P{cf.priority || 5}</Text>
+              <Text style={styles.cfMeta}>{formatElapsedMs(cfElapsed)} elapsed · P{cf.priority || 5}</Text>
             </View>
             {remaining != null && (
               <View style={{ alignItems: 'flex-end' }}>
