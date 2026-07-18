@@ -2,8 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
+import { useCheckpoints, PROGRESS_LEVELS } from '../data/checkpoints';
 import { supabase } from '../lib/supabase';
 import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+
+// Coarse "how long ago" for the last-checkpoint preview — matches the rest of
+// the view's compact, glanceable style (no seconds precision needed here).
+function relTime(iso: string, now: number): string {
+  const ms = Math.max(0, now - new Date(iso).getTime());
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
 function useTick(ms = 1000) {
   const [n, setN] = useState(Date.now());
@@ -45,6 +58,22 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   const resetHour = profile?.settings?.sidecar?.dayResetHour ?? 0;
   const day = dayLeft(resetHour);
   const immediateAlert = !!profile?.settings?.sidecar?.focusAwayImmediate;
+  const showCheckpoints = profile?.settings?.sidecar?.showCheckpoints !== false; // default ON
+
+  // Checkpoint counter + last-note preview for the current focus (read-only,
+  // ambient — Settings can turn it off). Reuses the existing
+  // `focus_checkpoints` hook rather than a bespoke query; that hook has no
+  // realtime/poll of its own, so a light interval here keeps the count fresh
+  // if a checkpoint lands from the phone while this view is up on a TV.
+  const { notes: cpNotes, reload: reloadCp } = useCheckpoints(
+    profile?.id ?? null,
+    currentFocus?.client_id ?? null
+  );
+  useEffect(() => {
+    if (!showCheckpoints || !currentFocus?.client_id) return;
+    const iv = setInterval(reloadCp, 20000);
+    return () => clearInterval(iv);
+  }, [showCheckpoints, currentFocus?.client_id, reloadCp]);
 
   // Account-wide device status (live): the shift, plus the Phone Focus Mode
   // "away" signal from any OTHER device — which drives the red overlay.
@@ -173,6 +202,18 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
                   <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
                   <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
                 </View>
+                {showCheckpoints && cpNotes.length > 0 && (() => {
+                  const last = cpNotes[0];
+                  const lastLevel = PROGRESS_LEVELS.find((l) => l.key === last.progress_level);
+                  return (
+                    <Text style={styles.cpLine} numberOfLines={1}>
+                      📋 {cpNotes.length} checkpoint{cpNotes.length === 1 ? '' : 's'}
+                      {'  ·  last: '}
+                      {last.text ? `“${last.text}” ` : ''}
+                      {lastLevel?.icon || ''} {relTime(last.created_at, now)}
+                    </Text>
+                  );
+                })()}
                 {queue.filter((q) => !q.tags?._parent).length > 0 && (
                   <View style={styles.next}>
                     <Text style={styles.nextHdr}>UP NEXT</Text>
@@ -252,6 +293,7 @@ const styles = StyleSheet.create({
   meta: { color: colors.textMuted, fontSize: 20 },
   metaB: { color: colors.textPrimary, fontWeight: '700', fontVariant: ['tabular-nums'] },
   metaP: { fontSize: 16, fontWeight: '700', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 2 },
+  cpLine: { color: colors.textMuted, fontSize: 15, marginTop: 10 },
   next: { marginTop: 40, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 20, gap: 12, maxWidth: 640 },
   nextHdr: { color: colors.textMuted, fontSize: 12, letterSpacing: 3, fontWeight: '700' },
   qrow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
