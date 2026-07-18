@@ -876,3 +876,22 @@ Cirra (Epic 1+10), Rook (Epic 7); Koda vetted; Kael ran the repo restoration.
   the 6.7.9→6.7.24 run pushed, dist defused to **6.7.24** (was unreviewed
   6.8.2), 11 branches + 2 stale worktrees pruned (uncommitted InBar work
   rescue-stashed). main untouched.
+
+---
+
+## [Tabby Sidecar v0.4.0] - Context View timeline + layout v2 + focus_events - _2026-07-18_
+
+### Added
+- **focus_events** log (migration 034, realtime) — every start/pause/resume/
+  resolve recorded; foundation for accurate per-focus/per-task time.
+- **Context View bottom timeline** — fills as the timer runs; nodes for
+  checkpoints + every start (press/hover = date-time + cumulative
+  "📱 Sidecar-tracked" time); overtime feeds a slow-pulsing, capped-growth
+  circle with a halo trail; reduced-motion respected.
+- **ProgressRing** — RN-native circular timer ring (no CSS conic-gradient),
+  native-build safe.
+- **Layout v2** — huge title top-left overlapping the ring, huge timer
+  bottom-right, brand+controls bottom-left, day-countdown compact top-right,
+  clock bottom-middle.
+- (v0.3.1) **Notes-simple capture mode** ("What's on your mind?" — type or
+  speak → intent) + **Install Tabby** PWA CTA.

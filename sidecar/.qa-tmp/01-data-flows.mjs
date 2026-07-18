@@ -297,13 +297,31 @@ async function main() {
   // ─────────────────────────────────────────────────────────────
   {
     // G first (browser_profiles) since clock/status need browser_profile_id.
-    const localId = 'sidecar-qa-tabatha_web';
+    // NOTE: the app's real registerDevice() always derives local_id =
+    // `sidecar-${surface}` deterministically from surfaceForDevice() (one of
+    // 3 fixed buckets), so two real installs on the same surface bucket
+    // ALWAYS compute the identical local_id and collapse via ON CONFLICT
+    // (profile_id, local_id) before the separate partial unique index on
+    // (profile_id, browser) -- migration 013, browser IN ('desktop_companion',
+    // 'mobile_ios','mobile_android','tabatha_web') -- could ever be hit as a
+    // distinct conflict. Using browser:'tabatha_web' with a QA-only local_id
+    // here (as an earlier draft of this test did) is therefore not
+    // representative -- it manufactured a same-browser/different-local_id
+    // shape the real app can't produce today, AND it collided with Malkio's
+    // real registered device row (not something we want to touch). Use a
+    // QA-namespaced `browser` value (outside the partial index's IN-list) so
+    // this test only ever exercises OUR row, while still hitting the exact
+    // ON CONFLICT (profile_id, local_id) target the app uses, with a FIXED
+    // local_id upserted twice to prove idempotent collapse-to-one-row --
+    // the real multi-device-same-surface behavior.
+    const qaBrowser = 'sidecar_qa_web';
+    const localId = 'sidecar-qa-web-fixed';
     const { data: bp, error: bpErr } = await user
       .from('browser_profiles')
       .upsert(
         {
           profile_id: profileId,
-          browser: 'tabatha_web',
+          browser: qaBrowser,
           profile_name: '[QA TEST] device',
           classification: 'professional',
           extension_installed: false,
@@ -318,11 +336,12 @@ async function main() {
     record('G.browser_profiles upsert (profile_id,local_id)', !bpErr && !!bp?.id, bpErr?.message || `id ${bp?.id}`);
     browserProfileId = bp?.id || null;
 
-    // Re-upsert with same local_id to confirm idempotency (collapses to one row).
+    // Re-upsert with same local_id (2nd "device init") to confirm idempotency
+    // (collapses to one row) -- mirrors two real installs on the same surface.
     const { data: bp2, error: bpErr2 } = await user
       .from('browser_profiles')
       .upsert(
-        { profile_id: profileId, browser: 'tabatha_web', local_id: localId, last_seen_at: new Date().toISOString() },
+        { profile_id: profileId, browser: qaBrowser, local_id: localId, last_seen_at: new Date().toISOString() },
         { onConflict: 'profile_id,local_id' }
       )
       .select('id')
