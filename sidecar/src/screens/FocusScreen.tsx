@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -18,8 +18,9 @@ import {
   type FocusItem,
 } from '../data/focus';
 import { useCheckpoints, PROGRESS_LEVELS } from '../data/checkpoints';
+import { useVoiceCapture } from '../lib/speech';
 import PhoneFocusMode from '../components/PhoneFocusMode';
-import { Btn, Card, Chip, Empty, SectionLabel } from '../ui/kit';
+import { Btn, Card, Chip, Empty, MicButton, SectionLabel } from '../ui/kit';
 import {
   colors,
   radius,
@@ -85,6 +86,22 @@ export default function FocusScreen() {
   const [timer, setTimer] = useState(String(defaultTimer));
   const [realm, setRealm] = useState(defaultRealm);
   const [creating, setCreating] = useState(false);
+
+  // Voice capture (#165 / Epic 1) — speak a new intent. Base text is
+  // whatever was already typed when the mic was tapped; the live
+  // transcript is appended onto it and stays editable afterward.
+  const labelBaseRef = useRef('');
+  const labelVoice = useVoiceCapture((text) => {
+    setLabel(labelBaseRef.current ? `${labelBaseRef.current} ${text}` : text);
+  });
+  const onMicLabel = () => {
+    if (labelVoice.listening) {
+      labelVoice.stop();
+      return;
+    }
+    labelBaseRef.current = label.trim();
+    labelVoice.start();
+  };
 
   const [showEdit, setShowEdit] = useState(false);
   const [showCp, setShowCp] = useState(false);
@@ -197,7 +214,10 @@ export default function FocusScreen() {
       {/* New intent */}
       <Card style={{ marginBottom: 12 }}>
         <SectionLabel>{cf ? '+ New intent' : '🎯 Set focus'}</SectionLabel>
-        <TextInput value={label} onChangeText={setLabel} placeholder="What are you focusing on?" placeholderTextColor={colors.textMuted} style={styles.input} onSubmitEditing={submit} />
+        <View style={styles.inputRow}>
+          <TextInput value={label} onChangeText={setLabel} placeholder="What are you focusing on?" placeholderTextColor={colors.textMuted} style={[styles.input, styles.inputFlex]} onSubmitEditing={submit} />
+          <MicButton listening={labelVoice.listening} supported={labelVoice.supported} onPress={onMicLabel} />
+        </View>
         <View style={styles.createRow}>
           <View style={styles.timerBox}>
             <TextInput value={timer} onChangeText={setTimer} keyboardType="number-pad" inputMode="numeric" style={styles.timerInput} />
@@ -304,10 +324,28 @@ function EditPanel({ focus, onSave }: { focus: FocusItem; onSave: (u: any) => vo
 function CheckpointPanel({ profileId, focus }: { profileId: string | null; focus: FocusItem }) {
   const { notes, add, remove } = useCheckpoints(profileId, focus.client_id);
   const [text, setText] = useState('');
+
+  // Voice capture (#165 / Epic 1) — speak a checkpoint/progress note.
+  const noteBaseRef = useRef('');
+  const noteVoice = useVoiceCapture((t) => {
+    setText(noteBaseRef.current ? `${noteBaseRef.current} ${t}` : t);
+  });
+  const onMicNote = () => {
+    if (noteVoice.listening) {
+      noteVoice.stop();
+      return;
+    }
+    noteBaseRef.current = text.trim();
+    noteVoice.start();
+  };
+
   return (
     <View style={styles.panel}>
       <Text style={styles.fieldLabel}>📋 Checkpoint note</Text>
-      <TextInput value={text} onChangeText={setText} placeholder="What have you done since the last checkpoint?" placeholderTextColor={colors.textMuted} multiline style={[styles.input, { minHeight: 54, textAlignVertical: 'top' }]} />
+      <View style={[styles.inputRow, { alignItems: 'flex-start' }]}>
+        <TextInput value={text} onChangeText={setText} placeholder="What have you done since the last checkpoint?" placeholderTextColor={colors.textMuted} multiline style={[styles.input, styles.inputFlex, { minHeight: 54, textAlignVertical: 'top' }]} />
+        <MicButton listening={noteVoice.listening} supported={noteVoice.supported} onPress={onMicNote} />
+      </View>
       <Text style={[styles.fieldLabel, { marginTop: 6 }]}>Submit with progress:</Text>
       <View style={styles.wrapRow}>
         {PROGRESS_LEVELS.map((l) => (
@@ -381,6 +419,8 @@ const styles = StyleSheet.create({
   noActive: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
   btnRow: { flexDirection: 'row', gap: 6, marginTop: 10, flexWrap: 'wrap' },
   input: { backgroundColor: colors.bgBase, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10, color: colors.textPrimary, fontSize: 15, marginBottom: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  inputFlex: { flex: 1, marginBottom: 0 },
   createRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' },
   timerBox: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   timerInput: { width: 48, backgroundColor: colors.bgBase, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingVertical: 8, color: colors.textPrimary, fontSize: 14, textAlign: 'center' },
