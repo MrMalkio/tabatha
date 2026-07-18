@@ -966,3 +966,23 @@ turns red ("Put the phone down") with a slow fade-in (~7s), or immediate via a
 new Settings toggle `focusAwayImmediate`. Cross-device path verified 2/2 under
 RLS with a minted session; tsc clean; deployed v0.2.1. Mockup updated with a
 "📵 Phone away" preview.
+
+## 2026-07-18 — Persona ops: System Map + Feature Matrix + Plan 040 vet (CeeCee orchestrating)
+
+Operating model live: CeeCee (CC1) orchestrates; named players on real Asana tasks.
+- **Argus** → docs/system-map/SYSTEM-MAP.md (Asana 1216678592681467; posted own
+  comments via `asana-cli --as argus`). Top risks: dist/ landmine (6.8.2 unreviewed
+  Koda build on the Chrome load-unpacked path while user believes 6.7.22), two
+  divergent staging lines (local 6.7.8 vs origin 6.6.0; extension run never pushed),
+  prod stuck behind update channel (swap-step bug; fix on fix/updater-swap 6.7.24),
+  6.8.x version tangle, 11 prunable branches + 2 stale worktrees. 8-step GitHub
+  restoration plan PROPOSED (not executed). Daily update: scheduled cloud agent rec.
+- **Cirra** → docs/FEATURE-MATRIX.md (Asana 1216678675876448; comments relayed).
+  124 rows / 8 domains × 6 surfaces + update-in-same-commit protocol. Top gaps:
+  checkpoints don't round-trip, per-task time is widget-only, Sidecar tasks bare,
+  voice missing on Sidecar, team/org extension-only.
+- **Koda** → Plan 040 vet (Asana 1216678720421332; comment relayed). 8/13 proceed,
+  5 revise (B1 pause-ownership, E2/E4 Sidecar-only time label, E3 relation table +
+  conflict strategy, E8 dedup v2, E9 settings write-race). Delegation lanes decided
+  (addendum 5): sequential ContextView lane, parallel 1/5/7(+10), design gates 3/9,
+  design-first 8. Deeper collaboration: YES.
