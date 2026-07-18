@@ -22,9 +22,16 @@ import {
 
 const REALMS = ['professional', 'work', 'business', 'personal'];
 
+const QUIET_HOUR_PRESETS: Array<{ label: string; start: number | null; end: number | null }> = [
+  { label: 'Off', start: null, end: null },
+  { label: '10pm–8am', start: 22, end: 8 },
+  { label: '9pm–9am', start: 21, end: 9 },
+];
+
 export default function SettingsScreen() {
-  const { profile, session, signOut, saveSidecarSettings } = useAuth();
+  const { profile, session, signOut, saveSidecarSettings, saveChaperoneSettings } = useAuth();
   const sc = profile?.settings?.sidecar || {};
+  const cp = profile?.settings?.chaperone || {};
 
   const [realm, setRealm] = useState(sc.defaultRealm || profile?.default_realm || 'professional');
   const [timer, setTimer] = useState(String(sc.defaultTimer || 15));
@@ -32,6 +39,8 @@ export default function SettingsScreen() {
   const [awayImmediate, setAwayImmediate] = useState(!!sc.focusAwayImmediate);
   const [pushOn, setPushOn] = useState(pushPermission() === 'granted' && !!sc.pushEnabled);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
+  const [chaperoneOn, setChaperoneOn] = useState(!!cp.enabled);
+  const [quietHours, setQuietHours] = useState<{ start: number; end: number } | null>(cp.quietHours ?? null);
 
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>('bug');
   const [feedbackText, setFeedbackText] = useState('');
@@ -287,6 +296,48 @@ export default function SettingsScreen() {
             </Text>
             <Btn label="Retry now" onPress={onRetryQueue} small disabled={feedbackBusy} />
           </View>
+        )}
+      </Card>
+
+      <Card style={{ marginBottom: 14 }}>
+        <SectionLabel>Chaperone voice</SectionLabel>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>Personality interrupts</Text>
+            <Text style={styles.rowSub}>
+              When you pick up your phone mid-focus, the Context View plays a pre-recorded
+              line to nudge you back. Theater only — never a real action.
+            </Text>
+          </View>
+          <Switch
+            value={chaperoneOn}
+            onValueChange={async (v) => { setChaperoneOn(v); await saveChaperoneSettings({ enabled: v, pack: 'classic' }); }}
+            trackColor={{ true: colors.accent, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+        {chaperoneOn && (
+          <>
+            <Text style={[styles.rowTitle, { marginTop: 12 }]}>Quiet hours</Text>
+            <View style={styles.realmRow}>
+              {QUIET_HOUR_PRESETS.map((p) => {
+                const on = p.start == null ? !quietHours : quietHours?.start === p.start && quietHours?.end === p.end;
+                return (
+                  <Pressable
+                    key={p.label}
+                    onPress={async () => {
+                      const next = p.start == null ? null : { start: p.start, end: p.end as number };
+                      setQuietHours(next);
+                      await saveChaperoneSettings({ quietHours: next });
+                    }}
+                    style={[styles.realmPill, on && { borderColor: colors.accent, backgroundColor: colors.accentDim }]}
+                  >
+                    <Text style={{ fontSize: 12, color: on ? colors.accent : colors.textMuted }}>{p.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
         )}
       </Card>
 

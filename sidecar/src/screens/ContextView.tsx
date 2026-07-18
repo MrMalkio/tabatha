@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
+import { useChaperoneOnPhoneAway } from '../lib/chaperone';
 import { supabase } from '../lib/supabase';
 import { colors, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
 
@@ -45,6 +46,9 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   const resetHour = profile?.settings?.sidecar?.dayResetHour ?? 0;
   const day = dayLeft(resetHour);
   const immediateAlert = !!profile?.settings?.sidecar?.focusAwayImmediate;
+
+  // Personality Interrupts v0 (#182 Epic 10) — rides this same phoneAway signal.
+  useChaperoneOnPhoneAway(phoneAway, profile?.settings?.chaperone);
 
   // Account-wide device status (live): the shift, plus the Phone Focus Mode
   // "away" signal from any OTHER device — which drives the red overlay.

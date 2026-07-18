@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Last updated** | 2026-07-18 |
-| **Updated by** | Argus (AG1) — read-only survey, Asana task 1216678592681467 |
+| **Updated by** | Hermes (`argus` profile) — automated daily survey, Asana task 1216678592681467 |
 | **Verified against** | live git refs (post `git fetch --all --prune`), per-branch `public/manifest.json`, local `dist/`, sibling repos, GitHub PR list |
 | **Scope** | Survey + proposals only. No merges, prunes, pushes, or deploys were executed. |
 
@@ -138,18 +138,26 @@ Ahead/behind measured against **local `staging`** (6.7.8) for the 6.7.x line and
 
 | Path (under `Tabatha/`) | Branch | Ver | Disposition |
 |--------------------------|--------|-----|-------------|
-| *(main dir)* | `claude/tabatha-ai-integration-layer-91903b` | 6.7.22 | ⚠ Main dir is NOT on `staging` (AGENTS.md assumes it is). Return to `staging` after the 6.7.x line lands |
-| `.claude/worktrees/tabby-sidecar-mobile-46c612` | `claude/tabby-sidecar-mobile-46c612` | sidecar 0.2.1 | **Active** (this survey written here) |
-| `.claude/worktrees/fix-updater` | `fix/updater-swap` | 6.7.24 | Active — priority merge |
-| `.claude/worktrees/backdate-fix` | `fix/backdate-overlap-clamp` | 6.7.23 | Active — review |
-| `.claude/worktrees/site-sidecar` | `feat/site-sidecar-promo` | 6.7.23 | Merge then remove |
-| `.claude/worktrees/companion-release` | `feat/companion-release` | 6.7.22 | Remove after tip lands |
-| `.claude/worktrees/cws-api` | `feat/cws-api` | 6.7.17 | Keep (rebase later) |
-| `.claude/worktrees/privacy` | `fix/privacy-accuracy` | 6.7.20 | Remove after tip lands |
-| `.claude/worktrees/site` | `feat/public-site` | 6.7.17 | Remove after tip lands |
-| `.claude/worktrees/showcase-expand` / `showcase-family` / `responsive` / `teaser` | showcase/teaser branches | 6.7.16–19 | Remove after tip lands |
-| `.claude/worktrees/tabatha-chromewebstore-roles-a097d6` | `claude/inbar-overlay-positioning-58953b` | 6.5.0 | Remove (merged) |
-| `.claude/worktrees/zealous-mestorf-d1cf5e` | *(detached HEAD)* | 6.5.0 | Remove (merged) |
+| *(main dir)* | `claude/tabatha-ai-integration-layer-91903b` | 6.7.22 | auto-detected |
+| `.claude/worktrees/agent-a769362145b11a118` | `claude/sidecar-lane-a-contextview` | sidecar 0.2.1 | auto-detected |
+| `.claude/worktrees/agent-a7c7478af863b70d4` | `feat/sidecar-voice-chaperone-v0` | sidecar 0.2.1 | auto-detected |
+| `.claude/worktrees/agent-af8cad9c4896715b0` | `worktree-agent-af8cad9c4896715b0` | 6.5.0 | auto-detected |
+| `.claude/worktrees/backdate-fix` | `fix/backdate-overlap-clamp` | 6.7.23 | auto-detected |
+| `.claude/worktrees/companion-release` | `feat/companion-release` | 6.7.22 | auto-detected |
+| `.claude/worktrees/cws-api` | `feat/cws-api` | 6.7.17 | auto-detected |
+| `.claude/worktrees/fix-updater` | `fix/updater-swap` | 6.7.24 | auto-detected |
+| `.claude/worktrees/privacy` | `fix/privacy-accuracy` | 6.7.20 | auto-detected |
+| `.claude/worktrees/responsive` | `feat/showcase-responsive` | 6.7.19 | auto-detected |
+| `.claude/worktrees/restore-staging` | `restore/backdate-clamp-6.7.25` | sidecar 0.2.1 | auto-detected |
+| `.claude/worktrees/rook-sidecar-feedback` | `feat/sidecar-feedback-epic7-rook` | sidecar 0.2.1 | auto-detected |
+| `.claude/worktrees/showcase-expand` | `feat/showcase-expand` | 6.7.16 | auto-detected |
+| `.claude/worktrees/showcase-family` | `feat/showcase-family` | 6.7.18 | auto-detected |
+| `.claude/worktrees/site` | `feat/public-site` | 6.7.17 | auto-detected |
+| `.claude/worktrees/site-sidecar` | `feat/site-sidecar-promo` | 6.7.23 | auto-detected |
+| `.claude/worktrees/tabatha-chromewebstore-roles-a097d6` | `claude/inbar-overlay-positioning-58953b` | 6.5.0 | auto-detected |
+| `.claude/worktrees/tabby-sidecar-mobile-46c612` | `claude/tabby-sidecar-mobile-46c612` | sidecar 0.2.1 | auto-detected |
+| `.claude/worktrees/teaser` | `feat/teaser-site` | 6.7.19 | auto-detected |
+| `.claude/worktrees/zealous-mestorf-d1cf5e` | `(detached HEAD)` | 6.5.0 | auto-detected |
 
 ---
 
@@ -206,3 +214,10 @@ The process MUST stamp the header block (`Last updated` / `Updated by`) on every
 ---
 
 *Read-only survey. Proposals in §5 and §7.3 require Malkio/Caspera approval before execution.*
+
+---
+
+## 8. Daily Auto-Survey Log
+
+- **2026-07-18** — 20 worktrees swept (20 new, 0 removed); dist MISMATCH (dist=6.8.2 vs main=6.7.22).
+- **2026-07-18** — 20 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.8.2 vs main=6.7.22).

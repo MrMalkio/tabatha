@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -77,6 +78,51 @@ export function Btn({
   );
 }
 
+/**
+ * Mic capture button (feature #165 Voice Notes / Plan 040 Epic 1). Renders
+ * nothing when the browser has no SpeechRecognition (e.g. iOS Safari) —
+ * per spec, voice capture is a graceful no-op there, not a disabled ghost.
+ * Pulses while `listening` is true.
+ */
+export function MicButton({
+  listening,
+  supported,
+  onPress,
+}: {
+  listening: boolean;
+  supported: boolean;
+  onPress: () => void;
+}) {
+  const pulse = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    if (!listening) {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.3, duration: 480, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 480, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [listening, pulse]);
+
+  if (!supported) return null;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.mic, listening && styles.micActive]}
+      accessibilityLabel={listening ? 'Stop voice capture' : 'Start voice capture'}
+    >
+      <Animated.Text style={[styles.micIcon, { transform: [{ scale: pulse }] }]}>🎤</Animated.Text>
+    </Pressable>
+  );
+}
+
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
@@ -125,4 +171,19 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     paddingVertical: 10,
   },
+  mic: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgBase,
+  },
+  micActive: {
+    borderColor: colors.red,
+    backgroundColor: 'rgba(239,83,80,0.14)',
+  },
+  micIcon: { fontSize: 16 },
 });

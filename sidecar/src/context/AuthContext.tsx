@@ -29,6 +29,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   saveSidecarSettings: (patch: Record<string, any>) => Promise<void>;
+  saveChaperoneSettings: (patch: Record<string, any>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -213,6 +214,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [profile]
   );
 
+  // Distinct top-level `settings.chaperone` key (Plan 040 Epic 10 / #182) —
+  // kept separate from `settings.sidecar` so this write never clobbers it.
+  const saveChaperoneSettings = useCallback(
+    async (patch: Record<string, any>) => {
+      if (!profile) return;
+      const nextSettings = {
+        ...(profile.settings || {}),
+        chaperone: { ...(profile.settings?.chaperone || {}), ...patch },
+      };
+      const { error } = await supabase
+        .from('profiles')
+        .update({ settings: nextSettings })
+        .eq('id', profile.id);
+      if (!error) setProfile({ ...profile, settings: nextSettings });
+    },
+    [profile]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -225,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         refreshProfile,
         saveSidecarSettings,
+        saveChaperoneSettings,
       }}
     >
       {children}
