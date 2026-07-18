@@ -6,7 +6,11 @@ import { supabase } from '../lib/supabase';
 // because the Context View timeline (Epic 2) and per-task time (Epic 4) need
 // an uncapped, precisely-paired interval stream.
 
-export type FocusEventKind = 'start' | 'pause' | 'resume' | 'resolve';
+// 'extend' and 'snooze' (migration 039) are context kinds, not interval
+// kinds — computeIntervals ignores them. 'extend' carries
+// {addedMinutes, fromMinutes, toMinutes} and renders as a timeline node
+// like a checkpoint; 'snooze' carries {mins, until} for deferral history.
+export type FocusEventKind = 'start' | 'pause' | 'resume' | 'resolve' | 'extend' | 'snooze';
 
 export type FocusEvent = {
   id: string;

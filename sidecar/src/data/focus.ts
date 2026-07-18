@@ -269,7 +269,14 @@ export function useFocus(
     },
     extend: (id: string, mins: number) => {
       const cur = items.find((i) => i.id === id);
-      return patch(id, { timer_minutes: (cur?.timer_minutes || 15) + mins });
+      const from = cur?.timer_minutes || 15;
+      if (cur?.client_id)
+        insertFocusEvent(profileId, cur.client_id, 'extend', {
+          addedMinutes: mins,
+          fromMinutes: from,
+          toMinutes: from + mins,
+        });
+      return patch(id, { timer_minutes: from + mins });
     },
     setPriority: (id: string, p: number) => patch(id, { priority: p }),
     setStage: (id: string, stage: string) => patch(id, { funnel_stage: stage }),
@@ -297,8 +304,12 @@ export function useFocus(
       return patch(id, { focus_state: 'paused', tags: { ...(items.find((i) => i.id === id)?.tags || {}), _backburner: true } });
     },
     resumeBackburner: (id: string) => mergeTags(id, { _backburner: false, _snoozeUntil: null }),
-    snoozeBackburner: (id: string, mins: number) =>
-      mergeTags(id, { _backburner: true, _snoozeUntil: new Date(Date.now() + mins * 60000).toISOString() }),
+    snoozeBackburner: (id: string, mins: number) => {
+      const until = new Date(Date.now() + mins * 60000).toISOString();
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'snooze', { mins, until });
+      return mergeTags(id, { _backburner: true, _snoozeUntil: until });
+    },
     dismissBackburner: async (id: string) => {
       if (currentId === id) await persistCurrent(null);
       return patch(id, { focus_state: 'completed', tags: { ...(items.find((i) => i.id === id)?.tags || {}), _backburner: false } });

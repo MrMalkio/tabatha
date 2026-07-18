@@ -2,7 +2,7 @@
   "expo": {
     "name": "Tabby Sidecar",
     "slug": "sidecar",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "sidecar",

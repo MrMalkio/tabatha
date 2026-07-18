@@ -36,7 +36,7 @@ function useReducedMotion(): boolean {
 
 type Node = {
   id: string;
-  kind: 'checkpoint' | 'start';
+  kind: 'checkpoint' | 'start' | 'extend';
   t: number;
   icon: string;
   color: string;
@@ -119,7 +119,26 @@ export default function FocusTimeline({
           cumulative: cumulativeTrackedAt(intervals, t),
         };
       });
-    return [...cps, ...starts].filter((n) => Number.isFinite(n.t));
+    // Extensions render like checkpoints (Malkio: "tracked and added to the
+    // timeline almost like a checkpoint") — a node where the user bought more
+    // time, tooltip shows how much and the new total.
+    const extensions: Node[] = events
+      .filter((e) => e.kind === 'extend')
+      .map((e) => {
+        const t = new Date(e.at).getTime();
+        const added = Number(e.meta?.addedMinutes) || 0;
+        const to = Number(e.meta?.toMinutes) || 0;
+        return {
+          id: e.id,
+          kind: 'extend',
+          t,
+          icon: '⏳',
+          color: colors.amber,
+          label: added ? `Extended +${added}m${to ? ` (→ ${to}m)` : ''}` : 'Extended',
+          cumulative: cumulativeTrackedAt(intervals, t),
+        };
+      });
+    return [...cps, ...starts, ...extensions].filter((n) => Number.isFinite(n.t));
   }, [checkpoints, events, intervals]);
 
   // Past 100%, compact the line into 92% of the width so the overtime circle
@@ -158,7 +177,7 @@ export default function FocusTimeline({
         <View style={[styles.tooltip, { left: `${posOf(active.t) * lineFrac * 100}%` }]} pointerEvents="none">
           <Text style={styles.tooltipLabel} numberOfLines={1}>{active.label}</Text>
           <Text style={styles.tooltipTime}>{fmtDateTime(active.t)}</Text>
-          {active.kind === 'start' && (
+          {(active.kind === 'start' || active.kind === 'extend') && (
             <Text style={styles.tooltipTracked}>📱 {formatElapsedMs(active.cumulative || 0)} tracked</Text>
           )}
         </View>
