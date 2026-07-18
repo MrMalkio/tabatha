@@ -39,6 +39,13 @@ export function startedAtOf(f: FocusItem): number {
   const t = new Date(iso).getTime();
   return Number.isFinite(t) ? t : Date.now();
 }
+// Elapsed run-time, continuing across pauses. While active it's derived from the
+// (pause-shifted) start; while paused it's frozen at tags._elapsedMs.
+export function elapsedMsOf(f: FocusItem, now: number): number {
+  if (f.focus_state === 'active') return Math.max(0, now - startedAtOf(f));
+  const frozen = f.tags?._elapsedMs;
+  return Number.isFinite(frozen) ? Math.max(0, frozen) : Math.max(0, now - startedAtOf(f));
+}
 function snoozedUntil(f: FocusItem): number {
   const t = f.tags?._snoozeUntil ? new Date(f.tags._snoozeUntil).getTime() : 0;
   return Number.isFinite(t) ? t : 0;
@@ -189,23 +196,38 @@ export function useFocus(
 
   const actions = {
     switchTo: async (id: string) => {
+      // Pause the currently-active one, freezing its elapsed so it can continue later.
       const others = items.filter(
         (f) => f.focus_state === 'active' && isSidecarSourced(f) && f.id !== id
       );
       for (const f of others)
-        await supabase.from('focus_items').update({ focus_state: 'paused' }).eq('id', f.id);
+        await supabase
+          .from('focus_items')
+          .update({ focus_state: 'paused', tags: { ...(f.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f)) } })
+          .eq('id', f.id);
       await persistCurrent(id);
+      const target = items.find((i) => i.id === id);
+      const el = Number(target?.tags?._elapsedMs) || 0; // continue accumulated time
       await patch(id, {
         focus_state: 'active',
-        tags: { ...(items.find((i) => i.id === id)?.tags || {}), _startedAt: new Date().toISOString(), _backburner: false, _snoozeUntil: null },
+        tags: { ...(target?.tags || {}), _startedAt: new Date(Date.now() - el).toISOString(), _backburner: false, _snoozeUntil: null },
       });
     },
-    pause: (id: string) => patch(id, { focus_state: 'paused' }),
-    resume: (id: string) =>
-      patch(id, {
+    pause: (id: string) => {
+      const f = items.find((i) => i.id === id);
+      return patch(id, {
+        focus_state: 'paused',
+        tags: { ...(f?.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f as FocusItem)) },
+      });
+    },
+    resume: (id: string) => {
+      const f = items.find((i) => i.id === id);
+      const el = Number(f?.tags?._elapsedMs) || 0; // resume where it left off
+      return patch(id, {
         focus_state: 'active',
-        tags: { ...(items.find((i) => i.id === id)?.tags || {}), _startedAt: new Date().toISOString() },
-      }),
+        tags: { ...(f?.tags || {}), _startedAt: new Date(Date.now() - el).toISOString() },
+      });
+    },
     resolve: async (id: string) => {
       if (currentId === id) await persistCurrent(null);
       return patch(id, {
