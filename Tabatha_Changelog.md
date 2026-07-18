@@ -5,6 +5,14 @@ file.
 
 ---
 
+## [v6.7.26] - Changelog JSON regenerated after restoration merges - _2026-07-18_
+
+### Fixed
+
+- **`public/changelog.json` was stale vs `Tabatha_Changelog.md`**, tripping the prebuild `build-changelog --check` gate. The GitHub-restoration merges (PRs #28/#29) combined changelog entries from the extension and sidecar lines without regenerating the JSON. Regenerated (65 releases).
+
+---
+
 ## [v6.7.25] - Reach the empty focus slot: no auto-start on resolve + home shows the queue - _2026-07-18_
 
 ### Added

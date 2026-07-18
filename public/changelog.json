@@ -2,6 +2,34 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.26",
+      "title": "Changelog JSON regenerated after restoration merges",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **`public/changelog.json` was stale vs `Tabatha_Changelog.md`**, tripping the prebuild `build-changelog --check` gate. The GitHub-restoration merges (PRs #28/#29) combined changelog entries from the extension and sidecar lines without regenerating the JSON. Regenerated (65 releases)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.25",
+      "title": "Reach the empty focus slot: no auto-start on resolve + home shows the queue",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **\"Auto-start next intent on resolve\" toggle** (Settings → Focus Lifecycle, default ON — existing behaviour unchanged unless you opt out). Resolving an intent has always pulled the most-recently-paused intent out of the queue and straight into focus. Turn this OFF and resolving leaves **nothing** active: the queue stays paused until you pick the next intent yourself. This also makes an empty focus slot reachable for the first time — pausing never clears `activeFocusId` (it only flips `focusState` to `paused`), so `completeFocus` was the only path that emptied the slot, and it immediately re-filled it."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **The focus queue, backburner, and history no longer vanish from the home page when nothing is active.** They were nested inside the `activeFocus ? … : …` branch, so an empty focus slot rendered only the \"What are you focusing on?\" input — the queued intents were invisible on the home page (the sidebar showed them; home didn't). They now render regardless of active state, pairing with the toggle above."
+        }
+      ]
+    },
+    {
       "version": "6.7.24",
       "title": "Staff auto-update swap step fixed",
       "date": "2026-07-17",
@@ -966,6 +994,58 @@
         {
           "label": "Core Philosophy Implementation",
           "body": "- Established the \"Context-First\" data model where every tab must have a purpose\n  or inherit one."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.1.0",
+      "title": "Full sidebar parity + PWA + unified clock",
+      "date": "2026-07-17",
+      "intro": "Companion mobile web app (separate from the extension version line). Live at\nhttps://tabatha.pondocean.co/sidecar",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Near 1:1 Focus parity with the sidebar:** edit panel (label, timer, stage,\n  client/project, backdate start), checkpoint notes + timeline (new synced\n  `focus_checkpoints` table, migration 032), sub-intents, backburner dock\n  (resume/snooze/dismiss), on/off-computer toggle, NOW/drift states.\n- **Phone Focus Mode** — Page Visibility detection: leave the Sidecar and it\n  nudges you back (groundwork for phone-down focus triggers).\n- **PWA install** — web manifest + icons + Apple meta, so it installs to the\n  Home Screen (also what unlocks iOS Web Push).\n- **Expanded push parity** — `send-focus-push` now delivers timer-expiry,\n  **drift**, and **checkpoint-staleness** notifications (was timer only)."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Clock** reframed from \"this phone's shift\" to **\"Your shift\"**, and now\n  surfaces other devices on the clock (\"Also on the clock\") — one shift, many\n  devices.\n- Renamed **off-device → off-computer** everywhere (clearer: at vs away from the\n  computer). Create CTA dropped the \"(off-device)\" tag (it's implied by surface).\n- **Pausing a focus keeps it pinned at the top** (locally-tracked current focus)\n  instead of demoting it into the queue."
+        },
+        {
+          "label": "Fixed",
+          "body": "- `browser_profiles` device registration upserted on a partial index\n  `ON CONFLICT` can't target → switched to the full `(profile_id, local_id)` key."
+        },
+        {
+          "label": "Notes",
+          "body": "- Round-trip stays account-synced (desktop reflects on its next pull). Checkpoints,\n  sub-intents, and backburner are Sidecar-side today (the extension doesn't sync\n  those fields yet) — full desktop round-trip is a follow-up extension change."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.2.0",
+      "title": "Landscape Context View + realtime",
+      "date": "2026-07-17",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Landscape view-only Context View** — on a large landscape viewport\n  (computer / tablet / TV / 3rd screen) `/sidecar` becomes an ambient, view-only\n  focus screen: brand bottom-left, **day countdown (1440 min, tied to a new\n  `dayResetHour` setting)** top-right, current time bottom-middle, one giant\n  focus + timer + up-next. Controls stay on phone/extension. Auto-switches;\n  \"📺 Context view\" / \"Use controls →\" toggles.\n- **Realtime** — migration 033 adds `focus_items` + `browser_profile_status` to\n  the `supabase_realtime` publication; the app subscribes (verified SUBSCRIBED),\n  so the Context View updates live (poll kept as fallback).\n- Settings: **Day resets at (hr)** field driving the 1440 countdown."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Focus timer no longer restarts on resume** — accumulated elapsed is frozen on\n  pause (`tags._elapsedMs`) and the start is shifted on resume/switch so it\n  continues; a paused focus shows a frozen \"remaining\"."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.2.1",
+      "title": "Phone-away accountability on the big screen",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Phone-away red alert on the Context View.** When the phone is in **Phone\n  Focus Mode** and you navigate away from the Sidecar, the phone broadcasts an\n  \"away\" signal (`browser_profile_status.metadata.focusAway`); the big-screen\n  Context View — already subscribed via realtime — washes **red** with \"Put the\n  phone down\". **Slow fade-in (~7s) by default**, or **immediate** via a new\n  Settings toggle (\"Immediate phone-away alert\"). Clears when the phone returns.\n- Verified cross-device end-to-end under RLS (signal set → detected → cleared)."
         }
       ]
     }
