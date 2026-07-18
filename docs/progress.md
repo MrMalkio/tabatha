@@ -957,3 +957,12 @@ extension syncs those fields — full desktop round-trip is the next extension s
 - **New skill** `.claude/skills/showcase-site-update` — checklist-driven updates
   to the existing showcase site (tiles/roadmap/search-index/version/deploy/verify)
   so "Update the */show with…" lands everywhere and ships safely.
+
+## 2026-07-18 — Tabby Sidecar v0.2.1 (phone-away accountability)
+
+Phone Focus Mode now broadcasts a `focusAway` signal to
+`browser_profile_status.metadata` on navigate-away; the Context View (realtime)
+turns red ("Put the phone down") with a slow fade-in (~7s), or immediate via a
+new Settings toggle `focusAwayImmediate`. Cross-device path verified 2/2 under
+RLS with a minted session; tsc clean; deployed v0.2.1. Mockup updated with a
+"📵 Phone away" preview.

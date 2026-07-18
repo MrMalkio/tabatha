@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
 import { supabase } from '../lib/supabase';
@@ -40,24 +40,34 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   const now = useTick();
   const { width } = useWindowDimensions();
   const [shift, setShift] = useState<{ state: string; since: string | null } | null>(null);
+  const [phoneAway, setPhoneAway] = useState(false);
 
   const resetHour = profile?.settings?.sidecar?.dayResetHour ?? 0;
   const day = dayLeft(resetHour);
+  const immediateAlert = !!profile?.settings?.sidecar?.focusAwayImmediate;
 
-  // Account-wide clock state (any device on shift), live.
+  // Account-wide device status (live): the shift, plus the Phone Focus Mode
+  // "away" signal from any OTHER device — which drives the red overlay.
   useEffect(() => {
     if (!profile?.id) return;
     let alive = true;
     const load = async () => {
       const { data } = await supabase
         .from('browser_profile_status')
-        .select('clock_state, clocked_in_at')
-        .eq('profile_id', profile.id)
-        .in('clock_state', ['clocked_in', 'on_break'])
-        .order('last_clock_event_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (alive) setShift(data ? { state: data.clock_state, since: data.clocked_in_at } : null);
+        .select('browser_profile_id, clock_state, clocked_in_at, metadata, last_clock_event_at')
+        .eq('profile_id', profile.id);
+      if (!alive || !data) return;
+      const clocked = data
+        .filter((r: any) => r.clock_state === 'clocked_in' || r.clock_state === 'on_break')
+        .sort((a: any, b: any) => new Date(b.last_clock_event_at || 0).getTime() - new Date(a.last_clock_event_at || 0).getTime());
+      setShift(clocked[0] ? { state: clocked[0].clock_state, since: clocked[0].clocked_in_at } : null);
+      const away = data.some(
+        (r: any) =>
+          r.browser_profile_id !== browserProfileId &&
+          r.metadata?.focusAway === true &&
+          (!r.metadata?.awaySince || Date.now() - new Date(r.metadata.awaySince).getTime() < 30 * 60000)
+      );
+      setPhoneAway(away);
     };
     load();
     const ch = supabase
@@ -66,7 +76,18 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
       .subscribe();
     const iv = setInterval(load, 30000);
     return () => { alive = false; clearInterval(iv); try { supabase.removeChannel(ch); } catch {} };
-  }, [profile?.id]);
+  }, [profile?.id, browserProfileId]);
+
+  // Red "put the phone down" overlay — slow fade-in by default, immediate if
+  // configured. Fades back out quickly when the phone returns.
+  const alertOpacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(alertOpacity, {
+      toValue: phoneAway ? 1 : 0,
+      duration: phoneAway ? (immediateAlert ? 0 : 7000) : 500,
+      useNativeDriver: false,
+    }).start();
+  }, [phoneAway, immediateAlert, alertOpacity]);
 
   const cf = currentFocus;
   const stage = cf ? FUNNEL_STAGES[cf.funnel_stage] || FUNNEL_STAGES.unsorted : null;
@@ -87,6 +108,7 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   const big = Math.min(width * 0.14, 220);
 
   return (
+    <View style={{ flex: 1 }}>
     <View style={styles.root}>
       {/* context bar */}
       <View style={styles.bar}>
@@ -168,6 +190,15 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
         <Pressable onPress={onExit} style={styles.exit}><Text style={styles.exitTxt}>Use controls →</Text></Pressable>
       </View>
     </View>
+
+    {/* Phone-away accountability overlay — fades in red when the phone (in Focus
+        Mode) navigates away. Slow by default; immediate if configured. */}
+    <Animated.View pointerEvents="none" style={[styles.alert, { opacity: alertOpacity }]}>
+      <Text style={styles.alertEmoji}>📵</Text>
+      <Text style={styles.alertBig}>Put the phone down</Text>
+      <Text style={styles.alertSub}>You stepped away from focus — back to it.</Text>
+    </Animated.View>
+    </View>
   );
 }
 
@@ -212,4 +243,12 @@ const styles = StyleSheet.create({
   nowClock: { color: colors.textPrimary, fontSize: 26, fontWeight: '600', fontVariant: ['tabular-nums'], flex: 1, textAlign: 'center' },
   exit: { flex: 1, alignItems: 'flex-end' },
   exitTxt: { color: colors.textMuted, fontSize: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, overflow: 'hidden' },
+  alert: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(200,30,30,0.94)',
+    alignItems: 'center', justifyContent: 'center', gap: 10,
+  },
+  alertEmoji: { fontSize: 96 },
+  alertBig: { color: '#fff', fontSize: 64, fontWeight: '800', letterSpacing: -1, textAlign: 'center' },
+  alertSub: { color: 'rgba(255,255,255,0.9)', fontSize: 24, fontWeight: '600', textAlign: 'center' },
 });

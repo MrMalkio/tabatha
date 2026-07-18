@@ -828,3 +828,16 @@ https://tabatha.pondocean.co/sidecar
 - **Focus timer no longer restarts on resume** — accumulated elapsed is frozen on
   pause (`tags._elapsedMs`) and the start is shifted on resume/switch so it
   continues; a paused focus shows a frozen "remaining".
+
+---
+
+## [Tabby Sidecar v0.2.1] - Phone-away accountability on the big screen - _2026-07-18_
+
+### Added
+- **Phone-away red alert on the Context View.** When the phone is in **Phone
+  Focus Mode** and you navigate away from the Sidecar, the phone broadcasts an
+  "away" signal (`browser_profile_status.metadata.focusAway`); the big-screen
+  Context View — already subscribed via realtime — washes **red** with "Put the
+  phone down". **Slow fade-in (~7s) by default**, or **immediate** via a new
+  Settings toggle ("Immediate phone-away alert"). Clears when the phone returns.
+- Verified cross-device end-to-end under RLS (signal set → detected → cleared).
