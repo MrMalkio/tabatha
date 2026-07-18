@@ -249,7 +249,9 @@ footer .dot{opacity:.4}
     the rest of the desktop and tells the extension what it finds, so a stint spent in Figma, Excel or a
     call is time your day actually accounts for instead of a five-hour hole labelled "idle". It is a
     separate product with its own release line, its own palette, and its own database. Every component
-    below is built and running today, and it is now something you can download for Windows.</p>
+    below is built and running today, and it is now something you can download for Windows. Pairing it
+    with the extension is now hardened: a one-tap token exchange from a new card in Settings authenticates
+    the local bridge, replacing the open socket earlier builds shipped.</p>
 </header>
 
 <!-- Download panel. Real state as of the desktop-v0.2.0 release:
@@ -301,10 +303,10 @@ footer .dot{opacity:.4}
         <li><b>It is unsigned.</b> No code-signing certificate is configured yet, so Windows SmartScreen
           will warn on first run — "More info → Run anyway". Verify the SHA-256 above against the file you
           downloaded if you want certainty about what you're running.</li>
-        <li><b>The local interface is not yet authenticated.</b> The companion opens a WebSocket on
-          <code>127.0.0.1:9147</code> for the extension bridge. It is loopback-only and never reachable
-          from your network, but it does not yet authenticate local callers — authentication hardening is
-          in progress. Treat this as a trusted single-user-machine build.</li>
+        <li><b>The local interface is now paired.</b> The companion opens a WebSocket on
+          <code>127.0.0.1:9147</code> for the extension bridge; a fresh install now requires a one-tap
+          pairing token, exchanged from the tray's "Pair Extension" action, before it will accept a
+          connection. Still loopback-only and never reachable from your network.</li>
         <li><b>Updates are manual.</b> The companion has no auto-update channel of its own yet, so a future
           fix means downloading a new installer from the release page rather than an in-app update.</li>
       </ul>

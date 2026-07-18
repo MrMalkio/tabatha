@@ -189,32 +189,42 @@ footer .dot{opacity:.4}
     are doing right now.</p>
   <div class="cats" id="famgrid">
 
-    <a class="cat" href="#surfaces" data-k="extension browser chrome mv3 tabs gatekeeper sidebar focus engine shipped live core">
+    <a class="cat" href="#surfaces" data-k="extension browser chrome mv3 tabs gatekeeper sidebar focus engine shipped live core context view customization companion pairing card desktop activity">
       <span class="e">🧩</span>
       <div class="t">Browser Extension <span class="statusflag live">Shipped</span></div>
       <div class="d">The core product, and the only one that knows <i>why</i> you opened something. It gates new tabs,
-        binds every tab to a Context, and runs the Focus Engine the other two report into.</div>
-      <div class="items">Chrome MV3 · 8 surfaces · 90 components · self-updating channel</div>
+        binds every tab to a Context, and runs the Focus Engine the other two report into. Settings now reaches
+        out to both siblings: a Context View section tunes what the phone's big-screen mode shows (day countdown,
+        up-next, timeline, checkpoint preview, phone-away fade, day-reset hour) over the same cloud settings
+        channel Tabby Sidecar reads, and a Desktop Activity pairing card connects the companion with a one-tap token.</div>
+      <div class="items">Chrome MV3 · 8 surfaces · 90 components · self-updating channel · Context View customization · Companion pairing card</div>
       <div class="n">8 surfaces · 90 components →</div>
     </a>
 
-    <a class="cat" href="components-companion.html" data-k="companion desktop tauri rust tray windows window monitor sqlite categorizer websocket 9147 capture updater autostart download install get built tabby desk">
+    <a class="cat" href="components-companion.html" data-k="companion desktop tauri rust tray windows window monitor sqlite categorizer websocket 9147 capture updater autostart download install get built tabby desk hardened device pairing handshake auth">
       <span class="e">🖥️</span>
       <div class="t">Desktop Companion <span class="statusflag live">Built · v0.2.0</span></div>
       <div class="d">A Windows tray app that watches the rest of the desktop, so the hours you spend outside the
-        browser stop reading as idle. It is also how the extension distributes and updates itself.</div>
-      <div class="items">Tray · Desk Panel · window monitor · categorizer · local SQLite · WebSocket bridge · opt-in capture · updater · autostart</div>
+        browser stop reading as idle. It is also how the extension distributes and updates itself. Pairing with
+        the extension is now hardened: a one-tap token exchange authenticates the local bridge instead of
+        leaving it open to any caller.</div>
+      <div class="items">Tray · Desk Panel · window monitor · categorizer · local SQLite · WebSocket bridge · opt-in capture · updater · autostart · hardened device pairing</div>
       <div class="n">15 surfaces &amp; subsystems →</div>
     </a>
 
-    <a class="cat" href="https://tabatha.pondocean.co/sidecar" data-k="mobile phone tabby sidecar web companion pwa progressive web app expo react native sign in queue focus intent clock push notifications installable shipped live android ios native planned voice capture chaperone personality interrupts in-app feedback bug reporting notes simple capture context view timeline checkpoints overtime pulse phone focus mode pause on leave">
+    <a class="cat" href="https://tabatha.pondocean.co/sidecar" data-k="mobile phone tabby sidecar web companion pwa progressive web app expo react native sign in queue focus intent clock push notifications installable shipped live android ios native planned voice capture chaperone personality interrupts in-app feedback bug reporting notes simple capture context view timeline checkpoints overtime pulse phone focus mode pause on leave tasks asana personal access token pat subtasks blocked tracked time start task timer extensions snoozes self-healing auto-update crash recovery proactive voice check-ins how's it going undo quiet hours">
       <span class="e">📱</span>
-      <div class="t">Mobile · Tabby Sidecar <span class="statusflag live">Shipped · Web · v0.4.0</span></div>
+      <div class="t">Mobile · Tabby Sidecar <span class="statusflag live">Shipped · Web · v0.7.0</span></div>
       <div class="d">The queue in your pocket, today. Sign in with your Tabatha account to start an intent by typing
         or by voice, run the clock, and get a Chaperone nudge if you wander off mid-focus — installable to your
-        home screen as a PWA. Context View's bottom timeline now tracks checkpoints, starts, and overtime live;
-        a native iOS and Android app is the next step, not a rewrite.</div>
-      <div class="items">Sign in · Queue &amp; active focus · Voice capture · Chaperone interrupts · Context View timeline · Phone Focus Mode · In-app feedback · Web Push · PWA install · native iOS/Android planned</div>
+        home screen as a PWA. Tasks now sync from Asana with a personal access token: subtasks, blocked badges,
+        and tracked time appear automatically, and a Task turns into a focus (subtasks into sub-intents) with one
+        tap. Every timer extension and snooze lands on the Context View timeline as its own ⏳ node — your context,
+        kept. Go quiet on an active focus and Tabatha asks how it's going out loud; answer out loud back and it
+        applies what you said itself — extend, pause, done, or just a progress note — always with a visible
+        confirmation and Undo. Opt-in, and it respects quiet hours. The app updates and recovers itself too: a
+        new version rolls out without asking, and a crash lands on a recovery screen instead of a blank one.</div>
+      <div class="items">Sign in · Queue &amp; active focus · Voice capture · Proactive voice check-ins · Chaperone interrupts · Tasks &amp; Asana sync · Context View timeline (checkpoints, starts, extensions) · Phone Focus Mode · In-app feedback · Web Push · Self-healing PWA · native iOS/Android planned</div>
       <div class="n">Live at /sidecar →</div>
     </a>
 
@@ -241,11 +251,11 @@ footer .dot{opacity:.4}
   <a class="getstrip ready" href="https://tabatha.pondocean.co/sidecar">
     <span class="e" aria-hidden="true">📱</span>
     <span class="gs-body">
-      <span class="gs-t">Open Tabby Sidecar <span class="statusflag live">Web · v0.4.0</span></span>
+      <span class="gs-t">Open Tabby Sidecar <span class="statusflag live">Web · v0.7.0</span></span>
       <span class="gs-d">Nothing to install. Open it in any phone browser and sign in with your
-        Tabatha account; add it to your home screen for the app feel. Speak an intent, get a Chaperone
-        nudge if you wander off, and watch checkpoints tick by on the Context View timeline — your
-        queue, your focus, in your pocket.</span>
+        Tabatha account; add it to your home screen for the app feel. Speak an intent, connect Asana to
+        pull in tasks and subtasks, answer out loud when Tabatha checks in on you, and watch checkpoints
+        and timer extensions tick by on the Context View timeline — your queue, your focus, in your pocket.</span>
     </span>
     <span class="gs-go" aria-hidden="true">→</span>
   </a>
