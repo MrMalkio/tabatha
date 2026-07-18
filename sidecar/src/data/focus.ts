@@ -144,7 +144,10 @@ export function useFocus(
   const patch = useCallback(
     async (id: string, updates: Record<string, any>) => {
       setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...updates } : it)));
-      await supabase.from('focus_items').update(updates).eq('id', id);
+      // "Stuck Sidecar" incident follow-up: a silently-failing write let the
+      // optimistic flip get reverted by load() with zero signal. Surface it.
+      const { error } = await supabase.from('focus_items').update(updates).eq('id', id);
+      if (error) console.warn('focus_items update failed:', error.message, updates);
       load();
     },
     [load]
