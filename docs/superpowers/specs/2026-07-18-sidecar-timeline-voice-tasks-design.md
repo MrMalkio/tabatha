@@ -273,8 +273,13 @@ The user's Asana PAT is already available on this machine (asana-cli credential 
   `0.x`** (currently tangled in the extension 6.8.2 branch — untangle), site
   deploys tracked by date+deploy id. The repo-wide `version:sync` stays the
   extension's; other surfaces version independently.
-- **Operating model (while orchestrator is Fable 5):** orchestrator stays in
-  orchestrate/review/delegate/tastemake lanes; execution goes to **named Anasa
-  players** (vetted personas: Cirra/CeeCee/Cindra, Koda/Dex/Rook, Argus/Aegis)
-  with bounded Asana-tasked scopes, player credentials, progress updates on
-  their tasks, and persona continuity. Koda co-deliberates on plans.
+- **Operating model (refined by Malkio 2026-07-18):** the orchestrator is the
+  player **CeeCee** (CC1) and may operate directly — but takes only the hard
+  stuff; as much work as possible tiers down to cheaper models (Haiku
+  mechanical, Sonnet standard dev). Every subagent — native or external — runs
+  as a **named Anasa persona** (vetted players over anonymous: Cirra/Cindra,
+  Koda/Dex/Rook, Argus/Aegis, ...) with a real Asana task it updates as it works
+  (progress, blockers, findings), player credentials, and persona continuity.
+  **At most one other Fable 5 subagent at a time — the "Kael" persona.** Koda
+  co-deliberates on plans; after deliberation CeeCee+Koda decide if deeper
+  multi-persona collaboration is warranted.
