@@ -170,7 +170,27 @@ Deno.serve(async () => {
     .contains('tags', { _src: 'sidecar' })
     .limit(500);
 
-  for (const f of (sidecarActive ?? []) as FocusRow[]) {
+  const activeFoci = (sidecarActive ?? []) as FocusRow[];
+
+  // ── Pass C setup: batched checkpoint-staleness lookup ──
+  // Was: one `focus_checkpoints` query per active focus inside the Pass A
+  // loop (N+1). Replaced with a single `IN (...)` query over every scanned
+  // focus's client_id, then reduced in memory to the latest row per
+  // focus_client_id. One query instead of N, same result per focus.
+  const clientIds = activeFoci.map((f) => f.client_id).filter(Boolean);
+  const latestByClient = new Map<string, { created_at: string }>();
+  if (clientIds.length) {
+    const { data: latestCps } = await admin
+      .from('focus_checkpoints')
+      .select('focus_client_id, created_at')
+      .in('focus_client_id', clientIds)
+      .order('created_at', { ascending: false });
+    for (const cp of (latestCps ?? []) as { focus_client_id: string; created_at: string }[]) {
+      if (!latestByClient.has(cp.focus_client_id)) latestByClient.set(cp.focus_client_id, cp);
+    }
+  }
+
+  for (const f of activeFoci) {
     results.scanned++;
     if (timerExpired(f)) {
       await deliver(f.profile_id, f.id, 'timer_expired', {
@@ -183,14 +203,8 @@ Deno.serve(async () => {
       });
     }
 
-    // ── Pass C: checkpoint staleness ──
-    const { data: cp } = await admin
-      .from('focus_checkpoints')
-      .select('created_at')
-      .eq('focus_client_id', f.client_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // ── Pass C: checkpoint staleness (batched lookup, see above) ──
+    const cp = latestByClient.get(f.client_id);
     if (cp && Date.now() - new Date(cp.created_at).getTime() > CHECKPOINT_STALE_MS) {
       await deliver(f.profile_id, f.id, 'checkpoint_stale', {
         title: '📋 Checkpoint due',
