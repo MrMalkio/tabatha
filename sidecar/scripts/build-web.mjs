@@ -13,7 +13,12 @@ const dist = path.join(root, 'dist');
 const out = path.join(root, 'deploy', 'public', 'sidecar');
 
 if (process.argv.includes('--export')) {
-  execSync('npx expo export -p web', { cwd: root, stdio: 'inherit' });
+  execSync('npx expo export -p web --clear', { cwd: root, stdio: 'inherit' });
+  // --clear: the Metro cache lives in node_modules/.cache, which is SHARED
+  // across worktrees via junctions -- a concurrent dev-server session can
+  // poison it and yield a routeless 1.1MB skeleton bundle (2026-07-18
+  // v0.6.1 incident: export "succeeded", metadata.fileMetadata empty).
+  // Deploy builds must never trust that cache.
 }
 
 const HEAD = `
