@@ -957,3 +957,94 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 **Fix (Opus merge):** staging merged into the cortex branch @ 12f6147 — both feature sets verified coexisting (resumeFocus fallback re-preserved), version → 6.6.0, staging's colliding migration 022 renumbered → 026 and applied to Flux (local==remote @ 026). Tests 408 → **536 green**; build green; content scripts clean. Lesson reinforced: the pinned dist path serves whichever line the main dir is on — the build/load constraint's worktree warning was the mechanism.
 
 **Next:** Malkio reloads → verifies time editor back; NB-01/02 schedule profiles remain on their branch (explicitly gated) — bring over on request.
+## 2026-07-17 — Tabby Sidecar v0.0.1 (Plan 039)
+
+**Goal:** Ship the extension sidebar as a mobile web companion at
+`tabatha.pondocean.co/sidecar`, synced to the user's Tabatha account, built in
+React Native so a real mobile app is an incremental step later.
+
+**Done (LIVE):**
+- New Expo + React Native Web app in `sidecar/` (SPA web export, `baseUrl:/sidecar`).
+  Auth-gated single shell + custom bottom tab bar: Focus, Tasks, Clock, Recent, Settings.
+- Direct Supabase data layer (schema `tabatha`, publishable key, owner-RLS): reads
+  `focus_items` (active + full queue + history), `tasks_registry`, `clock_sessions`,
+  `intent_history`; writes off-device intents (`tags._src='sidecar'`, `_off=true`),
+  a phone clock (own open session → `browser_profile_status` + closed `clock_sessions`),
+  and registers the phone as its own `browser_profiles` mobile surface.
+- Auth: Google OAuth + magic link (web flows, no chrome.identity). Redirect allowlist
+  patched via Management API to add `/sidecar` URLs (existing entries preserved).
+- Web Push: SW at `/sidecar/sw.js`, subscription capture → `push_subscriptions`
+  (migration 030), edge fn `send-focus-push` (deployed + smoke-tested HTTP 200,
+  `npm:web-push` + VAPID), pg_cron every-minute trigger (migration 031, key in Vault).
+- Deploy: Cloudflare Worker `tabby-sidecar` on route `tabatha.pondocean.co/sidecar*`
+  (Pages root site untouched — verified 200 on both). App renders login UI live.
+
+**Key findings / decisions:**
+- This worktree branched at v6.5.0; remote Supabase is at migration 029 (unmerged
+  branches). Used placeholder-then-repair to push only 030/031 without phantom drift.
+- Sync is push+pull-on-signin, not realtime → v0.0.1 is account-synced ("appears on
+  the extension's next pull"); instant desktop round-trip deferred (user-chosen).
+- `focus_items` is a synced subset (no live startedAt) → live countdown only for
+  sidecar-created focuses (carry `_startedAt`).
+
+**Next steps:** User to verify end-to-end on a phone (sign in → create intent → see it
+sync → 1-min-timer push). Then v0.0.2: instant desktop realtime ingest, native
+iOS/Android (Expo run), checkpoint-staleness pushes, richer stash/awareness.
+
+**Autonomous verification + fix (same session):** minted a real user session for
+mr@duckandshark.com (admin `generateLink` + `verifyOtp`) and ran the app's exact
+RLS-scoped queries — **14/14 pass**. Caught + fixed a real bug: `browser_profiles`
+upsert used `onConflict (profile_id,browser)` (a partial index ON CONFLICT can't
+target) → device registration silently failed; switched to the full
+`(profile_id,local_id)` index (the extension's own target) and redeployed. Push
+pipeline confirmed: an expired sidecar focus was scanned by `send-focus-push` and
+delivered to a **real registered device** (existing FCM subscription on the account).
+**PR #23 → staging.** Asana Flux Development project update posted.
+
+## 2026-07-17 (cont.) — Tabby Sidecar v0.1.0
+
+Merged v0.0.1 PR #23 to staging (kept in the main repo — shares Supabase
+schema/migrations). Built + deployed v0.1.0:
+- **Full Focus parity:** edit (label/timer/stage/client/project/backdate),
+  checkpoint notes + timeline (new `focus_checkpoints` table, migration 032),
+  sub-intents (tags._parent), backburner dock (tags._backburner + snooze),
+  on/off-computer toggle. **Pause now pins the current focus** at the top
+  (AsyncStorage currentFocusId) instead of demoting to queue.
+- **Clock:** "Your shift" (was "this phone's shift"); surfaces other devices on
+  the clock. **off-device → off-computer** rename; create CTA dropped "(off-device)".
+- **PWA:** manifest + icons + Apple meta injected post-export (scripts/build-web.mjs)
+  → installable to Home Screen (unlocks iOS push). **Phone Focus Mode** via Page
+  Visibility (leave-detection → nudge).
+- **Push parity:** send-focus-push now covers timer + drift + checkpoint-staleness.
+- **Fix:** browser_profiles upsert → (profile_id,local_id) full index.
+Re-verified 4/4 new RLS paths (checkpoints + tag ops) with a minted session;
+`tsc` clean on all new code. Deployed Worker (v0.1.0), edge fn redeployed.
+
+**Sync-limit note:** checkpoints/sub-intents/backburner are Sidecar-side until the
+extension syncs those fields — full desktop round-trip is the next extension slice.
+
+## 2026-07-17 (cont.) — Tabby Sidecar v0.2.0 + showcase-update skill
+
+- **Fixed** the pause→resume timer restart (freeze elapsed, shift start).
+- **Shipped the landscape Context View** into `/sidecar` (real data via
+  useFocus/useClock; auto-switch on large landscape; brand BL / day-countdown TR
+  / time BM; giant focus + timer + up-next; view-only w/ toggle). Added a
+  `dayResetHour` setting for the 1440 countdown.
+- **Realtime** (migration 033): focus_items + browser_profile_status in the
+  realtime publication; useFocus subscribes. Verified query OK + subscribe
+  SUBSCRIBED via a minted session. tsc clean. Deployed v0.2.0.
+- **Marketing site** (via background agent, verified live): homepage Sign-in
+  button → /sidecar, /show reflagged "Tabby Sidecar · Shipped", roadmap cards
+  added; branch pushed.
+- **New skill** `.claude/skills/showcase-site-update` — checklist-driven updates
+  to the existing showcase site (tiles/roadmap/search-index/version/deploy/verify)
+  so "Update the */show with…" lands everywhere and ships safely.
+
+## 2026-07-18 — Tabby Sidecar v0.2.1 (phone-away accountability)
+
+Phone Focus Mode now broadcasts a `focusAway` signal to
+`browser_profile_status.metadata` on navigate-away; the Context View (realtime)
+turns red ("Put the phone down") with a slow fade-in (~7s), or immediate via a
+new Settings toggle `focusAwayImmediate`. Cross-device path verified 2/2 under
+RLS with a minted session; tsc clean; deployed v0.2.1. Mockup updated with a
+"📵 Phone away" preview.

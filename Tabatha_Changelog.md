@@ -863,3 +863,74 @@ Data is preserved by chrome.storage migrations — `intentChangeLog`, legacy tas
 
 - Established the "Context-First" data model where every tab must have a purpose
   or inherit one.
+
+---
+
+## [Tabby Sidecar v0.1.0] - Full sidebar parity + PWA + unified clock - _2026-07-17_
+
+Companion mobile web app (separate from the extension version line). Live at
+https://tabatha.pondocean.co/sidecar
+
+### Added
+- **Near 1:1 Focus parity with the sidebar:** edit panel (label, timer, stage,
+  client/project, backdate start), checkpoint notes + timeline (new synced
+  `focus_checkpoints` table, migration 032), sub-intents, backburner dock
+  (resume/snooze/dismiss), on/off-computer toggle, NOW/drift states.
+- **Phone Focus Mode** — Page Visibility detection: leave the Sidecar and it
+  nudges you back (groundwork for phone-down focus triggers).
+- **PWA install** — web manifest + icons + Apple meta, so it installs to the
+  Home Screen (also what unlocks iOS Web Push).
+- **Expanded push parity** — `send-focus-push` now delivers timer-expiry,
+  **drift**, and **checkpoint-staleness** notifications (was timer only).
+
+### Changed
+- **Clock** reframed from "this phone's shift" to **"Your shift"**, and now
+  surfaces other devices on the clock ("Also on the clock") — one shift, many
+  devices.
+- Renamed **off-device → off-computer** everywhere (clearer: at vs away from the
+  computer). Create CTA dropped the "(off-device)" tag (it's implied by surface).
+- **Pausing a focus keeps it pinned at the top** (locally-tracked current focus)
+  instead of demoting it into the queue.
+
+### Fixed
+- `browser_profiles` device registration upserted on a partial index
+  `ON CONFLICT` can't target → switched to the full `(profile_id, local_id)` key.
+
+### Notes
+- Round-trip stays account-synced (desktop reflects on its next pull). Checkpoints,
+  sub-intents, and backburner are Sidecar-side today (the extension doesn't sync
+  those fields yet) — full desktop round-trip is a follow-up extension change.
+
+---
+
+## [Tabby Sidecar v0.2.0] - Landscape Context View + realtime - _2026-07-17_
+
+### Added
+- **Landscape view-only Context View** — on a large landscape viewport
+  (computer / tablet / TV / 3rd screen) `/sidecar` becomes an ambient, view-only
+  focus screen: brand bottom-left, **day countdown (1440 min, tied to a new
+  `dayResetHour` setting)** top-right, current time bottom-middle, one giant
+  focus + timer + up-next. Controls stay on phone/extension. Auto-switches;
+  "📺 Context view" / "Use controls →" toggles.
+- **Realtime** — migration 033 adds `focus_items` + `browser_profile_status` to
+  the `supabase_realtime` publication; the app subscribes (verified SUBSCRIBED),
+  so the Context View updates live (poll kept as fallback).
+- Settings: **Day resets at (hr)** field driving the 1440 countdown.
+
+### Fixed
+- **Focus timer no longer restarts on resume** — accumulated elapsed is frozen on
+  pause (`tags._elapsedMs`) and the start is shifted on resume/switch so it
+  continues; a paused focus shows a frozen "remaining".
+
+---
+
+## [Tabby Sidecar v0.2.1] - Phone-away accountability on the big screen - _2026-07-18_
+
+### Added
+- **Phone-away red alert on the Context View.** When the phone is in **Phone
+  Focus Mode** and you navigate away from the Sidecar, the phone broadcasts an
+  "away" signal (`browser_profile_status.metadata.focusAway`); the big-screen
+  Context View — already subscribed via realtime — washes **red** with "Put the
+  phone down". **Slow fade-in (~7s) by default**, or **immediate** via a new
+  Settings toggle ("Immediate phone-away alert"). Clears when the phone returns.
+- Verified cross-device end-to-end under RLS (signal set → detected → cleared).
