@@ -12,8 +12,19 @@
 //   dayLeft                   <- sidecar/src/screens/ContextView.tsx (lines ~38-44)
 //     (parameterized on `now` here for determinism; the real component always
 //     calls `new Date()` with no override)
+//   computeIntervals / totalTrackedMs / cumulativeTrackedAt
+//                              <- sidecar/src/data/events.ts (verbatim copy —
+//                                 these three are already pure exports with
+//                                 no RN/supabase dependency of their own; the
+//                                 module just can't be imported standalone
+//                                 because the file's TOP-LEVEL import of
+//                                 `../lib/supabase` pulls in AsyncStorage /
+//                                 react-native at module-load time)
 //
-// If either source function changes, update the mirror + re-run this file.
+// If any source function changes, update the mirror + re-run this file.
+// NOTE: `computeIntervals`/`events.ts` landed in a v0.4.0 merge (focus_events
+// / CV timeline, Lane A chunk 2) that arrived in this shared worktree mid-QA
+// -- see the QA report's "scope note" for what that does and doesn't affect.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -198,4 +209,144 @@ test('dayLeft: text formatting pads minutes to 2 digits', () => {
   const { text, mins } = dayLeft(0, now);
   assert.equal(mins, 5);
   assert.equal(text, '0:05');
+});
+
+// ── computeIntervals / totalTrackedMs / cumulativeTrackedAt ───────────
+// mirror: sidecar/src/data/events.ts (verbatim)
+
+function computeIntervals(events, isActive, now) {
+  const intervals = [];
+  let openAt = null;
+  for (const e of events) {
+    const t = new Date(e.at).getTime();
+    if (!Number.isFinite(t)) continue;
+    if (e.kind === 'start' || e.kind === 'resume') {
+      if (openAt == null) openAt = t;
+    } else if (e.kind === 'pause' || e.kind === 'resolve') {
+      if (openAt != null) {
+        intervals.push({ start: openAt, end: Math.max(openAt, t) });
+        openAt = null;
+      }
+    }
+  }
+  if (openAt != null && isActive) {
+    intervals.push({ start: openAt, end: Math.max(openAt, now) });
+  }
+  return intervals;
+}
+
+function totalTrackedMs(intervals) {
+  return intervals.reduce((sum, iv) => sum + Math.max(0, iv.end - iv.start), 0);
+}
+
+function cumulativeTrackedAt(intervals, t) {
+  let sum = 0;
+  for (const iv of intervals) {
+    if (iv.start >= t) continue;
+    sum += Math.max(0, Math.min(iv.end, t) - iv.start);
+  }
+  return sum;
+}
+
+function ev(kind, atMs) {
+  return { kind, at: new Date(atMs).toISOString() };
+}
+
+test('computeIntervals: single start->pause pair produces one closed interval', () => {
+  const t0 = Date.now() - HOUR;
+  const events = [ev('start', t0), ev('pause', t0 + 10 * MIN)];
+  const ivs = computeIntervals(events, false, Date.now());
+  assert.equal(ivs.length, 1);
+  assert.equal(ivs[0].start, t0);
+  assert.equal(ivs[0].end, t0 + 10 * MIN);
+});
+
+test('computeIntervals: resume->resolve also pairs as a closing event', () => {
+  const t0 = Date.now() - HOUR;
+  const events = [ev('resume', t0), ev('resolve', t0 + 5 * MIN)];
+  const ivs = computeIntervals(events, false, Date.now());
+  assert.equal(ivs.length, 1);
+  assert.equal(ivs[0].end - ivs[0].start, 5 * MIN);
+});
+
+test('computeIntervals: multiple start/pause/resume/resolve cycles pair correctly in order', () => {
+  const t0 = Date.now() - 2 * HOUR;
+  const events = [
+    ev('start', t0),
+    ev('pause', t0 + 10 * MIN),
+    ev('resume', t0 + 20 * MIN),
+    ev('pause', t0 + 25 * MIN),
+    ev('resume', t0 + 40 * MIN),
+    ev('resolve', t0 + 50 * MIN),
+  ];
+  const ivs = computeIntervals(events, false, Date.now());
+  assert.equal(ivs.length, 3);
+  assert.equal(totalTrackedMs(ivs), 10 * MIN + 5 * MIN + 10 * MIN);
+});
+
+test('computeIntervals: dangling open interval (start with no closing event) is DISCARDED when not active', () => {
+  const t0 = Date.now() - HOUR;
+  // A stale/lost close: 'start' fired but nothing ever paused/resolved it,
+  // and the focus is not currently active (e.g. app crashed mid-session).
+  const events = [ev('start', t0)];
+  const ivs = computeIntervals(events, /* isActive */ false, Date.now());
+  assert.equal(ivs.length, 0, 'a dangling open interval on a non-active focus must not count');
+});
+
+test('computeIntervals: dangling open interval counts "to now" ONLY when the focus IS currently active', () => {
+  const t0 = Date.now() - HOUR;
+  const events = [ev('start', t0)];
+  const now = Date.now();
+  const ivs = computeIntervals(events, /* isActive */ true, now);
+  assert.equal(ivs.length, 1);
+  assert.equal(ivs[0].start, t0);
+  assert.equal(ivs[0].end, now);
+});
+
+test('computeIntervals: a closing event with no preceding open event is ignored (no negative/garbage interval)', () => {
+  const t0 = Date.now() - HOUR;
+  const events = [ev('pause', t0), ev('start', t0 + 5 * MIN), ev('pause', t0 + 15 * MIN)];
+  const ivs = computeIntervals(events, false, Date.now());
+  assert.equal(ivs.length, 1, 'the orphan leading pause must not produce a spurious interval');
+  assert.equal(ivs[0].start, t0 + 5 * MIN);
+  assert.equal(ivs[0].end, t0 + 15 * MIN);
+});
+
+test('computeIntervals: out-of-order timestamp within a pair still clamps end >= start (no negative interval)', () => {
+  const t0 = Date.now();
+  // Pathological: a 'pause' event timestamped BEFORE its 'start' (clock skew
+  // across a resync). end must clamp to >= start via Math.max, never negative.
+  const events = [ev('start', t0), ev('pause', t0 - 5000)];
+  const ivs = computeIntervals(events, false, Date.now());
+  assert.equal(ivs.length, 1);
+  assert.equal(ivs[0].end, ivs[0].start, 'end should clamp to start, not go negative');
+});
+
+test('totalTrackedMs: sums all closed intervals', () => {
+  const ivs = [
+    { start: 0, end: 10 * MIN },
+    { start: 20 * MIN, end: 25 * MIN },
+  ];
+  assert.equal(totalTrackedMs(ivs), 15 * MIN);
+});
+
+test('cumulativeTrackedAt: truncates a partial (still-open-at-cutoff) interval at the cutoff time', () => {
+  const ivs = [{ start: 0, end: 100 * MIN }];
+  assert.equal(cumulativeTrackedAt(ivs, 30 * MIN), 30 * MIN);
+});
+
+test('cumulativeTrackedAt: fully excludes intervals that start at/after the cutoff', () => {
+  const ivs = [
+    { start: 0, end: 10 * MIN },
+    { start: 50 * MIN, end: 60 * MIN }, // entirely after the cutoff
+  ];
+  assert.equal(cumulativeTrackedAt(ivs, 30 * MIN), 10 * MIN);
+});
+
+test('cumulativeTrackedAt: fully includes intervals that end before the cutoff', () => {
+  const ivs = [
+    { start: 0, end: 10 * MIN },
+    { start: 15 * MIN, end: 20 * MIN },
+  ];
+  assert.equal(cumulativeTrackedAt(ivs, 30 * MIN), 15 * MIN);
 });
