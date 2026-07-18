@@ -1,4 +1,5 @@
-// NB-03 — migration-lint guard for 022_org_admin_helpers.sql.
+// NB-03 — migration-lint guard for 026_org_admin_helpers.sql.
+// (Renumbered from 022 during cortex-branch merge; 022–025 are Cortex migrations.)
 // A live SQL-shape test isn't feasible under `node --test` (no Postgres),
 // so this inspects the migration text (same file-inspection style as
 // test/manifestKey.test.js) and asserts the Koda-mandated hardening is
@@ -10,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const migrationPath = fileURLToPath(
-  new URL('../supabase/migrations/022_org_admin_helpers.sql', import.meta.url)
+  new URL('../supabase/migrations/026_org_admin_helpers.sql', import.meta.url)
 );
 const sql = await readFile(migrationPath, 'utf8');
 
@@ -27,7 +28,7 @@ const FUNCTIONS = {
 // runs until the next one (so the block includes body + its REVOKE/GRANT).
 const blocks = sql.split(/(?=CREATE OR REPLACE FUNCTION)/).slice(1);
 
-test('022 defines exactly the five NB-03 helper functions', () => {
+test('026 defines exactly the five NB-03 helper functions', () => {
   assert.equal(blocks.length, Object.keys(FUNCTIONS).length,
     `expected ${Object.keys(FUNCTIONS).length} CREATE OR REPLACE FUNCTION statements, found ${blocks.length}`);
   for (const name of Object.keys(FUNCTIONS)) {
@@ -37,7 +38,7 @@ test('022 defines exactly the five NB-03 helper functions', () => {
 });
 
 for (const [name, argTypes] of Object.entries(FUNCTIONS)) {
-  test(`022 hardening — tabatha.${name}`, () => {
+  test(`026 hardening — tabatha.${name}`, () => {
     const block = blocks.find(b =>
       new RegExp(`^CREATE OR REPLACE FUNCTION tabatha\\.${name}\\s*\\(`).test(b));
     assert.ok(block, `no CREATE block found for tabatha.${name}`);
@@ -60,7 +61,7 @@ for (const [name, argTypes] of Object.entries(FUNCTIONS)) {
   });
 }
 
-test('022 body objects are schema-qualified (safe under empty search_path)', () => {
+test('026 body objects are schema-qualified (safe under empty search_path)', () => {
   // With search_path = '' any unqualified relation would fail at runtime.
   // Guard the tables the helpers touch: every reference must carry tabatha.
   assert.doesNotMatch(sql, /\bFROM\s+(?!tabatha\.|pg_)(profiles|org_members|team_members|teams)\b/i,
@@ -69,7 +70,7 @@ test('022 body objects are schema-qualified (safe under empty search_path)', () 
     'found an unqualified JOIN <table> reference');
 });
 
-test('022 keeps manager OUT of the org-wide admin set', () => {
+test('026 keeps manager OUT of the org-wide admin set', () => {
   // The is_org_wide_admin role list must be exactly owner/admin.
   const m = sql.match(/is_org_wide_admin[\s\S]*?om\.role IN \(([^)]*)\)/);
   assert.ok(m, 'could not locate the role IN (...) list inside is_org_wide_admin');

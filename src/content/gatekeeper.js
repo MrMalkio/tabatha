@@ -118,6 +118,13 @@
     .mode-strict { background: #ff6b6b22; color: #ff6b6b; }
     .mode-relaxed { background: #66bb6a22; color: #66bb6a; }
 
+    /* C11a — "Who's working?" segmented control (human default / agent) */
+    .who-working { display: flex; gap: 4px; margin-bottom: 12px; background: #222; border: 1px solid #333; border-radius: 8px; padding: 3px; }
+    .who-opt { flex: 1; padding: 7px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; color: #888; background: transparent; border: 1px solid transparent; transition: background 0.15s, color 0.15s, border-color 0.15s; margin: 0; }
+    .who-opt:active { transform: none; }
+    .who-opt.human.selected { background: #00e5ff18; color: #00e5ff; border-color: #00e5ff44; }
+    .who-opt.agent.selected { background: #7c4dff22; color: #b388ff; border-color: #7c4dff66; }
+
     input, select {
       width: 100%;
       padding: 9px 12px;
@@ -281,6 +288,12 @@
     <h1>Why are you here?${modeBadge}</h1>
     <p class="subtitle" data-tip="Tabatha helps you browse with intention">Define your intent to proceed.</p>
     ${contextSource === 'inherited' ? `<div style="font-size:10px;color:#888;margin-bottom:6px;text-align:left;">Inherited from parent tab — confirm or change:</div>` : ''}
+
+    <div class="who-working" id="who-working">
+      <button class="who-opt human selected" data-who="human" data-tip="You are doing this work — tracked as human time">🧑 I'm working</button>
+      <button class="who-opt agent" data-who="agent" data-tip="An AI agent is driving this tab — time recorded as agent-driven">🤖 Agent</button>
+    </div>
+
     <input type="text" id="context" placeholder="What are you working on?" value="${inheritedContext.replace(/"/g, '&quot;')}" autofocus data-tip="Type a new intent, or skip and click a preset below">
 
     ${activeHTML}
@@ -304,6 +317,31 @@
 
   // 7. Logic
   const ctxInput = shadow.getElementById('context');
+
+  // C11a — "Who's working?" segmented control. Default 'human' (no span). When
+  // 'agent' is selected, submitting the intent also opens a tab-scoped
+  // controller span so the whole intent's time is attributed agent-driven.
+  let whoWorking = 'human';
+  shadow.querySelectorAll('.who-opt').forEach(btn => {
+    btn.onclick = () => {
+      whoWorking = btn.getAttribute('data-who');
+      shadow.querySelectorAll('.who-opt').forEach(b => b.classList.toggle('selected', b === btn));
+      if (ctxInput) ctxInput.focus();
+    };
+  });
+  const maybeStartAgentSession = async () => {
+    if (whoWorking !== 'agent') return;
+    try {
+      const tab = await chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' });
+      await chrome.runtime.sendMessage({
+        type: 'START_AGENT_SESSION',
+        scope: 'tab',
+        tabId: tab?.tabId ?? null,
+        agentName: 'manual',
+        source: 'manual'
+      });
+    } catch (e) { /* best-effort — never block the intent */ }
+  };
 
   const closeOverlay = () => {
     host.remove();
@@ -339,6 +377,7 @@
         parentContext: presetLabel
       }).catch(() => {});
     }
+    await maybeStartAgentSession();
     await logAction(focusId ? 'inherit' : 'continue', { context, focusId, parentContext: typed ? presetLabel : null });
     closeOverlay();
   };
@@ -352,6 +391,7 @@
       return;
     }
     await chrome.runtime.sendMessage({ type: 'SET_TAB_CONTEXT', context, category: 'work', intent: 'user_defined' }).catch(() => {});
+    await maybeStartAgentSession();
     await logAction('continue', { context });
     closeOverlay();
   };

@@ -47,7 +47,54 @@ export const DEFAULT_SETTINGS = {
   driftSnoozeMinutes: 5,                  // "just checking" snooze duration
   // ── URL Rules Intelligence (Plan 038) ──
   domainHistoryMaxDomains: 2000,          // LRU cap on the persistent domain store
+  // ── Cortex — AI Observation & Optimization Layer (Plan 039/040) ──
+  screenshotCapture: false,               // MASTER enable for adaptive capture (opt-in; previously inert)
+  keystrokeAnalytics: false,              // (reserved) keystroke-derived signals
+  captureDwellSeconds: 10,                // dwell-interval fallback while staying in one context
+  captureMinGapSeconds: 2,                // min gap between captures (anti-thrash)
+  captureOnContextChange: true,           // capture on tab/window/app/focus/intent change
+  captureStoragePath: 'Tabatha/Cortex/captures', // local-first store (Downloads-relative; MV3 can't write arbitrary paths)
+  captureQuality: 60,                     // JPEG quality for captured frames
+  captureRedactionStyle: 'blackout',      // C2 redaction render: 'blackout' (safest) | 'blur'
+  sensitiveRules: [],                     // C2 per-site/app suppression + redaction rules
+  captureRetention: {                     // C3 retention — personal vs org, by time (space added in T4)
+    personal: { maxAgeDays: 30 },
+    org: { maxAgeDays: 90 }
+  },
+  // C6 — Multi-cadence optimization (Plan 043 T3)
+  cortexIntradayEnabled: false,           // opt-in: LOW/intraday optimization passes (EOD high pass is the nightly export)
+  cortexIntradayEveryMins: 120,           // LOW cadence period (also the intraday ledger-slice window)
+  cortexEodHour: 22,                      // HIGH/EOD pass fires at/after this local hour (guards the last intraday pass)
+  // C10 — Passive Self-Correction (Plan 042 T7)
+  selfCorrectionEnabled: false,           // MASTER enable for passive self-correction (opt-in; nightly + on-demand)
+  selfCorrectionConfidence: 'high',       // min confidence to auto-apply: 'explicit' | 'high' | 'medium' | 'low' (below → queued suggestion)
+  // C9 — Voice & Audio (Plan 042 T2/T5) — unified schema per docs/cortex/DECISION-voice-settings.md.
+  // Default OFF everywhere; #211 webspeech is the shipped substrate, C9 the superset.
+  voice: {
+    enabled: false,                       // master opt-in (C15 density dial gates surfaces)
+    hotkeys: {
+      transcribe: 'Alt+Shift+T',          // C9 hotkey 1 — field dictation (pure, no interpretation)
+      speak:      'Alt+Shift+V',          // C9 hotkey 2 — keeps #211's binding (its single hotkey maps here)
+      note:       'Alt+Shift+N'           // C9 hotkey 3 — voice note → Flux context
+    },
+    stt: {                                // per-hotkey provider tier (C9 cost control)
+      transcribe: 'webspeech',            // free/local; the shipped VoiceInput.jsx path
+      speak:      'webspeech',            // auto-upgrades to 'routed' when a C8 routing tier is configured
+      note:       'webspeech'
+    },                                    // values: 'webspeech' | 'routed' (C8 tier ①–④ decides the actual provider)
+    speakMode: 'process-then-reply',      // 'realtime' | 'process-then-reply' | 'silent-update'
+    output: {                             // "Tabby speaks" (C9 §output)
+      enabled: false,
+      toneBeforeSpeak: true,
+      micPreOpenMs: 1500,                 // "hold off" interjection window
+      modalFallback: true,                // silent/absent user → modal
+      perModalType: {}                    // modalType → 'speak' | 'modal' | 'silent'
+    },
+    floatingButton: false,                // #211 Phase B omnipresent mic button
+    mirrorToLedger: true                  // everything dictated also feeds C4 (C9 hard rule)
+  },
   storage: {
+    cortexLedgerCap: 5000,
     snapshotIntervalMinutes: 30,
     snapshotCap: 20,
     logsCap: 500,

@@ -255,7 +255,7 @@ export const SETTINGS_SEARCH_INDEX = [
 
   // ── Integrations ──
   { id: 'integrations-asana', section: 'integrations', label: 'Asana integration', keywords: ['asana', 'widget', 'time entries', 'project management'] },
-  { id: 'integrations-supabase', section: 'integrations', label: 'Supabase Cloud Sync', keywords: ['supabase', 'cloud', 'sync', 'account', 'connected'] },
+  { id: 'integrations-supabase', section: 'integrations', label: 'Cloud Sync', keywords: ['supabase', 'cloud', 'sync', 'account', 'connected'] },
   { id: 'integrations-companion', section: 'integrations', label: 'Desktop Companion', keywords: ['companion', 'desktop', 'tracker', 'apps'] },
 
   // ── Developer ──

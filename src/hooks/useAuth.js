@@ -1,5 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { supabase, dataClient, updateProfileName } from '../services/supabaseClient';
+
+// Instant-display cache for the profile row (esp. display_name). Persisted to
+// chrome.storage.local so a rename survives a page reload before the server
+// confirms, and so the name renders immediately on next open without waiting
+// on a network read. Reconciled against the server profile on every fetch.
+const PROFILE_CACHE_KEY = '_profileCache';
+
+async function readCachedProfile() {
+  try {
+    if (!chrome?.storage?.local) return null;
+    const { [PROFILE_CACHE_KEY]: cached } = await chrome.storage.local.get(PROFILE_CACHE_KEY);
+    return cached && typeof cached === 'object' ? cached : null;
+  } catch { return null; }
+}
+
+async function writeCachedProfile(profile) {
+  try {
+    if (!chrome?.storage?.local || !profile) return;
+    await chrome.storage.local.set({ [PROFILE_CACHE_KEY]: profile });
+  } catch { /* best-effort */ }
+}
 
 // Auth diagnostics — same chrome.storage key the syncService uses, so the
 // Settings → Account "Sync Status" panel can surface auth-side failures too.
@@ -83,6 +104,8 @@ export function useAuth() {
 
     try {
       // 1. Get or create profile.
+      // Reads go through `dataClient` (accessToken from background) — never the
+      // auth client — so they can't re-enter auth-js's init lock and deadlock.
       // Defensive read: try the wide column list first; if any column is missing
       // (e.g. migration 005 not applied yet — adds default_org_id/default_team_id),
       // fall back to the minimal set so the user can still sign in and see their
@@ -97,7 +120,7 @@ export function useAuth() {
       // Save a silent no-op (it requires profile.id).
       const BARE = 'id, auth_user_id, display_name';
 
-      const tryRead = async (cols) => supabase
+      const tryRead = async (cols) => dataClient
         .schema('tabatha')
         .from('profiles')
         .select(cols)
@@ -123,37 +146,22 @@ export function useAuth() {
       prof = readRes.data;
 
       if (!prof) {
-        // No row yet — auto-provision on first login.
-        const { data: { user } } = await supabase.auth.getUser();
-        const displayName = user?.user_metadata?.full_name
-          || user?.user_metadata?.name
-          || user?.email?.split('@')[0]
-          || 'Tabatha User';
-        const avatarUrl = user?.user_metadata?.avatar_url || null;
-
-        const { data: newProf, error: insertErr } = await supabase
-          .schema('tabatha')
-          .from('profiles')
-          .insert({
-            auth_user_id: authUserId,
-            display_name: displayName,
-            avatar_url: avatarUrl,
-          })
-          .select()
-          .single();
-
-        if (insertErr) {
-          await writeAuthDiagnostic('profile_insert_failed', insertErr);
-          console.error('Tabatha: Failed to create profile:', insertErr);
+        // No row yet — auto-provision on first login. The insert is a mutation,
+        // so it runs in the background (single auth owner), not page context.
+        const res = await chrome.runtime.sendMessage({ type: 'ENSURE_PROFILE' });
+        if (!res?.ok || !res.profile) {
+          await writeAuthDiagnostic('profile_insert_failed', res?.error || 'ENSURE_PROFILE returned no profile');
+          console.error('Tabatha: Failed to create profile:', res?.error);
           return null;
         }
-        prof = newProf;
+        prof = res.profile;
       }
 
       setProfile(prof);
+      writeCachedProfile(prof);
 
       // 2. Fetch org memberships
-      const { data: orgRows } = await supabase
+      const { data: orgRows } = await dataClient
         .schema('tabatha')
         .from('org_members')
         .select('org_id, role, organizations:org_id(name)')
@@ -167,7 +175,7 @@ export function useAuth() {
       setOrgs(orgList);
 
       // 3. Fetch team memberships
-      const { data: teamRows } = await supabase
+      const { data: teamRows } = await dataClient
         .schema('tabatha')
         .from('team_members')
         .select('team_id, role, teams:team_id(name)')
@@ -187,28 +195,29 @@ export function useAuth() {
     }
   }, []);
 
-  // ─── Init: check existing session ─────────────────────────
-  // Defensive: getSession() and fetchProfile() are each raced against a
-  // timeout so the "Loading auth state…" UI can't hang forever if Supabase
-  // is unreachable or its client is wedged. On timeout we record a diagnostic,
-  // proceed signed-out, and let the user retry by reloading the page.
+  // ─── Init: source session state from the background ───────────
+  // The background service worker is the single auth owner whose client never
+  // wedges. We ask IT for the current session (GET_AUTH_STATE) instead of
+  // running page-local supabase.auth.getSession() — the latter can hang forever
+  // on the auth-js init lock in an extension page, which produced the
+  // "auth.getSession timed out after 15000ms" diagnostic. We also paint the
+  // cached profile immediately so the display name renders without a round-trip.
   useEffect(() => {
     let cancelled = false;
-    const AUTH_TIMEOUT_MS = 15000;
-    const withTimeout = (p, label) => Promise.race([
-      p,
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label}: timed out after ${AUTH_TIMEOUT_MS}ms`)), AUTH_TIMEOUT_MS))
-    ]);
 
     (async () => {
-      try {
-        const { data: { session: existing } } = await withTimeout(supabase.auth.getSession(), 'auth.getSession');
-        if (cancelled) return;
+      // Instant paint from the persisted profile cache (name survives reload).
+      const cached = await readCachedProfile();
+      if (!cancelled && cached) setProfile(cached);
 
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'GET_AUTH_STATE' });
+        if (cancelled) return;
+        const existing = res?.session || null;
         setSession(existing);
         if (existing?.user?.id && !hasFetched.current) {
           hasFetched.current = true;
-          await withTimeout(fetchProfile(existing.user.id), 'fetchProfile');
+          await fetchProfile(existing.user.id);
         }
       } catch (err) {
         await writeAuthDiagnostic('auth_init_failed', err);
@@ -218,19 +227,33 @@ export function useAuth() {
       }
     })();
 
-    // Listen for auth changes (login, logout, token refresh)
+    // Listen for auth changes (login, logout, token refresh) on the AUTH client.
+    // CRITICAL: never `await` a Supabase call synchronously inside this callback
+    // — doing so re-enters auth-js's init lock and self-deadlocks the client for
+    // its whole lifetime. We defer all follow-up work off the callback's
+    // microtask (setTimeout 0), exactly as auth-js does internally, and notify
+    // the background so it can auto-sync + flush the cloud outbox on sign-in.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
+      (event, newSession) => {
         if (cancelled) return;
         setSession(newSession);
-
-        if (newSession?.user?.id) {
-          await fetchProfile(newSession.user.id);
-        } else {
-          setProfile(null);
-          setOrgs([]);
-          setTeams([]);
-        }
+        setTimeout(() => {
+          if (cancelled) return;
+          if (newSession?.user?.id) {
+            hasFetched.current = true;
+            fetchProfile(newSession.user.id);
+          } else {
+            setProfile(null);
+            setOrgs([]);
+            setTeams([]);
+            try { if (chrome?.storage?.local) chrome.storage.local.remove(PROFILE_CACHE_KEY); } catch { /* ignore */ }
+          }
+          // Tell the background (single auth owner) to auto-sync + flush the
+          // outbox on sign-in — the user should never have to click "Sync now".
+          try {
+            chrome.runtime.sendMessage({ type: 'AUTH_STATE_CHANGED', event, hasSession: !!newSession });
+          } catch { /* SW asleep — the SW-boot flush covers this */ }
+        }, 0);
       }
     );
 
@@ -318,13 +341,47 @@ export function useAuth() {
     }
   }, [session, fetchProfile]);
 
+  // ─── Optimistic + queued display-name save ────────────────
+  // Updates the local profile cache immediately (so the name survives a reload
+  // before the server confirms) and hands the write to the background outbox.
+  // No 10s UI timeout race: the outbox flushes with backoff and reconciles when
+  // the realtime profile channel (or next refresh) reports the server value.
+  const saveDisplayName = useCallback(async (rawName) => {
+    const displayName = (rawName || '').trim();
+    const profileId = profile?.id || null;
+    const authUserId = session?.user?.id || null;
+    if (!displayName || !(profileId || authUserId)) {
+      return { ok: false, error: 'Enter a name first.' };
+    }
+    // Optimistic local update + persist.
+    setProfile(prev => {
+      const next = { ...(prev || {}), display_name: displayName };
+      writeCachedProfile(next);
+      return next;
+    });
+    try {
+      const res = await updateProfileName({ displayName, profileId, authUserId });
+      return { ok: true, queued: !!res?.queued, deferred: !!res?.deferred };
+    } catch (err) {
+      // updateProfileName already falls back to persisting the write directly
+      // into the durable outbox when the SW can't be reached. Reaching this
+      // catch means even that local persist failed — a genuine failure, not a
+      // deferred success. Surface it so the UI shows an error and the user can
+      // retry, instead of silently claiming a save that never got queued.
+      await writeAuthDiagnostic('display_name_save_failed', err);
+      return { ok: false, error: 'Could not save your name — please try again.' };
+    }
+  }, [profile?.id, session?.user?.id]);
+
   // ─── Realtime: keep `profile` row in lockstep with the cloud ────
   // When this user's profile row changes on another install (or in
   // Studio), refetch so display_name / avatar_url / default_realm
   // propagate live without requiring a page reload.
   useEffect(() => {
     if (!profile?.id) return;
-    const channel = supabase
+    // Realtime on the dataClient (token routed from background) so the channel's
+    // auth handshake never touches the page auth client's lock machinery.
+    const channel = dataClient
       .channel(`profile_${profile.id}`)
       .on(
         'postgres_changes',
@@ -345,6 +402,7 @@ export function useAuth() {
     signOut,
     forceResetAuth,
     refreshProfile,
+    saveDisplayName,
     isSignedIn: !!session,
   };
 }

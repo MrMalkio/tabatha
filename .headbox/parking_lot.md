@@ -476,3 +476,31 @@
   1. Cap `_archive_*` to N months + surface a Settings → Storage panel with per-key byte usage and a "clear archives" action
   2. Move archives/audit to IndexedDB (already hinted in archiveService comment) and keep chrome.storage for hot state only
   3. Prune completed focusEngine items older than the retention window into the archive during the existing retention alarm ← **suggested (pairs with 1)**
+
+## 2026-07-09 — Extension `.pem` may break persistence across restarts
+- **Noticed while:** Scoping the Cortex AI layer — user flagged it as an unrelated but pressing issue.
+- **What:** A `.pem` was recently added for the extension. User suspects it's why the unpacked extension disappears on every machine restart, forcing a manual "Load unpacked" reinstall. Need a build that installs indefinitely (until Chrome Web Store deploy) **without losing history tied to the extension ID**. Chrome Web Store keys data to the extension ID; a brand-new unrelated ID would orphan the existing data — UNLESS our Supabase sync already rehydrates everything on login (needs verification).
+- **Why it matters:** Daily friction for the only active user (Malkio); risks data loss if the ID changes; blocks a stable dogfood loop.
+- **Options:**
+  1. Verify sync fully rehydrates on login (→ ID change becomes safe), then ship a stable no-`.pem` unpacked build with a pinned `key` in manifest so the ID stays constant ← **suggested**
+  2. Keep the current `.pem`/`key` but fix the actual restart-disable cause (Chrome dev-mode extension disabling on restart) via a persistence workaround
+  3. Fast-track the Chrome Web Store unlisted listing so auto-update + stable ID come for free (ties to Plan 019 distribution)
+
+## 2026-07-09 — Desktop Companion: latest changes not yet deployed + Headbox integration in flight
+- **Noticed while:** Scoping the Cortex AI layer — user noted "a lot going on at once" and is losing sight of it.
+- **What:** The desktop companion (`C:\Users\mrmal\Le Dev\tabatha-desktop`, separate repo) has unshipped changes; the packaged/deployed binary lags the latest work. Separately, Tabatha↔Headbox integration work is in progress and entangled with this. Cortex Phase 1 (C1 OS-capture handoff) depends on a current companion.
+- **Why it matters:** Cortex's browser⇄OS capture handoff and cross-signal work assume an up-to-date companion; shipping Cortex on a stale companion would fragment behavior. Also a general "get the train back on the rails" item.
+- **Options:**
+  1. Before Cortex Phase 1 build starts, cut a companion release that folds in all pending changes + the Headbox integration, then baseline from there ← **suggested**
+  2. Freeze companion at current deployed version; do Cortex Phase 1 browser-only (defer C1 OS-capture to Phase 2)
+  3. Inventory all in-flight companion/Headbox threads first (single status doc) before deciding sequencing
+
+## 2026-07-10 — Agent Control Layer (Tabatha CLI/MCP) — BACK BURNER until Cortex complete
+- **Noticed while:** Cortex continuation session — Malkio explicitly parked it.
+- **What:** Agents need to read/write/coordinate THROUGH Tabatha (set intents, focuses, clock, context notes; use Tabatha as agent working-memory during computer/browser use) via an MCP server + CLI. The efferent sibling of Cortex (which only observes). Boundary + phasing scoped.
+- **Why it matters:** Closes the loop Cortex opens; required for honest attribution (C11a shipped as the prereq) and multi-agent coordination on the machine.
+- **Options:**
+  1. MCP-first via desktop companion WS bridge (harness-native) ← **suggested**
+  2. CLI-first thin wrapper for scripting/cron
+  3. Extension native-messaging host (no companion dependency)
+- **Artifacts:** docs/cortex/PROGRAM-agent-control-layer.md · Asana task 1216454646338939

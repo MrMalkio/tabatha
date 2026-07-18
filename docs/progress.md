@@ -875,6 +875,88 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 
 ---
 
+## 2026-07-09/10 — Cortex Overnight (Fable): Program Expansion + Phase 1 T4–T6
+
+**Goal:** Autonomous overnight session for the Tabatha Cortex program (Plans 039/040): finish the program spec expansion, continue Phase 1 with TDD discipline, mirror docs to Drive, keep Asana current.
+
+**Done:**
+- **Docs/spec:** All 15 feature files (C1–C15) expanded stub → full spec via 6 parallel subagents; reconciled against the verbatim braindumps and closed 3 spec gaps (universal audio-input replacement, tabatha-mobile repos in the reuse map, multi-screen/per-window capture nuance). Plans 041–044 (Phases 2–5) authored + registered; registry next number = 045. DATA-MAP.md populated (27 signals, real retention/redaction/access values); workspace-map current. Drive mirror: features/prompts/plans subfolders + Google-Doc link headers on all locals. HANDOFF.md written for Malkio.
+- **Phase 1 T4 (capture I/O):** captureVisibleTab (window-targeted) → canvas redaction (blackout/blur BEFORE persist, fail-closed) → partitioned frame writes via chrome.downloads under Downloads/Tabatha/Cortex/captures/<personal|org>/YYYY-MM/; suppressed frames record context-only observations; tab/window/focus listeners; 30s dwell heartbeat; 03:30 nightly ledger export; per-partition age retention. New TDD utils: captureArtifacts.js, ledgerExport.js.
+- **Phase 1 T5 (cron-in-harness + dashboard):** harnessCron.js (claude-code + codex bundle builder, cortex-recommendations.v1 contract), master prompt economize-workflow.v1 (docs/cortex/prompts + embedded mirror), cortexService (list/import/approve/dismiss), CortexPanel dashboard in Settings → Privacy & Capture.
+- **Quality loop:** Opus reviewer audited the T4/T5 diff — 6 findings, all fixed: incognito capture fail-closed, serialized ledger/state mutations, capture pinned to guarded window, setEnabled routed via settingsService, redaction fails closed on invalid rules, single download-erase listener.
+- **Asana:** 15 C-cluster subtasks under program task 1216437560480330; progress comments on program + Phase 1 tasks; gating comments on .pem + companion-deploy board items; green project status update.
+
+**Key findings:** MV3 can't write arbitrary filesystem paths (captureStoragePath is Downloads-relative until the companion handoff, Plan 041); chrome.alarms floor makes dwell resolution ≥30s; C9 voice has a settings-schema collision with feature #211 (blocker for Plan 042); tabatha-mobile is scaffold-only (a feature doc over-claimed it — DATA-MAP corrected); pruning removes ledger rows but not orphaned frame files (open question).
+
+**Tests/build:** 256/256 node --test green; npm run build green. Commits d228dc1, 85d8100 (+ final wrap-up commit) on claude/tabatha-ai-integration-layer-91903b. Nothing pushed.
+
+**Next steps:** Malkio manual regression of Phase 1 (see HANDOFF.md smoke-test) → v7.0.0 bump; re-sync program-spec Google Doc (2 local additions); decide migration 022 apply; companion deploy gates Plan 041; reconcile C9↔#211 before voice work.
+
+---
+
+## 2026-07-10 (continuation) — Cortex: regression cleared + Phases 2–5 advanced
+
+**Goal:** Verify Malkio's smoke-test failures, then continue autonomously through the remaining Cortex phases.
+
+**Regression verdict:** Real-browser regression (Playwright + Chrome 150, fresh profile; Chrome 137+ requires CDP Extensions.loadUnpacked) — 11/11 PASS on the current dist including the exact reported failures (clock-out, unpause, "Setting…"). Root cause: stale MV3 service worker after overnight dist rebuilds; reload rule codified in AGENTS.md (Build→Load #5). Hardening: RESUME_FOCUS id-fallback.
+
+**Shipped (extension, commits c98e459→wrap-up; 332/332 tests, build green):**
+- Phase 2: morning digest + approved-actions export (cortex-actions.v1) + C15 config surface v1 (routing/proactivity); cortex-proxy edge fn code (tier-②, deploy pending secret); routing-ladder resolver; companion handoff wiring (CAPTURE_TAKEN → ledger, config mirroring, host-only rules never travel).
+- Phase 3: T0 voice-schema decision (C9↔#211, Drive-mirrored); voice v0 — Tabby speaks instead of FTE/drift overlays (tone → hold-off mic window → varied generated line → modal fallback; no new permissions), home voice-note button → ledger; C10 self-correction v1 (detectors + confidence-laddered apply/revert via activityAudit, nightly 04:00, opt-in).
+- Phase 4: proactivity gate, overnight EXECUTE bundle builder (review-first hard rules), migration 023 org_capture_policy (not applied).
+- Phase 5: controller-attribution decision core.
+
+**Shipped (companion, tabatha-desktop feat/cortex-capture @ 006c3aa; 68/68 cargo tests):** screen_capture.rs + settings.rs — GDI window/per-monitor-same-timestamp/virtual capture, browser-focused handoff rule, guard parity (fail-closed redaction), age+bytes retention, CAPTURE_CONFIG/GET_CAPTURE_STATE/CAPTURE_TAKEN WS contract, tray toggle.
+
+**Quality loop:** Opus review over the Phase 2/3 diff → 1 confirmed finding fixed (self-correction storage race narrowed to single-round-trip targeted mutations); InBar voice interception verified safe (modal can never be swallowed; voice-off path byte-identical; no ESM leak into the content script).
+
+**Next steps:** Malkio: extension reload + re-smoke-test → v7.0.0; merge/deploy companion branch (closes the deploy gate); deploy cortex-proxy (set secret); later: migrations 022/023, gateway/ElevenLabs keys, .pem before manifest-permission phases. Remaining phase work: routed STT/TTS + realtime voice + dictation engine (042), multi-cadence + SOP mode + Headbox placement (043), signals/analytics/camera/mobile/Mac (044).
+
+---
+
+## 2026-07-10 (afternoon) — Live-fix session: capture UX, clock, companion v0.2.0, DB push + repair
+
+**Goal:** Address Malkio's live-testing reports (Save-As dialogs, capture not following activity, clock desync, desk panel dead, sync stale) under the new delegation rules (Fable orchestrates; Opus agents own terminal/browser; Sonnet agents launch/synthesize; Supabase+Asana via CLI).
+
+**Done:**
+- Migrations **018–024 pushed to live Flux** via CLI with Malkio's new token (remote was at 017 — registry record corrected). Sync's schema drift closed.
+- Extension `2f171b5` (361 tests): silent capture writes (companion WS CAPTURE_FRAME / OPFS fallback — Save-As dialog eliminated), C1 focus-gate (tab capture only while Chrome focused), tab-title slug in filenames, clock-state request on connect, pendingCortexExports buffering.
+- Companion `b94f7d0` @ feat/cortex-capture (79 tests): desk panel fixed (custom-protocol default → embedded UI), **v0.2.0** shown in title/tray, clock_in idempotency fix (root cause of clock desync), CAPTURE_FRAME/WRITE_EXPORT/FILE_WRITTEN handlers (path-safe), OS-frame title slugs; verified desktop capture was already writing (62+45 frames) — visibility artifact, not a capture failure.
+- Companion **v0.2.0 swapped in + relaunched** (Sonnet operator); then its SQLite activity DB (pre-existing corruption, likely from dual-instance writes + force-kills) **rebuilt via raw b-tree page salvage — 372 app_sessions + 1 clock_session recovered**, integrity ok, clean startup.
+- Persistence root-caused (Chrome GC on crashed exit + ghost pre-key entry + build race) → atomic dist swap shipped, constraint rules updated, Asana board comment posted via CLI.
+- ElevenLabs scoped key minted → env store (K10 ✅). C10a + Agent Control Layer scoped (doc + Asana task each; control layer BACK BURNER post-Cortex). C11a attribution v1 shipped.
+- WHAT-REMAINS.md maintained as the living status page.
+
+**Next steps (Malkio):** Supabase re-sign-in (sole sync blocker) · remove ghost extension card · verify v0.2.0 (panel/clock/silent capture) · merge/deploy feat/cortex-capture · Phase 1 regression → v7.0.0 · deploy cortex-proxy.
+
+---
+
+## 2026-07-10 (evening) — Delegated push: deploy closed, Phases 2/3/4 advanced, proxy live
+
+**Done (all via delegated agents per Malkio's tiering — Opus in-flight work finished, new dispatches Sonnet):**
+- **Companion deployed**: feat/cortex-capture merged → master @ dbf8cd7, tagged v0.2.0, master-built exe swapped + relaunched clean (Plan 041 T1 CLOSED, Asana board item updated). Companion SQLite DB rebuilt earlier via raw b-tree salvage after corruption.
+- **cortex-proxy live** (tier-② routing; 401-protected; OpenAI secret server-side) — Plan 041 T3 done.
+- **Migration 025 applied** (surface CHECK incl. voice/desktop/mobile — discovered 022 never had the constraint the docs assumed).
+- **C10a Context Reconciliation v1 shipped** (b8a1fb7): Reconcile-now panel, 4 proposal kinds incl. retroactive time edits, confirm/skip + context box; C11a-stamped, audited, reversible.
+- **Plan 043 T3 multi-cadence shipped**: cadence decision table, intraday slice exports + economize-intraday.v1, dual-cadence harness bundle, opt-in flags.
+- **Plan 045 registered** — Agent Control Layer formalized as Cortex Phase 6 (back-burnered post-Cortex).
+- Ghost extension entry confirmed on disk (dph… still in Secure Preferences) w/ removal steps; CortexPanel live-status fix (b9a1965); dist verified to carry the silent-capture fix (15/16 in-browser PASS).
+- Suite: **408/408 node tests**, builds green both repos.
+
+**Next steps:** Malkio — reload extension, Supabase re-sign-in, ghost card removal, Phase 1 regression → v7.0.0. Engineering — 041 archive adapters; 042 voice (routed STT/TTS via live proxy, .pem-gated hotkeys); 043 T5 SOP + T6 Headbox placement; 044 wired later with 041 per Malkio.
+
+---
+
+## 2026-07-10 (night) — "Removed features" investigation → staging merge restoration (v6.6.0)
+
+**Report:** Malkio noticed the advanced intent time editor was gone. Three Sonnet analysts ran parallel audits:
+1. In-branch sweep: all 32 cortex commits verified — ZERO regressions/overwrites; every on-branch feature intact at HEAD.
+2. Time-editor hunt: the advanced editor = NB-09 (c429db5, authored by Malkio on staging Jul 5) — AFTER the cortex branch forked from main@6.5.0 (Jul 1). Never on this branch; never deleted.
+3. Fork-gap: staging = v6.6.0 with 17 commits we lacked (NB-03 roles, NB-04 analytics, NB-05 abandoned stints, NB-08 settings search, NB-09 time editing + gap detector, storage guard, PGRST204 sync resilience). Previous dist was built from that line.
+
+**Fix (Opus merge):** staging merged into the cortex branch @ 12f6147 — both feature sets verified coexisting (resumeFocus fallback re-preserved), version → 6.6.0, staging's colliding migration 022 renumbered → 026 and applied to Flux (local==remote @ 026). Tests 408 → **536 green**; build green; content scripts clean. Lesson reinforced: the pinned dist path serves whichever line the main dir is on — the build/load constraint's worktree warning was the mechanism.
+
+**Next:** Malkio reloads → verifies time editor back; NB-01/02 schedule profiles remain on their branch (explicitly gated) — bring over on request.
 ## 2026-07-17 — Tabby Sidecar v0.0.1 (Plan 039)
 
 **Goal:** Ship the extension sidebar as a mobile web companion at

@@ -1,5 +1,7 @@
 -- ============================================================
--- Tabatha Migration 022 — Org admin/role helper functions (NB-03)
+-- Tabatha Migration 026 — Org admin/role helper functions (NB-03)
+-- (Renumbered from 022 during cortex-branch merge: 022–025 were taken by the
+--  already-applied Cortex ledger migrations. Content unchanged.)
 -- ============================================================
 -- Org roles/permissions foundation. Roles live in tabatha.org_members.role
 -- (owner / manager / sub_manager / admin / user / read_only — CHECK

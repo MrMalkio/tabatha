@@ -8,7 +8,7 @@
 -- and the old row's browser_profile_status stayed frozen at 'clocked_in'.
 --
 -- This migration persists the install's localId as `local_id` and adds a
--- partial unique index so ensureBrowserProfileRow() can UPSERT on
+-- unique index so ensureBrowserProfileRow() can UPSERT on
 -- (profile_id, local_id) — making the same install map to one row whenever
 -- storage survives, and making concurrent inserts idempotent.
 --

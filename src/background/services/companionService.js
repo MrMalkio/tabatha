@@ -64,6 +64,10 @@ class CompanionBridge {
         this._updateStorageStatus(true);
         this._emit('connected', {});
         this._syncCurrentFocus();
+        // FIX-2: pull the companion's current clock state on connect so a
+        // companion that was already clocked-in (or out) before the extension
+        // came up reflects immediately, without waiting for a change broadcast.
+        this.requestClockState();
       };
 
       this.ws.onmessage = (event) => {
@@ -171,6 +175,32 @@ class CompanionBridge {
     return this.send({ type: 'GET_CLOCK_STATE' });
   }
 
+  // Cortex Plan 041 T1: push capture config to the companion (C1 handoff —
+  // the companion captures only while the browser is blurred).
+  sendCaptureConfig(config) {
+    return this.send({ type: 'CAPTURE_CONFIG', ...config });
+  }
+
+  requestCaptureState() {
+    return this.send({ type: 'GET_CAPTURE_STATE' });
+  }
+
+  // Cortex C3 (silent frame write): hand a redacted frame to the companion,
+  // which owns the real base dir and writes it silently, then replies
+  // FILE_WRITTEN. rel_path is root-relative (partition/YYYY-MM/filename); the
+  // companion prefixes its configured capture root.
+  sendCaptureFrame(relPath, dataUrl) {
+    return this.send({ type: 'CAPTURE_FRAME', rel_path: relPath, data_url: dataUrl });
+  }
+
+  // Cortex C4/C6 (silent export write): hand the nightly ledger/actions export
+  // to the companion, which writes it under its exports/ dir and replies
+  // FILE_WRITTEN with rel_path 'exports/<filename>'. `content` is the already
+  // serialized file body (string).
+  sendWriteExport(filename, content) {
+    return this.send({ type: 'WRITE_EXPORT', filename, content });
+  }
+
   _handleMessage(msg) {
     // Plan 036: any inbound message proves the companion is alive.
     this.lastMessageAt = Date.now();
@@ -201,6 +231,24 @@ class CompanionBridge {
 
       case 'UPDATE_READY':
         this._handleUpdateReady(msg);
+        break;
+
+      // Cortex Plan 041 T1: OS-side capture events (companion owns capture
+      // while the browser is blurred). captureService folds these into the
+      // observations ledger via the listener registered in background.js.
+      case 'CAPTURE_TAKEN':
+        this._emit('captureTaken', msg);
+        break;
+
+      case 'CAPTURE_STATE':
+        this._emit('captureState', msg);
+        break;
+
+      // Cortex C3/C4: companion ack that a CAPTURE_FRAME / WRITE_EXPORT landed
+      // on disk. The extension already recorded its observation optimistically,
+      // so this is fire-and-forget — log + emit for any interested listener.
+      case 'FILE_WRITTEN':
+        this._handleFileWritten(msg);
         break;
 
       default:
@@ -261,6 +309,15 @@ class CompanionBridge {
         console.error('[CompanionBridge] chrome.runtime.reload() failed:', e);
       }
     }, 1500);
+  }
+
+  _handleFileWritten(msg) {
+    if (msg?.ok === false) {
+      console.warn('[CompanionBridge] FILE_WRITTEN failed:', msg?.rel_path, msg?.error || '');
+    } else {
+      console.debug('[CompanionBridge] FILE_WRITTEN:', msg?.rel_path);
+    }
+    this._emit('fileWritten', msg);
   }
 
   _handleAppSwitch(msg) {

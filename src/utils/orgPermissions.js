@@ -4,7 +4,8 @@
 //   orgs  — Array<{ org_id, role, org_name }>   (tabatha.org_members)
 //   teams — Array<{ team_id, role, team_name }> (tabatha.team_members)
 //
-// SCOPING RULE (Koda-vetted, mirrors migration 022):
+// SCOPING RULE (Koda-vetted, mirrors migration 026 — the org_admin_helpers
+// migration, renumbered from 022 during the cortex-branch merge):
 //   • owner / admin         → ORG-WIDE authority over that org's members.
 //   • manager / sub_manager → NEVER org-wide. Their authority is scoped to
 //     the teams where they hold a manager-tier team_members row.

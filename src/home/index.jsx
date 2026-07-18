@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
@@ -1454,6 +1454,120 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
 }
 
 // ════════════════════════════════════════════
+// Cortex C9 — Voice Note button (Plan 042 T5, Hotkey-3 groundwork)
+// In-page 🎙️ button: webspeech dictation → RECORD_VOICE_OBSERVATION so the
+// transcript lands as a partition-aware C4 observation (kind:'voice'). This is
+// a button, not a global hotkey — chrome.commands additions are a manifest
+// change, which is out of scope for this slice. Renders nothing unless voice
+// is enabled in settings AND the browser supports SpeechRecognition.
+// ════════════════════════════════════════════
+// C11a — Agent-driven session chip. Visible ONLY while a machine/window-scoped
+// controller span is open anywhere in this install; clicking it ends the span.
+// Self-contained (mirrors VoiceNoteButton) — reads via LIST_AGENT_SESSIONS and
+// re-reads whenever the agentSessions storage key changes.
+function AgentSessionChip() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const r = await sendMessage('LIST_AGENT_SESSIONS', {});
+        const open = (r?.open || []).filter((s) => s.scope === 'machine' || s.scope === 'window');
+        if (mounted) setSession(open.length ? open[open.length - 1] : null);
+      } catch { /* service unavailable */ }
+    };
+    load();
+    const listener = (changes) => { if (changes.agentSessions) load(); };
+    chrome.storage.local.onChanged.addListener(listener);
+    return () => { mounted = false; chrome.storage.local.onChanged.removeListener(listener); };
+  }, []);
+
+  if (!session) return null;
+
+  const end = async () => {
+    try { await sendMessage('END_AGENT_SESSION', { id: session.id }); setSession(null); } catch { /* noop */ }
+  };
+
+  return (
+    <Tooltip text="An agent is marked as driving this session — click to end it">
+      <button
+        onClick={end}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '5px',
+          background: '#7c4dff1f', border: '1px solid #7c4dff66', borderRadius: 'var(--radius-md)',
+          color: '#b388ff', padding: '3px 9px', fontSize: '11px', fontWeight: 600,
+          cursor: 'pointer', backdropFilter: 'var(--surface-blur)', whiteSpace: 'nowrap'
+        }}
+      >
+        🤖 Agent session · end
+      </button>
+    </Tooltip>
+  );
+}
+
+function VoiceNoteButton({ enabled }) {
+  const [listening, setListening] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const recognitionRef = useRef(null);
+  const transcriptRef = useRef('');
+
+  const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!enabled || !SR) return null;
+
+  const flash = (msg) => { setConfirm(msg); setTimeout(() => setConfirm(''), 2600); };
+
+  const stop = () => { try { recognitionRef.current?.stop(); } catch { /* noop */ } };
+
+  const start = () => {
+    if (listening) { stop(); return; }
+    let rec;
+    try { rec = new SR(); } catch { flash('Mic unavailable'); return; }
+    transcriptRef.current = '';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onstart = () => setListening(true);
+    rec.onresult = (event) => {
+      let finalText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+      }
+      if (finalText) transcriptRef.current += (transcriptRef.current ? ' ' : '') + finalText.trim();
+    };
+    rec.onerror = (e) => { setListening(false); flash(e?.error === 'not-allowed' ? 'Mic denied' : 'Voice error'); };
+    rec.onend = async () => {
+      setListening(false);
+      const transcript = transcriptRef.current.trim();
+      if (!transcript) { flash('No speech heard'); return; }
+      const res = await sendMessage('RECORD_VOICE_OBSERVATION', { transcript, kind: 'voice-note' });
+      flash(res?.ok ? '✓ Voice note saved' : 'Save failed');
+    };
+    recognitionRef.current = rec;
+    try { rec.start(); } catch { flash('Could not start'); }
+  };
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      <Tooltip text={listening ? 'Stop & save voice note' : 'Voice note (dictate → ledger)'}>
+        <button
+          onClick={start}
+          style={{
+            background: listening ? '#ef535022' : 'var(--color-surface)',
+            border: `1px solid ${listening ? '#ef5350' : 'var(--color-border)'}`,
+            borderRadius: 'var(--radius-md)', color: listening ? '#ef5350' : 'var(--color-text-primary)',
+            padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)'
+          }}
+        >
+          {listening ? '⏹' : '🎙️'}
+        </button>
+      </Tooltip>
+      {confirm && <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{confirm}</span>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // Main Home Component
 // ════════════════════════════════════════════
 function Home() {
@@ -1727,7 +1841,9 @@ function Home() {
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
+            <AgentSessionChip />
             <CompanionStatus compact />
+            <VoiceNoteButton enabled={!!settings.voice?.enabled} />
             <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>

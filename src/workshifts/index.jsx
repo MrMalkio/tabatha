@@ -6,6 +6,8 @@ import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStora
 import { GlassCard } from '../components/ui/GlassCard';
 import { formatTime } from '../utils/formatTime';
 import { computeWorkAnalytics, analyticsToCsv, dayKey } from '../utils/workAnalytics';
+// NB-01/NB-02: server-backed 3-mode schedule view (self / manage / requests).
+import { ScheduleView } from './ScheduleView.jsx';
 
 // ── Stub marker style ──
 // Any feature that is scaffolded but not yet functional uses this style
@@ -635,74 +637,9 @@ function BreakNotes({ shiftIndex, breaks }) {
 }
 
 // ── Schedule View ──
-function ScheduleView() {
-  const [schedule, setSchedule] = useChromeStorage('workSchedule', {});
-  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const [editing, setEditing] = useState(null);
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('17:00');
-
-  const saveDay = (day) => {
-    setSchedule(prev => ({ ...prev, [day]: { start: startTime, end: endTime, enabled: true } }));
-    setEditing(null);
-  };
-
-  const toggleDay = (day) => {
-    setSchedule(prev => ({
-      ...prev,
-      [day]: prev[day] ? { ...prev[day], enabled: !prev[day].enabled } : { start: '09:00', end: '17:00', enabled: true }
-    }));
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <GlassCard style={{ padding: '20px' }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 700 }}>📋 Work Schedule</h3>
-        <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0 0 16px' }}>
-          Set your planned work hours. Tabatha will track adherence and can remind you to clock in/out.
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {DAYS.map(day => {
-            const entry = schedule[day];
-            const isEditing = editing === day;
-            return (
-              <div key={day} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                <button onClick={() => toggleDay(day)} style={{ background: 'transparent', border: 'none', fontSize: '14px', cursor: 'pointer', padding: 0 }}>
-                  {entry?.enabled ? '✅' : '⬜'}
-                </button>
-                <span style={{ width: '90px', fontSize: '12px', fontWeight: 600 }}>{day}</span>
-                {isEditing ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: '3px', color: 'var(--color-text-primary)', padding: '2px 4px', fontSize: '11px' }} />
-                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>→</span>
-                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ background: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: '3px', color: 'var(--color-text-primary)', padding: '2px 4px', fontSize: '11px' }} />
-                    <button onClick={() => saveDay(day)} style={{ background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '3px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}>Save</button>
-                    <button onClick={() => setEditing(null)} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '3px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}>Cancel</button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                    <span style={{ fontSize: '11px', color: entry?.enabled ? 'var(--color-text-primary)' : 'var(--color-text-muted)', opacity: entry?.enabled ? 1 : 0.5 }}>
-                      {entry ? `${entry.start} → ${entry.end}` : 'Not set'}
-                    </span>
-                    <button onClick={() => { setEditing(day); setStartTime(entry?.start || '09:00'); setEndTime(entry?.end || '17:00'); }} style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: '3px', padding: '1px 6px', fontSize: '9px', cursor: 'pointer', marginLeft: 'auto' }}>✏️</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Stub: Schedule features */}
-        <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button disabled style={stubBtnStyle}>🔔 Clock-in Reminders <span style={STUB_BADGE}>SOON</span></button>
-          <button disabled style={stubBtnStyle}>📊 Adherence Tracking <span style={STUB_BADGE}>SOON</span></button>
-          <button disabled style={stubBtnStyle}>🔄 Recurring Patterns <span style={STUB_BADGE}>SOON</span></button>
-        </div>
-      </GlassCard>
-    </div>
-  );
-}
+// NB-01/NB-02: extracted to ./ScheduleView.jsx (three modes: self / manage /
+// requests, server-backed via migration 027 with the legacy local
+// `workSchedule` key kept as an offline cache).
 
 // ═══════════════════════════════════════
 // Live Stints — all of this user's installs and their clock state, with the
