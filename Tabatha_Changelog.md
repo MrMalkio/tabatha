@@ -5,6 +5,14 @@ file.
 
 ---
 
+## [v6.7.28] - Desktop companion updater manifest - _2026-07-18_
+
+> Marketing site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **Desktop companion self-update manifest.** Serves the Tauri v2 updater manifest at `/desktop/latest.json` so the companion can self-update. Points `windows-x86_64` at the `desktop-v0.2.1` GitHub release NSIS installer with its minisign signature.
+
 ## [v6.7.27] - Changelog drift gate no longer trips on Windows line endings - _2026-07-18_
 
 ### Fixed
