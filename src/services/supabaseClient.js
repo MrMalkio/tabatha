@@ -365,3 +365,19 @@ export async function updateProfileName({ displayName, profileId = null, authUse
     return { ok: true, success: true, queued: true, deferred: true };
   }
 }
+
+/**
+ * Epic 9 — patch one or more top-level `profiles.settings` keys via the
+ * SECURITY DEFINER RPC `tabatha.update_profile_settings` (migration 038),
+ * routed through the background (the single never-wedged auth owner, same
+ * pattern as createOrganization/redeemInviteToken above). `patch` is an
+ * object keyed by the allow-listed top-level settings key, e.g.
+ * `{ contextView: { showTimeline: false } }`. Returns the RPC's result
+ * object `{ success, settings }` on success (unwrapped from the background's
+ * `{ ok, data }` envelope) so callers can trust the server-merged value
+ * rather than re-deriving it client-side.
+ */
+export async function updateProfileSettings({ profileId, patch }) {
+  const res = await callBackground('UPDATE_PROFILE_SETTINGS', { profileId, patch });
+  return res.data;
+}
