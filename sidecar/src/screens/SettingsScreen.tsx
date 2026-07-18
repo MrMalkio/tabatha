@@ -20,6 +20,7 @@ import {
   queuedFeedbackCount,
   type FeedbackKind,
 } from '../lib/feedback';
+import { connectAsana, syncAsanaNow, useAsanaIntegration } from '../data/integrations';
 
 const REALMS = ['professional', 'work', 'business', 'personal'];
 
@@ -87,6 +88,15 @@ export default function SettingsScreen() {
   const [scheduleMsg, setScheduleMsg] = useState<string | null>(null);
   const [scheduleErr, setScheduleErr] = useState<string | null>(null);
   const [nudgeMsg, setNudgeMsg] = useState<string | null>(null);
+
+  // Epic 3 v1 — Task Sync (Asana) card. `patDraft` holds the user-typed
+  // token only until the connect request resolves; it is never logged or
+  // persisted (see data/integrations.ts).
+  const asana = useAsanaIntegration(profile?.id ?? null);
+  const [patDraft, setPatDraft] = useState('');
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [taskSyncMsg, setTaskSyncMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>('bug');
   const [feedbackText, setFeedbackText] = useState('');
@@ -189,6 +199,49 @@ export default function SettingsScreen() {
     };
     await saveSidecarSettings({ nudges: nextNudges });
     setNudgeMsg('Nudge settings saved.');
+  };
+
+  const onConnectAsana = async () => {
+    if (connectBusy || !patDraft.trim()) return;
+    setConnectBusy(true);
+    setTaskSyncMsg(null);
+    try {
+      const res = await connectAsana(patDraft);
+      if (res.ok) {
+        setPatDraft(''); // credential leaves memory the moment it's stored server-side
+        setTaskSyncMsg({
+          kind: 'ok',
+          text: res.webhookRegistered
+            ? 'Connected — tasks will stream in as they change.'
+            : 'Connected — tasks sync every few minutes.',
+        });
+        await asana.reload();
+      } else {
+        setTaskSyncMsg({ kind: 'err', text: res.error });
+      }
+    } finally {
+      setConnectBusy(false);
+    }
+  };
+
+  const onSyncNow = async () => {
+    if (syncBusy) return;
+    setSyncBusy(true);
+    setTaskSyncMsg(null);
+    try {
+      const res = await syncAsanaNow();
+      if (res.ok) {
+        setTaskSyncMsg({
+          kind: 'ok',
+          text: res.tasksSynced > 0 ? `Synced ${res.tasksSynced} task${res.tasksSynced === 1 ? '' : 's'}.` : 'Up to date.',
+        });
+        await asana.reload();
+      } else {
+        setTaskSyncMsg({ kind: 'err', text: res.error });
+      }
+    } finally {
+      setSyncBusy(false);
+    }
   };
 
   const onSubmitFeedback = async () => {
@@ -435,6 +488,74 @@ export default function SettingsScreen() {
       </Card>
 
       <Card style={{ marginBottom: 14 }}>
+        <SectionLabel>Task sync</SectionLabel>
+        {asana.integration?.status === 'active' ? (
+          <>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>Asana — connected</Text>
+                <Text style={styles.rowSub}>
+                  Connected since{' '}
+                  {new Date(asana.integration.connected_at).toLocaleDateString()}
+                  {asana.integration.last_synced_at
+                    ? ` · last synced ${new Date(asana.integration.last_synced_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : ' · first sync pending'}
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <Btn
+                label={syncBusy ? 'Syncing…' : 'Sync now'}
+                onPress={onSyncNow}
+                filled
+                disabled={syncBusy}
+              />
+              <Btn label="Disconnect" onPress={() => {}} color={colors.textMuted} disabled />
+            </View>
+            <Text style={styles.hint}>Disconnect is coming soon.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.rowSub}>
+              Pull your Asana tasks into the Tasks tab — subtasks and blockers included —
+              and start a focus straight from any of them.
+              {asana.integration?.status === 'error'
+                ? ' Your previous token stopped working; paste a fresh one to reconnect.'
+                : ''}
+            </Text>
+            <TextInput
+              value={patDraft}
+              onChangeText={setPatDraft}
+              placeholder="Paste your Asana personal access token"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.patInput}
+            />
+            <Text style={styles.rowSub}>
+              Asana → Settings → Apps → Developer apps → Personal access tokens. The token is
+              stored encrypted server-side and never shown again.
+            </Text>
+            <View style={{ marginTop: 10 }}>
+              <Btn
+                label={connectBusy ? 'Connecting…' : 'Connect Asana'}
+                onPress={onConnectAsana}
+                filled
+                disabled={connectBusy || !patDraft.trim()}
+              />
+            </View>
+          </>
+        )}
+        {taskSyncMsg && (
+          <Text style={[styles.msg, taskSyncMsg.kind === 'err' && { color: colors.red }]}>
+            {taskSyncMsg.kind === 'ok' ? '✓ ' : '⚠ '}
+            {taskSyncMsg.text}
+          </Text>
+        )}
+      </Card>
+
+      <Card style={{ marginBottom: 14 }}>
         <SectionLabel>💬 Feedback & bug report</SectionLabel>
         <View style={styles.realmRow}>
           <Pressable
@@ -594,6 +715,17 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   version: { fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 20 },
+  patInput: {
+    backgroundColor: colors.bgBase,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: colors.textPrimary,
+    fontSize: 14,
+    marginTop: 10,
+  },
   feedbackInput: {
     backgroundColor: colors.bgBase,
     borderWidth: 1,
