@@ -986,3 +986,17 @@ Operating model live: CeeCee (CC1) orchestrates; named players on real Asana tas
   conflict strategy, E8 dedup v2, E9 settings write-race). Delegation lanes decided
   (addendum 5): sequential ContextView lane, parallel 1/5/7(+10), design gates 3/9,
   design-first 8. Deeper collaboration: YES.
+
+## 2026-07-18 (cont.) — Wave 1 shipped: Sidecar v0.3.0 + repo restoration
+
+Fleet outcomes (all verified by CeeCee before ship):
+- Merged Rook (4f0b4fa), Cirra (13d79bc), Cindra (2c24803/68e66cf/4597744);
+  resolved SettingsScreen + ContextView conflicts; tsc clean; bumped 0.3.0;
+  deployed Worker 4d72371c. Edge fns: send-focus-push (focus_away pass, Cindra's
+  per-episode dedup) + feedback-to-asana (CORS widened to sidecar origin,
+  ASANA_PAT/ASANA_PROJECT_GID secrets set) both deployed; preflight verified.
+- Kael: PRs #27-#31 → origin/staging 6.7.27 (verified), dist 6.7.24 (verified),
+  main untouched (verified). Blocker queued: feat/companion-update-manifest +
+  feat/site-sidecar-promo are stacked on Koda's widget commits — needs Koda
+  carve-out or cherry-pick (follow-up task for Koda).
+- Aegis (Haiku) board monitor cycling every 30m; Argus/Hermes updater in flight.
