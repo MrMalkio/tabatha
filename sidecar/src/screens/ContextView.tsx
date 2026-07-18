@@ -1,0 +1,215 @@
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
+import { supabase } from '../lib/supabase';
+import { colors, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+
+function useTick(ms = 1000) {
+  const [n, setN] = useState(Date.now());
+  useEffect(() => {
+    const iv = setInterval(() => setN(Date.now()), ms);
+    return () => clearInterval(iv);
+  }, [ms]);
+  return n;
+}
+
+function nowTime(d: Date): string {
+  const h = d.getHours() % 12 || 12;
+  const ap = d.getHours() < 12 ? 'AM' : 'PM';
+  return `${h}:${String(d.getMinutes()).padStart(2, '0')} ${ap}`;
+}
+
+// Minutes remaining in the "day" until the configured reset hour (1440-min day).
+function dayLeft(resetHour: number): { text: string; mins: number } {
+  const d = new Date();
+  const nowMin = d.getHours() * 60 + d.getMinutes();
+  let left = resetHour * 60 - nowMin;
+  if (left <= 0) left += 1440;
+  return { text: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, mins: left };
+}
+
+/**
+ * Large-viewport, view-only "Context View" for a TV / 3rd screen. Live via
+ * realtime. Controls stay on the phone/extension. Brand bottom-left, day
+ * countdown top-right, current wall-clock time bottom-middle.
+ */
+export default function ContextView({ onExit }: { onExit: () => void }) {
+  const { profile, browserProfileId } = useAuth();
+  const { currentFocus, queue } = useFocus(profile?.id ?? null, browserProfileId);
+  const now = useTick();
+  const { width } = useWindowDimensions();
+  const [shift, setShift] = useState<{ state: string; since: string | null } | null>(null);
+
+  const resetHour = profile?.settings?.sidecar?.dayResetHour ?? 0;
+  const day = dayLeft(resetHour);
+
+  // Account-wide clock state (any device on shift), live.
+  useEffect(() => {
+    if (!profile?.id) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from('browser_profile_status')
+        .select('clock_state, clocked_in_at')
+        .eq('profile_id', profile.id)
+        .in('clock_state', ['clocked_in', 'on_break'])
+        .order('last_clock_event_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (alive) setShift(data ? { state: data.clock_state, since: data.clocked_in_at } : null);
+    };
+    load();
+    const ch = supabase
+      .channel(`ctx_status_${profile.id}`)
+      .on('postgres_changes', { event: '*', schema: 'tabatha', table: 'browser_profile_status', filter: `profile_id=eq.${profile.id}` }, load)
+      .subscribe();
+    const iv = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(iv); try { supabase.removeChannel(ch); } catch {} };
+  }, [profile?.id]);
+
+  const cf = currentFocus;
+  const stage = cf ? FUNNEL_STAGES[cf.funnel_stage] || FUNNEL_STAGES.unsorted : null;
+  const cfElapsed = cf ? elapsedMsOf(cf, now) : 0;
+  const dur = cf ? (cf.timer_minutes || 15) * 60000 : 0;
+  const remaining = cf && isSidecarSourced(cf) ? dur - cfElapsed : null;
+  const over = remaining != null && remaining < 0;
+  const frac = dur > 0 ? Math.max(0, Math.min(1, cfElapsed / dur)) : 0;
+  const accent = over ? colors.red : shift?.state === 'on_break' ? colors.amber : colors.accent;
+
+  // shift elapsed
+  let shiftText = '';
+  if (shift?.since) {
+    const s = Math.floor((now - new Date(shift.since).getTime()) / 1000);
+    shiftText = `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  const big = Math.min(width * 0.14, 220);
+
+  return (
+    <View style={styles.root}>
+      {/* context bar */}
+      <View style={styles.bar}>
+        <View style={styles.shiftBox}>
+          <View style={[styles.dot, { backgroundColor: shift ? (shift.state === 'on_break' ? colors.amber : colors.green) : '#4C5766' }]} />
+          <Text style={styles.shiftTxt}>{shift ? (shift.state === 'on_break' ? 'On break' : 'On shift') : 'Off the clock'}</Text>
+          {!!shiftText && <Text style={styles.shiftClk}>{shiftText}</Text>}
+        </View>
+        <Text style={styles.ctx} numberOfLines={1}>
+          {cf?.tags?.client ? `${cf.tags.client}` : profile?.display_name || 'Tabatha'}
+          {cf?.tags?.project ? ` · ${cf.tags.project}` : ''}
+        </Text>
+        <View style={styles.dayBox}>
+          <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveTxt}>LIVE</Text></View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.dayNum}>{day.text}</Text>
+            <Text style={styles.dayLabel}>left today · {day.mins}/1440</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* main */}
+      <View style={styles.main}>
+        <View style={styles.left}>
+          {cf ? (
+            <>
+              <Text style={styles.eyebrow}>
+                {shift?.state === 'on_break' ? 'ON BREAK' : 'IN FOCUS'}
+                {stage ? `   ·   ` : ''}
+                <Text style={{ color: stage?.color }}>{stage ? `${stage.icon} ${stage.label}` : ''}</Text>
+                {isOffComputer(cf) ? '   ·   🚶 off-computer' : ''}
+              </Text>
+              <Text style={[styles.focusLabel, { fontSize: Math.min(width * 0.052, 84) }]} numberOfLines={4}>{cf.label}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
+                <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
+              </View>
+              {queue.filter((q) => !q.tags?._parent).length > 0 && (
+                <View style={styles.next}>
+                  <Text style={styles.nextHdr}>UP NEXT</Text>
+                  {queue.filter((q) => !q.tags?._parent).slice(0, 3).map((q) => (
+                    <View key={q.id} style={styles.qrow}>
+                      <Text style={[styles.qp, { color: priorityColor(q.priority || 5), borderColor: priorityColor(q.priority || 5) }]}>P{q.priority || 5}</Text>
+                      <Text style={styles.qt} numberOfLines={1}>{q.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <Text style={styles.idle}>No active focus.{'\n'}Set one from your phone or extension.</Text>
+          )}
+        </View>
+
+        {/* timer */}
+        <View style={styles.right}>
+          {cf && (
+            <>
+              <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
+              <Text style={[styles.timerBig, { fontSize: big, color: accent }]}>
+                {remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed)}
+              </Text>
+              <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
+              {dur > 0 && (
+                <View style={styles.track}><View style={[styles.fill, { width: `${frac * 100}%`, backgroundColor: accent }]} /></View>
+              )}
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* footer */}
+      <View style={styles.foot}>
+        <View style={styles.brand}>
+          <Text style={styles.logo}>Tabby<Text style={{ color: colors.accent }}>·</Text>Sidecar</Text>
+          <Text style={styles.tag}>CONTEXT · VIEW-ONLY</Text>
+        </View>
+        <Text style={styles.nowClock}>{nowTime(new Date(now))}</Text>
+        <Pressable onPress={onExit} style={styles.exit}><Text style={styles.exitTxt}>Use controls →</Text></Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bgBase, paddingVertical: 26, paddingHorizontal: 48 },
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 20, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 14 },
+  shiftBox: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  shiftTxt: { color: colors.textPrimary, fontWeight: '600', fontSize: 18 },
+  shiftClk: { color: colors.textMuted, fontVariant: ['tabular-nums'], fontSize: 16 },
+  ctx: { color: colors.textMuted, fontSize: 17, flex: 1, textAlign: 'center' },
+  dayBox: { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1, justifyContent: 'flex-end' },
+  live: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
+  liveTxt: { color: colors.accent, fontSize: 12, fontWeight: '700', letterSpacing: 2 },
+  dayNum: { color: colors.textPrimary, fontWeight: '700', fontSize: 26, fontVariant: ['tabular-nums'] },
+  dayLabel: { color: colors.textMuted, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' },
+  main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 56 },
+  left: { flex: 1.15, justifyContent: 'center' },
+  eyebrow: { color: colors.accent, fontSize: 15, letterSpacing: 3, fontWeight: '700', marginBottom: 18, textTransform: 'uppercase' },
+  focusLabel: { color: colors.textPrimary, fontWeight: '800', lineHeight: undefined, marginBottom: 22 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  meta: { color: colors.textMuted, fontSize: 20 },
+  metaB: { color: colors.textPrimary, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  metaP: { fontSize: 16, fontWeight: '700', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 2 },
+  next: { marginTop: 40, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 20, gap: 12, maxWidth: 640 },
+  nextHdr: { color: colors.textMuted, fontSize: 12, letterSpacing: 3, fontWeight: '700' },
+  qrow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  qp: { fontSize: 13, fontWeight: '700', borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 1 },
+  qt: { color: colors.textMuted, fontSize: 20, flex: 1 },
+  right: { flex: 0.85, alignItems: 'center', justifyContent: 'center' },
+  timerMode: { color: colors.accent, fontSize: 14, letterSpacing: 3, fontWeight: '700', marginBottom: 8 },
+  timerBig: { fontWeight: '800', fontVariant: ['tabular-nums'], letterSpacing: -2, lineHeight: undefined },
+  timerCap: { color: colors.textMuted, fontSize: 15, letterSpacing: 4, textTransform: 'uppercase', fontWeight: '700', marginTop: 6 },
+  track: { width: '80%', height: 6, backgroundColor: colors.border, borderRadius: 3, marginTop: 26, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 3 },
+  idle: { color: colors.textMuted, fontSize: 30, fontWeight: '600', lineHeight: 42 },
+  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 },
+  brand: { flexDirection: 'row', alignItems: 'baseline', gap: 10, flex: 1 },
+  logo: { color: colors.textPrimary, fontWeight: '800', fontSize: 22 },
+  tag: { color: colors.textMuted, fontSize: 12, letterSpacing: 2 },
+  nowClock: { color: colors.textPrimary, fontSize: 26, fontWeight: '600', fontVariant: ['tabular-nums'], flex: 1, textAlign: 'center' },
+  exit: { flex: 1, alignItems: 'flex-end' },
+  exitTxt: { color: colors.textMuted, fontSize: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, overflow: 'hidden' },
+});

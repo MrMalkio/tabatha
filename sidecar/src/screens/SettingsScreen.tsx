@@ -22,6 +22,7 @@ export default function SettingsScreen() {
 
   const [realm, setRealm] = useState(sc.defaultRealm || profile?.default_realm || 'professional');
   const [timer, setTimer] = useState(String(sc.defaultTimer || 15));
+  const [dayReset, setDayReset] = useState(String(sc.dayResetHour ?? 0));
   const [pushOn, setPushOn] = useState(pushPermission() === 'granted' && !!sc.pushEnabled);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
 
@@ -58,9 +59,12 @@ export default function SettingsScreen() {
   };
 
   const saveDefaults = async () => {
+    let dr = parseInt(dayReset, 10);
+    if (!Number.isFinite(dr) || dr < 0 || dr > 23) dr = 0;
     await saveSidecarSettings({
       defaultRealm: realm,
       defaultTimer: parseInt(timer, 10) || 15,
+      dayResetHour: dr,
     });
     setPushMsg('Saved.');
   };
@@ -118,21 +122,24 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </View>
-        <Text style={[styles.rowTitle, { marginTop: 12 }]}>Default timer (min)</Text>
-        <TextInput
-          value={timer}
-          onChangeText={setTimer}
-          keyboardType="number-pad"
-          inputMode="numeric"
-          style={styles.input}
-        />
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <View>
+            <Text style={[styles.rowTitle, { marginTop: 12 }]}>Default timer (min)</Text>
+            <TextInput value={timer} onChangeText={setTimer} keyboardType="number-pad" inputMode="numeric" style={styles.input} />
+          </View>
+          <View>
+            <Text style={[styles.rowTitle, { marginTop: 12 }]}>Day resets at (hr)</Text>
+            <TextInput value={dayReset} onChangeText={setDayReset} keyboardType="number-pad" inputMode="numeric" style={styles.input} />
+          </View>
+        </View>
+        <Text style={styles.rowSub}>The Context View’s day countdown (of 1440 min) counts down to this hour.</Text>
         <View style={{ marginTop: 12 }}>
           <Btn label="Save defaults" onPress={saveDefaults} filled />
         </View>
       </Card>
 
       <Btn label="Sign out" color={colors.red} onPress={signOut} />
-      <Text style={styles.version}>Tabby Sidecar v0.1.0</Text>
+      <Text style={styles.version}>Tabby Sidecar v0.2.0</Text>
       <View style={{ height: 40 }} />
     </ScrollView>
   );

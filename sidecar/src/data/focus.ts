@@ -118,6 +118,28 @@ export function useFocus(
     };
   }, [load]);
 
+  // Live updates (realtime) — focus_items is in the supabase_realtime
+  // publication (migration 033); RLS scopes events to this profile. Powers the
+  // instant Context View on a TV / 3rd screen. Poll above stays as a fallback.
+  useEffect(() => {
+    if (!profileId) return;
+    const ch = supabase
+      .channel(`focus_${profileId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'tabatha', table: 'focus_items', filter: `profile_id=eq.${profileId}` },
+        () => load()
+      )
+      .subscribe();
+    return () => {
+      try {
+        supabase.removeChannel(ch);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [profileId, load]);
+
   const patch = useCallback(
     async (id: string, updates: Record<string, any>) => {
       setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...updates } : it)));
