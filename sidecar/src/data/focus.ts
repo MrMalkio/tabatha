@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { getDeviceId } from '../lib/device';
+import { insertFocusEvent } from './events';
 
 export type FocusItem = {
   id: string;
@@ -209,6 +210,7 @@ export function useFocus(
         browser_profile_id: browserProfileId,
         timestamp: nowIso,
       });
+      if (active) insertFocusEvent(profileId, clientId, 'start', { label: label.trim() });
       if (active && data?.id) await persistCurrent(data.id);
       load();
       return data?.id || null;
@@ -222,11 +224,13 @@ export function useFocus(
       const others = items.filter(
         (f) => f.focus_state === 'active' && isSidecarSourced(f) && f.id !== id
       );
-      for (const f of others)
+      for (const f of others) {
         await supabase
           .from('focus_items')
           .update({ focus_state: 'paused', tags: { ...(f.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f)) } })
           .eq('id', f.id);
+        insertFocusEvent(profileId, f.client_id, 'pause');
+      }
       await persistCurrent(id);
       const target = items.find((i) => i.id === id);
       const el = Number(target?.tags?._elapsedMs) || 0; // continue accumulated time
@@ -234,9 +238,11 @@ export function useFocus(
         focus_state: 'active',
         tags: { ...(target?.tags || {}), _startedAt: new Date(Date.now() - el).toISOString(), _backburner: false, _snoozeUntil: null },
       });
+      if (target?.client_id) insertFocusEvent(profileId, target.client_id, 'start');
     },
     pause: (id: string) => {
       const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'pause');
       return patch(id, {
         focus_state: 'paused',
         tags: { ...(f?.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f as FocusItem)) },
@@ -245,6 +251,7 @@ export function useFocus(
     resume: (id: string) => {
       const f = items.find((i) => i.id === id);
       const el = Number(f?.tags?._elapsedMs) || 0; // resume where it left off
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'resume');
       return patch(id, {
         focus_state: 'active',
         tags: { ...(f?.tags || {}), _startedAt: new Date(Date.now() - el).toISOString() },
@@ -252,6 +259,8 @@ export function useFocus(
     },
     resolve: async (id: string) => {
       if (currentId === id) await persistCurrent(null);
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'resolve');
       return patch(id, {
         focus_state: 'completed',
         funnel_stage: 'resolved',
