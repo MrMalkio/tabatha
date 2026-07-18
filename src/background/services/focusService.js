@@ -483,7 +483,13 @@ export async function completeFocus(focusId) {
 
   if (engine.activeFocusId === id) {
     engine.activeFocusId = null;
-    const nextPaused = Object.values(engine.items)
+    // Resolving is the only path that empties the slot (pauseItem keeps the
+    // intent as activeFocusId), so this toggle is what makes "nothing active"
+    // reachable at all. When off, the queue stays paused — nothing pops into
+    // the freed slot.
+    const settings = await getSettings();
+    const autoStartNext = settings?.autoStartNextOnResolve ?? DEFAULT_SETTINGS.autoStartNextOnResolve;
+    const nextPaused = !autoStartNext ? null : Object.values(engine.items)
       .filter(i => i.focusState === 'paused')
       .sort((a, b) => new Date(b.pausedAt || b.createdAt) - new Date(a.pausedAt || a.createdAt))[0];
     if (nextPaused) {

@@ -2004,6 +2004,12 @@ function Home() {
 
         {/* ═══ Collapsible: Focus Engine ═══ */}
         <CollapsibleSection id="focus" title="Focus Engine" icon="🔍" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+          {/* FocusBar when something is active/paused; otherwise the input to
+              pick the next intent. The queue/backburner/history below render
+              REGARDLESS — with autoStartNextOnResolve off you can now sit in a
+              "nothing active" state, and you still need to see and act on the
+              queue (previously it vanished with no active focus — the sidebar
+              already showed it, the home page didn't). */}
           {activeFocus ? (
             <>
               <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects}
@@ -2019,13 +2025,13 @@ function Home() {
               {activeFocus.focusState === 'paused' && (
                 <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
               )}
-              <FocusQueue items={allItems} actions={actions} />
-              <BackburnerDock items={allItems} actions={actions} />
-              <FocusHistory history={history} />
             </>
           ) : (
             <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
           )}
+          <FocusQueue items={allItems} actions={actions} />
+          <BackburnerDock items={allItems} actions={actions} />
+          <FocusHistory history={history} />
         </CollapsibleSection>
 
         {/* ═══ Activity Heatmap ═══ */}
