@@ -21,6 +21,7 @@ import {
   type FeedbackKind,
 } from '../lib/feedback';
 import { connectAsana, syncAsanaNow, useAsanaIntegration } from '../data/integrations';
+import PairWatchCard from '../components/PairWatchCard';
 
 const REALMS = ['professional', 'work', 'business', 'personal'];
 
@@ -538,6 +539,8 @@ export default function SettingsScreen() {
         {scheduleErr && <Text style={[styles.msg, { color: colors.red }]}>{scheduleErr}</Text>}
         {scheduleMsg && !scheduleErr && <Text style={styles.msg}>{scheduleMsg}</Text>}
       </Card>
+
+      <PairWatchCard />
 
       <Card style={{ marginBottom: 14 }}>
         <SectionLabel>Task sync</SectionLabel>
