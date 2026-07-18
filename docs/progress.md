@@ -1000,3 +1000,13 @@ Fleet outcomes (all verified by CeeCee before ship):
   feat/site-sidecar-promo are stacked on Koda's widget commits — needs Koda
   carve-out or cherry-pick (follow-up task for Koda).
 - Aegis (Haiku) board monitor cycling every 30m; Argus/Hermes updater in flight.
+
+## 2026-07-18 (PM) — CeeCee: Plan 040 execution wave (Sidecar 0.4.2→0.7.0, ext 6.7.32→6.7.34, companion 0.3.1)
+- **Goal:** continuous Plan 040 execution with the persona fleet; Malkio directives folded in live (extension tracking, extension deploy, watch app, voice check-ins).
+- **Shipped Sidecar:** 0.4.2 (useRef hotfix), 0.4.3 (extend/snooze as focus_events + ⏳ CV timeline nodes, mig 039), 0.5.0 (Epic 9 RPC writers + CV prefs, Epic 8 nudges card), 0.6.0 (Epic 3 U5 Tasks view + Asana connect; CrashGuard; PWA stale-bundle auto-reload; surfaced write errors), 0.6.1 (CV title-col clip fix from Rook visual QA), 0.6.2 (build --clear guard), 0.7.0 (proactive voice check-ins v1, Addendum 7).
+- **Migrations applied:** 035 (task sync foundation), 036/037 (push_log + nudge cron), 038 (update_profile_settings RPC), 039 (extend/snooze kinds). Edge fns deployed: send-focus-push (batched), send-schedule-nudges, connect-asana, asana-webhook, sync-asana-tasks.
+- **Extension:** staging 6.7.31→6.7.34 (Epic 9 CV customization card 6.7.32; companion HELLO pairing client 6.7.33; changelog 6.7.34). Chrome dist at 6.7.34; both update channels published + hash-verified (Koda).
+- **Companion:** PR #1 (WS Stage-2 handshake auth, Cindra) security-reviewed line-by-line by CeeCee, merged → 0.3.1, 105/105 tests. Distribution hold lifts once 0.3.1 installers built.
+- **Incidents:** (1) "stuck Sidecar" — stale PWA running broken v0.4.1 bundle; fixed via CrashGuard + freshness auto-reload; (2) routeless skeleton deploy — shared Metro cache (node_modules/.cache via junctions) poisoned by concurrent dev-server; fixed via --clear in build script + mandatory local bundle preflight before deploy.
+- **In flight:** Soren (Opus) — Tabby Watch (Plan 041, Galaxy Watch 6 / Wear OS, own repo tabatha-watch); Argus — /show milestone update.
+- **Next:** integrate Soren's watch deliverable; extension-side voice/checkpoint sync epics; Epic 3 v1.1 (due_on mapping, workspace name); flip STAGE1_COMPAT_WINDOW=false in companion 0.3.2 after HELLO rollout.
