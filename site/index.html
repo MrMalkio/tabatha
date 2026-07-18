@@ -96,6 +96,24 @@ a { color:inherit; }
   font:400 11px/1 var(--mono); color:var(--dim);
   letter-spacing:.08em; white-space:nowrap;
 }
+/* Right cluster in the masthead: the release status and the one door that IS
+   open. Sidecar is the mobile companion for people who already have a Tabatha
+   account, so it reads "Sign in" — a quiet outlined control, never louder than
+   the waitlist CTA a screen below. */
+.top-right { display:flex; align-items:center; gap:16px; }
+.signin {
+  font:600 11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+  color:var(--text); text-decoration:none; white-space:nowrap;
+  border:1px solid var(--border); border-radius:var(--r-md);
+  padding:9px 15px;
+  transition:border-color .16s var(--ease), color .16s var(--ease),
+             background .16s var(--ease);
+}
+.signin:hover, .signin:focus-visible {
+  border-color:var(--cyan); color:var(--cyan); background:rgba(0,240,255,.06);
+}
+.signin .arw { color:var(--dim); margin-left:6px; }
+.signin:hover .arw, .signin:focus-visible .arw { color:var(--cyan); }
 
 /* ── hero ─────────────────────────────────────────────────── */
 /* Asymmetric on purpose: the question and the instrument are in dialogue,
@@ -325,7 +343,10 @@ input[type=email][aria-invalid=true] { border-color:var(--magenta); }
 
   <header class="top">
     <a class="brand" href="/">Tabatha<span class="dot">.</span></a>
-    <div class="status">NOT RELEASED YET</div>
+    <div class="top-right">
+      <div class="status">NOT RELEASED YET</div>
+      <a class="signin" href="https://tabatha.pondocean.co/sidecar">Sign in<span class="arw">&#8599;</span></a>
+    </div>
   </header>
 
   <main>
