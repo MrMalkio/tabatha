@@ -113,7 +113,9 @@ function build() {
 const next = build();
 
 if (CHECK_ONLY) {
-  const existing = existsSync(OUT) ? readFileSync(OUT, 'utf8') : '';
+  // Normalize CRLF→LF so a fresh checkout under core.autocrlf=true (Windows)
+  // doesn't trip the gate on line endings alone — the check is content-driven.
+  const existing = (existsSync(OUT) ? readFileSync(OUT, 'utf8') : '').replace(/\r\n/g, '\n');
   if (existing !== next) {
     console.error('✘ public/changelog.json is stale vs Tabatha_Changelog.md');
     console.error('  Run: node scripts/build-changelog.mjs');
