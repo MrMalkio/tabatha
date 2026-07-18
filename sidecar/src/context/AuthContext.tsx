@@ -198,18 +198,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (session?.user?.id) await fetchProfile(session.user.id);
   }, [session, fetchProfile]);
 
+  // Epic 9 — both settings writers go through the server-side
+  // `update_profile_settings` RPC (migration 038) instead of a client-side
+  // read-modify-write of the whole `settings` column. That old pattern was a
+  // cross-surface race: the extension (Epic 9's own first settings writer)
+  // could fetch `profile.settings`, this tab could write a different
+  // top-level key in between, and this write would silently clobber it
+  // because `nextSettings` was computed from a stale snapshot. The RPC does
+  // an atomic, server-side `jsonb_set` merge per top-level key, so two
+  // concurrent writers touching different (or the same) keys never lose data
+  // to each other. Local state still gets an optimistic merge on success —
+  // same shape callers already rely on.
   const saveSidecarSettings = useCallback(
     async (patch: Record<string, any>) => {
       if (!profile) return;
-      const nextSettings = {
-        ...(profile.settings || {}),
-        sidecar: { ...(profile.settings?.sidecar || {}), ...patch },
-      };
-      const { error } = await supabase
-        .from('profiles')
-        .update({ settings: nextSettings })
-        .eq('id', profile.id);
-      if (!error) setProfile({ ...profile, settings: nextSettings });
+      const { data, error } = await supabase.rpc('update_profile_settings', {
+        p_profile_id: profile.id,
+        p_patch: { sidecar: patch },
+      });
+      // The Sidecar's `supabase` client is pre-scoped `db: { schema: 'tabatha' }`
+      // (sidecar/src/lib/supabase.ts:23) — no .schema('tabatha') needed here,
+      // unlike the extension's default client (see ContextViewPanel.jsx).
+      if (!error && data?.success) {
+        setProfile({ ...profile, settings: data.settings });
+      } else if (error) {
+        console.warn('saveSidecarSettings RPC failed', error.message);
+      } else if (data && !data.success) {
+        console.warn('saveSidecarSettings RPC rejected', data.error);
+      }
     },
     [profile]
   );
@@ -219,15 +235,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const saveChaperoneSettings = useCallback(
     async (patch: Record<string, any>) => {
       if (!profile) return;
-      const nextSettings = {
-        ...(profile.settings || {}),
-        chaperone: { ...(profile.settings?.chaperone || {}), ...patch },
-      };
-      const { error } = await supabase
-        .from('profiles')
-        .update({ settings: nextSettings })
-        .eq('id', profile.id);
-      if (!error) setProfile({ ...profile, settings: nextSettings });
+      const { data, error } = await supabase.rpc('update_profile_settings', {
+        p_profile_id: profile.id,
+        p_patch: { chaperone: patch },
+      });
+      if (!error && data?.success) {
+        setProfile({ ...profile, settings: data.settings });
+      } else if (error) {
+        console.warn('saveChaperoneSettings RPC failed', error.message);
+      } else if (data && !data.success) {
+        console.warn('saveChaperoneSettings RPC rejected', data.error);
+      }
     },
     [profile]
   );

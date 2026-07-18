@@ -8,6 +8,7 @@ import { useFocusEvents } from '../data/events';
 import FocusTimeline from '../components/FocusTimeline';
 import ProgressRing from '../components/ProgressRing';
 import { supabase } from '../lib/supabase';
+import { resolveContextViewSettings } from '../lib/contextViewSettings';
 import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
 
 // Coarse "how long ago" for the last-checkpoint preview — matches the rest of
@@ -59,10 +60,15 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   const [shift, setShift] = useState<{ state: string; since: string | null } | null>(null);
   const [phoneAway, setPhoneAway] = useState(false);
 
-  const resetHour = profile?.settings?.sidecar?.dayResetHour ?? 0;
+  // Epic 9 — `contextView` key > legacy `sidecar` keys > defaults (design
+  // doc §4). resolveContextViewSettings is the single source of truth for
+  // every display toggle below; a profile with neither key renders
+  // identically to pre-Epic-9 behavior (Sidecar-only users, design §2.2).
+  const cv = resolveContextViewSettings(profile?.settings);
+  const resetHour = cv.dayResetHour;
   const day = dayLeft(resetHour);
-  const immediateAlert = !!profile?.settings?.sidecar?.focusAwayImmediate;
-  const showCheckpoints = profile?.settings?.sidecar?.showCheckpoints !== false; // default ON
+  const immediateAlert = cv.focusAwayImmediate;
+  const showCheckpoints = cv.showCheckpoints;
 
   // Checkpoint counter + last-note preview for the current focus (read-only,
   // ambient — Settings can turn it off). Reuses the existing
@@ -169,13 +175,15 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
           {cf?.tags?.client ? `${cf.tags.client}` : profile?.display_name || 'Tabatha'}
           {cf?.tags?.project ? ` · ${cf.tags.project}` : ''}
         </Text>
-        <View style={styles.dayBox}>
-          <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveTxt}>LIVE</Text></View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.dayNumSm}>{day.text}</Text>
-            <Text style={styles.dayLabelSm}>left today</Text>
+        {cv.showDayCountdown && (
+          <View style={styles.dayBox}>
+            <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveTxt}>LIVE</Text></View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.dayNumSm}>{day.text}</Text>
+              <Text style={styles.dayLabelSm}>left today</Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
       {/* main */}
@@ -228,7 +236,7 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
                 </Text>
               );
             })()}
-            {queue.filter((q) => !q.tags?._parent).length > 0 && (
+            {cv.showUpNext && queue.filter((q) => !q.tags?._parent).length > 0 && (
               <View style={styles.next}>
                 <Text style={styles.nextHdr}>UP NEXT</Text>
                 {queue.filter((q) => !q.tags?._parent).slice(0, 3).map((q) => (
@@ -259,7 +267,7 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
       )}
 
       {/* bottom timeline (Plan 040 Epic 2) — checkpoints + focus_events start-nodes */}
-      {cf && dur > 0 && (
+      {cv.showTimeline && cf && dur > 0 && (
         <FocusTimeline
           focus={cf}
           now={now}
