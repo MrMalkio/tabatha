@@ -283,3 +283,40 @@ The user's Asana PAT is already available on this machine (asana-cli credential 
   **At most one other Fable 5 subagent at a time — the "Kael" persona.** Koda
   co-deliberates on plans; after deliberation CeeCee+Koda decide if deeper
   multi-persona collaboration is warranted.
+
+---
+
+## Addendum 5 — 2026-07-18 (CeeCee + Koda deliberation outcome)
+
+Koda's code-verified vet (Asana task 1216678720421332): **8/13 proceed, 5 revise,
+0 defer.** CeeCee concurs on all findings. Accepted revisions, binding on each
+epic's implementation plan:
+
+1. **B1:** decide pause-write ownership explicitly — default: **client-side**
+  (reuse `actions.pause` and its `_elapsedMs` freeze, zero regression risk to the
+  timer fix in `1777775`); the **server push carries only the alert**.
+2. **Epic 2 & 4:** until the extension writes `focus_events`, all
+  events-derived durations are **labeled "📱 Sidecar-tracked time"** (or gated
+  off). Interval-pairing rule: an open `start`/`resume` counts "to now" only if
+  the focus is currently `active`; otherwise the dangling interval is discarded.
+3. **Epic 3:** a **relation table** (`task_links(from_task, to_task, kind,
+  source, updated_at)`) is mandatory for deps/blockers — JSONB arrays rejected.
+  A **conflict-resolution strategy** (per-field last-writer-wins with
+  `updated_at` vectors vs Asana-wins-on-tie) must be decided in the epic's
+  design gate before any build.
+4. **Epic 8:** requires `push_dedup` v2 — **date-scoped key**
+  `(profile_id, kind, day)` for non-focus nudges + a schedule-join query pass;
+  design first, then assignable. (Epic 10 unaffected — rides realtime, not cron.)
+5. **Epic 9:** scope corrected — this adds the extension's **first-ever**
+  `profiles.settings` write path. Both surfaces must write **distinct top-level
+  JSONB keys, never blind whole-object updates** (per-key `jsonb_set` RPC
+  preferred) to kill the read-modify-write race with the Sidecar's writer.
+
+**Build-phase delegation structure (joint decision — deeper collaboration: YES):**
+- **Lane A (sequential, ONE owner):** Epic 0 → B1 → B2/B2b → Epic 2 → Epic 6 —
+  all touch `ContextView.tsx` / `focus.ts`. Single continuous CC player.
+- **Lane B (parallel, cheaper models):** Epic 1 (+10 riding along), Epic 5,
+  Epic 7 — self-contained; Sonnet-tier players, one Asana task each.
+- **Design-gated (Koda vet before build):** Epic 3, Epic 9 (Epic 9 additionally
+  builds from the 6.7.24+/6.8.2 extension worktree, never this branch).
+- **Design-first:** Epic 8 (dedup v2) — not assignable until designed.
