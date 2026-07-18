@@ -23,6 +23,7 @@ export default function SettingsScreen() {
   const [realm, setRealm] = useState(sc.defaultRealm || profile?.default_realm || 'professional');
   const [timer, setTimer] = useState(String(sc.defaultTimer || 15));
   const [dayReset, setDayReset] = useState(String(sc.dayResetHour ?? 0));
+  const [awayImmediate, setAwayImmediate] = useState(!!sc.focusAwayImmediate);
   const [pushOn, setPushOn] = useState(pushPermission() === 'granted' && !!sc.pushEnabled);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
 
@@ -138,8 +139,26 @@ export default function SettingsScreen() {
         </View>
       </Card>
 
+      <Card style={{ marginBottom: 14 }}>
+        <SectionLabel>Context View (big screen)</SectionLabel>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>Immediate phone-away alert</Text>
+            <Text style={styles.rowSub}>
+              In Phone Focus Mode, leaving the Sidecar turns your big screen red. On = instant; off = slow fade-in.
+            </Text>
+          </View>
+          <Switch
+            value={awayImmediate}
+            onValueChange={async (v) => { setAwayImmediate(v); await saveSidecarSettings({ focusAwayImmediate: v }); }}
+            trackColor={{ true: colors.accent, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+      </Card>
+
       <Btn label="Sign out" color={colors.red} onPress={signOut} />
-      <Text style={styles.version}>Tabby Sidecar v0.2.0</Text>
+      <Text style={styles.version}>Tabby Sidecar v0.2.1</Text>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
