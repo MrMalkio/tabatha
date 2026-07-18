@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Backdating &amp; Time Editing</title>
+<style>
+:root{
+  --bg:#050505;--surface:rgba(20,20,25,.55);--surface-solid:#141414;
+  --border:rgba(255,255,255,.1);--text:#FAFAFA;--muted:#868E96;
+  --cyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a}
+body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;color:var(--text)}
+.shot{width:1280px;height:800px;overflow:hidden;position:relative;background:var(--bg);
+  padding:28px 0;display:flex;justify-content:center}
+.shot::before{content:"";position:absolute;inset:0;opacity:.03;pointer-events:none;
+  background-image:radial-gradient(var(--cyan) 1px,transparent 1px);background-size:22px 22px}
+.col{width:760px;z-index:1}
+.pagelab{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 4px 12px;display:flex;align-items:center;gap:8px}
+.pagelab .ver{color:var(--cyan)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;backdrop-filter:blur(16px)}
+.eyebrow{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:8px}
+.stage{font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;color:#ff9800;background:#ff980022}
+.fb-top{display:flex;justify-content:space-between;align-items:flex-start;margin-top:10px}
+.fb-label{font-size:17px;font-weight:600}
+.fb-meta{font-size:11px;color:var(--muted);margin-top:5px}
+.fb-timer{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--cyan);text-align:right;line-height:1}
+.fb-timer small{display:block;font-size:9px;color:var(--muted);letter-spacing:.12em;margin-top:4px}
+
+/* edit panel */
+.edit{margin-top:14px;border-top:1px dashed var(--border);padding-top:14px}
+.grid{display:grid;grid-template-columns:1fr 88px 120px;gap:10px}
+.ef label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
+.ef input,.ef select{width:100%;background:#111;border:1px solid #2c2c2c;border-radius:4px;padding:8px 10px;color:#fff;font:500 12px var(--sans)}
+.started{margin-top:12px}
+.started input{border-color:var(--cyan)}
+.credit{font-size:11px;color:var(--cyan);font-weight:600;margin-top:6px}
+.feedback{display:flex;gap:8px;align-items:flex-start;margin-top:10px;background:rgba(66,165,245,.08);
+  border:1px solid rgba(66,165,245,.3);border-radius:4px;padding:10px 12px;font-size:12px;line-height:1.5}
+.feedback .i{color:var(--blue);font-weight:700}
+.feedback b{color:#fff}
+.tagpick{margin-top:12px;display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--border);border-radius:4px;padding:7px 11px;font-size:12px;color:#cfcfcf}
+.ebtns{display:flex;gap:8px;margin-top:14px}
+.btn{border:0;border-radius:4px;padding:8px 14px;font:700 12px var(--sans);cursor:pointer}
+.btn.save{background:var(--cyan);color:#000}
+.btn.x{background:transparent;color:var(--muted);border:1px solid var(--border)}
+
+/* timeline */
+.tl{margin-top:14px}
+.tl-head{display:flex;align-items:center;justify-content:space-between}
+.tl-head .r{display:flex;gap:8px}
+.chipbtn{font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:#c7c7c7;cursor:pointer}
+.timepanel{margin-top:12px;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:4px;padding:12px}
+.tp-top{display:flex;align-items:baseline;justify-content:space-between}
+.tp-total{font-family:var(--mono);font-size:15px;font-weight:700}
+.tp-hint{font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+.nudge{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.nb{font:600 11px var(--mono);padding:5px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:#d6d6d6;cursor:pointer}
+.mode{display:flex;gap:4px;background:#0e0e0e;border:1px solid #262626;border-radius:4px;padding:3px}
+.mode span{font-size:10.5px;padding:4px 9px;border-radius:3px;color:#8a8a8a;cursor:pointer}
+.mode span.on{background:var(--surface);color:#fff}
+.dur{flex:1;min-width:120px;background:#111;border:1px solid #2c2c2c;border-radius:4px;padding:7px 10px;color:#fff;font:500 12px var(--mono)}
+.preview{font-size:11px;color:var(--green);margin-top:9px;font-weight:600}
+.trim{display:flex;gap:8px;margin-top:10px}
+.trimbtn{font-size:10.5px;font-weight:600;padding:5px 10px;border-radius:4px;background:transparent;cursor:pointer}
+.trimbtn.amber{border:1px solid #ffa72655;color:#ffbe6b}
+.trimbtn.green{border:1px solid #66bb6a55;color:#8bd48f}
+
+.entries{margin-top:14px;display:flex;flex-direction:column;gap:2px}
+.ent{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.05)}
+.ent .em{font-size:15px}
+.ent .et{flex:1;font-size:12px}
+.ent .ets{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.addnote{margin-top:8px;font-size:11px;color:var(--muted);border:1px dashed var(--border);border-radius:4px;padding:8px;text-align:center;cursor:pointer}
+
+/* ── small-viewport fit ──────────────────────────────────────
+   This page IS the asset: `.shot` is a pinned 1280x800 render and
+   scripts/capture-screenshots.mjs screenshots it at a 1280x800
+   window to produce the Chrome Web Store listing images. So the
+   frame's own layout is untouchable — no reflow, no stacking, no
+   fluid widths. Anything that changed it would silently reshoot
+   the store listing.
+
+   Everything below is therefore gated at max-width:1279px and can
+   never fire at the 1280 capture width. It scales the whole frame
+   as one picture instead of reflowing it:
+
+     base      — body becomes the scroll container. `.shot` keeps
+                 its exact 1280x800 and the user pans it, while
+                 `html` stays hidden so the PAGE never scrolls
+                 sideways.
+     enhanced  — where `zoom` accepts a calculated ratio (Chrome,
+                 the only browser this site's product runs in),
+                 body is zoomed to exactly fit the viewport. zoom
+                 affects layout, unlike transform, so the shrunken
+                 frame reserves the right space and nothing
+                 overflows. `.shot` still computes at 1280x800 —
+                 only the paint is scaled.
+   ──────────────────────────────────────────────────────────── */
+@media (max-width:1279px){
+  html{overflow-x:hidden}
+  body{display:block;min-height:0;overflow-x:auto;overscroll-behavior-x:contain}
+  body>.shot{margin:0 auto}
+}
+@supports (zoom:calc(100vw / 1280px)){
+  @media (max-width:1279px){
+    body{width:1280px;overflow-x:visible;zoom:calc(100vw / 1280px)}
+  }
+}
+</style>
+</head>
+<body>
+<div class="shot">
+  <div class="col">
+    <div class="pagelab">🕐 Forgot to start tracking? Backdate it. <span class="ver">v6.7.14</span></div>
+
+    <div class="card">
+      <div class="eyebrow">🎯 CURRENT FOCUS <span class="stage">Focus</span></div>
+      <div class="fb-top">
+        <div>
+          <div class="fb-label">Q1 Report</div>
+          <div class="fb-meta">5 tabs · 47m elapsed · started 1:59 PM</div>
+        </div>
+        <div class="fb-timer">1:34:00<small>EDITING START</small></div>
+      </div>
+
+      <div class="edit">
+        <div class="grid">
+          <div class="ef"><label>Label</label><input value="Q1 Report"></div>
+          <div class="ef"><label>Timer (m)</label><input value="60"></div>
+          <div class="ef"><label>Stage</label>
+            <select><option>🎯 Focus</option></select></div>
+        </div>
+
+        <div class="ef started">
+          <label>Started at</label>
+          <input type="text" value="Today, 1:12 PM">
+          <div class="credit">backdated +47m</div>
+        </div>
+
+        <div class="feedback">
+          <span class="i">ℹ</span>
+          <div>Backdated to <b>1:12 PM</b> — overlaps <b>"Learning React"</b> by 18m (both keep their time). <b>+47m credited.</b></div>
+        </div>
+
+        <div class="tagpick">💼 Acme › Finance › Q1 revenue charts</div>
+
+        <div class="ebtns">
+          <button class="btn save">💾 Save</button>
+          <button class="btn x">✕</button>
+        </div>
+      </div>
+
+      <!-- Checkpoint timeline (edit mode) -->
+      <div class="tl">
+        <div class="tl-head">
+          <div class="eyebrow">📊 Checkpoint Timeline</div>
+          <div class="r"><button class="chipbtn">📋 Copy</button><button class="chipbtn">✓ Done</button></div>
+        </div>
+
+        <div class="timepanel">
+          <div class="tp-top">
+            <span class="eyebrow">🕐 Total tracked time</span>
+            <span class="tp-total">1h 34m</span>
+          </div>
+          <div class="tp-hint">Nudge with the buttons, or type a duration like 2h, 8h20m, 500m, or plain minutes. Press Enter to apply.</div>
+          <div class="nudge">
+            <button class="nb">−5m</button><button class="nb">−1m</button><button class="nb">+1m</button><button class="nb">+5m</button>
+            <div class="mode"><span class="on">Set total</span><span>Add</span><span>Subtract</span></div>
+            <input class="dur" value="1h34m">
+            <button class="nb">Apply</button>
+          </div>
+          <div class="preview">→ total becomes 1h 34m</div>
+          <div class="trim">
+            <button class="trimbtn amber">✂ Trim to last activity (3m ago)</button>
+            <button class="trimbtn green">↩ Remove last pause &amp; restore its time</button>
+          </div>
+        </div>
+
+        <div class="entries">
+          <div class="ent"><span class="em">⚙️</span><span class="et">Focus started</span><span class="ets">1:12 PM · 0m in · edited</span></div>
+          <div class="ent"><span class="em">📈</span><span class="et">Pulled last-quarter numbers into the model</span><span class="ets">1:38 PM · 26m in</span></div>
+          <div class="ent"><span class="em">🚀</span><span class="et">Charts drafted, sanity-checked totals</span><span class="ets">2:21 PM · 69m in</span></div>
+          <div class="ent"><span class="em">🏁</span><span class="et">Formatting + exec summary left</span><span class="ets">2:44 PM · 92m in</span></div>
+        </div>
+        <div class="addnote">+ Add checkpoint note</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

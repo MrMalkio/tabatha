@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - The Gatekeeper</title>
+<style>
+/* ============================================================
+   Tabatha showcase — faithful reproduction of the live extension.
+   Design tokens pulled from src/styles/global.css (Pop-Art theme):
+   bg #050505, accent-primary #00F0FF, accent-secondary #FF0055,
+   accent-tertiary #FFD700, radius scale 2/4/8 (halved), Inter body,
+   JetBrains Mono for timers. Icons are emoji (the app has no icon lib).
+   Content-script overlays (Gatekeeper) render over the live page and
+   hardcode their own near-blacks + 16px card radius — reproduced here.
+   ============================================================ */
+:root{
+  --bg:#050505;--surface:rgba(20,20,25,.55);--surface-solid:#141414;
+  --border:rgba(255,255,255,.1);--text:#FAFAFA;--muted:#868E96;
+  --cyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a}
+body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;color:var(--text)}
+.shot{width:1280px;height:800px;overflow:hidden;position:relative;background:var(--bg)}
+
+/* ---- blurred live-page backdrop (the real overlay sits over any site) ---- */
+.backdrop{position:absolute;inset:0;filter:blur(10px) brightness(.85);transform:scale(1.04);pointer-events:none}
+.bd-chrome{height:44px;background:#1c1e22;display:flex;align-items:center;gap:8px;padding:0 16px}
+.bd-dot{width:11px;height:11px;border-radius:50%}
+.bd-omni{flex:1;max-width:640px;height:26px;background:#2a2d33;border-radius:999px;margin:0 auto}
+.bd-body{padding:56px 120px;display:flex;flex-direction:column;gap:22px;background:linear-gradient(180deg,#16181c,#101216)}
+.bd-h{height:34px;width:60%;background:#2f333b;border-radius:6px}
+.bd-line{height:14px;background:#23262c;border-radius:4px}
+.bd-cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:8px}
+.bd-card{height:150px;background:#1a1d22;border-radius:10px}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.85)}
+
+/* ---- Gatekeeper card ---- */
+.gate{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:400px;background:#1a1a1a;border:1px solid #333;border-radius:16px;
+  padding:28px 32px;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(0,240,255,.06)}
+.gate h1{font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px}
+.mode{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.04em}
+.mode.strict{color:#ff6b6b;background:#ff6b6b22}
+.sub{font-size:12px;color:#888;margin-top:6px}
+.who{display:flex;gap:6px;margin-top:18px;background:#0f0f0f;border:1px solid #2a2a2a;border-radius:8px;padding:4px}
+.who button{flex:1;border:0;background:transparent;color:#777;font:600 12px/1 var(--sans);padding:8px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.who button.on-me{background:rgba(0,229,255,.12);color:#00e5ff}
+.who button.on-ag{color:#b388ff}
+.field{margin-top:14px;position:relative}
+.field input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:12px 14px;color:#fff;font:500 14px var(--sans);outline:none}
+.field input:focus,.field .faux{border-color:#00e5ff}
+.faux{width:100%;background:#111;border:1px solid #00e5ff;border-radius:8px;padding:12px 14px;text-align:left;font:500 14px var(--sans);color:#fff;display:flex;align-items:center}
+.faux .caret{width:1.5px;height:16px;background:#00e5ff;margin-left:2px;animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+.presets{margin-top:14px;text-align:left}
+.psec{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#5a5a5a;margin:12px 2px 6px}
+.prow{display:flex;align-items:center;justify-content:space-between;background:#252525;border:1px solid #2f2f2f;border-radius:6px;padding:9px 11px;margin-bottom:5px;font-size:12.5px}
+.prow .pl{display:flex;align-items:center;gap:8px}
+.stage{font-size:9px;font-weight:700;padding:2px 6px;border-radius:999px}
+.stage.focus{color:#ff9800;background:#ff980022}
+.stage.todo{color:#64b5f6;background:#64b5f622}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.actions button{border:0;border-radius:6px;padding:11px 10px;font:600 12.5px var(--sans);cursor:pointer;color:#fff}
+.actions .b-cont{grid-column:1/3;background:#fff;color:#111;font-weight:700}
+.actions .b-sq{background:#2b2b2b;border:1px solid #3a3a3a;color:#eee}
+.actions .b-sugar{background:#ef535022;color:#ff8a80;border:1px solid #ef535044}
+.actions .b-park{background:#2b2b2b;border:1px solid #3a3a3a;color:#eee}
+.actions .b-later{background:#42a5f522;color:#90caf9;border:1px solid #42a5f544}
+.actions .b-never{grid-column:1/3;background:transparent;color:#888;border:1px solid #2a2a2a}
+.hint{font-size:9px;color:#555;margin-top:11px}
+.skip{font-size:10px;color:#555;margin-top:14px;text-decoration:underline;cursor:pointer}
+
+/* ── small-viewport fit ──────────────────────────────────────
+   This page IS the asset: `.shot` is a pinned 1280x800 render and
+   scripts/capture-screenshots.mjs screenshots it at a 1280x800
+   window to produce the Chrome Web Store listing images. So the
+   frame's own layout is untouchable — no reflow, no stacking, no
+   fluid widths. Anything that changed it would silently reshoot
+   the store listing.
+
+   Everything below is therefore gated at max-width:1279px and can
+   never fire at the 1280 capture width. It scales the whole frame
+   as one picture instead of reflowing it:
+
+     base      — body becomes the scroll container. `.shot` keeps
+                 its exact 1280x800 and the user pans it, while
+                 `html` stays hidden so the PAGE never scrolls
+                 sideways.
+     enhanced  — where `zoom` accepts a calculated ratio (Chrome,
+                 the only browser this site's product runs in),
+                 body is zoomed to exactly fit the viewport. zoom
+                 affects layout, unlike transform, so the shrunken
+                 frame reserves the right space and nothing
+                 overflows. `.shot` still computes at 1280x800 —
+                 only the paint is scaled.
+   ──────────────────────────────────────────────────────────── */
+@media (max-width:1279px){
+  html{overflow-x:hidden}
+  body{display:block;min-height:0;overflow-x:auto;overscroll-behavior-x:contain}
+  body>.shot{margin:0 auto}
+}
+@supports (zoom:calc(100vw / 1280px)){
+  @media (max-width:1279px){
+    body{width:1280px;overflow-x:visible;zoom:calc(100vw / 1280px)}
+  }
+}
+</style>
+</head>
+<body>
+<div class="shot">
+  <!-- Live-page backdrop, blurred exactly as the content-script overlay renders it -->
+  <div class="backdrop" aria-hidden="true">
+    <div class="bd-chrome">
+      <span class="bd-dot" style="background:#ff5f57"></span>
+      <span class="bd-dot" style="background:#febc2e"></span>
+      <span class="bd-dot" style="background:#28c840"></span>
+      <div class="bd-omni"></div>
+    </div>
+    <div class="bd-body">
+      <div class="bd-h"></div>
+      <div class="bd-line" style="width:92%"></div>
+      <div class="bd-line" style="width:88%"></div>
+      <div class="bd-line" style="width:95%"></div>
+      <div class="bd-line" style="width:70%"></div>
+      <div class="bd-cols">
+        <div class="bd-card"></div><div class="bd-card"></div>
+      </div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+
+  <!-- The Gatekeeper -->
+  <div class="gate">
+    <h1>Why are you here? <span class="mode strict">Strict</span></h1>
+    <div class="sub">Define your intent to proceed.</div>
+
+    <div class="who">
+      <button class="on-me">🧑 I'm working</button>
+      <button class="on-ag">🤖 Agent</button>
+    </div>
+
+    <div class="field">
+      <div class="faux">Finalize Q1 revenue charts<span class="caret"></span></div>
+    </div>
+
+    <div class="presets">
+      <div class="psec">Active focuses</div>
+      <div class="prow"><span class="pl">🎯 Q1 Report</span><span class="stage focus">Focus</span></div>
+      <div class="prow"><span class="pl">⏸ Learning React</span><span class="stage todo">Todo</span></div>
+      <div class="psec">Common</div>
+      <div class="prow"><span class="pl">📧 Email triage</span></div>
+    </div>
+
+    <div class="actions">
+      <button class="b-cont">Continue</button>
+      <button class="b-sq">⚔️ Side Quest</button>
+      <button class="b-sugar">🍬 Sugar Box</button>
+      <button class="b-park">🅿️ Park</button>
+      <button class="b-later">🔖 Later</button>
+      <button class="b-never">🚫 Nevermind</button>
+    </div>
+    <div class="hint">Any button proceeds — each classifies your decision differently</div>
+    <div class="skip">Skip intent for this domain</div>
+  </div>
+</div>
+</body>
+</html>

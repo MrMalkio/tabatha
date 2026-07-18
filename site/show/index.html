@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Component Showcase</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase - gallery hub.
+   Brand chrome uses the logo palette (#0F1115 / #00D2FF); the
+   embedded surfaces render the live app tokens. Radius scale is
+   the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Fully self-contained:
+   inline CSS, live sibling pages as thumbnails, no network deps.
+   The only script is the client-side filter box - progressive
+   enhancement, so every card is readable with JS disabled.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* hero */
+.hero{max-width:1180px;margin:0 auto;padding:70px 40px 30px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.hero h1{font-size:52px;line-height:1.02;letter-spacing:-.025em;margin-top:16px;max-width:16ch}
+.hero h1 .accent{color:var(--cyan)}
+.hero p{font-size:17px;color:#b8c2cc;max-width:62ch;margin-top:18px}
+.pillars{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.pillar{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r-lg);padding:10px 14px;font-size:13px}
+.pillar .e{font-size:16px}
+.pillar b{font-weight:600}
+.pillar span{color:var(--muted)}
+
+/* index bar: sticky in-page nav + filter */
+.indexbar{position:sticky;top:57px;z-index:25;background:rgba(15,17,21,.9);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);padding:11px 40px}
+.indexbar .inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.indexbar a{font-size:12px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:999px;
+  border:1px solid transparent;white-space:nowrap}
+.indexbar a:hover{color:var(--text);border-color:var(--border);background:var(--panel)}
+.indexbar .grow{flex:1}
+#filter{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-md);
+  color:var(--text);font:400 12px var(--sans);padding:6px 10px;width:200px;outline:none}
+#filter:focus{border-color:rgba(0,210,255,.5)}
+#filter::placeholder{color:var(--muted)}
+#fcount{font-size:11px;color:var(--muted);min-width:70px;text-align:right;font-family:var(--mono)}
+
+section{max-width:1180px;margin:0 auto;padding:34px 40px;scroll-margin-top:118px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:22px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* shot gallery */
+.shots{display:grid;grid-template-columns:repeat(6,1fr);gap:20px}
+.shotcard{grid-column:span 2;background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;text-decoration:none;color:inherit;transition:transform .18s ease,border-color .18s ease}
+.shotcard:hover{transform:translateY(-3px);border-color:rgba(0,210,255,.4)}
+.shotcard.lead{grid-column:span 6}
+.thumb{position:relative;overflow:hidden;background:#050505;border-bottom:1px solid var(--border)}
+.thumb iframe{border:0;transform-origin:top left;pointer-events:none}
+.shotcard.lead .thumb{height:520px}
+.shotcard.lead .thumb iframe{width:1280px;height:800px;transform:scale(.75)}
+.shotcard:not(.lead) .thumb{height:224px}
+.shotcard:not(.lead) .thumb iframe{width:1280px;height:800px;transform:scale(.28)}
+.cap{display:flex;align-items:center;gap:11px;padding:14px 16px}
+.cap .num{font-family:var(--mono);font-size:12px;color:var(--cyan);font-weight:700;flex:none}
+.cap .t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cap .d{font-size:12px;color:var(--muted)}
+.cap .arrow{margin-left:auto;color:var(--muted);flex:none}
+.cwsflag{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);
+  border:1px solid rgba(255,215,0,.35);border-radius:999px;padding:2px 7px}
+
+/* category cards */
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.cat{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;
+  text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:9px;
+  transition:transform .18s ease,border-color .18s ease}
+.cat:hover{transform:translateY(-3px);border-color:rgba(0,210,255,.4)}
+.cat .e{font-size:22px}
+.cat .t{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cat .d{font-size:12.5px;color:var(--muted);line-height:1.5}
+.cat .items{font-size:11px;color:#5b6570;line-height:1.65}
+.cat .n{margin-top:auto;padding-top:12px;font-family:var(--mono);font-size:10.5px;color:var(--cyan)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+.nores{display:none;padding:22px 0;color:var(--muted);font-size:13px}
+.nores.show{display:block}
+.hidden{display:none !important}
+
+@media (max-width:900px){
+  .shots{grid-template-columns:1fr}.shotcard,.shotcard.lead{grid-column:span 1}
+  .cats{grid-template-columns:1fr}
+  .shotcard:not(.lead) .thumb{height:300px}.shotcard:not(.lead) .thumb iframe{transform:scale(.37)}
+  .hero h1{font-size:38px}
+  .indexbar{position:static}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="#family">Family</a>
+  <a href="#surfaces">Surfaces</a>
+  <a href="#library">Library</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.18</span>
+</nav>
+
+<header class="hero">
+  <div class="kicker">Component Showcase</div>
+  <h1>An <span class="accent">Attention OS</span> for your browser.</h1>
+  <p>Every user-facing surface of Tabatha - the browser extension, the desktop companion, and the mobile app - rendered from each product's own design system: the halved corner-radius scale, the Pop-Art dark palette, emoji-native iconography, and JetBrains Mono timers. Five of these double as the Chrome Web Store screenshots, captured at an exact 1280&times;800.</p>
+  <div class="pillars">
+    <div class="pillar"><span class="e">🧭</span><b>Context Over Chaos</b>&nbsp;<span>every tab has a purpose</span></div>
+    <div class="pillar"><span class="e">🚪</span><b>Intentional Browsing</b>&nbsp;<span>good friction, on purpose</span></div>
+    <div class="pillar"><span class="e">⏱️</span><b>Universal Time</b>&nbsp;<span>tracking built into the browser</span></div>
+    <div class="pillar"><span class="e">🤖</span><b>Agent-Ready Data</b>&nbsp;<span>better work, with surgical accuracy</span></div>
+  </div>
+</header>
+
+<div class="indexbar">
+  <div class="inner">
+    <a href="#family">Family</a>
+    <a href="#surfaces">Surfaces</a>
+    <a href="#library">Library</a>
+    <a href="components-overlays.html">Overlays</a>
+    <a href="components-focus.html">Focus &amp; Time</a>
+    <a href="components-data.html">Data</a>
+    <a href="components-org.html">Org &amp; Team</a>
+    <a href="components-settings.html">Settings</a>
+    <a href="components-primitives.html">Primitives</a>
+    <a href="components-companion.html">Companion</a>
+    <a href="components-mobile.html">Mobile</a>
+    <span class="grow"></span>
+    <input id="filter" type="search" placeholder="Filter the gallery…" aria-label="Filter surfaces and categories">
+    <span id="fcount"></span>
+  </div>
+</div>
+
+<section id="family">
+  <div class="sec-head">
+    <h2>The family</h2>
+    <span class="meta">3 products · one day, counted once</span>
+  </div>
+  <p class="sec-purpose">Tabatha is three programs that share one clock. They exist separately because
+    <b>attention does not respect process boundaries</b> but operating systems do: an extension can see your
+    tabs and nothing else, a desktop app can see your windows but not what is inside a tab, and neither is in
+    your pocket at 8am. Splitting them is not an architecture preference, it is the only way to see a whole
+    day. Splitting them is also the hard part - so the rule underneath all three is that <b>one shift exists at
+    a time</b>, wherever you started it, and each program yields to whichever of them can actually see what you
+    are doing right now.</p>
+  <div class="cats" id="famgrid">
+
+    <a class="cat" href="#surfaces" data-k="extension browser chrome mv3 tabs gatekeeper sidebar focus engine shipped live core">
+      <span class="e">🧩</span>
+      <div class="t">Browser Extension <span class="statusflag live">Shipped</span></div>
+      <div class="d">The core product, and the only one that knows <i>why</i> you opened something. It gates new tabs,
+        binds every tab to a Context, and runs the Focus Engine the other two report into.</div>
+      <div class="items">Chrome MV3 · 8 surfaces · 90 components · self-updating channel</div>
+      <div class="n">8 surfaces · 90 components →</div>
+    </a>
+
+    <a class="cat" href="components-companion.html" data-k="companion desktop tauri rust tray windows window monitor sqlite categorizer websocket 9147 capture updater autostart download install get built tabby desk">
+      <span class="e">🖥️</span>
+      <div class="t">Desktop Companion <span class="statusflag live">Built · v0.2.0</span></div>
+      <div class="d">A Windows tray app that watches the rest of the desktop, so the hours you spend outside the
+        browser stop reading as idle. It is also how the extension distributes and updates itself.</div>
+      <div class="items">Tray · Desk Panel · window monitor · categorizer · local SQLite · WebSocket bridge · opt-in capture · updater · autostart</div>
+      <div class="n">15 surfaces &amp; subsystems →</div>
+    </a>
+
+    <a class="cat" href="components-mobile.html" data-k="mobile android app phone expo react native usage stats foreground service focus hub timeline analytics tasks in development planned not released">
+      <span class="e">📱</span>
+      <div class="t">Mobile App <span class="statusflag dev">In development</span></div>
+      <div class="d">Android. Tracks where phone time goes, carries the same shift out of the building, and syncs to
+        your own desktop over your own network before it ever reaches for the cloud.</div>
+      <div class="items">Dashboard · Settings · persistent notification · native usage monitor · categorizer · hybrid LAN-first sync · Focus Hub and timeline planned</div>
+      <div class="n">15 screens &amp; services · not yet installable →</div>
+    </a>
+
+  </div>
+  <div class="nores" id="nores-f">No product matches that filter.</div>
+
+  <!-- Entry point to the companion's download panel. Sits under the family
+       grid rather than in it: "which products exist" and "how do I get one"
+       are different questions, and a fourth tile would have left an orphan
+       cell in a three-column grid. -->
+  <a class="getstrip ready" href="components-companion.html#get">
+    <span class="e" aria-hidden="true">🖥️</span>
+    <span class="gs-body">
+      <span class="gs-t">Get the Desktop Companion <span class="statusflag live">Windows · v0.2.0</span></span>
+      <span class="gs-d">A 4.45 MB installer for Windows 10/11. Unsigned for now, so SmartScreen will
+        warn on first run; the panel carries the direct link, the SHA-256 and what to know before you install.</span>
+    </span>
+    <span class="gs-go" aria-hidden="true">→</span>
+  </a>
+</section>
+
+<section id="surfaces">
+  <div class="sec-head">
+    <h2>Extension surfaces</h2>
+    <span class="meta">8 full-page frames · exact 1280&times;800 · click any card to open full size</span>
+  </div>
+  <p class="sec-purpose">A surface is a whole place in Tabatha you can be: the gate that interrupts a new tab, the sidebar that
+    replaces the browser's own tab strip, the dashboard that replaces the new-tab page. They exist because
+    <b>an attention tool cannot live in one panel</b> - the moment you need to declare intent is not the moment you need to
+    review your week, and neither belongs in a popup. Each frame below is the real UI at the size it actually ships, not a
+    mockup of it.</p>
+  <div class="shots" id="shotgrid">
+    <a class="shotcard lead" href="gatekeeper.html" target="_blank" rel="noopener" data-k="gatekeeper intent popup inpop overlay strict relaxed why are you here friction side quest sugar box park">
+      <div class="thumb"><iframe src="gatekeeper.html" scrolling="no" title="Gatekeeper" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">01</span><div><div class="t">The Gatekeeper <span class="cwsflag">Store shot</span></div><div class="d">"Why are you here?" - good friction before every undirected new tab. Continue, Side Quest, Sugar Box, or Park.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="sidebar.html" target="_blank" rel="noopener" data-k="sidebar command center panel focus tabs queue groups stash tasks">
+      <div class="thumb"><iframe src="sidebar.html" scrolling="no" title="Sidebar" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">02</span><div><div class="t">Sidebar <span class="cwsflag">Store shot</span></div><div class="d">Active focus, elapsed time, priority-coded tab list.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="home.html" target="_blank" rel="noopener" data-k="home new tab dashboard quick access return to flow flipclock heatmap greeting">
+      <div class="thumb"><iframe src="home.html" scrolling="no" title="Home" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">03</span><div><div class="t">New Tab Dashboard <span class="cwsflag">Store shot</span></div><div class="d">Quick Access, working state, Return to Flow.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="settings.html" target="_blank" rel="noopener" data-k="settings sync account cloud org health chip privacy metadata">
+      <div class="thumb"><iframe src="settings.html" scrolling="no" title="Settings" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">04</span><div><div class="t">Sync &amp; Account <span class="cwsflag">Store shot</span></div><div class="d">Cloud Sync health chip and org, metadata only.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="backdating.html" target="_blank" rel="noopener" data-k="backdating time editing checkpoint timeline overlap credited minutes clock-in">
+      <div class="thumb"><iframe src="backdating.html" scrolling="no" title="Backdating" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">05</span><div><div class="t">Backdating <span class="cwsflag">Store shot</span></div><div class="d">Credited minutes, overlaps kept, checkpoint timeline.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="popup.html" target="_blank" rel="noopener" data-k="popup quick switch search tabs ctrl space toolbar feedback 400x500">
+      <div class="thumb"><iframe src="popup.html" scrolling="no" title="Quick Switch" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">06</span><div><div class="t">Quick Switch</div><div class="d">The 400&times;500 toolbar popup: search every tab by its Context, not just its title.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="workshifts.html" target="_blank" rel="noopener" data-k="work shifts analytics charts daily hours peak breaks per focus csv weekly live stints schedule">
+      <div class="thumb"><iframe src="workshifts.html" scrolling="no" title="Work Shifts" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">07</span><div><div class="t">Work Shifts · Analytics</div><div class="d">Daily hours, peak productivity, break patterns, time per focus. Every chart is hand-rolled CSS.</div></div><span class="arrow">↗</span></div>
+    </a>
+    <a class="shotcard" href="settings-sections.html" target="_blank" rel="noopener" data-k="settings all sections nav appearance theme preview swatches 22 developer cortex">
+      <div class="thumb"><iframe src="settings-sections.html" scrolling="no" title="Settings sections" loading="lazy"></iframe></div>
+      <div class="cap"><span class="num">08</span><div><div class="t">Settings · All 22 Sections</div><div class="d">The full nav, the Appearance section, and the live-preview column with all 12 themes.</div></div><span class="arrow">↗</span></div>
+    </a>
+  </div>
+  <div class="nores" id="nores-s">No surface matches that filter.</div>
+</section>
+
+<section id="library">
+  <div class="sec-head">
+    <h2>Extension component library</h2>
+    <span class="meta">6 category pages · 90 component cards · state variants throughout</span>
+  </div>
+  <p class="sec-purpose">The surfaces above are assembled from these ninety components, grouped by the job they do rather than
+    by where they happen to render. Most are shown in <b>several states</b>, because the states are where the product's
+    opinions live: a focus that has drifted, a stint left open by a machine that went to sleep, a queue with nothing in it.
+    Each card names the file it comes from, so what you read here can be checked against the source.</p>
+  <div class="cats" id="catgrid">
+
+    <a class="cat" href="components-overlays.html" data-k="overlays content scripts inbar blockgate gatekeeper sticky note paused nub welcome back whats new backburner checkpoint notes agent">
+      <span class="e">🪟</span>
+      <div class="t">Overlays &amp; Content Scripts</div>
+      <div class="d">Everything Tabatha injects into pages it does not own: the always-on status bar, the intent gate, the block wall.</div>
+      <div class="items">InBar (active · paused · no-intent · agent · nub) · Sticky note · Edit dropdown · Backburner prompt · Checkpoint card · Notes panel · Gatekeeper (strict · relaxed · inherited · agent) · BlockGate · Welcome Back · What's New</div>
+      <div class="n">16 cards →</div>
+    </a>
+
+    <a class="cat" href="components-focus.html" data-k="focus time focusbar focusinput queue backburner history now bar checkpoint timeline flipclock shift controls stage priority drifted paused">
+      <span class="e">🎯</span>
+      <div class="t">Focus &amp; Time</div>
+      <div class="d">The Focus Engine and the clock: declaring intent, tracking it, and correcting it after the fact.</div>
+      <div class="items">FocusBar (active · paused · drifted · over-time · edit · checkpoint) · FocusInput (empty · pending) · FocusQueue · BackburnerDock · FocusHistory · Now Bar · CheckpointTimeline · FlipClock · Shift Controls · StagePicker · Priority picker</div>
+      <div class="n">15 cards →</div>
+    </a>
+
+    <a class="cat" href="components-data.html" data-k="data analytics charts heatmap stat cards top focuses category distribution daily hours peak logs range csv reporting">
+      <span class="e">📈</span>
+      <div class="t">Data &amp; Analytics</div>
+      <div class="d">Every chart in the product, hand-rolled in CSS. The extension ships no charting library at all.</div>
+      <div class="items">Stat cards · Top Focuses · Time by Category · Context Distribution · ActivityHeatmap (365 days) · Daily Hours · Peak Hours · Break Patterns · Weekly comparison · Time per Focus · LogsPanel (chips · table · empty) · Range selector</div>
+      <div class="n">15 cards →</div>
+    </a>
+
+    <a class="cat" href="components-org.html" data-k="org team activity invite token initiatives projects clients live stints abandoned schedule shortfall companion profiles status chip">
+      <span class="e">🏛️</span>
+      <div class="t">Org &amp; Team</div>
+      <div class="d">Multi-install and multi-person surfaces: who is working, on what, and which shifts were left open.</div>
+      <div class="items">TeamActivityPanel · StatusChip (9 states) · Invite tokens · Orgs &amp; Teams · InitiativesPanel tree · ProjectsClientsPanel · Live Stints · AbandonedStintsModal · OtherProfilesStrip · CompanionStatus · Schedule (3 modes) · Shortfalls &amp; Requests</div>
+      <div class="n">14 cards →</div>
+    </a>
+
+    <a class="cat" href="components-settings.html" data-k="settings nav 22 sections sync chip search themes swatches toggles funnel url rules domains developer retention cortex webhooks about changelog">
+      <span class="e">⚙️</span>
+      <div class="t">Settings</div>
+      <div class="d">All 22 shipped sections, the fuzzy search, the theme system, and the Cortex observation panel.</div>
+      <div class="items">Nav (all 22) · Sync chip (5 states) · SettingsSearch (idle · results · empty) · Themes (12) · Swatches · Field rows &amp; toggles · Funnel stages · URL Rules (3 tabs) · Domain Groups · Intent Changes · Developer · Retention · Cortex · Webhooks · About</div>
+      <div class="n">16 cards →</div>
+    </a>
+
+    <a class="cat" href="components-primitives.html" data-k="primitives glasscard popbutton comboinput tagpicker stagepicker voice tooltip command palette shortcuts linkmerge tasks tab rows priority changelog timeline">
+      <span class="e">🧱</span>
+      <div class="t">Primitives &amp; Panels</div>
+      <div class="d">The shared building blocks every surface is assembled from, plus the global overlays.</div>
+      <div class="items">GlassCard · PopButton (3 sizes) · ComboInput · TagPicker · StagePicker · VoiceInput · Tooltip · CommandPalette · KeyboardShortcuts (14) · LinkMergeModal · TasksPanel · Tab-list rows · PriorityPill · ChangelogView · UnifiedTimeline</div>
+      <div class="n">14 cards →</div>
+    </a>
+
+  </div>
+  <div class="nores" id="nores-c">No category matches that filter.</div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.18</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+
+<script>
+/* Client-side filter over the surface + category cards.
+   Progressive enhancement: with JS off every card stays visible and
+   the box simply does nothing. */
+(function () {
+  var box = document.getElementById('filter');
+  var count = document.getElementById('fcount');
+  var fam = Array.prototype.slice.call(document.querySelectorAll('#famgrid .cat'));
+  var shots = Array.prototype.slice.call(document.querySelectorAll('#shotgrid .shotcard'));
+  var cats = Array.prototype.slice.call(document.querySelectorAll('#catgrid .cat'));
+  var all = fam.concat(shots, cats);
+  var noF = document.getElementById('nores-f');
+  var noS = document.getElementById('nores-s');
+  var noC = document.getElementById('nores-c');
+
+  var hay = all.map(function (el) {
+    return ((el.getAttribute('data-k') || '') + ' ' + el.textContent).toLowerCase().replace(/\s+/g, ' ');
+  });
+
+  function visible(list) {
+    return list.some(function (el) { return !el.classList.contains('hidden'); });
+  }
+
+  function apply() {
+    var q = box.value.trim().toLowerCase();
+    var shown = 0;
+    all.forEach(function (el, i) {
+      var hit = !q || hay[i].indexOf(q) !== -1;
+      el.classList.toggle('hidden', !hit);
+      if (hit) shown++;
+    });
+    noF.classList.toggle('show', !!q && !visible(fam));
+    noS.classList.toggle('show', !!q && !visible(shots));
+    noC.classList.toggle('show', !!q && !visible(cats));
+    count.textContent = q ? shown + '/' + all.length : '';
+  }
+
+  box.addEventListener('input', apply);
+  box.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { box.value = ''; apply(); box.blur(); }
+  });
+  apply();
+})();
+</script>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

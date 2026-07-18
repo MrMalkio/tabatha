@@ -58,10 +58,17 @@ right from inside Tabatha (there's a button) — it goes straight to our task bo
 - **Updates are automatic** — the companion quietly pulls new versions; no reinstalling.
 
 ## Privacy — straight talk
-- Tabatha tracks **metadata** (which app/site, for how long, your stated intent) — **not**
-  screenshots, not keystrokes, not page contents.
-- The owner sees **aggregates** of the team's time/context for planning. Your data is tied
-  to your account and recoverable if you switch machines.
+- By default Tabatha tracks **metadata** (which app/site, for how long, your stated
+  intent) — **not** keystrokes, not page contents.
+- **Screen capture is optional and off unless you turn it on.** If you do turn it on:
+  frames are redacted, written to **your own machine**, **never uploaded** (not to us,
+  not to your owner, not to any AI), and auto-deleted after 30 days — 90 if recorded
+  while clocked in. You can switch it off and delete the files yourself, any time.
+- **Nobody can turn capture on for you.** There is no admin override today; the setting
+  is read only from your own device. If that ever changes, you'll be told first.
+- The owner sees **aggregates** of the team's time/context for planning — never your
+  captures. Your data is tied to your account and recoverable if you switch machines.
+- Full detail: `PRIVACY.md`.
 
 ## Got feedback or a problem?
 - Click the **💬 Feedback** control inside Tabatha — bug or idea — it lands on our Asana

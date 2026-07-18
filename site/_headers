@@ -1,0 +1,48 @@
+# Cloudflare Pages headers for tabatha.pondocean.co
+# Applies to the static site in `site/`: the teaser at `/` and the showcase at
+# `/show/`. `/api/*` is served by the Pages Functions in `functions/api/`, which
+# set their own no-store headers.
+#
+# This file must live at the DEPLOY ROOT (`site/`) to be read at all — Pages
+# ignores a `_headers` nested inside a subdirectory. The data/asset rules below
+# are therefore written against the showcase's deployed paths under `/show/`.
+
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  # Self-contained by design: no CDNs, no external fonts, no third-party scripts.
+  # `frame-src 'self'` is required — the hub embeds the surface frames in
+  # iframes. `form-action 'self'` because the feedback modal and the waitlist
+  # both post via fetch to same-origin Functions.
+  # 'unsafe-inline' is needed for style: every page carries its inline <style>
+  # block so it still renders standalone from the filesystem.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'; object-src 'none'
+
+# The search index and roadmap are the only data the site fetches. They change
+# with each deploy, so revalidate rather than serve a stale board.
+/show/search-index.json
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: application/json; charset=utf-8
+
+/show/roadmap.json
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: application/json; charset=utf-8
+
+# Shared chrome. Immutable-ish but short: this site is deployed as flat files
+# with no content hashing, so a long TTL would strand users on stale JS.
+/show/assets/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
+# The teaser's own script. Same reasoning, same short TTL.
+/assets/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/enterprise/update.xml
+  Content-Type: application/xml
+  Cache-Control: no-cache, max-age=0
+
+/enterprise/*.crx
+  Content-Type: application/x-chrome-extension
+  Cache-Control: public, max-age=300

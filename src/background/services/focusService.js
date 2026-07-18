@@ -1046,8 +1046,8 @@ async function removeLastPause(focusId) {
 // created this focus"). Moves item.startedAt earlier (validated/clamped) and
 // credits the newly-exposed gap into elapsedMs, bounded by the wall-clock
 // ceiling so elapsed can never exceed (now - newStart). Validation clamps the
-// proposed start to [clock-in, now] and away from other focuses' active
-// intervals (anti-double-count).
+// proposed start to [clock-in, now] ONLY; overlap with other focuses' active
+// intervals is reported (`overlaps`), never silently applied.
 async function setFocusStartTime(focusId, startedAt, reason) {
   const engine = await getFocusEngine();
   const item = focusId ? engine.items[focusId] : null;
@@ -1079,7 +1079,7 @@ async function setFocusStartTime(focusId, startedAt, reason) {
     else if (other.pausedAt) oEnd = new Date(other.pausedAt).getTime();
     else if (other.endedAt) oEnd = new Date(other.endedAt).getTime();
     else continue;
-    if (Number.isFinite(oEnd) && oEnd > oStart) otherIntervals.push({ startMs: oStart, endMs: oEnd });
+    if (Number.isFinite(oEnd) && oEnd > oStart) otherIntervals.push({ startMs: oStart, endMs: oEnd, label: other.label || null });
   }
 
   const v = validateStartTime({ proposedStartMs, currentStartMs, now, clockInMs, otherIntervals });
@@ -1101,10 +1101,21 @@ async function setFocusStartTime(focusId, startedAt, reason) {
   item.elapsedMs = Math.max(0, Math.min((item.elapsedMs || 0) + addedMs, storedCeiling));
 
   const mins = Math.round(addedMs / 60000);
-  autoCheckpoint(item, `🛠 Start backdated +${mins}m${reason ? ' — ' + reason : ''}`);
+  // Overlap with other focuses' time is REPORTED, not silently resolved — the
+  // start the user picked always stands. Note it on the timeline so the credited
+  // span is honest; a future UI lets the user trim it / move it to backburner.
+  const overlaps = Array.isArray(v.overlaps) ? v.overlaps : [];
+  const overlapMs = overlaps.reduce((sum, o) => sum + (o.overlapMs || 0), 0);
+  const overlapNote = overlapMs >= 60000 ? ` (⚠️ overlaps ${Math.round(overlapMs / 60000)}m of other focus time)` : '';
+  autoCheckpoint(item, `🛠 Start backdated +${mins}m${reason ? ' — ' + reason : ''}${overlapNote}`);
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-  return { focusEngine: engine, startedAt: item.startedAt, addedMs, clamped: v.clamped };
+  // Response carries everything the UI needs to be HONEST about the edit:
+  // the effective start, the credited ms, whether the [clock-in, now] bounds
+  // moved it (`clamped` + which bound via `clampedBy`), and any other-focus
+  // intervals the credited span overlaps (`overlaps`, informational — both
+  // focuses keep their time). Additive fields only.
+  return { focusEngine: engine, startedAt: item.startedAt, addedMs, clamped: v.clamped, clampedBy: v.clampedBy || null, overlaps };
 }
 
 // Edit an existing checkpoint entry's text and/or progress level.

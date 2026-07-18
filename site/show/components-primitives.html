@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Primitives &amp; Panels</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase — category page kit.
+   Chrome uses the logo palette (#0F1115 / #00D2FF); component
+   stages render the live app tokens (Pop-Art theme: bg #050505,
+   accent #00F0FF, secondary #FF0055, gold #FFD700). Radius scale
+   is the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Self-contained:
+   inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --purple:#ab47bc;--agent:#b388ff;--backburner:#ff9800;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+/* state variant strip */
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+
+/* shared app-surface tokens */
+.app{--acc:#00F0FF}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;display:flex;align-items:center;gap:7px}
+.mono{font-family:var(--mono)}
+.glass{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;backdrop-filter:blur(16px)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Component CSS — primitives & panels
+   ============================================================ */
+
+/* --- GlassCard + PopButton --- */
+.gcard{width:210px;padding:14px}
+.gcard .gt{font-size:12px;font-weight:600}
+.gcard .gd{font-size:10.5px;color:#868E96;margin-top:4px;line-height:1.45}
+.btn-pop{background:#00F0FF;color:#000;font-weight:800;text-transform:uppercase;letter-spacing:.1em;
+  border:2px solid #000;box-shadow:4px 4px 0px #FF0055;border-radius:4px;cursor:pointer;
+  font-family:var(--sans);line-height:1}
+.btn-pop.sm{padding:6px 12px;font-size:12px}
+.btn-pop.md{padding:10px 20px;font-size:14px}
+.btn-pop.lg{padding:14px 32px;font-size:16px}
+
+/* --- ComboInput --- */
+.ci{position:relative;width:190px}
+.ci .fieldwrap{position:relative}
+.ci .ic{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:11px;pointer-events:none}
+.ci input{width:100%;background:#111;border:1px solid #2c2c2c;border-radius:4px;color:#ddd;
+  font:400 12px var(--sans);padding:4px 8px;padding-left:28px}
+.ci input::placeholder{color:#5b6570}
+.ci .dd{position:absolute;top:calc(100% + 3px);left:0;right:0;max-height:180px;overflow-y:auto;z-index:5;
+  background:rgba(20,20,25,.92);border:1px solid rgba(255,255,255,.1);border-radius:4px;
+  box-shadow:0 4px 16px rgba(0,0,0,.2);backdrop-filter:blur(12px)}
+.ci .dd .row{padding:5px 9px;font-size:12px;color:#ddd;cursor:pointer}
+.ci .dd .row.hi{background:var(--appcyan);color:#fff}
+.ci .dd .create{padding:5px 9px;font-size:12px;font-style:italic;color:#FF0055;cursor:pointer}
+.ci .dd .create.bordered{border-top:1px solid rgba(255,255,255,.1)}
+
+/* --- TagPicker (reused verbatim from index.html) --- */
+.tp{width:360px;background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:14px}
+.tp .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.tp .f label{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#868E96;display:block;margin-bottom:5px}
+.tp .toggle{display:flex;gap:6px}
+.tp .toggle button{flex:1;border:1px solid #2c2c2c;background:#111;color:#999;border-radius:4px;padding:7px;font:600 11px var(--sans);cursor:pointer}
+.tp .toggle button.on{border-color:var(--appcyan);color:#fff;background:rgba(0,240,255,.28)}
+.tp .combo{display:flex;align-items:center;gap:7px;background:#111;border:1px solid #2c2c2c;border-radius:4px;padding:7px 9px;font-size:11px;color:#ddd}
+.tp .hint{font-size:10px;color:#868E96;margin-top:10px}
+/* expanded body per spec: grid 1fr 1fr, gap 6px, padding 8px, surface bg, radius 4px */
+.tp.exp .grid{gap:6px;padding:8px;background:rgba(20,20,25,.55);border-radius:4px}
+.tp .donerow{display:flex;justify-content:flex-end;margin-top:10px}
+.tp .done{border:1px solid var(--appcyan);color:var(--appcyan);background:transparent;border-radius:4px;
+  padding:4px 10px;font:600 10px var(--sans);cursor:pointer}
+.tp-collapsed{border:1px dashed #3a3a3a;background:transparent;color:#868E96;border-radius:4px;
+  font:400 11px var(--sans);padding:3px 8px;max-width:200px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block}
+.tp-collapsed.filled{border-style:dashed;color:#cfcfcf}
+
+/* --- StagePicker --- */
+.sp{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;max-width:330px}
+.sp .chip{font-size:9px;padding:2px 6px;border-radius:4px;background:transparent;
+  border:1px solid rgba(255,255,255,.1);color:#868E96;cursor:pointer;font-family:var(--sans);white-space:nowrap}
+.sp.compact .chip{font-size:8px;padding:1px 4px}
+
+/* --- VoiceInput --- */
+.vi{border-radius:50%;display:grid;place-items:center;cursor:pointer;border:1px solid rgba(255,255,255,.1);
+  background:transparent;color:#868E96;flex:none}
+.vi.sm{width:24px;height:24px;font-size:12px}
+.vi.md{width:32px;height:32px;font-size:16px}
+.vi.rec{background:#ef5350;color:#fff;border-color:#ef5350;box-shadow:0 0 0 6px rgba(239,83,80,.15)}
+.vi.dis{opacity:.4;cursor:not-allowed}
+.vi-tx{font-size:11px;font-style:italic;color:#868E96;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vi-err{font-size:9px;color:#ef5350}
+.vi-row{display:flex;align-items:center;gap:8px}
+
+/* --- Tooltip --- */
+.tt-wrap{position:relative;display:inline-flex}
+.tt{background:#222;color:#eee;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;
+  max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+  position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:4}
+.tt.top{bottom:calc(100% + 6px)}
+.tt.bottom{top:calc(100% + 6px)}
+.tt-trigger{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:4px;
+  color:#cfcfcf;font:400 11px var(--sans);padding:6px 11px}
+
+/* --- CommandPalette --- */
+.cp{width:540px;max-width:100%;background:#050505;border-radius:8px;box-shadow:0 24px 80px rgba(0,0,0,.4);
+  border:1px solid rgba(255,255,255,.1);overflow:hidden}
+.cp .srow{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+.cp .srow .mag{font-size:13px;color:#868E96}
+.cp .srow input{flex:1;background:transparent;border:0;outline:0;color:#eaeaea;font:400 13px var(--sans)}
+.cp .srow input::placeholder{color:#5b6570}
+.cp kbd{font-size:10px;color:#00F0FF;background:rgba(20,20,25,.55);padding:2px 8px;border-radius:3px;
+  font-family:var(--mono);font-weight:600}
+.cp .list{max-height:230px;overflow-y:auto;padding:5px 0}
+.cp .r{display:flex;align-items:center;gap:10px;padding:6px 14px;border-left:2px solid transparent;font-size:12.5px;color:#dcdcdc;cursor:pointer}
+.cp .r.sel{background:rgba(0,240,255,.08);border-left:2px solid #00F0FF}
+.cp .r .sub{font-size:10px;color:#868E96;margin-left:auto}
+.cp .gl{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:#5b6570;font-weight:700;padding:7px 14px 4px}
+.cp .foot{display:flex;gap:14px;padding:9px 14px;border-top:1px solid rgba(255,255,255,.1);font-size:10px;color:#868E96}
+.cp .empty{padding:26px 14px;text-align:center;font-size:12px;color:#868E96}
+
+/* --- ShortcutsHelp --- */
+.ks{width:420px;max-width:100%;background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;backdrop-filter:blur(16px);padding:16px 18px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.ks .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ks .hd h3{font-size:14px;font-weight:700}
+.ks .hd .x{background:transparent;border:0;color:#868E96;font-size:13px;cursor:pointer}
+.ks .row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;color:#dcdcdc}
+.ks kbd{font-size:10px;color:#00F0FF;background:rgba(20,20,25,.55);padding:2px 8px;border-radius:3px;
+  font-family:var(--mono);font-weight:600}
+.ks .kfoot{font-size:10px;color:#868E96;text-align:center;margin-top:11px}
+
+/* --- LinkMergeModal --- */
+.lm{width:420px;max-width:100%;background:#141418;border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.lm h3{font-size:15px;font-weight:700}
+.lm .target{font-size:11px;color:#868E96;margin-top:6px}
+.lm .modes{display:flex;gap:6px;margin-top:14px}
+.lm .modes button{flex:1;border:1px solid rgba(255,255,255,.1);background:transparent;color:#999;
+  border-radius:4px;padding:6px;font:600 10.5px var(--sans);cursor:pointer}
+.lm .modes button.on{background:var(--appcyan);color:#000;border-color:var(--appcyan)}
+.lm label{display:block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#868E96;margin:14px 0 5px}
+.lm select,.lm input{width:100%;background:#111;border:1px solid #2c2c2c;border-radius:6px;color:#ddd;
+  font:400 11.5px var(--sans);padding:7px 9px}
+.lm .divider{text-align:center;font-size:10px;color:#5b6570;margin:14px 0 0}
+.lm .empty{font-size:11px;color:#ffa726;background:#ffa72611;border:1px solid #ffa72633;
+  border-radius:4px;padding:9px 11px;margin-top:12px}
+.lm .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.lm .foot button{border-radius:4px;padding:8px 14px;font:700 11px var(--sans);cursor:pointer}
+.lm .foot .ghost{background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1)}
+.lm .foot .go{background:var(--appcyan);color:#000;border:0}
+
+/* --- TasksPanel --- */
+.tsk{width:100%;max-width:520px}
+.tsk .bar{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.tsk .filt{border:1px solid rgba(255,255,255,.1);background:transparent;color:#868E96;border-radius:4px;
+  padding:4px 9px;font:600 10px var(--sans);cursor:pointer}
+.tsk .filt.on{border-color:var(--appcyan);color:var(--appcyan);background:rgba(0,240,255,.08)}
+.tsk .new{margin-left:auto;background:var(--appcyan);color:#000;border:0;border-radius:4px;
+  padding:5px 10px;font:700 10px var(--sans);cursor:pointer}
+.tsk .row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(20,20,25,.55);
+  border:1px solid rgba(255,255,255,.1);border-radius:4px;margin-bottom:6px}
+.tsk .row.done{opacity:.65}
+.tsk .row.done .nm{text-decoration:line-through}
+.tsk .nm{flex:1;font-size:11.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsk .acts{display:flex;gap:5px;font-size:11px;opacity:.75}
+.tsk .lk{font-size:9px;color:var(--appcyan);background:rgba(0,240,255,.08);border-radius:999px;padding:1px 6px}
+.tsk .empty{text-align:center;padding:20px 0;color:#868E96;font-size:11.5px}
+.tsk .empty .big{font-size:22px;display:block;margin-bottom:6px}
+.tsk .form{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:10px;margin-bottom:6px}
+.tsk .form input,.tsk .form textarea{width:100%;background:#111;border:1px solid #2c2c2c;border-radius:4px;
+  color:#ddd;font:400 11px var(--sans);padding:6px 8px;margin-bottom:6px;resize:none}
+.tsk .form .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tsk .form .fb{display:flex;gap:6px;justify-content:flex-end;margin-top:4px}
+.tsk .form .fb button{border-radius:4px;padding:5px 11px;font:700 10px var(--sans);cursor:pointer}
+.tsk .form .fb .ghost{background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1)}
+.tsk .form .fb .go{background:var(--appcyan);color:#000;border:0}
+.chipbar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+
+/* --- tab rows (reused verbatim from index.html) --- */
+.tabrows{width:400px;display:flex;flex-direction:column;gap:6px}
+.trow{display:flex;align-items:center;gap:9px;padding:9px 11px;background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:4px}
+.trow .prio{width:3px;align-self:stretch;border-radius:2px}
+.trow .ico{font-size:14px}
+.trow .m{flex:1;min-width:0}
+.trow .ti{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .cx{font-size:9px;color:#868E96}
+.trow .tm{font-family:var(--mono);font-size:10px}
+
+/* --- PriorityPill --- */
+.pp{font-family:var(--mono);font-size:10px;font-weight:700;border-radius:4px;padding:2px 7px}
+
+/* --- ChangelogView --- */
+.cl{width:100%;max-width:560px;text-align:left}
+.cl .vh{display:flex;align-items:baseline;gap:10px}
+.cl .vn{font-size:15px;font-weight:700;color:#00F0FF}
+.cl .dt{font-size:10px;color:#868E96;font-variant-numeric:tabular-nums}
+.cl .ti{font-size:13px;font-weight:600;margin-top:4px}
+.cl .sl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#868E96;margin:12px 0 4px}
+.cl .bd{font-size:12px;line-height:1.5;color:#cfcfcf}
+.cl .bd ul{padding-left:18px}
+.cl code{font-family:var(--mono);font-size:.9em;background:rgba(20,20,25,.55);padding:1px 4px;border-radius:3px}
+.cl .empty{font-size:12px;color:#868E96;text-align:center;padding:14px 0}
+
+/* --- UnifiedTimeline --- */
+.ut{width:100%;max-width:620px}
+.ut .hd{display:flex;align-items:center;gap:10px;font-size:11px;margin-bottom:9px}
+.ut .hd .ti{font-weight:600}
+.ut .hd .rg{color:#868E96;font-family:var(--mono);font-size:10px}
+.ut .hd .sw{margin-left:auto;color:#868E96;font-size:10px}
+.ut .bar{position:relative;height:24px;border-radius:4px;background:rgba(255,255,255,.02);overflow:hidden}
+.ut .sg{position:absolute;top:0;bottom:0;opacity:.75}
+.ut .sg.brk{background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,.25) 3px,rgba(0,0,0,.25) 6px)}
+.ut .mk{position:absolute;top:0;bottom:0;width:2px;z-index:2}
+.ut .mk.in{background:#66bb6a;box-shadow:0 0 6px #66bb6a}
+.ut .mk.out{background:#ef5350;box-shadow:0 0 6px #ef5350}
+.ut .lg{display:flex;flex-wrap:wrap;gap:9px;margin-top:11px}
+.ut .lg span{display:flex;align-items:center;gap:5px;font-size:9px;color:#868E96}
+.ut .lg i{width:8px;height:8px;border-radius:2px;display:block}
+.ut .wait{font-size:11px;color:#868E96;background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);
+  border-radius:4px;padding:11px;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="#components">Components</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.18</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Primitives &amp; Panels</h1>
+  <p>The building blocks under every Tabatha surface: buttons and glass cards, the autocomplete and tagging inputs that bind a focus to its hierarchy, and the full-panel overlays for commands, shortcuts, tasks, and timelines. Every string, colour, and radius here is lifted from the shipping source, including the places where the product hardcodes a value off the scale.</p>
+</header>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Component library</h2>
+    <span class="meta">14 primitives and panels · rendered from live app tokens</span>
+  </div>
+  <p class="sec-purpose">The shared vocabulary. Every surface in Tabatha is assembled from these, which is why the product feels consistent without a component framework doing the enforcing - there is no design-system dependency here, just a small set of pieces used everywhere. <b>GlassCard</b>, <b>PopButton</b> and the pickers carry the Pop-Art palette and the halved 2/4/8 radius scale. The global overlays are also here: the command palette, the fourteen keyboard shortcuts, and the link/merge modal that resolves the duplicate contexts you inevitably create.</p>
+  <div class="lib app">
+
+    <!-- 1. GlassCard + PopButton -->
+    <div class="libcard" id="glass-pop">
+      <div class="stage">
+        <div class="variants" style="gap:16px">
+          <div class="vcol">
+            <div class="vlabel">GlassCard</div>
+            <div class="glass gcard">
+              <div class="gt">🎯 Q1 Report</div>
+              <div class="gd">Blurred translucent surface, used for every floating panel on the dashboard.</div>
+            </div>
+          </div>
+          <div class="vcol"><div class="vlabel">sm</div><button class="btn-pop sm">Start</button></div>
+          <div class="vcol"><div class="vlabel">md</div><button class="btn-pop md">Start</button></div>
+          <div class="vcol"><div class="vlabel">lg</div><button class="btn-pop lg">Start</button></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🧱</span><div><div class="t">GlassCard + PopButton</div>
+        <div class="d">The two base primitives. GlassCard is a translucent blurred panel; PopButton is the Pop-Art call to action with a hard black border and an offset magenta drop shadow, in three sizes.</div>
+        <div class="src">src/components/ui/GlassCard.jsx · src/components/ui/PopButton.jsx</div></div></div>
+    </div>
+
+    <!-- 2. ComboInput -->
+    <div class="libcard wide" id="combo-input">
+      <div class="stage" style="align-items:flex-start;padding-top:34px">
+        <div class="variants" style="gap:26px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">closed</div>
+            <div class="ci"><div class="fieldwrap"><span class="ic">👤</span><input value="Northwind" readonly></div></div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">open with suggestions</div>
+            <div class="ci">
+              <div class="fieldwrap"><span class="ic">👤</span><input value="No" readonly></div>
+              <div class="dd">
+                <div class="row hi">Northwind</div>
+                <div class="row">Northwind Retail</div>
+                <div class="row">Nordic Labs</div>
+                <div class="create bordered">＋ Create "Northwind"</div>
+              </div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">create-only</div>
+            <div class="ci">
+              <div class="fieldwrap"><span class="ic">👤</span><input value="Northwind" readonly></div>
+              <div class="dd"><div class="create">＋ Create "Northwind"</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⌨️</span><div><div class="t">ComboInput</div>
+        <div class="d">A free-text field with an inline suggestion list: type to filter existing entities, arrow to highlight, or fall through to the italic create row when nothing matches. It is the input behind every Client, Project, and Task field.</div>
+        <div class="src">src/components/ui/ComboInput.jsx</div></div></div>
+    </div>
+
+    <!-- 3. TagPicker -->
+    <div class="libcard wide" id="tag-picker">
+      <div class="stage" style="align-items:flex-start;padding-top:30px">
+        <div class="variants" style="gap:28px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">collapsed / empty</div>
+            <span class="tp-collapsed">🏷 Add tags</span>
+            <div class="vlabel" style="margin-top:16px">collapsed / populated</div>
+            <span class="tp-collapsed filled">💼 › Northwind › Finance › Q1 charts</span>
+            <div class="vlabel" style="margin-top:16px">collapsed / personal</div>
+            <span class="tp-collapsed filled">🏠 › Self › Vacation planning</span>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">expanded / business selected</div>
+            <div class="tp exp">
+              <div class="eyebrow">🏷 Tags &amp; Associations</div>
+              <div class="grid">
+                <div class="f"><label>Realm</label><div class="toggle"><button class="on">💼 Business</button><button>🏠 Personal</button></div></div>
+                <div class="f"><label>Client</label><div class="combo">👤 Northwind</div></div>
+                <div class="f"><label>Project</label><div class="combo">📁 Finance</div></div>
+                <div class="f"><label>Task</label><div class="combo">✏️ Q1 charts</div></div>
+              </div>
+              <div class="hint">💡 Selecting a task or project auto-fills related fields</div>
+              <div class="donerow"><button class="done">Done ✓</button></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">expanded / personal selected</div>
+            <div class="tp exp">
+              <div class="eyebrow">🏷 Tags &amp; Associations</div>
+              <div class="grid">
+                <div class="f"><label>Realm</label><div class="toggle"><button>💼 Business</button><button class="on">🏠 Personal</button></div></div>
+                <div class="f"><label>Client</label><div class="combo">👤 Self</div></div>
+                <div class="f"><label>Task</label><div class="combo">✏️ Vacation planning</div></div>
+              </div>
+              <div class="hint">🏠 Personal work is attributed to <b>Self</b>. Project is a business-only field, so it is not rendered here.</div>
+              <div class="donerow"><button class="done">Done ✓</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏷</span><div><div class="t">TagPicker</div>
+        <div class="d">Binds a focus to Realm › Client › Project › Task. Collapsed it is a dashed affordance that becomes a breadcrumb once filled; expanded it exposes the realm toggle and the ComboInputs, with autofill up the hierarchy. Switching to <b>Personal</b> auto-fills the client as <b>Self</b> (always offered as an option, whatever your client list holds) and drops Client and Project from the form unless they already carry a value. Task stays available in both realms.</div>
+        <div class="src">src/components/ui/TagPicker.jsx</div></div></div>
+    </div>
+
+    <!-- 4. StagePicker -->
+    <div class="libcard" id="stage-picker">
+      <div class="stage">
+        <div class="variants" style="gap:18px">
+          <div class="vcol" style="width:100%">
+            <div class="vlabel">default</div>
+            <div class="sp">
+              <button class="chip">📥 Unsorted</button>
+              <button class="chip">📋 Todo</button>
+              <button class="chip" style="background:#ff980033;border-color:#ff9800;color:#ff9800;font-weight:600">🎯 Focus</button>
+              <button class="chip">⚡ Addressing</button>
+              <button class="chip">🚧 Roadblocked</button>
+              <button class="chip">✅ Resolved</button>
+            </div>
+          </div>
+          <div class="vcol" style="width:100%">
+            <div class="vlabel">compact</div>
+            <div class="sp compact">
+              <button class="chip">📥</button>
+              <button class="chip">📋</button>
+              <button class="chip" style="background:#ff980033;border-color:#ff9800;color:#ff9800;font-weight:600">🎯</button>
+              <button class="chip">⚡</button>
+              <button class="chip">🚧</button>
+              <button class="chip">✅</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎯</span><div><div class="t">StagePicker</div>
+        <div class="d">The FUNNEL_STAGES row on a focus. The active chip tints to its own stage colour at 20% alpha; the rest stay transparent and muted. A compact variant drops the labels for tight rows.</div>
+        <div class="src">src/components/ui/StagePicker.jsx</div></div></div>
+    </div>
+
+    <!-- 5. VoiceInput -->
+    <div class="libcard" id="voice-input">
+      <div class="stage">
+        <div class="variants" style="gap:16px">
+          <div class="vcol"><div class="vlabel">idle sm / md</div>
+            <div class="vi-row"><button class="vi sm">🎙</button><button class="vi md">🎙</button></div></div>
+          <div class="vcol"><div class="vlabel">listening</div>
+            <button class="vi md rec">⏹</button></div>
+          <div class="vcol"><div class="vlabel">transcript</div>
+            <div class="vi-row"><button class="vi sm rec">⏹</button><span class="vi-tx">finish the Q1 revenue model before lunch</span></div></div>
+          <div class="vcol"><div class="vlabel">error</div>
+            <div class="vi-row"><button class="vi sm">🎙</button><span class="vi-err">Microphone access denied</span></div></div>
+          <div class="vcol"><div class="vlabel">disabled</div>
+            <button class="vi sm dis">🎙</button></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎙</span><div><div class="t">VoiceInput</div>
+        <div class="d">A round mic toggle that dictates into any field. Listening turns the button red and pulses a ring, streaming an interim transcript beside it; permission failures surface inline rather than as a modal.</div>
+        <div class="src">src/components/ui/VoiceInput.jsx</div></div></div>
+    </div>
+
+    <!-- 6. Tooltip -->
+    <div class="libcard" id="tooltip">
+      <div class="stage">
+        <div class="variants" style="gap:44px">
+          <div class="vcol"><div class="vlabel">top</div>
+            <div class="tt-wrap" style="margin-top:26px">
+              <span class="tt top">Time spent in this context today</span>
+              <button class="tt-trigger">⏱ 2h 51m</button>
+            </div></div>
+          <div class="vcol"><div class="vlabel">bottom</div>
+            <div class="tt-wrap">
+              <button class="tt-trigger">🔥 Backburner</button>
+              <span class="tt bottom">Park this tab and revisit it later</span>
+            </div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">💬</span><div><div class="t">Tooltip</div>
+        <div class="d">A flat dark label placed above or below its trigger, capped at 280px so long hints wrap instead of stretching the row. No caret, no arrow, just offset and shadow.</div>
+        <div class="src">src/components/ui/Tooltip.jsx</div></div></div>
+    </div>
+
+    <!-- 7. CommandPalette -->
+    <div class="libcard wide" id="command-palette">
+      <div class="stage tall" style="align-items:flex-start;padding-top:28px">
+        <div class="variants" style="gap:22px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">default</div>
+            <div class="cp">
+              <div class="srow"><span class="mag">🔍</span>
+                <input placeholder="Search focuses, tasks, tabs, actions..." readonly>
+                <kbd>ESC</kbd></div>
+              <div class="list">
+                <div class="gl">Actions</div>
+                <div class="r sel">🎯 Set new focus</div>
+                <div class="r">☕ Take a break</div>
+                <div class="r">⏱ Clock in/out</div>
+                <div class="r">📋 Create new task</div>
+                <div class="r">🏢 View projects</div>
+                <div class="r">🏛️ View org hierarchy</div>
+                <div class="r">⚙️ Open settings</div>
+                <div class="r">🖥️ Open activity editor</div>
+                <div class="r">🎨 Switch theme</div>
+                <div class="gl">Results</div>
+                <div class="r">🔵 Q1 Report<span class="sub">focus · active</span></div>
+                <div class="r">✏️ Q1 charts<span class="sub">task</span></div>
+                <div class="r">📑 Q1 Revenue Model - Sheets<span class="sub">tab</span></div>
+              </div>
+              <div class="foot"><span>↑↓ Navigate</span><span>⏎ Select</span><span>ESC Close</span></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">empty</div>
+            <div class="cp" style="width:280px">
+              <div class="srow"><span class="mag">🔍</span><input value="zzz" readonly><kbd>ESC</kbd></div>
+              <div class="empty">No results for "zzz"</div>
+              <div class="foot"><span>↑↓ Navigate</span><span>⏎ Select</span><span>ESC Close</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⚡</span><div><div class="t">CommandPalette</div>
+        <div class="d">Ctrl+K opens one search field over nine fixed actions plus live focus, task, and tab results. The selected row is marked by an accent left rule and a faint accent wash, so the keyboard cursor stays readable at a glance.</div>
+        <div class="src">src/components/ui/CommandPalette.jsx</div></div></div>
+    </div>
+
+    <!-- 8. KeyboardShortcuts -->
+    <div class="libcard wide" id="shortcuts">
+      <div class="stage tall" style="align-items:flex-start;padding-top:26px">
+        <div class="ks">
+          <div class="hd"><h3>⌨️ Keyboard Shortcuts</h3><button class="x">✕</button></div>
+          <div class="row"><span>Open Command Palette</span><kbd>Ctrl+K</kbd></div>
+          <div class="row"><span>Show Keyboard Shortcuts</span><kbd>Ctrl+/</kbd></div>
+          <div class="row"><span>Set New Focus</span><kbd>Ctrl+Shift+F</kbd></div>
+          <div class="row"><span>Toggle Break</span><kbd>Ctrl+Shift+B</kbd></div>
+          <div class="row"><span>Switch Theme</span><kbd>Ctrl+Shift+T</kbd></div>
+          <div class="row"><span>Go to Intents tab</span><kbd>Ctrl+1</kbd></div>
+          <div class="row"><span>Go to Tasks tab</span><kbd>Ctrl+2</kbd></div>
+          <div class="row"><span>Go to Projects tab</span><kbd>Ctrl+3</kbd></div>
+          <div class="row"><span>Go to Org tab</span><kbd>Ctrl+4</kbd></div>
+          <div class="row"><span>Go to Logs tab</span><kbd>Ctrl+5</kbd></div>
+          <div class="row"><span>Go to Tabs tab</span><kbd>Ctrl+6</kbd></div>
+          <div class="row"><span>Go to Sessions tab</span><kbd>Ctrl+7</kbd></div>
+          <div class="row"><span>Go to Stashed tab</span><kbd>Ctrl+8</kbd></div>
+          <div class="row" style="border-bottom:0"><span>Close open modals/overlays</span><kbd>Escape</kbd></div>
+          <div class="kfoot">Press Ctrl+/ to toggle this overlay</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⌨️</span><div><div class="t">KeyboardShortcuts (ShortcutsHelp)</div>
+        <div class="d">The full binding map, reachable from anywhere with Ctrl+/. Fourteen rows cover the palette, focus and break control, theme, all eight dashboard tabs, and Escape as the universal dismiss.</div>
+        <div class="src">src/components/ui/KeyboardShortcuts.jsx</div></div></div>
+    </div>
+
+    <!-- 9. LinkMergeModal -->
+    <div class="libcard wide" id="link-merge">
+      <div class="stage tall" style="align-items:flex-start;padding-top:26px">
+        <div class="variants" style="gap:22px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">link mode</div>
+            <div class="lm">
+              <h3>🔗 Link Tab to Intent</h3>
+              <div class="target">Target: Q1 Revenue Model - Sheets</div>
+              <div class="modes"><button class="on">🔗 Link</button><button>➕ Create Focus</button><button>🔀 Merge</button></div>
+              <label>Select an Intent to link to</label>
+              <select>
+                <option>-- Choose an Intent --</option>
+                <option>Q1 Report (active)</option>
+                <option>Learning React (paused)</option>
+                <option>Vacation Planning (queued)</option>
+                <option>Email triage (completed)</option>
+              </select>
+              <div class="divider">— OR create new —</div>
+              <div class="foot"><button class="ghost">Cancel</button><button class="go">Link</button></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">create mode + empty state</div>
+            <div class="lm">
+              <h3>🔗 Link Tab to Intent</h3>
+              <div class="target">Target: Q1 Revenue Model - Sheets</div>
+              <div class="modes"><button>🔗 Link</button><button class="on">➕ Create Focus</button><button>🔀 Merge</button></div>
+              <div class="empty">No intents available. Create a focus first.</div>
+              <label>Name your new focus</label>
+              <input placeholder="Focus label..." readonly>
+              <label>Timer Duration (minutes)</label>
+              <input value="25" readonly>
+              <div class="foot"><button class="ghost">Cancel</button><button class="go">➕ Create Focus</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔗</span><div><div class="t">LinkMergeModal</div>
+        <div class="d">One modal, three modes: attach a tab to an existing intent, spin up a new focus for it, or merge two intents together. It hardcodes its own 4px and 6px radii instead of reading the 2/4/8 scale, reproduced here exactly as shipped.</div>
+        <div class="src">src/components/ui/LinkMergeModal.jsx</div></div></div>
+    </div>
+
+    <!-- 10. TasksPanel -->
+    <div class="libcard wide" id="tasks-panel">
+      <div class="stage tall" style="align-items:flex-start;padding-top:26px">
+        <div class="variants" style="gap:26px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">list</div>
+            <div class="tsk">
+              <div class="bar">
+                <button class="filt on">📋 Active</button>
+                <button class="filt">✅ Completed</button>
+                <button class="filt">📁 All</button>
+                <button class="new">+ New Task</button>
+              </div>
+              <div class="chipbar">
+                <button class="chip" style="font-size:9px;padding:2px 6px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96">📥 Unsorted</button>
+                <button class="chip" style="font-size:9px;padding:2px 6px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96">📋 Backlog</button>
+                <button class="chip" style="font-size:9px;padding:2px 6px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96">📝 Todo</button>
+                <button class="chip" style="font-size:9px;padding:2px 6px;border-radius:4px;background:#ffa72633;border:1px solid #ffa726;color:#ffa726;font-weight:600">🎯 Focused</button>
+                <button class="chip" style="font-size:9px;padding:2px 6px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96">⚡ Addressing</button>
+                <button class="chip" style="font-size:9px;padding:2px 6px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96">🚧 Roadblocked</button>
+              </div>
+              <div class="row"><span class="nm">Q1 charts</span><span class="lk">🔗 2</span><span class="acts">🎯 ✏️ 🔗 🗑</span></div>
+              <div class="row"><span class="nm">Rewrite the revenue narrative</span><span class="acts">🎯 ✏️ 🔗 🗑</span></div>
+              <div class="row done"><span class="nm">Email triage</span><span class="acts">🎯 ✏️ 🔗 🗑</span></div>
+              <div class="row done"><span class="nm">Book vacation flights</span><span class="acts">🎯 ✏️ 🔗 🗑</span></div>
+            </div>
+          </div>
+          <div class="vcol" style="width:240px">
+            <div class="vlabel">create form</div>
+            <div class="tsk">
+              <div class="form">
+                <input placeholder="Task name..." readonly>
+                <textarea rows="2" placeholder="Description (optional)" readonly></textarea>
+                <div class="two">
+                  <div class="ci" style="width:auto"><div class="fieldwrap"><span class="ic">📁</span><input placeholder="Project (optional)" readonly></div></div>
+                  <div class="ci" style="width:auto"><div class="fieldwrap"><span class="ic">👤</span><input placeholder="Client (optional)" readonly></div></div>
+                </div>
+                <div class="fb"><button class="ghost">Cancel</button><button class="go">Create</button></div>
+              </div>
+            </div>
+            <div class="vlabel" style="margin-top:14px">empty</div>
+            <div class="tsk">
+              <div class="empty"><span class="big">📋</span>No tasks yet. Create one to organize your intents.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📋</span><div><div class="t">TasksPanel</div>
+        <div class="d">Task CRUD with its own TASK_STAGES funnel, distinct from the focus funnel. Each row can start an intent, be edited inline, be linked to focuses (the count shows as a badge), or be deleted; completed rows dim and strike through.</div>
+        <div class="src">src/home/TasksPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 11. Tab-list rows -->
+    <div class="libcard wide" id="tab-rows">
+      <div class="stage">
+        <div class="tabrows" style="width:520px">
+          <div class="trow"><div class="prio" style="background:var(--red)"></div><span class="ico">💼</span><div class="m"><div class="ti">Q1 Revenue Model - Sheets</div><div class="cx">Q1 Report · 22m</div></div><span class="tm" style="color:var(--appcyan)">22m</span></div>
+          <div class="trow"><div class="prio" style="background:var(--amber)"></div><span class="ico">💬</span><div class="m"><div class="ti">#finance-team - Slack</div><div class="cx">Q1 Report · 6m</div></div><span class="tm" style="color:var(--appcyan)">6m</span></div>
+          <div class="trow"><div class="prio" style="background:var(--blue)"></div><span class="ico">🎓</span><div class="m"><div class="ti">useEffect cleanup - React docs</div><div class="cx">Learning React · paused</div></div><span class="tm" style="color:#868E96">4m</span></div>
+          <div class="trow"><div class="prio" style="background:var(--green)"></div><span class="ico">📧</span><div class="m"><div class="ti">Inbox (3) - Gmail</div><div class="cx">Email triage · 2m</div></div><span class="tm" style="color:#868E96">2m</span></div>
+          <div class="trow"><div class="prio" style="background:var(--violet)"></div><span class="ico">📚</span><div class="m"><div class="ti">🔒 Northwind brand guidelines - Docs</div><div class="cx">Q1 Report · locked to context</div></div><span class="tm" style="color:#868E96">9m</span></div>
+          <div class="trow"><div class="prio" style="background:#868E96"></div><span class="ico">🎵</span><div class="m"><div class="ti">Deep focus mix - YouTube</div><div class="cx">Vacation Planning · paused</div></div><span class="tm" style="color:#868E96">1m</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📑</span><div><div class="t">Tab-list rows</div>
+        <div class="d">Each tracked tab: category glyph from CATEGORY_ICONS, title, its Context, and time-in-context. The left rule colors by priority; a 🔒 marks a tab locked to its context, and paused tabs mute their timer.</div>
+        <div class="src">src/home/TabsPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 12. PriorityPill -->
+    <div class="libcard" id="priority-pill">
+      <div class="stage">
+        <div class="variants" style="gap:12px">
+          <div class="vcol"><div class="vlabel">P1</div><span class="pp" style="color:#ff6b6b;background:#ff6b6b22" title="Priority 1 of 10">P1</span></div>
+          <div class="vcol"><div class="vlabel">P3</div><span class="pp" style="color:#ff6b6b;background:#ff6b6b22" title="Priority 3 of 10">P3</span></div>
+          <div class="vcol"><div class="vlabel">P5</div><span class="pp" style="color:#ffa726;background:#ffa72622" title="Priority 5 of 10">P5</span></div>
+          <div class="vcol"><div class="vlabel">P8</div><span class="pp" style="color:#66bb6a;background:#66bb6a22" title="Priority 8 of 10">P8</span></div>
+          <div class="vcol"><div class="vlabel">unknown</div><span class="pp" style="color:#868E96;background:transparent" title="No priority synced from this device">P—</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔺</span><div><div class="t">PriorityPill</div>
+        <div class="d">A 1-to-10 priority read as three bands: red for the top three, amber through six, green below. An unsynced item shows a muted P— rather than guessing a rank.</div>
+        <div class="src">src/components/ui/PriorityPill.jsx</div></div></div>
+    </div>
+
+    <!-- 13. ChangelogView -->
+    <div class="libcard wide" id="changelog-view">
+      <div class="stage" style="align-items:flex-start;padding-top:26px">
+        <div class="variants" style="gap:30px;align-items:flex-start">
+          <div class="vcol" style="flex:1;min-width:0">
+            <div class="vlabel">entry</div>
+            <div class="cl">
+              <div class="vh"><span class="vn">v6.7.18</span><span class="dt">2026-07-16</span></div>
+              <div class="ti">Primitives &amp; panels showcase</div>
+              <div class="sl">✨ Added</div>
+              <div class="bd"><ul>
+                <li>Component showcase pages for every primitive and panel surface.</li>
+                <li>Compact variant on <code>StagePicker</code> for tight rows.</li>
+              </ul></div>
+              <div class="sl">🔧 Changed</div>
+              <div class="bd"><ul>
+                <li>Tooltip max width capped at 280px so long hints wrap.</li>
+              </ul></div>
+              <div class="sl">🐛 Fixed</div>
+              <div class="bd"><ul>
+                <li><code>ComboInput</code> create row no longer hides behind the suggestion list.</li>
+              </ul></div>
+            </div>
+          </div>
+          <div class="vcol" style="width:220px">
+            <div class="vlabel">empty</div>
+            <div class="cl"><div class="empty">No changelog entries available.</div></div>
+            <div class="vlabel" style="margin-top:16px">section icons</div>
+            <div class="cl" style="font-size:11px;color:#868E96;line-height:1.9">
+              <div>✨ Added</div><div>🔧 Changed</div><div>🐛 Fixed</div>
+              <div>🗑️ Removed</div><div>⚠️ Deprecated</div><div>🔒 Security</div><div>🧬 Migration</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📜</span><div><div class="t">ChangelogView</div>
+        <div class="d">Renders the shipped changelog in-product. Section icons are matched by a substring of the section label, so an entry only needs plain headings; inline code spans pick up JetBrains Mono on a surface chip.</div>
+        <div class="src">src/components/ui/ChangelogView.jsx</div></div></div>
+    </div>
+
+    <!-- 14. UnifiedTimeline -->
+    <div class="libcard wide" id="unified-timeline">
+      <div class="stage" style="align-items:flex-start;padding-top:26px">
+        <div class="ut">
+          <div class="hd">
+            <span class="ti">🖥️ Context Activity — Today</span>
+            <span class="rg">9:02 AM → 5:47 PM</span>
+            <span class="sw">47 switches</span>
+          </div>
+          <div class="bar">
+            <span class="sg" style="left:0%;width:16%;background:#5b8def"></span>
+            <span class="sg" style="left:16%;width:7%;background:#a855f7"></span>
+            <span class="sg" style="left:23%;width:5%;background:#f59e0b"></span>
+            <span class="sg brk" style="left:28%;width:6%;background:#ffa726"></span>
+            <span class="sg" style="left:34%;width:12%;background:#22c55e"></span>
+            <span class="sg" style="left:46%;width:6%;background:#ec4899"></span>
+            <span class="sg" style="left:52%;width:9%;background:#06b6d4"></span>
+            <span class="sg brk" style="left:61%;width:5%;background:#ffa726"></span>
+            <span class="sg" style="left:66%;width:14%;background:#5b8def"></span>
+            <span class="sg" style="left:80%;width:4%;background:#14b8a6"></span>
+            <span class="sg" style="left:84%;width:4%;background:#ef4444"></span>
+            <span class="sg" style="left:88%;width:6%;background:#a855f7"></span>
+            <span class="sg" style="left:94%;width:3%;background:#6b7280"></span>
+            <span class="sg" style="left:97%;width:3%;background:#4b5563"></span>
+            <span class="mk in" style="left:0%"></span>
+            <span class="mk out" style="left:99%"></span>
+          </div>
+          <div class="lg">
+            <span><i style="background:#5b8def"></i>development</span>
+            <span><i style="background:#a855f7"></i>communication</span>
+            <span><i style="background:#ec4899"></i>design</span>
+            <span><i style="background:#22c55e"></i>productivity</span>
+            <span><i style="background:#f59e0b"></i>email</span>
+            <span><i style="background:#14b8a6"></i>media</span>
+            <span><i style="background:#ef4444"></i>entertainment</span>
+            <span><i style="background:#06b6d4"></i>browser</span>
+            <span><i style="background:#6b7280"></i>system</span>
+            <span><i style="background:#ffa726"></i>break</span>
+            <span><i style="background:#4b5563"></i>unknown</span>
+          </div>
+          <div class="wait">🖥️ Desktop companion connected — waiting for activity...</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🖥️</span><div><div class="t">UnifiedTimeline</div>
+        <div class="d">The desktop companion's OS-level activity for the day, laid out as one proportional bar. Categories carry fixed colors, breaks get a diagonal hatch, and green and red rules mark clock-in and clock-out.</div>
+        <div class="src">src/home/UnifiedTimeline.jsx</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.18</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

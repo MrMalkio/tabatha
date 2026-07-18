@@ -127,10 +127,21 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
   });
 
   // 4. Push page content
+  // Plain body margin only reflows document flow — it does nothing for the host
+  // page's own position:fixed headers/footers (very common on SPA shells), and can
+  // be beaten by the page's own !important margin/height resets. Setting a transform
+  // on <body> makes body the containing block for its fixed descendants, so they move
+  // down/up with the pushed content instead of staying pinned under the bar; the
+  // !important priority keeps our margin from being overridden by page styles.
   const pushPage = (h) => {
-    document.body.style.transition = 'margin 0.2s ease';
-    if (position === 'bottom') document.body.style.marginBottom = `${h}px`;
-    else document.body.style.marginTop = `${h}px`;
+    document.body.style.setProperty('transition', 'margin 0.2s ease', 'important');
+    if (h > 0) document.body.style.setProperty('transform', 'translateZ(0)', 'important');
+    else document.body.style.removeProperty('transform');
+    if (position === 'bottom') {
+      document.body.style.setProperty('margin-bottom', `${h}px`, 'important');
+    } else {
+      document.body.style.setProperty('margin-top', `${h}px`, 'important');
+    }
   };
   pushPage(BAR_HEIGHT);
 

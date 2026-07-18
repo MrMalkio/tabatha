@@ -1,0 +1,1 @@
+function e(e,t){if(!e||!t)return!1;let n=String(e).split(`.`).map(e=>parseInt(e,10)||0),r=String(t).split(`.`).map(e=>parseInt(e,10)||0),i=Math.max(n.length,r.length);for(let e=0;e<i;e++){let t=n[e]||0,i=r[e]||0;if(i>t)return!0;if(i<t)return!1}return!1}export{e as t};

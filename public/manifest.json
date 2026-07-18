@@ -1,84 +1,98 @@
 {
-    "manifest_version": 3,
-    "name": "Tabatha",
-    "version": "6.7.8",
-    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7QwwycV7g9jk2zir/DkG5oDcTm9Swo+CUJvo/aq7UFCDan1MHx3KondJH5uisT/JeVxKwDi7iP9GbLrfJUUWmfEK4TVtaN0pWRwxDbIoP+sLR9ia3LwG544112GcmkcGZT1BUtqTXPZCTPfF6k3Me0oh9Vte4synFvphyruJY8vpm7xGOsjb8EAmbsliCYCZNo1MV77GAyYt8x1aheqsB0lr6mSChl4EreT/quhrKZ/oMHCM6p35mJbIyCskjyoN8/BK1GDSQuKLbt12toFIoSB0uiZgjNGV7hLajzysZnULA6w53OO1WhRYybRN3jUhR3WJbdKRj62RfcGk+VysQIDAQAB",
-    "description": "Context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions.",
-    "permissions": [
-        "tabs",
-        "tabGroups",
-        "storage",
-        "unlimitedStorage",
-        "alarms",
-        "notifications",
-        "webNavigation",
-        "downloads",
-        "sidePanel",
-        "activeTab",
-        "idle",
-        "sessions",
-        "scripting",
-        "topSites",
-        "identity"
-    ],
-    "host_permissions": [
+  "manifest_version": 3,
+  "name": "Tabatha",
+  "version": "6.7.24",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7QwwycV7g9jk2zir/DkG5oDcTm9Swo+CUJvo/aq7UFCDan1MHx3KondJH5uisT/JeVxKwDi7iP9GbLrfJUUWmfEK4TVtaN0pWRwxDbIoP+sLR9ia3LwG544112GcmkcGZT1BUtqTXPZCTPfF6k3Me0oh9Vte4synFvphyruJY8vpm7xGOsjb8EAmbsliCYCZNo1MV77GAyYt8x1aheqsB0lr6mSChl4EreT/quhrKZ/oMHCM6p35mJbIyCskjyoN8/BK1GDSQuKLbt12toFIoSB0uiZgjNGV7hLajzysZnULA6w53OO1WhRYybRN3jUhR3WJbdKRj62RfcGk+VysQIDAQAB",
+  "description": "Context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions.",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "unlimitedStorage",
+    "alarms",
+    "notifications",
+    "webNavigation",
+    "downloads",
+    "sidePanel",
+    "activeTab",
+    "idle",
+    "sessions",
+    "scripting",
+    "topSites",
+    "identity"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
         "<all_urls>"
-    ],
-    "content_scripts": [
-        {
-            "matches": ["<all_urls>"],
-            "js": ["assets/gatekeeper.js"],
-            "run_at": "document_start"
-        },
-        {
-            "matches": ["<all_urls>"],
-            "js": ["assets/blockgate.js"],
-            "run_at": "document_start"
-        },
-        {
-            "matches": ["<all_urls>"],
-            "js": ["assets/inbar.js"],
-            "run_at": "document_idle"
-        }
-    ],
-    "background": {
-        "service_worker": "assets/background.js",
-        "type": "module"
+      ],
+      "js": [
+        "assets/gatekeeper.js"
+      ],
+      "run_at": "document_start"
     },
-    "side_panel": {
-        "default_path": "sidebar.html"
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "assets/blockgate.js"
+      ],
+      "run_at": "document_start"
     },
-    "chrome_url_overrides": {
-        "newtab": "home.html"
-    },
-    "options_page": "settings.html",
-    "action": {
-        "default_title": "Tabatha — Quick Switch",
-        "default_icon": {
-            "16": "icons/icon16.png",
-            "48": "icons/icon48.png",
-            "128": "icons/icon128.png"
-        }
-    },
-    "commands": {
-        "_execute_side_panel": {
-            "suggested_key": {
-                "default": "Ctrl+Shift+S",
-                "mac": "Command+Shift+S"
-            },
-            "description": "Open Tabatha Sidebar"
-        },
-        "open_tab_list": {
-            "suggested_key": {
-                "default": "Ctrl+Shift+E",
-                "mac": "Command+Shift+E"
-            },
-            "description": "Open Tabatha Tab List (popup)"
-        }
-    },
-    "icons": {
-        "16": "icons/icon16.png",
-        "48": "icons/icon48.png",
-        "128": "icons/icon128.png"
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "assets/inbar.js"
+      ],
+      "run_at": "document_idle"
     }
+  ],
+  "background": {
+    "service_worker": "assets/background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidebar.html"
+  },
+  "chrome_url_overrides": {
+    "newtab": "home.html"
+  },
+  "options_page": "settings.html",
+  "action": {
+    "default_title": "Tabatha — Quick Switch",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "commands": {
+    "_execute_side_panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Open Tabatha Sidebar"
+    },
+    "open_tab_list": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      },
+      "description": "Open Tabatha Tab List (popup)"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }

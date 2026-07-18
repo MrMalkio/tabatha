@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Focus &amp; Time</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase — category page kit.
+   Chrome uses the logo palette (#0F1115 / #00D2FF); component
+   stages render the live app tokens (Pop-Art theme: bg #050505,
+   accent #00F0FF, secondary #FF0055, gold #FFD700). Radius scale
+   is the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Self-contained:
+   inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --purple:#ab47bc;--agent:#b388ff;--backburner:#ff9800;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+/* state variant strip */
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+
+/* shared app-surface tokens */
+.app{--acc:#00F0FF}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;display:flex;align-items:center;gap:7px}
+.mono{font-family:var(--mono)}
+.glass{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;backdrop-filter:blur(16px)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Component CSS — Focus & Time surfaces
+   ============================================================ */
+
+/* ── shared app primitives ── */
+.fbtn{background:transparent;border:1px solid #868E96;color:#868E96;border-radius:2px;
+  padding:3px 10px;font:600 11px var(--sans);cursor:pointer;white-space:nowrap}
+.fbtn.green{border-color:var(--green);color:var(--green)}
+.fbtn.acc{border-color:var(--appcyan);color:var(--appcyan)}
+.fbtn.amber{border-color:var(--amber);color:var(--amber)}
+.fbtn.red{border-color:var(--red);color:var(--red)}
+.fbtn.violet{border-color:var(--purple);color:var(--purple)}
+.fbtn.grey{border-color:#9e9e9e;color:#9e9e9e}
+.fbtn.sky{border-color:#29b6f6;color:#29b6f6}
+.fbtn.gold{border-color:#ffd54f;color:#ffd54f}
+.flabel{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#868E96;display:block;margin-bottom:2px}
+.finput,.fselect,.ftext{width:100%;background:#050505;border:1px solid rgba(255,255,255,.1);border-radius:2px;
+  padding:4px 8px;color:#FAFAFA;font:500 12px var(--sans);outline:none}
+.ftext{resize:none;padding:6px 8px;line-height:1.45}
+
+/* ── FocusBar ── */
+.fb{width:100%;max-width:600px;padding:16px}
+.fb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.fb-status{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--appcyan);font-weight:600}
+.fb-chip{font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px}
+.fb-label{font-size:16px;font-weight:600;margin:6px 0 4px}
+.fb-meta{font-size:11px;color:#868E96;display:flex;gap:10px;flex-wrap:wrap}
+.fb-tags{font-size:10px;color:#868E96;margin-top:4px}
+.fb-timer{font:700 28px var(--mono);color:var(--appcyan);font-variant-numeric:tabular-nums;line-height:1;text-align:right}
+.fb-cap{font-size:9px;color:#868E96;margin-top:2px;text-align:right}
+.fb-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.fb-panel{margin-top:10px;padding:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:2px}
+.fb-editgrid{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.credit{font-size:10px;color:var(--appcyan);margin-top:2px}
+.fbk{font-size:10px;margin-top:2px;color:var(--green)}
+
+/* ── FocusQueue / Backburner / History ── */
+.qhead{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#868E96;margin-bottom:6px;font-weight:600}
+.qcard{padding:8px 12px;margin-bottom:4px}
+.qtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.qleft{display:flex;align-items:center;gap:8px;min-width:0}
+.qlabel{font-size:13px;font-weight:500;white-space:nowrap}
+.qstage{font-size:10px;text-transform:capitalize}
+.child{font-size:8px;color:var(--purple);background:#ab47bc18;padding:1px 4px;border-radius:3px;font-weight:600}
+.qright{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.qpick{margin-top:4px;display:flex;align-items:center;gap:8px}
+.pchip{background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96;border-radius:4px;
+  padding:1px 4px;font-size:8px;cursor:pointer}
+.prio{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);font:600 9px var(--sans);
+  padding:2px 4px;border-radius:3px;cursor:pointer}
+
+.bbhead{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--backburner);margin-bottom:6px;font-weight:600}
+.bbcard{padding:8px 12px;margin-bottom:4px;border-left:3px solid var(--backburner);background:rgba(255,152,0,.06)}
+.bblabel{font-size:12px;font-weight:600}
+.bbsub{font-size:9px;color:#868E96;margin-top:2px}
+
+.hhead{background:transparent;border:none;color:#868E96;font:600 10px var(--sans);text-transform:uppercase;
+  letter-spacing:.12em;cursor:pointer;padding:0;margin-bottom:6px}
+.hrow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:12px}
+.hrow .st{font-size:9px;margin-left:4px;color:#868E96}
+.hrow .el{color:#868E96;font-variant-numeric:tabular-nums}
+
+/* ── Now Bar ── */
+.now{width:100%;max-width:460px;padding:8px 14px;border-left:3px solid var(--appcyan);
+  display:flex;align-items:center;justify-content:space-between;gap:8px}
+.now .lab{font:700 10px var(--sans);color:var(--appcyan);text-transform:uppercase;letter-spacing:.08em}
+.now .it{font-size:13px;font-weight:600}
+.now .p{font-size:9px;background:#ff6b6b22;color:#ff6b6b;padding:1px 5px;border-radius:3px;font-weight:600}
+.now .stg{font-size:10px;color:#868E96}
+
+/* ── CheckpointTimeline ── */
+.tl{width:100%;max-width:620px;padding:8px;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.1);border-radius:2px}
+.tl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.tl-eyeb{font-size:9px;color:#868E96;text-transform:uppercase;letter-spacing:.1em}
+.tbtn{background:transparent;border:1px solid rgba(255,255,255,.1);color:#F2F5F7;border-radius:2px;
+  padding:2px 8px;font:600 11px var(--sans);cursor:pointer;font-variant-numeric:tabular-nums}
+.tbtn.green{border-color:var(--green);color:var(--green)}
+.tbtn.amber{border-color:var(--amber);color:var(--amber)}
+.tbtn.red{border-color:var(--red);color:var(--red)}
+.tbtn.acc{border-color:var(--appcyan);color:var(--appcyan)}
+.tbtn.tiny{padding:0 5px}
+.tl-time{margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.1)}
+.tl-total{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+.tl-total b{font:700 14px var(--sans);font-variant-numeric:tabular-nums}
+.tl-hint{font-size:10px;color:#868E96;margin-bottom:6px}
+.tl-hint strong{color:#c7ced6}
+.tl-nudge{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.durin{width:84px;padding:2px 6px;font:400 11px var(--sans);border-radius:2px;
+  border:1px solid rgba(255,255,255,.1);background:#050505;color:#FAFAFA;outline:none}
+.tl-prev{font-size:10px;margin-top:4px;color:#868E96}
+.tl-fb{font-size:10px;margin-top:4px;color:var(--green)}
+.tl-trim{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.ent{padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:11px}
+.ent:last-of-type{border-bottom:none}
+.ent-top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px}
+.ent-top .h{font-weight:600}
+.ent-right{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.ent-ts{font-size:9px;color:#868E96}
+.ent-note{color:#868E96;font-size:10px;line-height:1.4}
+.ent.sys{opacity:.6}
+.addnote{margin-top:8px;width:100%;background:transparent;border:1px dashed rgba(255,255,255,.1);
+  color:#F2F5F7;border-radius:2px;padding:2px 8px;font:600 11px var(--sans);cursor:pointer}
+.tip{border-bottom:1px dotted #4a545e;cursor:help}
+
+/* ── FlipClock ── */
+.clockrow{display:flex;align-items:center;justify-content:center;gap:20px}
+.flip-group{display:flex;gap:8px}
+.flip-digit{position:relative;width:70px;height:100px;background-color:#1a1a1a;border-radius:12px;
+  font-family:'Bebas Neue','Outfit',sans-serif;font-size:80px;color:#e0e0e0;text-align:center;
+  box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.flip-digit::before{content:'';position:absolute;top:50%;left:-4px;width:calc(100% + 8px);height:16px;
+  background-color:transparent;border-left:4px solid #333;border-right:4px solid #333;border-radius:2px;
+  z-index:11;transform:translateY(-50%);box-shadow:inset 2px 0 2px rgba(0,0,0,.5),inset -2px 0 2px rgba(0,0,0,.5)}
+.flip-digit::after{content:'';position:absolute;top:50%;left:0;width:100%;height:2px;
+  background-color:#050505;z-index:10;transform:translateY(-50%);box-shadow:0 1px 2px rgba(0,0,0,.8)}
+.digital-top,.digital-bottom{position:absolute;left:0;width:100%;height:50%;overflow:hidden;border-radius:12px;color:#e0e0e0}
+.digital-top{top:0;background:linear-gradient(180deg,#222 0%,#1a1a1a 100%);
+  border-bottom-left-radius:0;border-bottom-right-radius:0;z-index:1}
+.digital-bottom{bottom:0;background:linear-gradient(180deg,#181818 0%,#111 100%);
+  border-top-left-radius:0;border-top-right-radius:0;z-index:1}
+.digital-top::after,.digital-bottom::after{content:attr(data-content);position:absolute;left:0;width:100%;
+  height:100px;line-height:100px;text-align:center;color:inherit}
+.digital-top::after{top:0}
+.digital-bottom::after{bottom:0}
+.clock-colon{font-family:'Bebas Neue','Outfit',sans-serif;font-size:60px;color:#e0e0e0;
+  line-height:100px;opacity:.6;user-select:none}
+/* small variant */
+.flip-digit-small{width:38px;height:54px;font-size:44px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.flip-digit-small::before{left:-2px;width:calc(100% + 4px);height:8px;border-width:2px}
+.flip-digit-small .digital-top,.flip-digit-small .digital-bottom{border-radius:6px}
+.flip-digit-small .digital-top{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.flip-digit-small .digital-bottom{border-top-left-radius:0;border-top-right-radius:0}
+.flip-digit-small .digital-top::after,.flip-digit-small .digital-bottom::after{height:54px;line-height:54px}
+/* pulse-red alert state */
+.pulse-red .digital-top::after,.pulse-red .digital-bottom::after{animation:zero-pulse 2s ease-in-out infinite}
+@keyframes zero-pulse{
+  0%,100%{color:#e0e0e0}
+  50%{color:#ff3333;text-shadow:0 0 20px rgba(255,50,50,.4)}
+}
+
+/* ── Shift Controls ── */
+.shift{width:100%;max-width:520px;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.shift .l{display:flex;align-items:center;gap:12px}
+.shift .state{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.shift .live{font:700 14px var(--sans);color:var(--appcyan);font-variant-numeric:tabular-nums}
+.shift .last{font-size:11px;color:#868E96;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.shift .last b{color:#F2F5F7;font-weight:500}
+.shift .r{display:flex;gap:8px;align-items:center}
+.sbtn{background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;color:#868E96;
+  padding:4px 12px;font:600 11px var(--sans);cursor:pointer;white-space:nowrap}
+.sbtn.out{background:#ef535022;border-color:var(--red);color:var(--red)}
+.sbtn.in{background:#66bb6a22;border-color:var(--green);color:var(--green)}
+.sbtn.plain{padding:4px 8px;font-weight:400}
+.onbreak{font-size:9px;background:#ffa72622;color:var(--amber);padding:2px 6px;border-radius:4px;font-weight:600}
+.otheropen{background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;color:#868E96;
+  padding:4px 8px;font:600 11px var(--sans);cursor:pointer;white-space:nowrap}
+
+/* ── StagePicker / priority ── */
+.sp{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.spchip{background:transparent;border:1px solid rgba(255,255,255,.1);color:#868E96;border-radius:4px;
+  padding:2px 6px;font-size:9px;cursor:pointer}
+.pp{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.ppchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:3px;
+  padding:2px 8px;font:600 9px var(--sans)}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.18</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Focus &amp; Time</h1>
+  <p>The surfaces that hold a single focus and the clock behind it: the FocusBar and its edit, checkpoint, and timeline panels, the queue and backburner that hold what you are not doing yet, and the shift controls that bound the working day. Every string, color, and radius here is lifted from the shipping extension source rather than redrawn.</p>
+</header>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Component library</h2>
+    <span class="meta">15 surfaces · src/home · src/components</span>
+  </div>
+  <p class="sec-purpose">A focus is one thing you are doing, with a name, a budget, and a clock. This group is the machinery around that idea. <b>FocusBar</b> holds the focus you are on now; <b>FocusQueue</b> and <b>BackburnerDock</b> hold what you are not on yet, which matters because the honest reason a queue exists is that you will be interrupted. The editing surfaces exist because tracked time is only useful if it is true: machines sleep, meetings overrun, and a tracker that cannot be corrected after the fact just teaches you to ignore it.</p>
+  <div class="lib app">
+
+    <!-- 1. FocusBar — active -->
+    <div class="libcard wide" id="focusbar-active">
+      <div class="stage">
+        <div class="glass fb">
+          <div class="fb-head">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="fb-status">🎯 CURRENT FOCUS</span>
+                <span class="fb-chip" style="background:#ff980022;color:#ff9800">🎯 Focus</span>
+              </div>
+              <div class="fb-label">Q1 Report</div>
+              <div class="fb-meta"><span>4 tabs</span><span>2 windows</span><span>47m elapsed</span><span>3 switches</span></div>
+              <div class="fb-tags">💼 Acme › Finance › Q1 revenue charts</div>
+            </div>
+            <div style="flex-shrink:0">
+              <div class="fb-timer">12:31</div>
+              <div class="fb-cap">remaining</div>
+            </div>
+          </div>
+          <div class="fb-row">
+            <button class="fbtn green">✓ Resolved</button>
+            <button class="fbtn acc">+5m</button>
+            <button class="fbtn amber">⏸ Pause</button>
+            <button class="fbtn">✏️ Edit</button>
+            <button class="fbtn">🏷</button>
+            <button class="fbtn">+ Intent</button>
+            <button class="fbtn">📌 Sub-focus</button>
+            <button class="fbtn red">📴 Off-Device</button>
+            <button class="fbtn">📋</button>
+            <button class="fbtn">📊</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎯</span><div><div class="t">FocusBar - active</div>
+        <div class="d">The one focus you are on right now: funnel stage, tab and window count, elapsed time, switch count, and the tag path it bills to. The timer counts down the budget; every action on the focus lives in one row under it.</div>
+        <div class="src">src/home/index.jsx · FocusBar</div></div></div>
+    </div>
+
+    <!-- 2. FocusBar — states -->
+    <div class="libcard wide" id="focusbar-states">
+      <div class="stage tall">
+        <div class="variants">
+          <div class="vcol" style="width:100%">
+            <div class="vlabel">paused</div>
+            <div class="glass fb" style="border-left:3px solid #ffa726">
+              <div class="fb-head">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="fb-status" style="color:#ffa726">⏸ PAUSED</span>
+                    <span class="fb-chip" style="background:#ff980022;color:#ff9800">🎯 Focus</span>
+                  </div>
+                  <div class="fb-label">Q1 Report</div>
+                  <div class="fb-meta"><span>4 tabs</span><span>2 windows</span><span>47m elapsed</span><span>3 switches</span></div>
+                </div>
+                <div style="flex-shrink:0">
+                  <div class="fb-timer" style="color:#ffa726">12:31</div>
+                  <div class="fb-cap" style="color:#ffa726">paused</div>
+                </div>
+              </div>
+              <div class="fb-row">
+                <button class="fbtn green">▶ Resume</button>
+                <button class="fbtn">✏️ Edit</button>
+                <button class="fbtn">🏷</button>
+                <button class="fbtn">+ Intent</button>
+                <button class="fbtn">📌 Sub-focus</button>
+                <button class="fbtn">📱</button>
+                <button class="fbtn">📋</button>
+                <button class="fbtn">📊</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="vcol" style="width:100%">
+            <div class="vlabel">drifted</div>
+            <div class="glass fb">
+              <div class="fb-head">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="fb-status">⚠️ DRIFTED</span>
+                    <span class="fb-chip" style="background:#ff980022;color:#ff9800">🎯 Focus</span>
+                  </div>
+                  <div class="fb-label">Q1 Report</div>
+                  <div class="fb-meta"><span>4 tabs</span><span>2 windows</span><span>52m elapsed</span><span>7 switches</span></div>
+                </div>
+                <div style="flex-shrink:0">
+                  <div class="fb-timer">03:08</div>
+                  <div class="fb-cap">remaining</div>
+                </div>
+              </div>
+              <div class="fb-row">
+                <button class="fbtn green">✓ Resolved</button>
+                <button class="fbtn acc">+5m</button>
+                <button class="fbtn amber">⏸ Pause</button>
+                <button class="fbtn">✏️ Edit</button>
+                <button class="fbtn">📊</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="vcol" style="width:100%">
+            <div class="vlabel">over time</div>
+            <div class="glass fb">
+              <div class="fb-head">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="fb-status">🎯 CURRENT FOCUS</span>
+                    <span class="fb-chip" style="background:#ff980022;color:#ff9800">🎯 Focus</span>
+                  </div>
+                  <div class="fb-label">Q1 Report</div>
+                  <div class="fb-meta"><span>4 tabs</span><span>2 windows</span><span>1h 18m elapsed</span><span>9 switches</span></div>
+                </div>
+                <div style="flex-shrink:0">
+                  <div class="fb-timer" style="color:#ef5350">+18:04</div>
+                  <div class="fb-cap">over time</div>
+                </div>
+              </div>
+              <div class="fb-row">
+                <button class="fbtn green">✓ Resolved</button>
+                <button class="fbtn acc">+5m</button>
+                <button class="fbtn amber">⏸ Pause</button>
+                <button class="fbtn">✏️ Edit</button>
+                <button class="fbtn">📊</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎛</span><div><div class="t">FocusBar - paused / drifted / over-time</div>
+        <div class="d">Three states the same bar takes. Paused adds an amber left rule and swaps the whole action row for a single Resume. Drifted keeps the timer running but flags that attention left. Over-time turns the timer red and counts up instead of down.</div>
+        <div class="src">src/home/index.jsx · FocusBar (isPaused / focusState / isOver)</div></div></div>
+    </div>
+
+    <!-- 3. FocusBar — edit panel -->
+    <div class="libcard wide" id="focusbar-edit">
+      <div class="stage top" style="min-height:280px">
+        <div class="glass fb">
+          <div class="fb-panel" style="margin-top:0">
+            <div class="fb-editgrid">
+              <div style="flex:2 1 180px">
+                <label class="flabel">Label</label>
+                <input class="finput" value="Q1 Report" readonly>
+              </div>
+              <div style="flex:0 0 70px">
+                <label class="flabel">Timer (m)</label>
+                <input class="finput" value="60" readonly>
+              </div>
+              <div style="flex:0 0 120px">
+                <label class="flabel">Stage</label>
+                <select class="fselect"><option>🎯 Focus</option></select>
+              </div>
+              <div style="flex:1 1 170px">
+                <label class="flabel">Started at</label>
+                <input class="finput" value="Today, 09:12" readonly>
+                <div class="credit">backdated +18m</div>
+                <div class="fbk">✓ Backdated to 09:12 — overlaps "Learning React" by 18m (both keep their time).</div>
+              </div>
+              <button class="fbtn green">💾 Save</button>
+              <button class="fbtn" style="border:none">✕</button>
+            </div>
+          </div>
+          <div style="margin-top:8px">
+            <label class="flabel" style="margin-bottom:4px">Project / Client</label>
+            <div class="glass" style="padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <span class="fb-chip" style="background:rgba(0,240,255,.08);color:#00F0FF;border:1px solid #00F0FF">💼 Business</span>
+              <span style="font-size:11px;color:#cfcfcf;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:4px 9px">👤 Acme</span>
+              <span style="font-size:11px;color:#cfcfcf;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:4px 9px">📁 Finance</span>
+              <span style="font-size:11px;color:#cfcfcf;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:4px 9px">✏️ Q1 revenue charts</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">✏️</span><div><div class="t">FocusBar - edit panel</div>
+        <div class="d">Corrects a focus after the fact. Moving "Started at" earlier backdates it and credits the minutes; the handler bounds the request to your clock-in and reports overlap with other focuses instead of blocking it, since parallel focuses both keep their time.</div>
+        <div class="src">src/home/index.jsx · FocusBar openEdit / saveEdit (SET_FOCUS_START_TIME)</div></div></div>
+    </div>
+
+    <!-- 4. FocusBar — checkpoint form -->
+    <div class="libcard wide" id="checkpoint-form">
+      <div class="stage top">
+        <div class="glass fb">
+          <div class="fb-panel" style="margin-top:0;display:flex;flex-direction:column;gap:6px">
+            <label class="flabel" style="margin-bottom:0">📋 Checkpoint Note #3</label>
+            <textarea class="ftext" rows="3" placeholder="What have you accomplished since your last checkpoint?" readonly>Charts drafted and totals sanity-checked. Formatting and the exec summary are what's left.</textarea>
+            <div style="font-size:9px;color:#868E96;text-transform:uppercase;letter-spacing:.08em">Submit with progress:</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <button class="fbtn grey">😐 None</button>
+              <button class="fbtn sky">📈 Little</button>
+              <button class="fbtn green">🚀 A Lot</button>
+              <button class="fbtn gold">🏁 Almost Done</button>
+              <button class="fbtn red">🚧 Stuck</button>
+            </div>
+            <button style="background:transparent;border:none;color:#868E96;cursor:pointer;font-size:11px;padding:2px;align-self:flex-end">✕ Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📋</span><div><div class="t">FocusBar - checkpoint form</div>
+        <div class="d">A progress note filed mid-focus. The note is optional except on Stuck, which requires text; the progress level you submit with becomes the entry's glyph on the timeline and feeds the staleness nudge after 30 minutes without a checkpoint.</div>
+        <div class="src">src/home/index.jsx · FocusBar submitCPN (SAVE_CHECKPOINT_NOTE)</div></div></div>
+    </div>
+
+    <!-- 5. FocusInput -->
+    <div class="libcard" id="focusinput">
+      <div class="stage">
+        <div class="glass" style="padding:16px;width:100%">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:#868E96;font-weight:600;margin-bottom:8px">
+            What are you focusing on?
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input type="text" placeholder="e.g. Ship Tabatha v1.0"
+              style="flex:1;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;padding:8px 12px;color:#FAFAFA;font:400 14px var(--sans);outline:none" readonly>
+            <button style="background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;color:#868E96;padding:6px 8px;font-size:13px;cursor:pointer">🎙️</button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+              <input value="15" readonly style="width:48px;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;padding:4px;color:#FAFAFA;font:400 12px var(--sans);outline:none;text-align:center">
+              <span style="font-size:8px;color:#868E96">min</span>
+            </div>
+            <button style="background:#00F0FF;color:#000;font-weight:800;text-transform:uppercase;letter-spacing:.1em;border:2px solid #000;box-shadow:4px 4px 0px #FF0055;border-radius:4px;padding:8px 14px;font-size:12px;cursor:pointer;white-space:nowrap">Set Focus</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+            <div style="display:flex;gap:2px">
+              <button style="background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1);border-radius:2px;font:500 10px var(--sans);padding:2px 8px;cursor:pointer">🏠 Personal</button>
+              <button style="background:#00F0FF;color:#fff;border:1px solid #00F0FF;border-radius:2px;font:500 10px var(--sans);padding:2px 8px;cursor:pointer">💼 Business</button>
+            </div>
+            <span style="font-size:10px;color:#868E96">→ Acme</span>
+            <button style="background:transparent;border:none;color:#00F0FF;font:600 10px var(--sans);cursor:pointer;margin-left:auto">More ▼</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🚪</span><div><div class="t">FocusInput - empty state</div>
+        <div class="d">The only way into a focus: a label, a minute budget, and a realm. Submitting with an empty label shakes the card rather than starting an unnamed focus. The mic dictates into the same field; More reveals the full tag setup.</div>
+        <div class="src">src/home/index.jsx · FocusInput</div></div></div>
+    </div>
+
+    <!-- 6. FocusInput — pending -->
+    <div class="libcard" id="focusinput-pending">
+      <div class="stage">
+        <div class="glass" style="padding:16px;width:100%">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:#868E96;font-weight:600;margin-bottom:8px">
+            What are you focusing on?
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;opacity:.5">
+            <input type="text" value="Q1 Report"
+              style="flex:1;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;padding:8px 12px;color:#FAFAFA;font:400 14px var(--sans);outline:none" readonly>
+            <button style="background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;color:#868E96;padding:6px 8px;font-size:13px;cursor:pointer">🎙️</button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+              <input value="60" readonly style="width:48px;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:2px;padding:4px;color:#FAFAFA;font:400 12px var(--sans);outline:none;text-align:center">
+              <span style="font-size:8px;color:#868E96">min</span>
+            </div>
+            <button style="background:#00F0FF;color:#000;font-weight:800;text-transform:uppercase;letter-spacing:.1em;border:2px solid #000;box-shadow:4px 4px 0px #FF0055;border-radius:4px;padding:8px 14px;font-size:12px;cursor:pointer;white-space:nowrap">⏳ Setting…</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+            <div style="display:flex;gap:2px">
+              <button style="background:transparent;color:#868E96;border:1px solid rgba(255,255,255,.1);border-radius:2px;font:500 10px var(--sans);padding:2px 8px;cursor:pointer">🏠 Personal</button>
+              <button style="background:#00F0FF;color:#fff;border:1px solid #00F0FF;border-radius:2px;font:500 10px var(--sans);padding:2px 8px;cursor:pointer">💼 Business</button>
+            </div>
+            <span style="font-size:10px;color:#868E96">→ Acme</span>
+            <button style="background:transparent;border:none;color:#00F0FF;font:600 10px var(--sans);cursor:pointer;margin-left:auto">More ▼</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⏳</span><div><div class="t">FocusInput - pending</div>
+        <div class="d">The in-flight state while the background service worker acknowledges the focus. Inputs dim and the button reads "⏳ Setting…" so a double submit cannot open two focuses. If it never clears, the service worker is stale and needs a reload.</div>
+        <div class="src">src/home/index.jsx · FocusInput (pending)</div></div></div>
+    </div>
+
+    <!-- 7. FocusQueue -->
+    <div class="libcard wide" id="focus-queue">
+      <div class="stage top">
+        <div style="width:100%;max-width:600px">
+          <div class="qhead">Queued (3)</div>
+
+          <div class="glass qcard" style="border-left:3px solid #ffa726">
+            <div class="qtop">
+              <div class="qleft">
+                <span style="font-size:10px;color:#ff9800">🎯</span>
+                <span class="qlabel">Learning React</span>
+                <span style="font-size:9px;color:#ffa726">⏸</span>
+                <span class="qstage" style="color:#ff9800">focus</span>
+              </div>
+              <div class="qright">
+                <button class="fbtn amber">▶ Resume</button>
+                <button class="fbtn">📊</button>
+                <button class="fbtn green">✓</button>
+              </div>
+            </div>
+            <div class="qpick">
+              <span class="pchip">📥</span><span class="pchip">📋</span>
+              <span class="pchip" style="background:#ff980033;border-color:#ff9800;color:#ff9800;font-weight:600">🎯</span>
+              <span class="pchip">⚡</span><span class="pchip">🚧</span><span class="pchip">✅</span>
+              <select class="prio" style="color:#ffa726" title="Set priority (P1=Critical, P5=Low)">
+                <option>P1 Critical</option><option>P2 High</option><option selected>P3 Medium</option>
+                <option>P4 Normal</option><option>P5 Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="glass qcard" style="border-left:3px solid #64b5f6">
+            <div class="qtop">
+              <div class="qleft">
+                <span style="font-size:10px;color:#64b5f6">📋</span>
+                <span class="qlabel">Vacation Planning</span>
+                <span class="child">child</span>
+                <span class="qstage" style="color:#64b5f6">todo</span>
+              </div>
+              <div class="qright">
+                <button class="fbtn acc">▶</button>
+                <button class="fbtn">📊</button>
+                <button class="fbtn green">✓</button>
+              </div>
+            </div>
+            <div class="qpick">
+              <span class="pchip">📥</span>
+              <span class="pchip" style="background:#64b5f633;border-color:#64b5f6;color:#64b5f6;font-weight:600">📋</span>
+              <span class="pchip">🎯</span><span class="pchip">⚡</span><span class="pchip">🚧</span><span class="pchip">✅</span>
+              <select class="prio" style="color:#66bb6a" title="Set priority (P1=Critical, P5=Low)">
+                <option>P1 Critical</option><option>P2 High</option><option>P3 Medium</option>
+                <option>P4 Normal</option><option selected>P5 Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="glass qcard" style="border-left:3px solid #888">
+            <div class="qtop">
+              <div class="qleft">
+                <span style="font-size:10px;color:#888">📥</span>
+                <span class="qlabel">Email triage</span>
+                <span class="qstage" style="color:#888">unsorted</span>
+              </div>
+              <div class="qright">
+                <button class="fbtn acc">▶</button>
+                <button class="fbtn">📊</button>
+                <button class="fbtn green">✓</button>
+              </div>
+            </div>
+            <div class="qpick">
+              <span class="pchip" style="background:rgba(136,136,136,.2);border-color:#888;color:#888;font-weight:600">📥</span>
+              <span class="pchip">📋</span><span class="pchip">🎯</span><span class="pchip">⚡</span><span class="pchip">🚧</span><span class="pchip">✅</span>
+              <select class="prio" style="color:#ff6b6b" title="Set priority (P1=Critical, P5=Low)">
+                <option>P1 Critical</option><option selected>P2 High</option><option>P3 Medium</option>
+                <option>P4 Normal</option><option>P5 Low</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📚</span><div><div class="t">FocusQueue</div>
+        <div class="d">Everything set aside but not dropped. The left rule is the funnel color, or amber if paused; a paused row resumes where a queued row switches. Stage and priority are editable in place, and 📊 opens a queued focus's timeline without resuming it.</div>
+        <div class="src">src/home/index.jsx · FocusQueue · src/components/ui/StagePicker.jsx</div></div></div>
+    </div>
+
+    <!-- 8. BackburnerDock -->
+    <div class="libcard" id="backburner-dock">
+      <div class="stage top">
+        <div style="width:100%">
+          <div class="bbhead">🔥 Backburner (2)</div>
+          <div class="glass bbcard">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="flex:1;min-width:0">
+                <div class="bblabel">🔥 Learning React</div>
+                <div class="bbsub">Backburnered 12m ago • switched to another focus</div>
+              </div>
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                <button class="fbtn green">▶</button>
+                <button class="fbtn amber">⏰</button>
+                <button class="fbtn red">✕</button>
+              </div>
+            </div>
+          </div>
+          <div class="glass bbcard">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="flex:1;min-width:0">
+                <div class="bblabel">🔥 Email triage</div>
+                <div class="bbsub">Backburnered 41m ago</div>
+              </div>
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                <button class="fbtn green">▶</button>
+                <button class="fbtn amber">⏰</button>
+                <button class="fbtn red">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔥</span><div><div class="t">BackburnerDock</div>
+        <div class="d">Focuses parked on purpose, aging in view so they cannot be quietly forgotten. The sub-line names why it went back and how long ago; the three actions are resume, snooze another 10 minutes, or dismiss it for good.</div>
+        <div class="src">src/home/index.jsx · BackburnerDock (RESUME/SNOOZE/DISMISS_BACKBURNER)</div></div></div>
+    </div>
+
+    <!-- 9. FocusHistory -->
+    <div class="libcard" id="focus-history">
+      <div class="stage top">
+        <div style="width:100%">
+          <button class="hhead">History (7) ▼</button>
+          <div class="hrow"><span style="color:#ef5350">⚠️ Learning React<span class="st">(focus)</span></span><span class="el">34m</span></div>
+          <div class="hrow"><span>🏁 Q1 Report<span class="st">(resolved)</span></span><span class="el">1h 34m</span></div>
+          <div class="hrow"><span>✅ Email triage<span class="st">(addressing)</span></span><span class="el">12m</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🗂</span><div><div class="t">FocusHistory</div>
+        <div class="d">Closed focuses, newest first, collapsed to three until expanded. A drifted focus is flagged red rather than hidden, so a session that fell apart still reads as time spent. Elapsed is the credited total, backdating included.</div>
+        <div class="src">src/home/index.jsx · FocusHistory</div></div></div>
+    </div>
+
+    <!-- 10. Now Bar -->
+    <div class="libcard" id="now-bar">
+      <div class="stage">
+        <div class="glass now">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="lab">NOW</span>
+            <span class="it">Q1 Report</span>
+            <span class="p">P2</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="stg">🎯 Focus</span>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📍</span><div><div class="t">Now Bar</div>
+        <div class="d">A one-line answer to "what am I meant to be on". It sits above the focus engine on the dashboard and carries only the label, its priority chip, and its funnel stage. The chip color steps from red through amber to green as priority drops.</div>
+        <div class="src">src/home/index.jsx · Now Bar section (nowItem)</div></div></div>
+    </div>
+
+    <!-- 11. CheckpointTimeline -->
+    <div class="libcard wide" id="checkpoint-timeline">
+      <div class="stage tall top">
+        <div class="tl">
+          <div class="tl-head">
+            <span class="tl-eyeb">📊 Checkpoint Timeline</span>
+            <span style="display:flex;gap:4px">
+              <button class="tbtn"><span class="tip" title="Copy the timeline as clean text">📋 Copy</span></button>
+              <button class="tbtn green"><span class="tip" title="Edit times and notes for this focus">✓ Done</span></button>
+            </span>
+          </div>
+
+          <div class="tl-time">
+            <div class="tl-total">
+              <span class="tl-eyeb">🕐 Total tracked time</span>
+              <b>1h 34m</b>
+            </div>
+            <div class="tl-hint">Nudge with the buttons, or type a duration like <strong>2h</strong>, <strong>8h20m</strong>, <strong>500m</strong>, or plain minutes. Press Enter to apply.</div>
+            <div class="tl-nudge">
+              <button class="tbtn">−5m</button><button class="tbtn">−1m</button>
+              <button class="tbtn">+1m</button><button class="tbtn">+5m</button>
+            </div>
+            <div class="tl-nudge" style="margin-bottom:0">
+              <button class="tbtn acc" style="padding:2px 6px">Set total</button>
+              <button class="tbtn" style="padding:2px 6px">Add</button>
+              <button class="tbtn" style="padding:2px 6px">Subtract</button>
+              <input class="durin" value="1h34m" readonly>
+              <button class="tbtn">Apply</button>
+            </div>
+            <div class="tl-prev">→ total becomes <strong style="font-variant-numeric:tabular-nums">1h 34m</strong></div>
+            <div class="tl-fb">✓ Applied +18m — total now 1h 34m</div>
+            <div class="tl-trim">
+              <button class="tbtn amber">✂ Trim to last activity (3m ago)</button>
+              <button class="tbtn green">↩ Remove last pause &amp; restore its time</button>
+            </div>
+          </div>
+
+          <div class="ent sys">
+            <div class="ent-top">
+              <span class="h">⚙️ Focus started</span>
+              <span class="ent-right">
+                <span class="ent-ts">09:12 · 0m in · edited</span>
+                <button class="tbtn red tiny" title="Delete entry">✕</button>
+              </span>
+            </div>
+          </div>
+          <div class="ent">
+            <div class="ent-top">
+              <span class="h">📈 little</span>
+              <span class="ent-right">
+                <span class="ent-ts">09:38 · 26m in</span>
+                <button class="tbtn tiny" title="Edit note">✏️</button>
+                <button class="tbtn red tiny" title="Delete entry">✕</button>
+              </span>
+            </div>
+            <div class="ent-note">Pulled last-quarter numbers into the model</div>
+          </div>
+          <div class="ent">
+            <div class="ent-top">
+              <span class="h">🚀 lot</span>
+              <span class="ent-right">
+                <span class="ent-ts">10:21 · 69m in</span>
+                <button class="tbtn tiny" title="Edit note">✏️</button>
+                <button class="tbtn red tiny" title="Delete entry">✕</button>
+              </span>
+            </div>
+            <div class="ent-note">Charts drafted, sanity-checked totals</div>
+          </div>
+          <div class="ent">
+            <div class="ent-top">
+              <span class="h">🏁 almost done</span>
+              <span class="ent-right">
+                <span class="ent-ts">10:44 · 92m in</span>
+                <button class="tbtn tiny" title="Edit note">✏️</button>
+                <button class="tbtn red tiny" title="Delete entry">✕</button>
+              </span>
+            </div>
+            <div class="ent-note">Formatting + exec summary left</div>
+          </div>
+
+          <button class="addnote">+ Add checkpoint note</button>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📊</span><div><div class="t">CheckpointTimeline</div>
+        <div class="d">The audit trail for one focus, in edit mode. Time edits clamp to the wall clock since start and cannot undo the currently running portion, so the preview line shows the real result before commit. Trim removes time tracked since your last browser activity; Remove last pause gives back what a pause took. System entries dim but stay.</div>
+        <div class="src">src/components/CheckpointTimeline.jsx</div></div></div>
+    </div>
+
+    <!-- 12. FlipClock -->
+    <div class="libcard wide" id="flipclock">
+      <div class="stage tall">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:26px">
+          <div class="clockrow">
+            <div class="flip-group">
+              <div class="flip-digit"><div class="digital-top" data-content="0"></div><div class="digital-bottom" data-content="0"></div></div>
+              <div class="flip-digit"><div class="digital-top" data-content="3"></div><div class="digital-bottom" data-content="3"></div></div>
+            </div>
+            <div class="clock-colon">:</div>
+            <div class="flip-group">
+              <div class="flip-digit"><div class="digital-top" data-content="1"></div><div class="digital-bottom" data-content="1"></div></div>
+              <div class="flip-digit"><div class="digital-top" data-content="4"></div><div class="digital-bottom" data-content="4"></div></div>
+            </div>
+            <div class="clock-colon">:</div>
+            <div class="flip-group">
+              <div class="flip-digit"><div class="digital-top" data-content="0"></div><div class="digital-bottom" data-content="0"></div></div>
+              <div class="flip-digit"><div class="digital-top" data-content="7"></div><div class="digital-bottom" data-content="7"></div></div>
+            </div>
+          </div>
+
+          <div class="variants" style="gap:26px">
+            <div class="vcol">
+              <div class="vlabel" style="width:auto">small variant</div>
+              <div class="flip-group">
+                <div class="flip-digit flip-digit-small"><div class="digital-top" data-content="0"></div><div class="digital-bottom" data-content="0"></div></div>
+                <div class="flip-digit flip-digit-small"><div class="digital-top" data-content="7"></div><div class="digital-bottom" data-content="7"></div></div>
+              </div>
+            </div>
+            <div class="vcol">
+              <div class="vlabel" style="width:auto">pulse-red</div>
+              <div class="flip-group">
+                <div class="flip-digit flip-digit-small pulse-red"><div class="digital-top" data-content="0"></div><div class="digital-bottom" data-content="0"></div></div>
+                <div class="flip-digit flip-digit-small pulse-red"><div class="digital-top" data-content="0"></div><div class="digital-bottom" data-content="0"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🕐</span><div><div class="t">FlipClock</div>
+        <div class="d">A four-layer split-flap digit: two static halves plus two animated flaps that fold and unfold on change. Bebas Neue with an Outfit fallback. The small variant carries the countdown seconds; pulse-red marks leading zeros as a countdown runs out.</div>
+        <div class="src">src/components/clock/FlipClock.jsx · FlipClock.css</div></div></div>
+    </div>
+
+    <!-- 13. Shift Controls -->
+    <div class="libcard wide" id="shift-controls">
+      <div class="stage tall">
+        <div class="variants" style="gap:24px">
+          <div class="vcol" style="width:100%">
+            <div class="vlabel">clocked in</div>
+            <div class="glass shift">
+              <div class="l">
+                <div class="state">🟢 Clocked In <span class="onbreak">ON BREAK</span></div>
+                <div class="live">3:04:12</div>
+              </div>
+              <div class="r">
+                <button class="sbtn">☕ Break</button>
+                <button class="sbtn out">⏹ Clock Out</button>
+                <button class="sbtn plain">⏱️ Shifts</button>
+                <button class="otheropen">🟢 1 other open</button>
+              </div>
+            </div>
+          </div>
+          <div class="vcol" style="width:100%">
+            <div class="vlabel">clocked out</div>
+            <div class="glass shift">
+              <div class="l">
+                <div class="state">⚪ Clocked Out</div>
+                <div class="last"><span style="color:rgba(255,255,255,.1)">|</span> Last stint: <b>3h 4m</b></div>
+              </div>
+              <div class="r">
+                <button class="sbtn in">▶ Clock In</button>
+                <button class="sbtn plain">⏱️ Shifts</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⏱️</span><div><div class="t">Shift Controls</div>
+        <div class="d">The outer boundary on the day: focus time can only exist inside a shift, which is why backdating clamps to clock-in. The ON BREAK chip turns the live timer amber. "1 other open" means another install still has a shift running, and links to Live Stints to resolve it.</div>
+        <div class="src">src/home/index.jsx · Shift Controls section (clockSession)</div></div></div>
+    </div>
+
+    <!-- 14. StagePicker -->
+    <div class="libcard" id="stage-picker">
+      <div class="stage">
+        <div class="sp">
+          <button class="spchip">📥 Unsorted</button>
+          <button class="spchip">📋 Todo</button>
+          <button class="spchip" style="background:#ff980033;border-color:#ff9800;color:#ff9800;font-weight:600">🎯 Focus</button>
+          <button class="spchip">⚡ Addressing</button>
+          <button class="spchip">🚧 Roadblocked</button>
+          <button class="spchip">✅ Resolved</button>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔻</span><div><div class="t">StagePicker</div>
+        <div class="d">The six funnel stages every focus moves through, as one inline row. The selected chip fills to its own color at 33% alpha; the rest stay outlined and muted. Reused by the FocusBar edit, the queue, the sidebar, and the InBar dropdown.</div>
+        <div class="src">src/components/ui/StagePicker.jsx · FUNNEL_STAGES in src/hooks/useFocusEngine.js</div></div></div>
+    </div>
+
+    <!-- 15. Priority picker -->
+    <div class="libcard" id="priority-picker">
+      <div class="stage">
+        <div class="pp" title="Set priority (P1=Critical, P5=Low)">
+          <span class="ppchip" style="color:#ff6b6b">P1 Critical</span>
+          <span class="ppchip" style="color:#ff6b6b">P2 High</span>
+          <span class="ppchip" style="color:#ffa726">P3 Medium</span>
+          <span class="ppchip" style="color:#ffa726">P4 Normal</span>
+          <span class="ppchip" style="color:#66bb6a">P5 Low</span>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎚</span><div><div class="t">Priority picker</div>
+        <div class="d">The P1-P5 select on every queued focus, expanded here to show all options at once. Color is derived, not stored: P1 and P2 read red, P3 and P4 amber, P5 green. Unset focuses default to P5 rather than demanding a decision up front.</div>
+        <div class="src">src/home/index.jsx · FocusQueue priority select</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.18</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

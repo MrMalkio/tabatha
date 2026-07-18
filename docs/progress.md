@@ -3,6 +3,13 @@
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
 
+## Session - 2026-07-16 (Overlock contribution signing)
+
+Tabatha's configurable webhook output now signs the exact JSON request body with HMAC-SHA256.
+Caspera can accept privacy-bounded activity events through the Overlock connector without trusting
+a reversible token. Targets configured without a secret remain backward compatible. Test suite:
+623 passing.
+
 ---
 
 ## Session - 2026-05-29 (Plan 036 Intelligent Focus Lifecycle — v6.0.0) — CHECKPOINT

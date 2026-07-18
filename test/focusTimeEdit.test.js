@@ -312,6 +312,86 @@ test('SET_FOCUS_START_TIME logs a backdated checkpoint', async () => {
   assert.ok((f1.checkpoint || []).some(c => /backdated|start/i.test(c.text || '')), 'expected a start-edit checkpoint');
 });
 
+// ── Multi-focus clamp coverage: the anti-double-count overlap path ──
+// (previously untested — every earlier test seeded a single focus item, so the
+// clamp-vs-sibling branch of validateStartTime had zero coverage.)
+
+function seedWithSibling(f1over, f2over = {}) {
+  installChromeMock({
+    store: {
+      focusEngine: {
+        activeFocusId: null,
+        items: {
+          f1: baseItem(f1over),
+          f2: {
+            id: 'f2', label: 'Email triage', focusState: 'paused', funnelStage: 'addressing',
+            startedAt: minsAgo(120), pausedAt: minsAgo(10), elapsedMs: 0,
+            lastResumedAt: null, timerMinutes: 30, checkpoint: [], ...f2over,
+          },
+        },
+        history: [],
+      },
+    },
+  });
+}
+
+test('SET_FOCUS_START_TIME overlapping a sibling: start moves in full, overlap reported (not blocked)', async () => {
+  // f2 occupied [120m ago, 10m ago]; f1 started right at 10m ago. Backdating f1
+  // to 60m ago lands inside f2's span. The start the user picked always takes
+  // effect (no clock-in floor here, so it's unbounded below) — the 50m
+  // overlap with f2 is reported, not clamped away.
+  seedWithSibling({ startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null });
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(60) });
+  assert.equal(r.clamped, false);
+  assert.equal(r.clampedBy, null);
+  assert.ok(r.addedMs >= 49.9 * MIN && r.addedMs <= 50.1 * MIN, `expected ~50m credited, got ${r.addedMs}`);
+  assert.equal(r.overlaps.length, 1);
+  assert.equal(r.overlaps[0].label, 'Email triage');
+  assert.ok(r.overlaps[0].overlapMs >= 49.9 * MIN && r.overlaps[0].overlapMs <= 50.1 * MIN, `overlapMs was ${r.overlaps[0].overlapMs}`);
+  // start actually moved to the requested time
+  const f1 = r.focusEngine.items.f1;
+  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 60 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
+  // 5m stored + 50m credited = 55m, under the 60m wall-clock ceiling
+  assert.ok(f1.elapsedMs >= 54.9 * MIN && f1.elapsedMs <= 55.1 * MIN, `elapsed was ${f1.elapsedMs}`);
+});
+
+test('SET_FOCUS_START_TIME overlapping a sibling with a narrower interval: start moves in full, smaller overlap reported', async () => {
+  // f2 occupied [120m ago, 30m ago]; f1 started 10m ago. Backdating to 60m ago
+  // moves the start fully to 60m ago (still unbounded below) and reports the
+  // 30m overlap with f2's [120m, 30m] span — not a 20m clamp-shortfall.
+  seedWithSibling(
+    { startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null },
+    { pausedAt: minsAgo(30) },
+  );
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: minsAgo(60) });
+  assert.equal(r.clamped, false);
+  assert.equal(r.clampedBy, null);
+  assert.ok(r.addedMs >= 49.9 * MIN && r.addedMs <= 50.1 * MIN, `addedMs was ${r.addedMs}`);
+  assert.equal(r.overlaps.length, 1);
+  assert.equal(r.overlaps[0].label, 'Email triage');
+  assert.ok(r.overlaps[0].overlapMs >= 29.9 * MIN && r.overlaps[0].overlapMs <= 30.1 * MIN, `overlapMs was ${r.overlaps[0].overlapMs}`);
+  const f1 = r.focusEngine.items.f1;
+  assert.ok(Math.abs(new Date(f1.startedAt).getTime() - (Date.now() - 60 * MIN)) < 2000, `startedAt was ${f1.startedAt}`);
+  // 5m stored + 50m credited = 55m, under the 60m wall-clock ceiling
+  assert.ok(f1.elapsedMs >= 54.9 * MIN && f1.elapsedMs <= 55.1 * MIN, `elapsed was ${f1.elapsedMs}`);
+});
+
+test('SET_FOCUS_START_TIME with a non-overlapping sibling is unclamped and unchanged', async () => {
+  // f2 occupied [120m ago, 90m ago] — clear of the requested [60m ago, now] span.
+  seedWithSibling(
+    { startedAt: minsAgo(10), elapsedMs: 5 * MIN, lastResumedAt: null },
+    { pausedAt: minsAgo(90) },
+  );
+  const newStart = minsAgo(60);
+  const r = await focus.handleMessage('SET_FOCUS_START_TIME', { focusId: 'f1', startedAt: newStart });
+  assert.equal(r.clamped, false);
+  assert.equal(r.clampedBy, null);
+  assert.ok(r.addedMs >= 49.9 * MIN && r.addedMs <= 50.1 * MIN, `addedMs was ${r.addedMs}`);
+  const f1 = r.focusEngine.items.f1;
+  assert.equal(f1.startedAt, newStart);
+  assert.ok(f1.elapsedMs >= 54.9 * MIN && f1.elapsedMs <= 55.1 * MIN, `elapsed was ${f1.elapsedMs}`);
+});
+
 test('EDIT_CHECKPOINT updates note text and progress level', async () => {
   seed(baseItem({ checkpoint: [{ id: 'c1', text: 'old', progressLevel: 'none', progressValue: 0, triggeredBy: 'home' }] }));
   const r = await focus.handleMessage('EDIT_CHECKPOINT', { focusId: 'f1', checkpointId: 'c1', text: 'new text', progressLevel: 'lot' });

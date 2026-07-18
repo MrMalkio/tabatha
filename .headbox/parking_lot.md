@@ -504,3 +504,58 @@
   2. CLI-first thin wrapper for scripting/cron
   3. Extension native-messaging host (no companion dependency)
 - **Artifacts:** docs/cortex/PROGRAM-agent-control-layer.md · Asana task 1216454646338939
+
+## 2026-07-15 — Backdate overlap: trim / backburner conflict chooser
+- **Noticed while:** fixing "backdating intent start time not working" (fix/backdate-overlap-clamp).
+- **What:** `SET_FOCUS_START_TIME` now sets the start the user picked (bounded by clock-in/now) and RETURNS `overlaps` — the other-focus intervals the new credited span [start, now] intersects — instead of silently clamping the start forward. Right now overlaps are only surfaced as a timeline note; nothing lets the user resolve the double-counted time.
+- **Why it matters:** Malkio's intent: when a backdated window overlaps time already tracked on another focus, the user should choose to (a) trim that overlap from the other focus, or (b) move the overlapped span to backburner time — not have it auto-resolved. Current time-counting "considers all of the time in an odd way."
+- **Options:**
+  1. Post-backdate modal in home/sidebar: list each overlapping focus + overlapMs, with "Trim from that focus" / "Send to backburner" / "Leave as-is" per row (uses the returned `overlaps`). ← **suggested**
+  2. Background auto-trim with an undo toast.
+  3. Analytics-only: leave elapsed as-is, just flag double-counted spans in reports.
+
+## 2026-07-16 — StagePicker "unsorted" active chip renders an invalid 5-digit hex
+- **Noticed while:** Building the expanded component showcase (`showcase/components-focus.html`, `components-primitives.html`).
+- **What:** `src/components/ui/StagePicker.jsx:24` computes the active-chip fill as `stage.color + '33'`. Every `FUNNEL_STAGES` color is a 6-digit hex except `unsorted`, which is `#888` (`src/hooks/useFocusEngine.js:150`). So the selected-unsorted chip resolves to `#88833` — a 5-digit value browsers discard, leaving the chip transparent while every other stage tints correctly.
+- **Why it matters:** Cosmetic but real: the "Unsorted" stage is the only one that gives no selected-state feedback, in every surface that uses StagePicker (IntentsPanel, FocusBar edit, FocusQueue, sidebar, InBar edit dropdown). It looks like a dead control.
+- **Options:**
+  1. Normalise `unsorted` to a 6-digit `#888888` in `FUNNEL_STAGES`. ← **suggested**
+  2. Convert the chip fill to `rgba()` via a small hex-to-rgba helper (fixes the whole class of `+'22'`/`+'33'` alpha-suffix concatenations app-wide).
+  3. Leave as-is; document that Unsorted has no active tint.
+
+## 2026-07-16 — InBar edit-dropdown focus list hardcodes the "queued" state class
+- **Noticed while:** Building the expanded component showcase (`showcase/components-overlays.html`).
+- **What:** `src/content/inbar.js:578` emits `<span class="focus-state queued">${stage}</span>` for every row in `buildFocusList()`. The class is a literal, so the `.focus-state.active` (green `#66bb6a`) and `.focus-state.paused` (amber `#ffa726`) styles defined right above it at lines ~437-439 are never applied. The chip also prints the *funnel stage* text inside a class named for the *focus state* — two different taxonomies.
+- **Why it matters:** In the InBar edit dropdown, an active focus and a paused focus are visually identical to a queued one. The three-color affordance is defined in CSS and shipped, but dead. The `.focus-item.active` left-border still works, so the bug is easy to miss.
+- **Options:**
+  1. Interpolate the real state: `class="focus-state ${f.focusState || 'queued'}"` and keep the stage text. ← **suggested**
+  2. Render two chips (state + stage) to keep the taxonomies separate.
+  3. Drop the unused `.focus-state.active` / `.paused` CSS if the queued-only look is intended.
+
+## 2026-07-16 — `04-settings.png` capture is nondeterministic
+- **Noticed while:** Verifying the CWS shots survived the showcase responsive pass (`feat/showcase-responsive`).
+- **What:** Two consecutive `npm run capture:shots` runs against a byte-identical `showcase/settings.html` produce different PNGs (73,664 vs 73,675 bytes). The other 7 shot frames reproduce byte-for-byte. Dimensions stay a correct 1280x800, so `capture-screenshots.mjs` reports OK either way; only the pixels drift. `settings.html` carries `transition`/animation declarations, and `--virtual-time-budget=1500` appears to land mid-transition.
+- **Why it matters:** `04-settings.png` is one of the five CONTRACTUAL Chrome Web Store screenshots. Right now every capture run produces a spurious diff on it, so `git status` cannot tell "the settings surface actually changed" from "the capture ran again". That is exactly the signal you want when a shot page is edited, and it is currently broken for 1 of the 5 store assets.
+- **Options:**
+  1. Add `* { animation: none !important; transition: none !important; }` behind a capture-only flag (e.g. `?capture=1` or a `--headless` media hint) so the frame always settles. ← **suggested**
+  2. Raise `--virtual-time-budget` until the transition provably completes, and assert reproducibility in the script by capturing twice and comparing.
+  3. Accept the drift and stop treating shot PNGs as diffable artifacts.
+
+## 2026-07-16 — Showcase `.verbadge` version is hand-maintained and already drifting
+- **Noticed while:** Bumping to v6.7.19 on `feat/showcase-responsive`.
+- **What:** All 10 site pages hardcode the version in `<span class="verbadge">v6.7.18</span>`, except `showcase/roadmap.html`, which still says **v6.7.17**. `scripts/sync-version.mjs` syncs `package.json`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and `.gemini/agent.md` from `public/manifest.json`, but does not know about `showcase/**`, so nothing catches this.
+- **Why it matters:** The badge is the version the public site claims to be documenting. It is wrong on the roadmap today, and it silently goes stale on all 10 pages at every release. Left alone the whole site will keep claiming 6.7.18 forever.
+- **Options:**
+  1. Teach `sync-version.mjs` the `verbadge` pattern across `showcase/*.html` and wire it into the existing `version:check` drift guard. ← **suggested**
+  2. Render the badge from `search-index.json` (or a tiny `version.json`) at runtime in `site.js`, so there is one source.
+  3. Drop the badge from the site and leave versioning to the changelog page.
+
+## 2026-07-16 — PRIVACY.md "no screenshots" claim vs Cortex capture
+- **Noticed while:** building the teaser homepage, linking PRIVACY.md from the new /privacy page.
+- **What:** `PRIVACY.md` states, under "What Tabatha explicitly does NOT collect": "**No screenshots** of your pages" and "never *what you did on the page*". The Cortex program (C1, Phase 1) ships `captureVisibleTab` screen capture with a redaction canvas, writing frames to disk. The 2026-07-10 session log records "Captures confirmed working (745 frames/day)".
+- **Why it matters:** The two statements cannot both be true once Cortex ships. A privacy policy that under-describes collection is the highest-consequence doc in the repo to get wrong, and it is currently linked from a public page. Capture appears to be local-only, opt-in and focus-gated, which is a *defensible* story — but it is a different story than "no screenshots", and the policy is what users are entitled to rely on.
+- **Note:** Out of scope for the teaser work, and deliberately NOT silently edited: rewriting the extension's privacy claims needs Malkio's intent, not an agent's inference. The teaser only added a waitlist section covering the email collection it introduces.
+- **Options:**
+  1. Leave as-is until Cortex is user-facing, then update the policy in the same release.
+  2. Update PRIVACY.md now to describe capture accurately (local-only, opt-in, focus-gated, redacted, retention window) so the doc never lags the shipped binary.
+  3. Update now AND gate the wording on the capture setting's default-off state, so the policy is accurate for both the default and opted-in user. ← **suggested**
