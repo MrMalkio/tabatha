@@ -29,6 +29,40 @@ const QUIET_HOUR_PRESETS: Array<{ label: string; start: number | null; end: numb
   { label: '9pm–9am', start: 21, end: 9 },
 ];
 
+// ── Epic 8 v1 (#194) — work schedule + clock-in nudge ───────────────────
+// Interim schedule store per design doc §3.2 (docs/superpowers/specs/
+// 2026-07-18-epic8-dedup-nudges-design.md): `workSchedule` in the
+// extension is chrome.storage.local-only and never synced to Supabase, so
+// the Sidecar/cron can't see it. Entered here instead, under
+// settings.sidecar.workDays — a deliberate redundant-entry scope cut, not
+// a sync-path change.
+const DAY_KEYS: Array<{ key: string; label: string }> = [
+  { key: 'mon', label: 'Mon' },
+  { key: 'tue', label: 'Tue' },
+  { key: 'wed', label: 'Wed' },
+  { key: 'thu', label: 'Thu' },
+  { key: 'fri', label: 'Fri' },
+  { key: 'sat', label: 'Sat' },
+  { key: 'sun', label: 'Sun' },
+];
+
+type DaySchedule = { enabled: boolean; start: string; end: string };
+const DEFAULT_DAY_SCHEDULE: DaySchedule = { enabled: false, start: '09:00', end: '17:00' };
+const HHMM_RE = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+function normalizeWorkDays(raw: Record<string, any> | undefined): Record<string, DaySchedule> {
+  const out: Record<string, DaySchedule> = {};
+  for (const { key } of DAY_KEYS) {
+    const d = raw?.[key] || {};
+    out[key] = {
+      enabled: !!d.enabled,
+      start: typeof d.start === 'string' ? d.start : DEFAULT_DAY_SCHEDULE.start,
+      end: typeof d.end === 'string' ? d.end : DEFAULT_DAY_SCHEDULE.end,
+    };
+  }
+  return out;
+}
+
 export default function SettingsScreen() {
   const { profile, session, signOut, saveSidecarSettings, saveChaperoneSettings } = useAuth();
   const install = useInstallPrompt(); // Plan 040 Epic 5 — install CTA
@@ -44,6 +78,15 @@ export default function SettingsScreen() {
   const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [chaperoneOn, setChaperoneOn] = useState(!!cp.enabled);
   const [quietHours, setQuietHours] = useState<{ start: number; end: number } | null>(cp.quietHours ?? null);
+
+  // Epic 8 v1 (#194) — work schedule + clock-in nudge
+  const [workDays, setWorkDays] = useState<Record<string, DaySchedule>>(normalizeWorkDays(sc.workDays));
+  const [clockInNudgeOn, setClockInNudgeOn] = useState(!!sc.nudges?.clockInCheck?.enabled);
+  const [nudgeQuietStart, setNudgeQuietStart] = useState(sc.nudges?.quietHoursStart || '22:00');
+  const [nudgeQuietEnd, setNudgeQuietEnd] = useState(sc.nudges?.quietHoursEnd || '07:00');
+  const [scheduleMsg, setScheduleMsg] = useState<string | null>(null);
+  const [scheduleErr, setScheduleErr] = useState<string | null>(null);
+  const [nudgeMsg, setNudgeMsg] = useState<string | null>(null);
 
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>('bug');
   const [feedbackText, setFeedbackText] = useState('');
@@ -98,6 +141,54 @@ export default function SettingsScreen() {
       dayResetHour: dr,
     });
     setPushMsg('Saved.');
+  };
+
+  // Epic 8 v1 (#194) — work schedule + clock-in nudge.
+  // CRITICAL (design doc §2.5): saveSidecarSettings does a *shallow* merge
+  // at the `sidecar` key level — a patch of `{ workDays: {...} }` replaces
+  // the entire workDays object wholesale. `workDays` local state always
+  // holds all 7 days (normalized at init from the full sc.workDays), so
+  // this send is already the full read-modify-write object, never a
+  // partial one.
+  const setDayField = (day: string, patch: Partial<DaySchedule>) => {
+    setWorkDays((prev) => ({ ...prev, [day]: { ...prev[day], ...patch } }));
+  };
+
+  const saveSchedule = async () => {
+    setScheduleErr(null);
+    for (const { key, label } of DAY_KEYS) {
+      const d = workDays[key];
+      if (d.enabled && (!HHMM_RE.test(d.start) || !HHMM_RE.test(d.end))) {
+        setScheduleErr(`${label}: times must be HH:MM (24h), e.g. 09:00.`);
+        return;
+      }
+    }
+    await saveSidecarSettings({ workDays });
+    setScheduleMsg('Schedule saved.');
+  };
+
+  // Same shallow-merge caveat applies to `nudges` — always send the full
+  // object (quiet hours + every nudge kind), not just the field being
+  // toggled, spreading the profile's current `sc.nudges` first so future
+  // kinds (blockStart/idleNudge, v2/v3) this screen doesn't manage yet
+  // aren't dropped.
+  const saveNudgeSettings = async () => {
+    if (nudgeQuietStart && !HHMM_RE.test(nudgeQuietStart)) {
+      setNudgeMsg('Quiet-hours start must be HH:MM (24h).');
+      return;
+    }
+    if (nudgeQuietEnd && !HHMM_RE.test(nudgeQuietEnd)) {
+      setNudgeMsg('Quiet-hours end must be HH:MM (24h).');
+      return;
+    }
+    const nextNudges = {
+      ...(sc.nudges || {}),
+      quietHoursStart: nudgeQuietStart,
+      quietHoursEnd: nudgeQuietEnd,
+      clockInCheck: { ...(sc.nudges?.clockInCheck || {}), enabled: clockInNudgeOn },
+    };
+    await saveSidecarSettings({ nudges: nextNudges });
+    setNudgeMsg('Nudge settings saved.');
   };
 
   const onSubmitFeedback = async () => {
@@ -253,6 +344,94 @@ export default function SettingsScreen() {
             thumbColor="#fff"
           />
         </View>
+      </Card>
+
+      <Card style={{ marginBottom: 14 }}>
+        <SectionLabel>Work schedule & nudges</SectionLabel>
+        <Text style={styles.rowTitle}>Clock-in nudge</Text>
+        <View style={[styles.switchRow, { marginTop: 6 }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowSub}>
+              "Are you working yet?" — pushed once a day if your shift start passes without a clock-in.
+            </Text>
+          </View>
+          <Switch
+            value={clockInNudgeOn}
+            onValueChange={setClockInNudgeOn}
+            trackColor={{ true: colors.accent, false: colors.border }}
+            thumbColor="#fff"
+          />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
+          <View>
+            <Text style={styles.rowTitle}>Quiet hours start</Text>
+            <TextInput
+              value={nudgeQuietStart}
+              onChangeText={setNudgeQuietStart}
+              placeholder="22:00"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+            />
+          </View>
+          <View>
+            <Text style={styles.rowTitle}>Quiet hours end</Text>
+            <TextInput
+              value={nudgeQuietEnd}
+              onChangeText={setNudgeQuietEnd}
+              placeholder="07:00"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+            />
+          </View>
+        </View>
+        <Text style={styles.rowSub}>No nudges fire during quiet hours, regardless of your schedule below.</Text>
+        <View style={{ marginTop: 10 }}>
+          <Btn label="Save nudge settings" onPress={saveNudgeSettings} filled />
+        </View>
+        {nudgeMsg && <Text style={styles.msg}>{nudgeMsg}</Text>}
+
+        <View style={styles.divider} />
+
+        <Text style={[styles.rowTitle, { marginBottom: 8 }]}>Work days</Text>
+        {DAY_KEYS.map(({ key, label }) => {
+          const d = workDays[key];
+          return (
+            <View key={key} style={styles.dayRow}>
+              <Switch
+                value={d.enabled}
+                onValueChange={(v) => setDayField(key, { enabled: v })}
+                trackColor={{ true: colors.accent, false: colors.border }}
+                thumbColor="#fff"
+              />
+              <Text style={styles.dayLabel}>{label}</Text>
+              <TextInput
+                value={d.start}
+                onChangeText={(v) => setDayField(key, { start: v })}
+                placeholder="09:00"
+                placeholderTextColor={colors.textMuted}
+                editable={d.enabled}
+                style={[styles.dayInput, !d.enabled && styles.dayInputDisabled]}
+              />
+              <Text style={styles.dayTo}>–</Text>
+              <TextInput
+                value={d.end}
+                onChangeText={(v) => setDayField(key, { end: v })}
+                placeholder="17:00"
+                placeholderTextColor={colors.textMuted}
+                editable={d.enabled}
+                style={[styles.dayInput, !d.enabled && styles.dayInputDisabled]}
+              />
+            </View>
+          );
+        })}
+        <Text style={styles.rowSub}>
+          The clock-in nudge checks against each day's start time. End time is for your own reference today.
+        </Text>
+        <View style={{ marginTop: 10 }}>
+          <Btn label="Save schedule" onPress={saveSchedule} filled />
+        </View>
+        {scheduleErr && <Text style={[styles.msg, { color: colors.red }]}>{scheduleErr}</Text>}
+        {scheduleMsg && !scheduleErr && <Text style={styles.msg}>{scheduleMsg}</Text>}
       </Card>
 
       <Card style={{ marginBottom: 14 }}>
@@ -434,5 +613,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 10,
     gap: 10,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 14,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  dayLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    width: 32,
+  },
+  dayInput: {
+    backgroundColor: colors.bgBase,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    color: colors.textPrimary,
+    fontSize: 13,
+    width: 68,
+    textAlign: 'center',
+  },
+  dayInputDisabled: {
+    opacity: 0.4,
+  },
+  dayTo: {
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });

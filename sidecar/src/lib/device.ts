@@ -15,7 +15,7 @@ function uuid(): string {
 // Kept as a literal (mirrors app.json) rather than pulled in via
 // expo-constants at runtime — same approach the Settings screen's version
 // footer already used before this was extracted. Bump alongside app.json.
-export const SIDECAR_VERSION = '0.4.3';
+export const SIDECAR_VERSION = '0.5.0';
 
 let cached: string | null = null;
 
