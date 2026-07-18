@@ -5,6 +5,15 @@ file.
 
 ---
 
+## [v6.7.31] - Marketing site: Tabby Sidecar v0.4.0 milestone - _2026-07-18_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **Tabby Sidecar v0.4.0 reflected on the showcase.** The `/show` family tile and "Open Tabby Sidecar" strip now cover voice capture (speak an intent or a checkpoint), the Chaperone v0 personality interrupt ("Don't you dare touch that phone"), Context View's live bottom timeline (checkpoints, starts, overtime pulse on a reworked layout), and pause-on-leave Phone Focus Mode.
+- **Roadmap.** Moved "Voice input" from Todo to Resolved (v0.4.0), and added Resolved cards for the Sidecar Chaperone and the Context View bottom timeline. The native iOS/Android app stays a Todo card.
+
 ## [v6.7.30] - Widget carve-out: docs only - _2026-07-18_
 
 ### Added
