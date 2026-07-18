@@ -122,3 +122,117 @@ timeline's start-nodes AND accurate per-task time.** Build that once, early.
   realtime); one new Asana-sync unit (Epic 3). No edits to extension `src/` except
   the eventual Tasks-view parity (separate follow-up). Parallel-safe with other
   worktrees. Max branch lifetime: per-epic; each epic is its own short-lived branch.
+
+---
+
+## Addendum — 2026-07-18 (corrected live-testing notes)
+
+### Live bugs to fold in early
+- **B1 — Phone Focus Mode on leave.** Leaving the screen while Focus Mode is on
+  must (a) **pause the active focus** — NOT clear it — and (b) actually **notify**.
+  Client-side `showNotification` fired at `visibilitychange` is unreliable on mobile
+  (the page is backgrounding). Fix: the `focusAway` signal already lands in
+  `browser_profile_status`; drive the "you left" alert from a **server push**
+  (edge fn reacting to the signal) so it's reliable, and pause the focus on leave.
+- **B2 — "No active focus" is wrong after pause.** The current-focus pin is
+  **device-local** (AsyncStorage), so the Context View on another screen falls back
+  to "most-recent-active" → shows nothing when paused. Make current-focus
+  **data-driven**: active focus → else **most-recent paused (non-resolved)** focus →
+  else empty. Only show "no active focus" when the last one was **resolved**. Keep
+  the local pin only as a same-device tiebreaker.
+- **B2b — Empty state = choose-from cards.** When there's genuinely no active/paused
+  focus, the large Context View shows the **pending focuses as priority-ordered
+  cards across the screen** (glanceable menu; still view-only — user selects from
+  phone/extension).
+
+### New epics
+- **Epic 5 — "Notes-simple" capture mode + instant install.** A dead-simple default
+  surface (positioned like a **Notes app**): type or **speak** (ties to Epic 1) →
+  it becomes an intent; minimal chrome. A toggle flips to the current full view
+  (all buttons/features). Marketing site gets an **"Install" button** that fires the
+  PWA install prompt. *Constraint:* `beforeinstallprompt` only fires on the app's
+  own origin, so the install button lives on `/sidecar` (the promo site deep-links
+  to it, or shows an inline install CTA once on-origin). Product framing: "a Notes
+  app that's secretly an attention OS," full extension = the deep version.
+- **Epic 6 — Context View layout v2 (mockup first).** Bigger title that **overlaps
+  the circular timer**: title **top-left (huge)**, timer **bottom-right (huge)**,
+  existing options **bottom-left**, top-right absorbed by the title (some negative
+  space, intentionally). Reconcile with day-countdown / current-time / brand from
+  v0.2 (likely: brand BL with options, day-countdown small, time BM). Explore in the
+  mockup before wiring.
+
+### Answers captured (not tasks)
+- **PWA auto-update:** yes — installed PWAs re-fetch from the origin and update on
+  next launch/reload; our Worker serves fresh assets so updates are immediate on
+  reload. Add a proper update UX (SW `skipWaiting` + "new version — tap to refresh")
+  and decide the offline-cache tradeoff (we currently don't cache the shell, so
+  updates are instant but there's no offline yet).
+- **Permissions/capability list:** delivered previously (Notifications, Geolocation
+  [the "maps"/location context], Camera/Mic, Motion sensors, Wake Lock, Share
+  Target, Badging, etc.). Captured; can become a permissions roadmap when we build
+  the leverage features.
+
+### Updated sequence
+0. Phone-away red **+ B1 (pause-on-leave + reliable server-push notify)** — verify + ship.
+1. **B2/B2b** — data-driven current-focus + Context View choose-from cards (quick, high-value).
+2. **Voice Capture** (Epic 1) — also unlocks Epic 5's "speak a note".
+3. **Epic 5** — Notes-simple mode + install button.
+4. `focus_events` → **Epic 4** Tasks view.
+5. **Epic 2** timeline; **Epic 6** layout v2 (mockup → wire).
+6. Anasa review → **Epic 3** Asana/Anasa tasks + subtasks.
+
+---
+
+## Addendum 2 — 2026-07-18 (state-of-the-world correction + expansion)
+
+### A. Version correction & repo state map (surveyed 2026-07-18)
+
+The header's "extension 6.5.0" is **this worktree's stale base**, not reality:
+
+| Where | Version | Notes |
+|---|---|---|
+| **Chrome-loaded dist** (`Le Dev\Tabatha\dist`) | **6.8.2** | matches `Koda/asana-widget-pre-rebase` line |
+| Team/production release (user-stated, site) | **6.7.22** | = `feat/companion-update-manifest` / `feat/companion-release` |
+| Site staging | 6.7.23 | `feat/site-sidecar-promo` (deployed to Pages prod) |
+| Highest fix branches | 6.7.24 / 6.7.23 | `fix/updater-swap`, `fix/backdate-overlap-clamp` |
+| local `staging` | 6.7.8 | behind the feature branches |
+| `origin/staging` | 6.6.0 | **GitHub has drifted behind the local line** |
+| `origin/main` | 6.5.0 | last promoted release |
+| this worktree's base | 6.5.0 | fine for `sidecar/` (isolated) — NOT for extension work |
+
+**Rules derived:**
+1. **Sidecar-only work continues here** — `sidecar/` + additive migrations don't touch extension `src/`, so the stale base is harmless.
+2. **Any extension-side epic (Epic 9 below, Tasks-view parity, checkpoint/sub-intent sync) must branch from the current line (6.7.24+/6.8.2 lineage), never from this branch.**
+3. **Repo reconciliation is a needed, separate chore:** promote the 6.7.x/6.8.x line through staging→GitHub so "GitHub is source of truth" is true again. Parked as its own task — not blocking Sidecar epics.
+
+### B. Sidecar-only users are a first-class persona
+Some users will have **only Sidecar access** (no extension, no companion). Implications, folded into all epics: Sidecar must be self-sufficient (feedback/bug reporting on-device — Epic 7; defaults for everything the extension would otherwise configure — Epic 9's "defaulted without extension"; Notes-simple onboarding — Epic 5; no assumption a desktop pull will ever run).
+
+### C. Rolled in from the mobile feature docs (docs/features)
+- **#165 Voice Notes (v0.3.0)** — *is* Epic 1; adopt its spec: Web Speech on-device first, Whisper opt-in later, notes linkable to focus/task, offline-record→sync as an open question. Epic 1 now cites #165.
+- **#194 Mobile Schedule Nudges (v0.4.0)** — **rolls in now as Epic 8**: we already have the delivery rail (push_subscriptions + send-focus-push + pg_cron). Add schedule-aware passes ("9:15 — are you working yet?" when no clock-in; block-starts-soon) reading Work Shifts data. Configurable frequency/DND.
+- **#164 Mobile Triggers / #183 Device Proximity (v0.4.0)** — phone-pickup/call-state/geofence/BLE need **native**; the web PWA already covers the visibility-based subset (Phone Focus Mode). Parked for the native build; webhook subsystem noted for later.
+
+### D. New epics (from sidenotes)
+- **Epic 7 — Feedback & bug reporting in Sidecar.** A "Send feedback / report a bug" item (Settings + long-press/shake later) → reuses the **existing `feedback-to-asana` edge function** (deploy-state to verify) with device/app context attached (version, surface, ua). Quick win; important for sidecar-only users.
+- **Epic 8 — Schedule nudges (#194).** As above, on the existing push cron.
+- **Epic 9 — Context View customization (extension-side).** Extension Settings section to customize the Context View (which elements show: day countdown, up-next, timeline; colors/intensity; phone-away fade speed incl. `focusAwayImmediate`; day-reset hour) persisted to `settings.sidecar`/`settings.contextView` on the profile so the view reads it anywhere. **Without the extension, sensible defaults apply** (sidecar-only users get the default view; Sidecar Settings keeps its minimal subset). *Must be built from the current extension line (rule A2).*
+
+### E. Asana PAT
+The user's Asana PAT is already available on this machine (asana-cli credential store). Epic 3's sync uses it via **REST** (per the locked decision); storage/scoping design still to come in that epic's plan.
+
+### F. Answers (asked in the notes)
+- **Do PWAs auto-update?** Yes — the installed PWA is a wrapper over the origin; each launch/reload re-fetches, and our Worker serves fresh assets (no shell cache yet), so updates apply on next open. We'll add a "new version — tap to refresh" UX when we introduce offline caching.
+- **Capability list (notifications, maps, etc.):** delivered in full earlier this session (notifications/badging/media, motion/idle sensors, geolocation, mic/camera/speech, share-target, wake-lock, passkeys, background sync; native-only: geofencing, live activities, widgets, call/app state). #164/#183 map onto the native-only tier.
+
+### G. Updated build sequence (supersedes Addendum 1's)
+0. **Epic 0 + B1** — phone-away red verify+ship; leave ⇒ **pause (not clear)** + reliable **server-push** notify.
+1. **B2/B2b** — data-driven current focus (paused ≠ gone; resolved ⇒ empty) + choose-from priority cards when truly empty.
+2. **Epic 1 (#165)** — Voice Capture.
+3. **Epic 7** — Feedback/bug reporting (small, unblocks sidecar-only users).
+4. **Epic 5** — Notes-simple mode + on-origin install CTA.
+5. **`focus_events`** → **Epic 4** Tasks view.
+6. **Epic 2** timeline + **Epic 6** layout v2 (mockup first).
+7. **Epic 8 (#194)** — schedule nudges on the push cron.
+8. **Anasa review** → **Epic 3** — Asana(PAT) tasks + subtasks-as-sub-intents.
+9. **Epic 9** — Context View customization (extension-side, from current line) — alongside the repo-reconciliation chore.
