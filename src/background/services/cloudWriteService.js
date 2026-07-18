@@ -323,6 +323,31 @@ export async function handleMessage(type, message = {}) {
         return { ok: false, error: err?.message || String(err) };
       }
     }
+    // ── Epic 9: Context View customization settings (direct RPC — server
+    // result required so the UI can trust the returned merged value rather
+    // than re-deriving it client-side). Runs the SECURITY DEFINER RPC
+    // tabatha.update_profile_settings (migration 038), which does an atomic
+    // server-side jsonb_set merge per top-level settings key, closing the
+    // cross-surface race a client-side read-modify-write would have with the
+    // Sidecar's own settings writers (see docs/superpowers/specs/
+    // 2026-07-18-epic9-cv-customization-design.md §1). ──
+    case 'UPDATE_PROFILE_SETTINGS': {
+      try {
+        await requireSessionFor('update your settings');
+        const profileId = message.profileId || null;
+        const patch = message.patch;
+        if (!profileId || !patch || typeof patch !== 'object') {
+          return { ok: false, error: 'Missing profileId or patch' };
+        }
+        const data = await rpc('update_profile_settings', {
+          p_profile_id: profileId,
+          p_patch: patch,
+        });
+        return { ok: true, data };
+      } catch (err) {
+        return { ok: false, error: err?.message || String(err) };
+      }
+    }
     case 'DELETE_INVITE_TOKEN': {
       try {
         await requireSessionFor('revoke a token');
