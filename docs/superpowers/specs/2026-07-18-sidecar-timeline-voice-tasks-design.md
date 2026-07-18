@@ -346,3 +346,41 @@ Chrome extension's timer extension paths — "+time" on timer expiry popups,
 snooze, and the planned "let me cook" option (sticky note 022 / Plan 022) —
 MUST emit the same `extend` events with the same meta shape, so the timeline
 and future analytics see extensions from every surface, not just Sidecar.
+
+---
+
+## Addendum 7 — Proactive voice check-ins (Malkio, 2026-07-18, binding)
+
+> "Weave in somewhere the proactive voice prompt from tabatha to use asking
+> for input and tabatha then uses the info to update records add checkpoints
+> etc."
+
+Tabatha initiates the conversation: at the right trigger she ASKS (TTS via
+`speechSynthesis`, respecting the chaperone voice/personality when present),
+auto-opens the mic (existing `lib/speech.ts` capture), and applies the answer
+to real records. Extends Epic 1 voice capture (#165) + Chaperone (#182);
+supersedes nothing — this is the "input" half #211 (Audio Input & Voice
+Control) anticipated.
+
+**v1 slice (Sidecar, ships as 0.7.0):**
+- Triggers: (a) manual 🎤 check-in button on the Focus screen; (b) proactive
+  checkpoint-staleness — active focus with no checkpoint for N minutes while
+  the app is foregrounded → spoken prompt ("How's ⟨focus label⟩ going?") +
+  auto-listen. N + master toggle live in `settings.sidecar.voiceCheckin`
+  (via the `update_profile_settings` RPC — no migration needed; 'sidecar'
+  is already on the allow-list).
+- Parse rules v1 (deterministic keywords, no LLM):
+  - "extend/add ⟨N⟩ minutes" → `actions.extend(N)` (rides the new `extend`
+    focus_event + ⏳ timeline node from Addendum 6);
+  - "pause" / "resume" / "done|finished|resolve" → matching action;
+  - otherwise → checkpoint note with the transcript; progress level inferred
+    from keywords (stuck, almost, a lot/great progress, a little) else 'none'.
+- Every applied action shows a visual confirmation with a one-tap Undo
+  (checkpoint delete / action revert) — voice writes must never be silent.
+- Never speak or listen while the profile's quiet hours / DND (Epic 8
+  schedule model) are active.
+
+**Follow-through:** extension-side parity belongs to #165/#211 (InBar/popup
+prompt + capture); Context View may later surface a "listening" glyph
+(out of v1). Chaperone pre-recorded lines and check-in TTS share the audio
+channel — chaperone interrupt wins on conflict.
