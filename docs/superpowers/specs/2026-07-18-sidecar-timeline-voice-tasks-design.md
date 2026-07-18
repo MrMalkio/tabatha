@@ -257,3 +257,24 @@ The user's Asana PAT is already available on this machine (asana-cli credential 
   step when picked up: research the science of body doubling.
 - **Principle recorded** in `Tabatha_Concept.md`: **Progressive Simplicity** —
   capability grows while upfront surface shrinks ("just do and just say").
+
+---
+
+## Addendum 4 — 2026-07-18 (Epic 3 contract + operating model)
+
+- **Epic 3 mapping is 1:1:** Tabatha tasks ↔ Asana tasks on **name, description,
+  subtasks, dependencies, AND blockers** (both directions on mutation sync).
+  `tasks_registry` gains `dependencies`/`blockers` (JSONB of task ids) or a
+  relation table — decided in Epic 3's implementation plan. Blocker/dependency
+  state should surface in the Tasks view (Epic 4) and queue ordering.
+- **Surface versioning decision (proposed, System Map will codify):** each
+  surface gets its **own version line** — Extension `6.x` (prod 6.7.22 in Google
+  Workspace), **Sidecar `0.x`** (already separate, 0.2.x), **Asana widget → own
+  `0.x`** (currently tangled in the extension 6.8.2 branch — untangle), site
+  deploys tracked by date+deploy id. The repo-wide `version:sync` stays the
+  extension's; other surfaces version independently.
+- **Operating model (while orchestrator is Fable 5):** orchestrator stays in
+  orchestrate/review/delegate/tastemake lanes; execution goes to **named Anasa
+  players** (vetted personas: Cirra/CeeCee/Cindra, Koda/Dex/Rook, Argus/Aegis)
+  with bounded Asana-tasked scopes, player credentials, progress updates on
+  their tasks, and persona continuity. Koda co-deliberates on plans.
