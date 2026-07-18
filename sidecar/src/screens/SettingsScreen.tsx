@@ -13,6 +13,7 @@ import { Btn, Card, SectionLabel } from '../ui/kit';
 import { colors, radius } from '../lib/theme';
 import { deviceLabel, SIDECAR_VERSION } from '../lib/device';
 import { enablePush, disablePush, pushPermission, pushSupported } from '../lib/push';
+import { useInstallPrompt } from '../lib/install';
 import {
   submitFeedback,
   flushFeedbackQueue,
@@ -30,6 +31,7 @@ const QUIET_HOUR_PRESETS: Array<{ label: string; start: number | null; end: numb
 
 export default function SettingsScreen() {
   const { profile, session, signOut, saveSidecarSettings, saveChaperoneSettings } = useAuth();
+  const install = useInstallPrompt(); // Plan 040 Epic 5 — install CTA
   const sc = profile?.settings?.sidecar || {};
   const cp = profile?.settings?.chaperone || {};
 
@@ -151,6 +153,14 @@ export default function SettingsScreen() {
         <Text style={styles.name}>{profile?.display_name || 'Tabatha User'}</Text>
         <Text style={styles.email}>{session?.user?.email}</Text>
         <Text style={styles.device}>📱 {deviceLabel()}</Text>
+        {install.available && (
+          <Pressable onPress={install.promptInstall} style={styles.installRow}>
+            <Text style={styles.installRowTxt}>📲 Install Tabby</Text>
+          </Pressable>
+        )}
+        {!install.available && !install.installed && install.isIOS && (
+          <Text style={[styles.hint, { marginTop: 8 }]}>Share → Add to Home Screen to install</Text>
+        )}
       </Card>
 
       <Card style={{ marginBottom: 14 }}>
@@ -369,6 +379,16 @@ const styles = StyleSheet.create({
   name: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
   email: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   device: { fontSize: 12, color: colors.accent, marginTop: 8 },
+  installRow: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  installRowTxt: { fontSize: 12, fontWeight: '700', color: colors.accent },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowTitle: { fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
   rowSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
