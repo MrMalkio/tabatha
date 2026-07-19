@@ -38,15 +38,17 @@ const CATEGORY_PAGES = [
   { file: 'components-org.html',        label: 'Org & Team',                 icon: '🏛️' },
   { file: 'components-settings.html',   label: 'Settings',                   icon: '⚙️' },
   { file: 'components-primitives.html', label: 'Primitives & Panels',        icon: '🧱' },
-  // The other two products in the family. Same card contract, so they index
+  // The other products in the family. Same card contract, so they index
   // through the identical path — a search for "categorizer" should surface the
   // extension's, the companion's and the mobile one together.
   { file: 'components-companion.html',  label: 'Desktop Companion',          icon: '🖥️' },
+  { file: 'components-sidecar.html',    label: 'Tabby Sidecar',              icon: '📱' },
+  { file: 'components-watch.html',      label: 'Tabby Watch',                icon: '⌚' },
   { file: 'components-mobile.html',     label: 'Mobile App',                 icon: '📱' },
 ];
 
 /** Component-card total across every category page above. Update deliberately. */
-const EXPECTED_CARDS = 120;
+const EXPECTED_CARDS = 140;
 
 /** Named entities that appear in the showcase markup. */
 const ENTITIES = {

@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.36",
+      "title": "Marketing site: Tabby Sidecar & Tabby Watch full-page presence",
+      "date": "2026-07-18",
+      "intro": "> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Tabby Sidecar gets a full detail page.** New `site/show/components-sidecar.html` (12 components, rendered from the app's real tokens — `sidecar/src/lib/theme.ts`, accent `#00E0D6`): sign-in, active focus & queue, voice capture and proactive check-ins, Tasks & Asana sync, Context View (including the phone-away red overlay), Phone Focus Mode, PWA install & self-healing, Web Push, in-app feedback, Notes/simple capture, watch pairing, and Cloud Sync. The `/show` family tile now links to this page instead of straight out to the live app; \"Open Tabby Sidecar\" remains as its own strip. Sidecar reflected at v0.7.2.\n- **Tabby Watch joins the showcase family.** New `site/show/components-watch.html` (8 components, rendered from `tabatha-watch`'s Wear OS Compose theme — green/amber/red focus-ring states): the focus ring, action chips, checkpoint quick-add, shift glance, Tile, complication, password-free 6-digit pairing, and the architecture/fixture-mode card. Framed honestly throughout as a **sideload beta** — no store listing, built and sideloaded from `MrMalkio/tabatha-watch` (v0.1.2). A new family tile and a non-`.ready` get-strip point here; the family section is now \"4 in the family\".\n- **Roadmap.** Replaced the Tabby Watch Todo card with a Resolved card (v0.1.2, sideload beta) and added a new Todo card for the store release that remains outstanding.\n- **Search index & site build.** `scripts/build-search-index.mjs` now indexes both new pages (140 component cards total, up from 120); ran `npm run site:build` to regenerate `search-index.json` and `privacy.html`."
+        }
+      ]
+    },
+    {
       "version": "6.7.35",
       "title": "Marketing site: Tabby Sidecar v0.7.0 + Extension 6.7.34 milestone",
       "date": "2026-07-18",

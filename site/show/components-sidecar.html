@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Tabby Sidecar</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase - Tabby Sidecar category page.
+   Site chrome uses the logo palette (#0F1115 / #00D2FF), exactly
+   as the other category pages. The component stages render the
+   SIDECAR's own tokens (sidecar/src/lib/theme.ts: bg #0A0E14,
+   surface #141A22, accent #00E0D6, plus its 6/10/16/999 radius
+   scale) - a third product, a third palette, faithfully to the
+   real shipped web app rather than the older native-mobile concept
+   page this site also carries (components-mobile.html).
+   Self-contained: inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+.mono{font-family:var(--mono)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Sidecar surface tokens - sidecar/src/lib/theme.ts
+   ============================================================ */
+.sc{
+  --s-bg:#0A0E14;--s-surf:#141A22;--s-surfh:#1C242E;--s-border:#222B36;
+  --s-t1:#E8EAED;--s-t2:#8A93A0;
+  --s-accent:#00E0D6;--s-accentdim:rgba(0,224,214,.14);
+  --s-green:#66BB6A;--s-amber:#FFA726;--s-red:#EF5350;--s-blue:#29B6F6;
+  --s-orange:#FF9800;--s-purple:#A142F4;--s-yellow:#FFD54F;
+  --s-r:16px;--s-rm:10px;--s-rs:6px;
+  font-family:var(--sans);color:var(--s-t1);font-size:13px;
+}
+/* phone frame - a plain bezel, not a photographic mockup */
+.sph{width:220px;background:var(--s-bg);border:1px solid var(--s-border);border-radius:18px;
+  overflow:hidden;display:flex;flex-direction:column;color:var(--s-t1)}
+.sph.sm{width:198px}
+.sph .sbar{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;
+  font-size:8.5px;color:var(--s-t2);font-family:var(--mono)}
+.sph .body{padding:11px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.sph .tabs{display:flex;border-top:1px solid var(--s-border);background:var(--s-bg)}
+.sph .tabs .tb{flex:1;text-align:center;padding:7px 0;font-size:8.5px;color:#3d4552}
+.sph .tabs .tb.on{color:var(--s-accent)}
+.sph .tabs .tb .i{font-size:13px;display:block;margin-bottom:2px}
+
+.ssurf{background:var(--s-surf);border:1px solid var(--s-border);border-radius:var(--s-rm);padding:9px 10px}
+.slabel{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#4a5364;font-weight:700}
+.stitle{font-size:12px;font-weight:600}
+.smuted{font-size:9.5px;color:var(--s-t2);line-height:1.45}
+.sbtn{border-radius:var(--s-rs);padding:7px 12px;font:600 10px var(--sans);border:0;cursor:pointer;text-align:center}
+.sbtn.pri{background:var(--s-accent);color:#04211e}
+.sbtn.ghost{background:transparent;color:var(--s-t2);border:1px solid var(--s-border)}
+.sbtn.warn{background:rgba(255,167,38,.16);color:var(--s-amber);border:1px solid rgba(255,167,38,.35)}
+.schip{display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:600;
+  border-radius:999px;padding:2px 7px}
+.stimer{font:700 22px var(--mono);letter-spacing:-.02em;color:var(--s-accent)}
+.stimer.paused{color:var(--s-amber)}
+.stimer.over{color:var(--s-red)}
+.srow{display:flex;align-items:center;gap:7px}
+.sgrow{flex:1}
+.sring{width:96px;height:96px;border-radius:50%;position:relative;display:flex;align-items:center;
+  justify-content:center;flex:none}
+.sring::before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(var(--s-accent) var(--p,72%),var(--s-border) 0)}
+.sring::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--s-bg)}
+.sring .v{position:relative;z-index:1;font:700 13px var(--mono)}
+
+/* PWA install card */
+.pwacard{width:280px}
+.pwastep{display:flex;gap:8px;font-size:10px;color:var(--s-t2);padding:4px 0}
+.pwastep .n{color:var(--s-accent);font-weight:700;font-family:var(--mono);flex:none}
+
+/* TV / context view mini frame */
+.tvframe{width:360px;aspect-ratio:16/9;background:var(--s-bg);border:1px solid var(--s-border);
+  border-radius:var(--s-rm);padding:14px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.tvframe .brand{position:absolute;bottom:10px;left:14px;font-size:8px;color:#3d4552}
+.tvframe .countdown{position:absolute;top:10px;right:14px;font:700 11px var(--mono);color:var(--s-t2)}
+.tvframe .time{position:absolute;bottom:10px;right:14px;font:700 10px var(--mono);color:var(--s-t2)}
+.tvframe .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.tvframe .hero .lbl{font-size:13px;font-weight:700}
+.tvframe .hero .tm{font:700 24px var(--mono);color:var(--s-accent)}
+.tvframe .upnext{position:absolute;top:10px;left:14px;font-size:7.5px;color:#4a5364}
+.tvframe.away{background:radial-gradient(circle at 50% 40%,rgba(239,83,80,.28),#0A0E14 72%)}
+.tvframe.away .hero .lbl,.tvframe.away .hero .tm{color:#ff8a80}
+
+/* checkpoint levels */
+.lvl{display:flex;flex-direction:column;gap:5px;width:170px}
+.lvlrow{display:flex;align-items:center;gap:7px;border-radius:999px;padding:5px 10px;font-size:9.5px;font-weight:600}
+
+/* tasks */
+.trow{display:flex;align-items:center;gap:7px;background:var(--s-surf);border:1px solid var(--s-border);
+  border-radius:var(--s-rs);padding:6px 8px;font-size:9.5px}
+.trow .n{margin-left:auto;font:500 8.5px var(--mono);color:var(--s-t2)}
+
+/* watch link card */
+.wlink{width:280px}
+.wlink .code{display:flex;gap:5px;justify-content:center;margin:10px 0}
+.wlink .digit{width:24px;height:30px;background:var(--s-surf);border:1px solid var(--s-border);
+  border-radius:var(--s-rs);display:flex;align-items:center;justify-content:center;font:700 14px var(--mono);
+  color:var(--s-accent)}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="#components">Components</a>
+  <a href="components-watch.html">Tabby Watch</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.36</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Tabby Sidecar <span class="statusflag live">Shipped · Web · v0.7.2</span></h1>
+  <p>Your attention does not stop at the laptop lid. Tabby Sidecar is the queue and the clock in your
+    pocket, live today at every phone browser: sign in with your Tabatha account, see the same queue and
+    active focus the extension sees, start an intent by typing or by voice, and get a Chaperone nudge if you
+    wander off mid-focus. It reads and writes the <b>same account data</b> as the extension and the desktop
+    companion through Cloud Sync, so a checkpoint logged on the phone shows up everywhere within a second.
+    Nothing here is a native app yet - it is a React Native Web app, installable to your home screen as a
+    PWA - but it is not a mockup either. Every card below is the real, shipped UI.</p>
+</header>
+
+<!-- Open panel. Reuses the same visual language as the companion's download
+     panel (the "ready" cyan CTA, the facts strip) because it plays the same
+     role - "how do I get this" - even though there is nothing to download:
+     Sidecar is a web app you open, not an installer you run. -->
+<div class="dl" id="get">
+  <div class="dl-box">
+    <div class="dl-main">
+      <span class="e" aria-hidden="true">📱</span>
+      <div class="dl-body">
+        <div class="dl-title">
+          <h2>Open Tabby Sidecar</h2>
+          <span class="statusflag live">Nothing to install</span>
+        </div>
+        <div class="dl-meta">
+          <span>Any phone browser</span>
+          <span>Version <b>0.7.2</b></span>
+          <span>Expo · React Native Web</span>
+          <span>Installable PWA</span>
+        </div>
+        <p class="dl-desc">Open <b>tabatha.pondocean.co/sidecar</b>, sign in with Google or a magic link, and
+          the same account the extension knows about is already there - queue, active focus, backburner,
+          tasks. Add it to your home screen for the app feel: it installs as a PWA with its own icon and no
+          browser chrome, updates itself in the background when a new version ships, and lands on a
+          recovery screen instead of a blank one if it ever crashes.</p>
+        <div class="dl-actions">
+          <a class="dl-cta ready" href="https://tabatha.pondocean.co/sidecar" target="_blank" rel="noopener">📱 Open Tabby Sidecar</a>
+          <span class="dl-note">tabatha.pondocean.co/sidecar · sign in with your Tabatha account.</span>
+        </div>
+        <div class="dl-facts">
+          <div class="dl-fact"><span class="k">Sign-in</span><span class="v">Google · Magic link</span></div>
+          <div class="dl-fact"><span class="k">Data</span><span class="v">Same Cloud Sync account as the extension &amp; companion</span></div>
+          <div class="dl-fact"><span class="k">Also</span><span class="v"><a href="components-watch.html">pairs with Tabby Watch →</a></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Component library</h2>
+    <span class="meta">12 surfaces · rendered from the real shipped tokens</span>
+  </div>
+  <p class="sec-purpose">The phone inverts the extension's problem. In the browser, Tabatha has to ask what
+    you are doing because a tab cannot tell it; on a phone, the thing that is missing is not information but
+    <b>presence</b> - the app has to be there the moment you go quiet, and gone the moment you do not need it.
+    So the built half leans on voice and proactive nudges rather than dashboards. The stages here render
+    Sidecar's own tokens (accent <b>#00E0D6</b>) and its 6/10/16/999 radius scale - a different app from the
+    extension and the desktop companion, and it does not pretend otherwise.</p>
+  <div class="lib sc">
+
+    <!-- 1. Sign-in -->
+    <div class="libcard" id="sc-signin">
+      <div class="stage top" style="padding-top:24px">
+        <div class="sph sm">
+          <div class="sbar"><span>9:41</span><span>▮▮▮ 82%</span></div>
+          <div class="body" style="justify-content:center;text-align:center;gap:12px;padding:22px 12px">
+            <div style="font-size:26px">🎯</div>
+            <div class="stitle">Sign in to Tabatha</div>
+            <button class="sbtn ghost" style="width:100%">Continue with Google</button>
+            <button class="sbtn pri" style="width:100%">Send a magic link</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔐</span><div><div class="t">Sign-in <span class="statusflag live">Live</span></div>
+        <div class="d">Two paths in, both password-free: Google OAuth or a magic link emailed to the same
+          address the extension knows. Either lands you in the same account - there is no separate Sidecar
+          identity to create or lose.</div>
+        <div class="src">sidecar/src/screens/LoginScreen.tsx</div></div></div>
+    </div>
+
+    <!-- 2. Active focus + Queue -->
+    <div class="libcard wide" id="sc-focus">
+      <div class="stage top" style="padding-top:22px">
+        <div class="variants" style="gap:16px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">active</div>
+            <div class="sph sm">
+              <div class="sbar"><span>13:22</span><span>▮▮▮ 61%</span></div>
+              <div class="body">
+                <div class="ssurf" style="text-align:center">
+                  <div class="slabel">Now</div>
+                  <div class="stitle" style="margin-top:3px">Q1 Report</div>
+                  <div class="stimer" style="font-size:18px;margin-top:5px">18:42</div>
+                  <div class="srow" style="gap:5px;margin-top:8px">
+                    <button class="sbtn warn sgrow">Pause</button><button class="sbtn ghost sgrow">Done</button></div>
+                </div>
+                <div class="ssurf"><div class="slabel">Backburner</div>
+                  <div class="smuted" style="margin-top:4px">2 parked · tap to resume</div></div>
+              </div>
+              <div class="tabs"><div class="tb on"><span class="i">🎯</span>Focus</div><div class="tb"><span class="i">📋</span>Tasks</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">queue</div>
+            <div class="sph sm">
+              <div class="sbar"><span>13:25</span><span>▮▮▮ 60%</span></div>
+              <div class="body">
+                <div class="stitle">Queue</div>
+                <div class="ssurf" style="padding:7px 9px"><span class="smuted">📋 Learning React</span></div>
+                <div class="ssurf" style="padding:7px 9px"><span class="smuted">⚡ Email triage</span></div>
+                <div class="ssurf" style="padding:7px 9px"><span class="smuted">📥 Vacation planning</span></div>
+              </div>
+              <div class="tabs"><div class="tb on"><span class="i">🎯</span>Focus</div><div class="tb"><span class="i">📋</span>Tasks</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎯</span><div><div class="t">Active focus &amp; Queue <span class="statusflag live">Live</span></div>
+        <div class="d">The screen that makes this Tabatha and not a to-do list: the current focus with its
+          live timer, checkpoint quick-add, and a Backburner - park what you are blocked on honestly instead
+          of quietly dropping it, and get reminded to come back. The queue below it carries the same funnel
+          stages the extension and the desktop share.</div>
+        <div class="src">sidecar/src/screens/FocusScreen.tsx</div></div></div>
+    </div>
+
+    <!-- 3. Voice check-ins / Chaperone -->
+    <div class="libcard wide" id="sc-voice">
+      <div class="stage top" style="padding-top:24px;flex-direction:column;gap:12px">
+        <div class="ssurf" style="width:100%;max-width:520px">
+          <div class="slabel">🎙 Proactive check-in</div>
+          <div class="stitle" style="margin-top:4px">"You've gone quiet on Q1 Report - how's it going?"</div>
+          <div class="smuted" style="margin-top:6px">You: "extend it ten minutes" → applied</div>
+          <div class="srow" style="margin-top:8px;gap:6px">
+            <span class="schip" style="background:var(--s-accentdim);color:var(--s-accent)">✓ Extended +10m</span>
+            <span class="schip" style="background:rgba(255,167,38,.16);color:var(--s-amber)">↺ Undo</span>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎙</span><div><div class="t">Voice capture &amp; proactive check-ins <span class="statusflag live">Live</span></div>
+        <div class="d">Speak an intent instead of typing it - the phone keyboard is the friction that stops
+          most logging from happening at all. Go quiet on an active focus and the Chaperone asks how it is
+          going out loud; answer back and it applies what you said itself - extend, pause, done, or just a
+          progress note - always with a visible confirmation and Undo. Opt-in, and it respects quiet hours.</div>
+        <div class="src">sidecar/src/lib/chaperone.ts · voiceCheckin.ts · speech.ts · src/components/VoiceCheckIn.tsx</div></div></div>
+    </div>
+
+    <!-- 4. Tasks & Asana sync -->
+    <div class="libcard wide" id="sc-tasks">
+      <div class="stage top" style="padding-top:24px">
+        <div class="sph sm" style="width:230px">
+          <div class="sbar"><span>18:09</span><span>▮▮▮ 43%</span></div>
+          <div class="body">
+            <div class="srow"><span class="stitle sgrow">Tasks</span><span class="schip" style="background:var(--s-accentdim);color:var(--s-accent)">Asana ✓</span></div>
+            <div class="trow">✏️ Q1 charts <span class="n" style="color:var(--s-red)">P1</span></div>
+            <div class="trow" style="opacity:.85">🚧 blocked · Vendor sign-off <span class="n">1h 20m</span></div>
+            <div class="trow" style="opacity:.6">✅ Ship updater fix <span class="n">44m</span></div>
+            <div class="smuted" style="text-align:center;font-size:8.5px;margin-top:2px">subtasks → sub-intents · tap to start</div>
+          </div>
+          <div class="tabs"><div class="tb"><span class="i">🎯</span>Focus</div><div class="tb on"><span class="i">📋</span>Tasks</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+        </div>
+        <div class="ssurf" style="width:230px;align-self:flex-start;margin-top:6px">
+          <div class="slabel">Settings · Asana</div>
+          <div class="smuted" style="margin-top:6px">Paste your Asana personal access token</div>
+          <div class="ssurf" style="margin-top:6px;padding:6px 8px;font:400 9px var(--mono);color:#4a5364">••••••••••••••••</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📋</span><div><div class="t">Tasks &amp; Asana sync <span class="statusflag live">Live</span></div>
+        <div class="d">A personal access token in Settings pulls your Asana tasks straight into the queue:
+          subtasks, a blocked badge, and tracked time computed from the same checkpoint events the focus
+          timer writes. Starting a task turns it into a focus, and its subtasks become sub-intents, with one
+          tap.</div>
+        <div class="src">sidecar/src/screens/TasksScreen.tsx · src/data/events.ts</div></div></div>
+    </div>
+
+    <!-- 5. Context View -->
+    <div class="libcard wide" id="sc-contextview">
+      <div class="stage top" style="padding-top:24px">
+        <div class="variants" style="gap:16px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">focused</div>
+            <div class="tvframe">
+              <div class="upnext">UP NEXT · Email triage</div>
+              <div class="countdown">7h 12m left today</div>
+              <div class="hero"><div class="lbl">Q1 Report</div><div class="tm">18:42</div></div>
+              <div class="brand">Ta<b>b</b>atha</div>
+              <div class="time">13:22</div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">phone-away accountability</div>
+            <div class="tvframe away">
+              <div class="upnext">UP NEXT · Email triage</div>
+              <div class="countdown">7h 12m left today</div>
+              <div class="hero"><div class="lbl">Q1 Report</div><div class="tm">18:55</div></div>
+              <div class="brand">Ta<b>b</b>atha</div>
+              <div class="time">13:35</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📺</span><div><div class="t">Context View <span class="statusflag live">Live</span></div>
+        <div class="d">Rotate the phone into landscape on a large screen (a TV, a monitor, a third display)
+          and Sidecar switches to a view-only big-screen mode: brand bottom-left, a 1440-based day countdown
+          top-right tied to the extension's day-reset-hour setting, the current focus and timer centered, and
+          an up-next preview. Walk away from the phone mid-focus and the whole view fades red - a deliberate,
+          silent accountability nudge with a bottom timeline of checkpoints, focus starts, and timer
+          extensions.</div>
+        <div class="src">sidecar/src/screens/ContextView.tsx · src/components/FocusTimeline.tsx</div></div></div>
+    </div>
+
+    <!-- 6. Phone Focus Mode -->
+    <div class="libcard" id="sc-phonefocus">
+      <div class="stage">
+        <div class="ssurf" style="width:220px;text-align:center">
+          <div class="slabel">📵 Phone Focus Mode</div>
+          <div class="stimer paused" style="font-size:18px;margin-top:6px">18:42</div>
+          <div class="smuted" style="margin-top:4px">paused - app backgrounded</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📵</span><div><div class="t">Phone Focus Mode <span class="statusflag live">Live</span></div>
+        <div class="d">Background the app mid-focus and the timer pauses itself, using the browser's own
+          Page Visibility signal rather than a permission the OS has to grant. Come back and it is exactly
+          where you left it - the timer continues instead of restarting, matching the extension and the
+          desktop companion's pause semantics.</div>
+        <div class="src">sidecar/src/components/PhoneFocusMode.tsx</div></div></div>
+    </div>
+
+    <!-- 7. PWA install & self-healing -->
+    <div class="libcard" id="sc-pwa">
+      <div class="stage top" style="padding-top:22px">
+        <div class="ssurf pwacard">
+          <div class="slabel">📲 Add to Home Screen</div>
+          <div class="pwastep"><span class="n">1</span><span>Open in Safari / Chrome</span></div>
+          <div class="pwastep"><span class="n">2</span><span>Share → Add to Home Screen</span></div>
+          <div class="pwastep"><span class="n">3</span><span>Launches full-screen, own icon</span></div>
+          <div class="srow" style="margin-top:9px;gap:6px">
+            <span class="schip" style="background:var(--s-accentdim);color:var(--s-accent)">auto-updates</span>
+            <span class="schip" style="background:rgba(255,167,38,.16);color:var(--s-amber)">crash → recovery screen</span>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📲</span><div><div class="t">PWA install &amp; self-healing <span class="statusflag live">Live</span></div>
+        <div class="d">A real manifest, icons and Apple meta tags, so "Add to Home Screen" gives Sidecar its
+          own launch icon and no browser chrome - no App Store review in the loop. Installed, it updates
+          itself in the background when a new version ships, and a crash lands on an explicit recovery
+          screen instead of a blank white one.</div>
+        <div class="src">sidecar/src/app/+html.tsx · public/manifest.webmanifest · src/lib/install.ts · src/components/CrashGuard.tsx</div></div></div>
+    </div>
+
+    <!-- 8. Web Push -->
+    <div class="libcard" id="sc-push">
+      <div class="stage">
+        <div class="notif" style="width:230px;background:var(--s-surf);border:1px solid var(--s-border);border-radius:var(--s-rm);padding:9px 10px">
+          <div class="srow" style="font-size:8px;color:var(--s-t2)"><span>⚡</span><span>Tabatha</span><span style="margin-left:auto">now</span></div>
+          <div class="stitle" style="font-size:11px;margin-top:4px">Timer drift · Q1 Report is 6m over</div>
+          <div class="smuted" style="margin-top:3px">Tap to extend, pause, or mark done</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔔</span><div><div class="t">Web Push <span class="statusflag live">Live</span></div>
+        <div class="d">Real push notifications from a web app, no store required: timer drift, a checkpoint
+          gone stale, and the timer states the desktop and extension already surface, delivered even when
+          Sidecar is not open.</div>
+        <div class="src">sidecar/src/lib/push.ts · src/lib/pushConfig.ts</div></div></div>
+    </div>
+
+    <!-- 9. In-app feedback -->
+    <div class="libcard" id="sc-feedback">
+      <div class="stage">
+        <div class="ssurf" style="width:220px">
+          <div class="slabel">💬 Send feedback</div>
+          <div class="smuted" style="margin-top:6px">Screenshot attached automatically</div>
+          <button class="sbtn pri" style="width:100%;margin-top:8px">Send</button>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">💬</span><div><div class="t">In-app feedback <span class="statusflag live">Live</span></div>
+        <div class="d">A bug or an idea, filed from wherever you noticed it, without leaving the app or
+          finding a separate form. The same recovery guard that catches a crash can route straight into this.</div>
+        <div class="src">sidecar/src/lib/feedback.ts · src/components/CrashGuard.tsx</div></div></div>
+    </div>
+
+    <!-- 10. Notes / Simple capture -->
+    <div class="libcard" id="sc-notes">
+      <div class="stage">
+        <div class="sph sm">
+          <div class="sbar"><span>21:04</span><span>▮▮▮ 38%</span></div>
+          <div class="body" style="justify-content:flex-end">
+            <div class="ssurf"><span class="smuted">Type or tap the mic…</span></div>
+          </div>
+          <div class="tabs"><div class="tb on"><span class="i">📝</span>Notes</div><div class="tb"><span class="i">🎯</span>Full view</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📝</span><div><div class="t">Notes · Simple capture <span class="statusflag live">Live</span></div>
+        <div class="d">A minimal mode built for the moment a full Focus screen is too much friction: it reads
+          as a notes app, but every line typed or spoken still lands as a checkpoint against your day. A
+          "Full view" toggle steps back up to the regular Focus screen without losing anything typed here.</div>
+        <div class="src">sidecar/src/screens/SimpleScreen.tsx</div></div></div>
+    </div>
+
+    <!-- 11. Watch pairing -->
+    <div class="libcard" id="sc-watchpair">
+      <div class="stage">
+        <div class="ssurf wlink">
+          <div class="slabel">⌚ Pair a watch</div>
+          <div class="code">
+            <span class="digit">4</span><span class="digit">1</span><span class="digit">9</span>
+            <span class="digit">2</span><span class="digit">0</span><span class="digit">6</span>
+          </div>
+          <div class="smuted" style="text-align:center">expires in 4:52 · Galaxy Watch</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⌚</span><div><div class="t">Watch pairing <span class="statusflag live">Live</span></div>
+        <div class="d">Settings → "Pair a watch" mints a 6-digit, single-use code, valid five minutes -
+          entered once on <a href="components-watch.html" style="color:var(--cyan)">Tabby Watch</a> to link it
+          to your account. No password ever reaches the wrist; the watch exchanges the code for its own
+          session token through a dedicated pairing function.</div>
+        <div class="src">sidecar/src/components/PairWatchCard.tsx</div></div></div>
+    </div>
+
+    <!-- 12. Cloud Sync -->
+    <div class="libcard" id="sc-sync">
+      <div class="stage">
+        <div class="ssurf" style="width:230px">
+          <div class="slabel">☁️ Cloud Sync</div>
+          <div class="smuted" style="margin-top:6px">Realtime · same account as the extension, the desktop companion, and Tabby Watch</div>
+          <div class="srow" style="margin-top:8px;gap:6px">
+            <span class="schip" style="background:rgba(102,187,106,.16);color:var(--s-green)">● connected</span>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">☁️</span><div><div class="t">Cloud Sync <span class="statusflag live">Live</span></div>
+        <div class="d">Focus items and profile status stream over realtime channels, so a checkpoint logged
+          on the phone, an intent started on the watch, or a pause hit in the browser shows up on every other
+          surface within a second - one account, one day, counted once, regardless of which screen you are
+          holding.</div>
+        <div class="src">sidecar/src/lib/supabase.ts · migration 033 (realtime)</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>Tabby Sidecar v0.7.2 · web · installable PWA</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the app ships</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>
