@@ -249,15 +249,25 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
             )}
           </View>
 
-          {/* timer — huge, bottom-right, inside a circular progress ring */}
+          {/* timer — huge, bottom-right, inside a circular progress ring.
+              Font scales DOWN as the string grows ("4:30" → "104:30" once
+              overtime passes an hour) so long timers shrink to fit instead of
+              clipping at the ring / viewport edge (Malkio screenshot,
+              2026-07-18: "04:3(" cut off at 1h44m over). */}
           <View style={styles.ringZone} pointerEvents="none">
-            <ProgressRing size={Math.min(width * 0.3, big * 2.3)} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
-              <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
-              <Text style={[styles.timerBig, { fontSize: big, color: accent }]}>
-                {remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed)}
-              </Text>
-              <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
-            </ProgressRing>
+            {(() => {
+              const timerStr = remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed);
+              const timerFont = big * Math.min(1, 5 / Math.max(5, timerStr.length));
+              return (
+                <ProgressRing size={Math.min(width * 0.3, big * 2.3)} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
+                  <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
+                  <Text style={[styles.timerBig, { fontSize: timerFont, color: accent }]} numberOfLines={1}>
+                    {timerStr}
+                  </Text>
+                  <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
+                </ProgressRing>
+              );
+            })()}
           </View>
         </View>
       ) : (
