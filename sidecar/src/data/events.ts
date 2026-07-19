@@ -10,7 +10,21 @@ import { supabase } from '../lib/supabase';
 // kinds — computeIntervals ignores them. 'extend' carries
 // {addedMinutes, fromMinutes, toMinutes} and renders as a timeline node
 // like a checkpoint; 'snooze' carries {mins, until} for deferral history.
-export type FocusEventKind = 'start' | 'pause' | 'resume' | 'resolve' | 'extend' | 'snooze';
+// 'backburner' and 'unbackburner' (migration 041) are also context kinds —
+// computeIntervals ignores them too. Both carry empty meta ({}); they mark
+// when a focus went onto/came off the backburner and render as timeline
+// nodes plus interleave into the checkpoint stream (Malkio: "backburning
+// should be on the timeline and added to the checkpoint when an intent
+// goes in or out of backburner").
+export type FocusEventKind =
+  | 'start'
+  | 'pause'
+  | 'resume'
+  | 'resolve'
+  | 'extend'
+  | 'snooze'
+  | 'backburner'
+  | 'unbackburner';
 
 export type FocusEvent = {
   id: string;

@@ -17,7 +17,8 @@ import {
   startedAtOf,
   type FocusItem,
 } from '../data/focus';
-import { useCheckpoints, PROGRESS_LEVELS } from '../data/checkpoints';
+import { useCheckpoints, PROGRESS_LEVELS, type Checkpoint } from '../data/checkpoints';
+import { useFocusEvents, type FocusEvent } from '../data/events';
 import { useVoiceCapture } from '../lib/speech';
 import PhoneFocusMode from '../components/PhoneFocusMode';
 import VoiceCheckIn from '../components/VoiceCheckIn';
@@ -325,9 +326,29 @@ function EditPanel({ focus, onSave }: { focus: FocusItem; onSave: (u: any) => vo
   );
 }
 
+// System (read-only) context entries interleaved into the checkpoint
+// "Timeline" — extend (migration 039) and backburner/unbackburner
+// (migration 041) events. Not deletable, not editable; purely presentational
+// (Malkio: "backburning should be on the timeline and added to the
+// checkpoint when an intent goes in or out of backburner").
+const SYSTEM_KINDS = new Set<FocusEvent['kind']>(['extend', 'backburner', 'unbackburner']);
+
+function systemEntryLabel(e: FocusEvent): { icon: string; text: string } {
+  if (e.kind === 'backburner') return { icon: '🔥', text: 'Sent to backburner' };
+  if (e.kind === 'unbackburner') return { icon: '▲', text: 'Back from backburner' };
+  const added = Number(e.meta?.addedMinutes) || 0;
+  const to = Number(e.meta?.toMinutes) || 0;
+  return { icon: '⏳', text: added ? `Extended +${added}m${to ? ` (→ ${to}m)` : ''}` : 'Extended' };
+}
+
+type StreamEntry =
+  | { kind: 'checkpoint'; t: number; note: Checkpoint }
+  | { kind: 'system'; t: number; event: FocusEvent };
+
 // ── Checkpoint panel ───────────────────────────────────────
 function CheckpointPanel({ profileId, focus }: { profileId: string | null; focus: FocusItem }) {
   const { notes, add, remove } = useCheckpoints(profileId, focus.client_id);
+  const { events } = useFocusEvents(profileId, focus.client_id);
   const [text, setText] = useState('');
 
   // Voice capture (#165 / Epic 1) — speak a checkpoint/progress note.
@@ -344,6 +365,16 @@ function CheckpointPanel({ profileId, focus }: { profileId: string | null; focus
     noteVoice.start();
   };
 
+  // Merge checkpoint notes (editable/deletable) with system context events
+  // (read-only) into one chronological "Timeline" — newest first, matching
+  // `notes`' existing order.
+  const stream: StreamEntry[] = [
+    ...notes.map((n) => ({ kind: 'checkpoint' as const, t: new Date(n.created_at).getTime(), note: n })),
+    ...events
+      .filter((e) => SYSTEM_KINDS.has(e.kind))
+      .map((e) => ({ kind: 'system' as const, t: new Date(e.at).getTime(), event: e })),
+  ].sort((a, b) => b.t - a.t);
+
   return (
     <View style={styles.panel}>
       <Text style={styles.fieldLabel}>📋 Checkpoint note</Text>
@@ -359,10 +390,23 @@ function CheckpointPanel({ profileId, focus }: { profileId: string | null; focus
           </Pressable>
         ))}
       </View>
-      {notes.length > 0 && (
+      {stream.length > 0 && (
         <View style={{ marginTop: 10 }}>
           <Text style={styles.subHdr}>Timeline</Text>
-          {notes.map((n) => {
+          {stream.map((entry) => {
+            if (entry.kind === 'system') {
+              const { icon, text: sysText } = systemEntryLabel(entry.event);
+              return (
+                <View key={entry.event.id} style={[styles.cpRow, styles.cpRowSystem]}>
+                  <Text style={{ fontSize: 12 }}>{icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cpSystemText}>{sysText}</Text>
+                    <Text style={styles.cpTime}>{new Date(entry.t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
+                  </View>
+                </View>
+              );
+            }
+            const n = entry.note;
             const lv = PROGRESS_LEVELS.find((l) => l.key === n.progress_level);
             return (
               <View key={n.id} style={styles.cpRow}>
@@ -448,6 +492,10 @@ const styles = StyleSheet.create({
   cpRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border },
   cpText: { fontSize: 13, color: colors.textPrimary },
   cpTime: { fontSize: 10, color: colors.textMuted, marginTop: 1 },
+  // System (read-only) timeline entries — muted/italic, distinct from
+  // user-authored checkpoint notes, no delete affordance.
+  cpRowSystem: { opacity: 0.72 },
+  cpSystemText: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic' },
   histRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border },
   histLabel: { fontSize: 13, color: colors.textPrimary },
 });

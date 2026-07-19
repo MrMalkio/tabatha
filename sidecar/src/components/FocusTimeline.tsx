@@ -36,7 +36,7 @@ function useReducedMotion(): boolean {
 
 type Node = {
   id: string;
-  kind: 'checkpoint' | 'start' | 'extend';
+  kind: 'checkpoint' | 'start' | 'extend' | 'backburner' | 'unbackburner';
   t: number;
   icon: string;
   color: string;
@@ -138,7 +138,27 @@ export default function FocusTimeline({
           cumulative: cumulativeTrackedAt(intervals, t),
         };
       });
-    return [...cps, ...starts, ...extensions].filter((n) => Number.isFinite(n.t));
+    // Backburner transitions render like extensions — a node marking when
+    // this focus went onto / came back off the backburner (migration 041;
+    // Malkio: "backburning should be on the timeline"). Visually distinct
+    // from the ⏳ extend node so the two context kinds aren't confused at a
+    // glance: 🔥 (orange) for going in, ▲ (orange) for coming back.
+    const backburnerNodes: Node[] = events
+      .filter((e) => e.kind === 'backburner' || e.kind === 'unbackburner')
+      .map((e) => {
+        const t = new Date(e.at).getTime();
+        const isOut = e.kind === 'backburner';
+        return {
+          id: e.id,
+          kind: e.kind as 'backburner' | 'unbackburner',
+          t,
+          icon: isOut ? '🔥' : '▲',
+          color: colors.orange,
+          label: isOut ? 'To backburner' : 'Back from backburner',
+          cumulative: cumulativeTrackedAt(intervals, t),
+        };
+      });
+    return [...cps, ...starts, ...extensions, ...backburnerNodes].filter((n) => Number.isFinite(n.t));
   }, [checkpoints, events, intervals]);
 
   // Past 100%, compact the line into 92% of the width so the overtime circle
@@ -177,7 +197,7 @@ export default function FocusTimeline({
         <View style={[styles.tooltip, { left: `${posOf(active.t) * lineFrac * 100}%` }]} pointerEvents="none">
           <Text style={styles.tooltipLabel} numberOfLines={1}>{active.label}</Text>
           <Text style={styles.tooltipTime}>{fmtDateTime(active.t)}</Text>
-          {(active.kind === 'start' || active.kind === 'extend') && (
+          {(active.kind === 'start' || active.kind === 'extend' || active.kind === 'backburner' || active.kind === 'unbackburner') && (
             <Text style={styles.tooltipTracked}>📱 {formatElapsedMs(active.cumulative || 0)} tracked</Text>
           )}
         </View>

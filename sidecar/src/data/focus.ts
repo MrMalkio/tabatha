@@ -237,11 +237,15 @@ export function useFocus(
       await persistCurrent(id);
       const target = items.find((i) => i.id === id);
       const el = Number(target?.tags?._elapsedMs) || 0; // continue accumulated time
+      const wasBackburnered = !!target?.tags?._backburner;
       await patch(id, {
         focus_state: 'active',
         tags: { ...(target?.tags || {}), _startedAt: new Date(Date.now() - el).toISOString(), _backburner: false, _snoozeUntil: null },
       });
-      if (target?.client_id) insertFocusEvent(profileId, target.client_id, 'start');
+      if (target?.client_id) {
+        insertFocusEvent(profileId, target.client_id, 'start');
+        if (wasBackburnered) insertFocusEvent(profileId, target.client_id, 'unbackburner', {});
+      }
     },
     pause: (id: string) => {
       const f = items.find((i) => i.id === id);
@@ -304,9 +308,15 @@ export function useFocus(
     setCurrent: (id: string | null) => persistCurrent(id),
     sendToBackburner: (id: string) => {
       if (currentId === id) persistCurrent(null);
-      return patch(id, { focus_state: 'paused', tags: { ...(items.find((i) => i.id === id)?.tags || {}), _backburner: true } });
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'backburner', {});
+      return patch(id, { focus_state: 'paused', tags: { ...(f?.tags || {}), _backburner: true } });
     },
-    resumeBackburner: (id: string) => mergeTags(id, { _backburner: false, _snoozeUntil: null }),
+    resumeBackburner: (id: string) => {
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'unbackburner', {});
+      return mergeTags(id, { _backburner: false, _snoozeUntil: null });
+    },
     snoozeBackburner: (id: string, mins: number) => {
       const until = new Date(Date.now() + mins * 60000).toISOString();
       const f = items.find((i) => i.id === id);
