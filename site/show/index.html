@@ -99,6 +99,11 @@ section{max-width:1180px;margin:0 auto;padding:34px 40px;scroll-margin-top:118px
 
 /* category cards */
 .cats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+/* The family grid carries a 4th member (Tabby Watch) and reads better on its
+   own row width than squeezed into the 3-column card size the library
+   category grid below still uses. */
+#famgrid{grid-template-columns:repeat(4,1fr)}
+@media (max-width:1080px){ #famgrid{grid-template-columns:repeat(2,1fr)} }
 .cat{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;
   text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:9px;
   transition:transform .18s ease,border-color .18s ease}
@@ -168,6 +173,8 @@ footer .dot{opacity:.4}
     <a href="components-settings.html">Settings</a>
     <a href="components-primitives.html">Primitives</a>
     <a href="components-companion.html">Companion</a>
+    <a href="components-sidecar.html">Sidecar</a>
+    <a href="components-watch.html">Watch</a>
     <a href="components-mobile.html">Mobile</a>
     <span class="grow"></span>
     <input id="filter" type="search" placeholder="Filter the gallery…" aria-label="Filter surfaces and categories">
@@ -178,15 +185,17 @@ footer .dot{opacity:.4}
 <section id="family">
   <div class="sec-head">
     <h2>The family</h2>
-    <span class="meta">3 products · one day, counted once</span>
+    <span class="meta">4 in the family · one day, counted once</span>
   </div>
-  <p class="sec-purpose">Tabatha is three programs that share one clock. They exist separately because
-    <b>attention does not respect process boundaries</b> but operating systems do: an extension can see your
-    tabs and nothing else, a desktop app can see your windows but not what is inside a tab, and neither is in
-    your pocket at 8am. Splitting them is not an architecture preference, it is the only way to see a whole
-    day. Splitting them is also the hard part - so the rule underneath all three is that <b>one shift exists at
-    a time</b>, wherever you started it, and each program yields to whichever of them can actually see what you
-    are doing right now.</p>
+  <p class="sec-purpose">Tabatha is three programs that share one clock, plus a fourth surface that reads and
+    writes the same clock without owning any of it. The three exist separately because <b>attention does not
+    respect process boundaries</b> but operating systems do: an extension can see your tabs and nothing else,
+    a desktop app can see your windows but not what is inside a tab, and neither is in your pocket at 8am.
+    Splitting them is not an architecture preference, it is the only way to see a whole day. Splitting them is
+    also the hard part - so the rule underneath all three is that <b>one shift exists at a time</b>, wherever
+    you started it, and each program yields to whichever of them can actually see what you are doing right
+    now. Tabby Watch, the fourth, does not add a new vantage point - it puts the existing one on your wrist,
+    for the moments even the phone is a reach too far.</p>
   <div class="cats" id="famgrid">
 
     <a class="cat" href="#surfaces" data-k="extension browser chrome mv3 tabs gatekeeper sidebar focus engine shipped live core context view customization companion pairing card desktop activity">
@@ -212,9 +221,9 @@ footer .dot{opacity:.4}
       <div class="n">15 surfaces &amp; subsystems →</div>
     </a>
 
-    <a class="cat" href="https://tabatha.pondocean.co/sidecar" data-k="mobile phone tabby sidecar web companion pwa progressive web app expo react native sign in queue focus intent clock push notifications installable shipped live android ios native planned voice capture chaperone personality interrupts in-app feedback bug reporting notes simple capture context view timeline checkpoints overtime pulse phone focus mode pause on leave tasks asana personal access token pat subtasks blocked tracked time start task timer extensions snoozes self-healing auto-update crash recovery proactive voice check-ins how's it going undo quiet hours">
+    <a class="cat" href="components-sidecar.html" data-k="mobile phone tabby sidecar web companion pwa progressive web app expo react native sign in queue focus intent clock push notifications installable shipped live android ios native planned voice capture chaperone personality interrupts in-app feedback bug reporting notes simple capture context view timeline checkpoints overtime pulse phone focus mode pause on leave tasks asana personal access token pat subtasks blocked tracked time start task timer extensions snoozes self-healing auto-update crash recovery proactive voice check-ins how's it going undo quiet hours watch pairing 6-digit code">
       <span class="e">📱</span>
-      <div class="t">Mobile · Tabby Sidecar <span class="statusflag live">Shipped · Web · v0.7.0</span></div>
+      <div class="t">Mobile · Tabby Sidecar <span class="statusflag live">Shipped · Web · v0.7.2</span></div>
       <div class="d">The queue in your pocket, today. Sign in with your Tabatha account to start an intent by typing
         or by voice, run the clock, and get a Chaperone nudge if you wander off mid-focus — installable to your
         home screen as a PWA. Tasks now sync from Asana with a personal access token: subtasks, blocked badges,
@@ -223,9 +232,23 @@ footer .dot{opacity:.4}
         kept. Go quiet on an active focus and Tabatha asks how it's going out loud; answer out loud back and it
         applies what you said itself — extend, pause, done, or just a progress note — always with a visible
         confirmation and Undo. Opt-in, and it respects quiet hours. The app updates and recovers itself too: a
-        new version rolls out without asking, and a crash lands on a recovery screen instead of a blank one.</div>
-      <div class="items">Sign in · Queue &amp; active focus · Voice capture · Proactive voice check-ins · Chaperone interrupts · Tasks &amp; Asana sync · Context View timeline (checkpoints, starts, extensions) · Phone Focus Mode · In-app feedback · Web Push · Self-healing PWA · native iOS/Android planned</div>
-      <div class="n">Live at /sidecar →</div>
+        new version rolls out without asking, and a crash lands on a recovery screen instead of a blank one.
+        Settings can also pair a Galaxy Watch with a password-free 6-digit code.</div>
+      <div class="items">Sign in · Queue &amp; active focus · Voice capture · Proactive voice check-ins · Chaperone interrupts · Tasks &amp; Asana sync · Context View timeline (checkpoints, starts, extensions) · Phone Focus Mode · In-app feedback · Web Push · Self-healing PWA · Watch pairing · native iOS/Android planned</div>
+      <div class="n">12 surfaces →</div>
+    </a>
+
+    <a class="cat" href="components-watch.html" data-k="tabby watch wear os galaxy watch 6 wrist glanceable focus timer ring checkpoint quick-add extend pause resume clock glance tile complication password-free pairing sideload beta lab kotlin compose in the lab">
+      <span class="e">⌚</span>
+      <div class="t">Tabby Watch <span class="statusflag dev">Sideload beta · v0.1.2</span></div>
+      <div class="d">The most glanceable surface in the family, in the lab: a Wear OS 4 companion for the
+        Galaxy Watch 6 with a focus ring, a Checkpoint quick-add, +5 extend, and Pause/Resume, all reading the
+        same Cloud Sync account as the phone and the extension. A Tile and a watch-face complication carry the
+        current focus without opening the app. Pairing is password-free — a 6-digit code minted from Sidecar's
+        Settings, entered once on the watch. There is no store release yet: today it is a debug build you clone,
+        compile, and sideload over Wi-Fi ADB.</div>
+      <div class="items">Focus ring · Action chips · Checkpoint quick-add · Shift glance (read-only) · Tile · Complication · Password-free pairing · fixture-mode debug builds</div>
+      <div class="n">8 surfaces →</div>
     </a>
 
   </div>
@@ -251,11 +274,27 @@ footer .dot{opacity:.4}
   <a class="getstrip ready" href="https://tabatha.pondocean.co/sidecar">
     <span class="e" aria-hidden="true">📱</span>
     <span class="gs-body">
-      <span class="gs-t">Open Tabby Sidecar <span class="statusflag live">Web · v0.7.0</span></span>
+      <span class="gs-t">Open Tabby Sidecar <span class="statusflag live">Web · v0.7.2</span></span>
       <span class="gs-d">Nothing to install. Open it in any phone browser and sign in with your
         Tabatha account; add it to your home screen for the app feel. Speak an intent, connect Asana to
         pull in tasks and subtasks, answer out loud when Tabatha checks in on you, and watch checkpoints
         and timer extensions tick by on the Context View timeline — your queue, your focus, in your pocket.</span>
+    </span>
+    <span class="gs-go" aria-hidden="true">→</span>
+  </a>
+
+  <!-- Tabby Watch has no store listing and nothing to hand over, so this strip
+       does not use .ready (that class means "a genuine, one-tap thing exists
+       at the other end") - it points honestly at the detail page's sideload
+       instructions instead. -->
+  <a class="getstrip" href="components-watch.html">
+    <span class="e" aria-hidden="true">⌚</span>
+    <span class="gs-body">
+      <span class="gs-t">Tabby Watch <span class="statusflag dev">Sideload beta · v0.1.2</span></span>
+      <span class="gs-d">No store listing yet. It runs today on a Galaxy Watch 6, paired password-free
+        from Sidecar's Settings — but getting it onto a wrist means cloning
+        <span class="mono" style="font-size:11px">tabatha-watch</span>, building the debug APK, and
+        sideloading it over Wi-Fi ADB. The detail page has the full build and pairing walkthrough.</span>
     </span>
     <span class="gs-go" aria-hidden="true">→</span>
   </a>

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Tabby Watch</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase - Tabby Watch category page.
+   Site chrome uses the logo palette (#0F1115 / #00D2FF), exactly
+   as the other category pages. The component stages render the
+   WATCH app's own tokens (tabatha-watch/.../ui/theme/Theme.kt:
+   FocusGreen #66BB6A active, PausedAmber #FFB300, OvertimeRed
+   #EF5350, pure black background - the standard Wear OS Material
+   palette this app declares) inside round watch-face frames.
+   Tabby Watch has NO store release: it is a sideload build off
+   `MrMalkio/tabatha-watch`, and every card here says so.
+   Self-contained: inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+.mono{font-family:var(--mono)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Watch surface tokens - tabatha-watch/.../ui/theme/Theme.kt
+   ============================================================ */
+.tw{
+  --w-bg:#000000;--w-surf:#121212;--w-border:#262626;
+  --w-t1:#F5F5F5;--w-t2:#9a9a9a;--w-t3:#5c5c5c;
+  --w-green:#66BB6A;--w-amber:#FFB300;--w-red:#EF5350;--w-dim:#2A2A2A;
+  font-family:var(--sans);color:var(--w-t1);font-size:13px;
+}
+/* round watch face frame - a plain bezel, not a photographic mockup */
+.wface{width:190px;height:190px;border-radius:50%;background:var(--w-bg);
+  border:3px solid #1c1c1c;box-shadow:0 0 0 1px var(--w-border);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  padding:16px;gap:6px;overflow:hidden}
+.wface.sm{width:160px;height:160px}
+.wring{width:104px;height:104px;border-radius:50%;position:relative;display:flex;
+  align-items:center;justify-content:center;flex:none}
+.wring::before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(var(--w-ring,var(--w-green)) var(--p,68%),var(--w-dim) 0)}
+.wring::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--w-bg)}
+.wring .in{position:relative;z-index:1;text-align:center}
+.wring .in .lbl{font-size:9px;font-weight:600;max-width:74px;line-height:1.2}
+.wring .in .tm{font:700 12px var(--mono);margin-top:2px}
+.wchip{background:var(--w-surf);border:1px solid var(--w-border);border-radius:16px;
+  padding:5px 12px;font-size:9.5px;font-weight:600;text-align:center;width:100%;max-width:130px}
+.wchip.pri{background:var(--w-green);color:#06210A}
+.wchip.sec{background:var(--w-surf);color:var(--w-t1)}
+.wstack{display:flex;flex-direction:column;gap:5px;align-items:center;width:100%}
+
+/* tile card (rectangular, swipe-left surface) */
+.wtile{width:210px;background:var(--w-surf);border:1px solid var(--w-border);border-radius:20px;
+  padding:14px;text-align:center}
+.wtile .lbl{font-size:12px;font-weight:700}
+.wtile .tm{font:700 20px var(--mono);color:var(--w-green);margin-top:4px}
+.wtile .sub{font-size:9px;color:var(--w-t2);margin-top:3px}
+
+/* watch face complication chip */
+.wface-bg{width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#1a1a1a,#000);
+  display:flex;align-items:center;justify-content:center;position:relative}
+.wcomp{position:absolute;bottom:26px;background:rgba(18,18,18,.9);border:1px solid var(--w-border);
+  border-radius:12px;padding:4px 10px;display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600}
+.wcomp .arc{width:12px;height:12px;border-radius:50%;background:conic-gradient(var(--w-green) 40%,var(--w-dim) 0)}
+
+/* checkpoint level chips */
+.wlvl{display:flex;flex-direction:column;gap:5px;width:150px}
+.wlvlrow{display:flex;align-items:center;gap:7px;border-radius:16px;padding:6px 11px;font-size:10px;font-weight:700;color:#06210A}
+
+/* pairing code */
+.wcode{display:flex;gap:4px;justify-content:center}
+.wdigit{width:20px;height:26px;background:var(--w-surf);border:1px solid var(--w-border);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;font:700 12px var(--mono);color:var(--w-green)}
+
+/* architecture stack */
+.wstack2{width:100%;max-width:520px;display:flex;flex-direction:column;gap:6px}
+.wlayer{display:flex;align-items:center;gap:8px;background:var(--w-surf);border:1px solid var(--w-border);
+  border-radius:8px;padding:7px 10px;font-size:10px;color:var(--w-t1)}
+.wlayer .tagx{margin-left:auto;font:500 8.5px var(--mono);color:var(--w-t3)}
+.warrow{text-align:center;color:var(--w-t3);font-size:9px;line-height:1}
+
+.devnote{max-width:1180px;margin:22px auto 0;padding:14px 18px;background:rgba(255,179,0,.08);
+  border:1px solid rgba(255,179,0,.28);border-radius:10px;display:flex;gap:11px;align-items:flex-start}
+.devnote .e{font-size:16px;line-height:1.4;flex:none}
+.devnote .tx{font-size:12.5px;line-height:1.6;color:#d8c191}
+.devnote .tx b{color:#ffc072;font-weight:700}
+@media (max-width:900px){.devnote{margin:18px 20px 0}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="#components">Components</a>
+  <a href="components-sidecar.html">Tabby Sidecar</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.36</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Tabby Watch <span class="statusflag dev">Sideload beta · v0.1.2</span></h1>
+  <p>The most glanceable surface in the Tabatha family: your current focus and its countdown on the wrist,
+    with the few actions you would otherwise pull your phone out for. A Wear OS 4 companion built for the
+    Samsung Galaxy Watch 6, it reads and writes the <b>same account data</b> as the extension and
+    <a href="components-sidecar.html" style="color:var(--cyan)">Tabby Sidecar</a> through Cloud Sync - a
+    checkpoint quick-added on the watch shows up everywhere within a second. It runs today, but it is not a
+    store release: there is no Play Store listing, and getting it onto a wrist means building the APK and
+    sideloading it over Wi-Fi ADB.</p>
+</header>
+
+<div class="devnote">
+  <span class="e">🔬</span>
+  <span class="tx"><b>This is a lab build, not a public release.</b> Every card below is real, running
+    Kotlin/Compose code in the <a href="https://github.com/MrMalkio/tabatha-watch" style="color:#ffc072">
+    tabatha-watch</a> repo (currently v0.1.2) - not a mockup - but there is no Play Store listing and no
+    signed APK to hand you. Getting it onto a Galaxy Watch 6 today means cloning the repo, building the
+    debug APK with the bundled Gradle wrapper, and sideloading it over Wi-Fi ADB, as documented in the
+    repo's README. Treat it as "in the lab": stable enough to wear, not yet packaged for anyone else.</span>
+</div>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Component library</h2>
+    <span class="meta">8 surfaces &amp; services · Wear OS 4 · Jetpack Compose</span>
+  </div>
+  <p class="sec-purpose">The watch adds almost no new data of its own - it is a <b>window</b>, not a fourth
+    tracker: no shift, no window monitor, nothing it originates. Its whole job is showing the one thing you
+    are doing right now and taking the four or five actions worth a tap on a screen this small, fast enough
+    that pulling out the phone stops being worth it. A pure, unit-tested <span class="mono">TimerEngine</span>
+    mirrors the Sidecar's own <span class="mono">focus.ts</span> math (freeze-on-pause, rebase-on-resume)
+    so the countdown never disagrees with the phone it is reading from.</p>
+  <div class="lib tw">
+
+    <!-- 1. Focus ring -->
+    <div class="libcard wide" id="tw-ring">
+      <div class="stage top" style="padding-top:22px">
+        <div class="variants" style="gap:20px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">active</div>
+            <div class="wface">
+              <div class="wring" style="--p:68%"><div class="in"><div class="lbl">Q1 Report</div><div class="tm">18:42 left</div></div></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">paused</div>
+            <div class="wface">
+              <div class="wring" style="--p:68%;--w-ring:var(--w-amber)"><div class="in"><div class="lbl">Q1 Report</div><div class="tm" style="color:var(--w-amber)">18:42 left</div></div></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">overtime</div>
+            <div class="wface">
+              <div class="wring" style="--p:100%;--w-ring:var(--w-red)"><div class="in"><div class="lbl">Q1 Report</div><div class="tm" style="color:var(--w-red)">4:10 over</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎯</span><div><div class="t">Focus ring <span class="statusflag dev">Sideload beta</span></div>
+        <div class="d">The home screen: a progress ring around the focus label and remaining time, colour as
+          state rather than a separate badge - green active, amber paused, red overtime, exactly the
+          extension and Sidecar's own semantics. A realm line underneath when the focus carries one.
+          Bezel-scroll below the ring reaches the action list.</div>
+        <div class="src">tabatha-watch · ui/FocusScreen.kt · ui/components/RingIndicator.kt</div></div></div>
+    </div>
+
+    <!-- 2. Action chips -->
+    <div class="libcard" id="tw-actions">
+      <div class="stage top" style="padding-top:20px">
+        <div class="wstack">
+          <div class="wchip pri">▶  Resume</div>
+          <div class="wchip sec">＋5 min</div>
+          <div class="wchip sec">＋ Checkpoint</div>
+          <div class="wchip sec">🕐  Shift</div>
+          <div class="wchip sec" style="opacity:.75">✓  Done</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⌚</span><div><div class="t">Action chips <span class="statusflag dev">Sideload beta</span></div>
+        <div class="d">Five one-tap actions, in a deliberate order: Pause/Resume and Extend +5 first because
+          they are the common case, Done placed last precisely so a stray tap cannot end a focus by accident.
+          Extending never restarts the timer - it rebases the same running countdown, matching the fix that
+          shipped on the extension and Sidecar first.</div>
+        <div class="src">tabatha-watch · ui/FocusScreen.kt · ActionChip()</div></div></div>
+    </div>
+
+    <!-- 3. Checkpoint quick-add -->
+    <div class="libcard" id="tw-checkpoint">
+      <div class="stage">
+        <div class="wlvl">
+          <div class="wlvlrow" style="background:#9E9E9E">😐 None</div>
+          <div class="wlvlrow" style="background:#29B6F6">📈 Little</div>
+          <div class="wlvlrow" style="background:#66BB6A">🚀 A lot</div>
+          <div class="wlvlrow" style="background:#FFD54F">🏁 Almost</div>
+          <div class="wlvlrow" style="background:#EF5350">🚧 Stuck</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">✅</span><div><div class="t">Checkpoint quick-add <span class="statusflag dev">Sideload beta</span></div>
+        <div class="d">The same five canned progress levels as Sidecar's checkpoints, one full-width chip
+          per row for a clean bezel-scroll and a fat tap target. Tap a level and it writes a level-only
+          checkpoint immediately - text is optional and reachable only through the watch's voice keyboard,
+          because typing on a 1.5-inch screen is not the point.</div>
+        <div class="src">tabatha-watch · ui/CheckpointScreen.kt · data/model/Models.kt (PROGRESS_LEVELS)</div></div></div>
+    </div>
+
+    <!-- 4. Shift glance -->
+    <div class="libcard" id="tw-shift">
+      <div class="stage">
+        <div class="wface sm">
+          <div style="text-align:center">
+            <div style="font-size:11px;font-weight:600">🕐 Your shift</div>
+            <div style="font-size:9px;color:var(--w-t2);margin-top:6px">Synced from Cloud Sync</div>
+            <div style="font-size:8px;color:var(--w-t3);margin-top:8px">Clock in/out lands in v0.2.0</div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🕐</span><div><div class="t">Shift glance <span class="statusflag dev">Sideload beta · read-only</span></div>
+        <div class="d">v0.1.x shows the shift you are already on - synced from Cloud Sync, or "preview" if
+          the watch has not been paired yet - but does not let you clock in or out from the wrist. That write
+          path is deliberately deferred: clocking in has extension-side orchestration (auto clock-in) that
+          the watch would need to account for first.</div>
+        <div class="src">tabatha-watch · ui/ClockScreen.kt</div></div></div>
+    </div>
+
+    <!-- 5. Tile -->
+    <div class="libcard" id="tw-tile">
+      <div class="stage">
+        <div class="wtile">
+          <div class="lbl">🎯 Q1 Report</div>
+          <div class="tm">18:42</div>
+          <div class="sub">swipe-left card · refreshes every 5 min</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🧩</span><div><div class="t">Tile <span class="statusflag dev">Sideload beta</span></div>
+        <div class="d">A Wear OS Tile - the swipe-left card next to the watch face - showing the current
+          focus label and remaining time straight from the on-device snapshot cache, no network round-trip
+          on open. Falls back to "Open Tabby" when nothing is running. Refreshes on the system's five-minute
+          cadence plus whenever the app itself updates the cache.</div>
+        <div class="src">tabatha-watch · tile/FocusTileService.kt</div></div></div>
+    </div>
+
+    <!-- 6. Complication -->
+    <div class="libcard" id="tw-complication">
+      <div class="stage">
+        <div class="wface-bg">
+          <div class="wcomp"><span class="arc"></span><span>12m</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔘</span><div><div class="t">Complication <span class="statusflag dev">Sideload beta</span></div>
+        <div class="d">Drop "focus remaining" onto any compatible watch face: SHORT_TEXT renders as
+          e.g. "12m", RANGED_VALUE drives a face's own arc from the elapsed-versus-target fraction. Same
+          cached-snapshot, no-network read as the Tile - a complication that phones home is a complication
+          that lags.</div>
+        <div class="src">tabatha-watch · complication/FocusComplicationService.kt</div></div></div>
+    </div>
+
+    <!-- 7. Pairing -->
+    <div class="libcard" id="tw-pairing">
+      <div class="stage top" style="padding-top:24px">
+        <div class="wstack" style="gap:8px">
+          <div class="wcode">
+            <span class="wdigit">4</span><span class="wdigit">1</span><span class="wdigit">9</span>
+            <span class="wdigit">2</span><span class="wdigit">0</span><span class="wdigit">6</span>
+          </div>
+          <div style="font-size:9px;color:var(--w-t2)">enter the code from Sidecar → Settings</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔗</span><div><div class="t">Password-free pairing <span class="statusflag dev">Sideload beta</span></div>
+        <div class="d">The watch never asks for or stores your password. On the phone, <a
+          href="components-sidecar.html#sc-watchpair" style="color:var(--cyan)">Sidecar Settings → "Pair a
+          watch"</a> mints a 6-digit, single-use code, valid five minutes; entering it once on the watch
+          exchanges it for its own session token, stored encrypted in the Android Keystore. From then on it
+          refreshes silently.</div>
+        <div class="src">tabatha-watch · data/auth/GoTrueClient.kt · data/auth/SessionStore.kt</div></div></div>
+    </div>
+
+    <!-- 8. Architecture -->
+    <div class="libcard wide" id="tw-architecture">
+      <div class="stage top" style="padding-top:24px;flex-direction:column">
+        <div class="wstack2">
+          <div class="wlayer"><span>🎯</span><span>TimerEngine, CurrentFocus - pure Kotlin, mirrors Sidecar's focus.ts</span><span class="tagx">domain/</span></div>
+          <div class="warrow">↓</div>
+          <div class="wlayer"><span>💾</span><span>FocusRepository (Fake + Supabase impl), SnapshotCache</span><span class="tagx">data/</span></div>
+          <div class="warrow">↓</div>
+          <div class="wlayer"><span>🔌</span><span>PostgrestClient - hand-rolled REST, no heavyweight SDK</span><span class="tagx">data/net/</span></div>
+          <div class="warrow">↓</div>
+          <div class="wlayer"><span>🔐</span><span>SessionStore (Keystore-backed), GoTrueClient</span><span class="tagx">data/auth/</span></div>
+          <div class="warrow">↓</div>
+          <div class="wlayer"><span>🧠</span><span>FocusViewModel - StateFlow, 1&nbsp;Hz tick, lifecycle-scoped</span><span class="tagx">vm/</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏗</span><div><div class="t">Architecture &amp; fixture mode <span class="statusflag dev">Sideload beta</span></div>
+        <div class="d">Kotlin + Jetpack Compose for Wear OS, one <span class="mono">:app</span> module, manual
+          DI rather than Hilt to stay small. Debug builds run in <b>fixture mode</b> until a real user pairs
+          on-device, so a freshly sideloaded APK renders and is safe to inspect without touching anyone's
+          real account. No Play Store, no signed release channel - this is the whole shape of what ships
+          when it eventually does.</div>
+        <div class="src">tabatha-watch · README.md · domain/TimerEngine.kt</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>Tabby Watch v0.1.2 · Wear OS 4 · sideload only, no store release</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji-adjacent to match the family, rendered natively on-watch</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>
