@@ -5,6 +5,15 @@ file.
 
 ---
 
+## [v6.7.37] - Marketing site: Desktop Companion 0.3.1 download live - _2026-07-19_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Changed
+
+- **Companion download panel lifted from the deliberate 0.2.0 pin to 0.3.1.** The `/show` companion page's download panel now serves the 0.3.1 installers: NSIS `Tabatha.Desktop_0.3.1_x64-setup.exe` (4,927,360 bytes, SHA-256 `99828808694b6ff8606975c1a52354f61b18d66f78e82f1b70f1378e617fc6a7`) and `.msi` (8,175,616 bytes, SHA-256 `9969d5dc255294ade3ef1e42db8abd18763eec50c7fb30be422032231a6b384a`), with a note that this build ships the hardened one-tap device pairing and the unsigned-binary/SmartScreen caveat kept. Version badges on the companion page (h1, tray-tooltip and Desk Panel mockups, footer) and the `/show` family tile + get-strip updated to 0.3.1.
+- **Release mirrored to the public repo.** The 0.3.1 artifacts were released on the private `tabatha-desktop` repo, which the public cannot download from; following the `desktop-v0.2.0` precedent, both installers were mirrored (hash-verified before upload) to a public `desktop-v0.3.1` release on the main repo, and the panel links point there so every link works anonymously.
+
 ## [v6.7.36] - Marketing site: Tabby Sidecar & Tabby Watch full-page presence - _2026-07-18_
 
 > Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.

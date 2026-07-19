@@ -244,7 +244,7 @@ footer .dot{opacity:.4}
 
 <header class="phead">
   <div class="kicker">Component Showcase</div>
-  <h1>Desktop Companion <span class="statusflag live">Built · v0.2.0</span></h1>
+  <h1>Desktop Companion <span class="statusflag live">Built · v0.3.1</span></h1>
   <p>The browser can only see the browser. The companion is a small Windows tray app that watches
     the rest of the desktop and tells the extension what it finds, so a stint spent in Figma, Excel or a
     call is time your day actually accounts for instead of a five-hour hole labelled "idle". It is a
@@ -254,7 +254,7 @@ footer .dot{opacity:.4}
     the local bridge, replacing the open socket earlier builds shipped.</p>
 </header>
 
-<!-- Download panel. Real state as of the desktop-v0.2.0 release:
+<!-- Download panel. Real state as of the desktop-v0.3.1 release:
      the NSIS installer below is a live GitHub release asset. The
      amber soft-state that lived here (a "request access" button and
      a blocked-on list) is in git history; it was correct while there
@@ -270,8 +270,8 @@ footer .dot{opacity:.4}
         </div>
         <div class="dl-meta">
           <span>Windows 10/11 · <b>x64</b></span>
-          <span>Version <b>0.2.0</b></span>
-          <span><b>4.45 MB</b> installer</span>
+          <span>Version <b>0.3.1</b></span>
+          <span><b>4.70 MB</b> installer</span>
           <span>Tauri · Rust</span>
         </div>
         <p class="dl-desc">The companion watches which application and window is in front, sorts that into
@@ -279,21 +279,25 @@ footer .dot{opacity:.4}
           loopback WebSocket, so a stint spent in Figma, Excel or a call is time your day accounts for.
           <b>Windows only</b>, and not by oversight: the window monitor is bound to Win32 and the capture
           engine draws through GDI, so macOS and Linux are a port, not a build flag.</p>
+        <p class="dl-desc">This build ships the <b>hardened device pairing</b>: the local bridge now requires
+          a one-tap pairing token exchange before it will talk to a browser, closing the open-socket
+          limitation earlier builds carried.</p>
         <p class="dl-desc">It can <b>also capture the screen</b> while the browser is not in front — but that
           is <b>off by default</b>, redacted with a fail-closed pass when on, written only to your own machine
           and <b>never uploaded</b>, and auto-deleted after 30 days (90 while clocked in for an org). A fresh
           install captures nothing until you turn it on.</p>
         <div class="dl-actions">
           <a class="dl-cta ready"
-             href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.2.0/Tabatha-Desktop-0.2.0-x64-setup.exe"
+             href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.3.1/Tabatha.Desktop_0.3.1_x64-setup.exe"
              download>⬇️ Download for Windows</a>
-          <span class="dl-note">NSIS installer · 4.45 MB · from the <code>desktop-v0.2.0</code> GitHub release.</span>
+          <span class="dl-note">NSIS installer · 4.70 MB · from the <code>desktop-v0.3.1</code> GitHub release.</span>
         </div>
         <div class="dl-facts">
-          <div class="dl-fact"><span class="k">Version</span><span class="v">0.2.0 · Windows x64</span></div>
-          <div class="dl-fact"><span class="k">Size</span><span class="v">4,666,565 bytes (4.45 MB)</span></div>
-          <div class="dl-fact"><span class="k">SHA-256</span><span class="v">674ec83c1410d3d4063898e3f1e53b69df79258dc892a6d85f4f2d74067d8846</span></div>
-          <div class="dl-fact"><span class="k">Also</span><span class="v"><a href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.2.0/Tabatha-Desktop-0.2.0-x64.msi">.msi build</a> · <a href="https://github.com/MrMalkio/tabatha/releases/tag/desktop-v0.2.0">release page &amp; checksums</a></span></div>
+          <div class="dl-fact"><span class="k">Version</span><span class="v">0.3.1 · Windows x64</span></div>
+          <div class="dl-fact"><span class="k">Size</span><span class="v">4,927,360 bytes (4.70 MB)</span></div>
+          <div class="dl-fact"><span class="k">SHA-256</span><span class="v">99828808694b6ff8606975c1a52354f61b18d66f78e82f1b70f1378e617fc6a7</span></div>
+          <div class="dl-fact"><span class="k">SHA-256 (.msi)</span><span class="v">9969d5dc255294ade3ef1e42db8abd18763eec50c7fb30be422032231a6b384a</span></div>
+          <div class="dl-fact"><span class="k">Also</span><span class="v"><a href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.3.1/Tabatha.Desktop_0.3.1_x64_en-US.msi">.msi build</a> (8,175,616 bytes) · <a href="https://github.com/MrMalkio/tabatha/releases/tag/desktop-v0.3.1">release page &amp; checksums</a></span></div>
         </div>
       </div>
     </div>
@@ -303,10 +307,10 @@ footer .dot{opacity:.4}
         <li><b>It is unsigned.</b> No code-signing certificate is configured yet, so Windows SmartScreen
           will warn on first run — "More info → Run anyway". Verify the SHA-256 above against the file you
           downloaded if you want certainty about what you're running.</li>
-        <li><b>The local interface is now paired.</b> The companion opens a WebSocket on
-          <code>127.0.0.1:9147</code> for the extension bridge; a fresh install now requires a one-tap
-          pairing token, exchanged from the tray's "Pair Extension" action, before it will accept a
-          connection. Still loopback-only and never reachable from your network.</li>
+        <li><b>The local interface is paired, as of this build.</b> The companion opens a WebSocket on
+          <code>127.0.0.1:9147</code> for the extension bridge; 0.3.1 requires a one-tap
+          pairing token, exchanged from the extension's Settings pairing card or the tray's "Pair Extension"
+          action, before it will accept a connection. Still loopback-only and never reachable from your network.</li>
         <li><b>Updates are manual.</b> The companion has no auto-update channel of its own yet, so a future
           fix means downloading a new installer from the release page rather than an in-app update.</li>
       </ul>
@@ -357,12 +361,12 @@ footer .dot{opacity:.4}
           <div class="vcol">
             <div class="vlabel">tracking</div>
             <div class="trayicon"><span class="dot" style="background:#10ac84"></span>
-              <span class="tip">Tabby Desk v0.2.0 (release) - Tabbing</span></div>
+              <span class="tip">Tabby Desk v0.3.1 (release) - Tabbing</span></div>
           </div>
           <div class="vcol">
             <div class="vlabel">paused</div>
             <div class="trayicon"><span class="dot" style="background:#ff9f43"></span>
-              <span class="tip">Tabby Desk v0.2.0 (release) - Paused</span></div>
+              <span class="tip">Tabby Desk v0.3.1 (release) - Paused</span></div>
           </div>
         </div>
       </div>
@@ -375,7 +379,7 @@ footer .dot{opacity:.4}
     <div class="libcard wide" id="desk-panel">
       <div class="stage top tall" style="padding-top:26px">
         <div class="panel">
-          <div class="hd"><h1>⚡ Tabby Desk <span class="ver">v0.2.0</span></h1><span class="dbadge on">● Tabbing</span></div>
+          <div class="hd"><h1>⚡ Tabby Desk <span class="ver">v0.3.1</span></h1><span class="dbadge on">● Tabbing</span></div>
           <div class="dcard">
             <div class="dsec">👁 Active Window</div>
             <div class="aw" style="width:auto">
@@ -702,7 +706,7 @@ footer .dot{opacity:.4}
 
 <footer>
   <span>Tabatha component showcase</span><span class="dot">·</span>
-  <span>desktop companion v0.2.0 · Windows</span><span class="dot">·</span>
+  <span>desktop companion v0.3.1 · Windows</span><span class="dot">·</span>
   <span>self-contained, no network dependencies</span><span class="dot">·</span>
   <span>icons are emoji, exactly as the app ships</span>
 </footer>
