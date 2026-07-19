@@ -366,3 +366,19 @@ test('computeIntervals: context kinds (extend/snooze, migration 039) never open 
     { start: 20 * MIN, end: 30 * MIN },
   ]);
 });
+
+test('computeIntervals: context kinds (backburner/unbackburner, migration 041) never open or close intervals', () => {
+  const evs = [
+    ev('start', 0),
+    { ...ev('pause', 5 * MIN), kind: 'backburner' }, // backburner mid-run: must NOT close
+    ev('pause', 10 * MIN),
+    { ...ev('start', 12 * MIN), kind: 'unbackburner' }, // unbackburner while paused: must NOT open
+    ev('resume', 20 * MIN),
+    ev('resolve', 30 * MIN),
+  ];
+  const ivs = computeIntervals(evs, false, 40 * MIN);
+  assert.deepEqual(ivs, [
+    { start: 0, end: 10 * MIN },
+    { start: 20 * MIN, end: 30 * MIN },
+  ]);
+});

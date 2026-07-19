@@ -38,6 +38,15 @@ async function checkForNewBundle(): Promise<void> {
   }
 }
 
+// A TV / 3rd-screen running the Context View 24/7 never backgrounds the tab,
+// so visibilitychange never fires and a stale bundle can sit there for days
+// (the exact class of incident this guard exists to catch — see header).
+// Poll on an interval too, but ONLY while the document is actually visible:
+// checkForNewBundle's own 60s throttle (CHECK_MIN_INTERVAL_MS) already
+// no-ops duplicate calls, so this is purely a "make sure it fires at all"
+// backstop for the always-on-screen case, not a tighter check cadence.
+const ALWAYS_ON_CHECK_INTERVAL_MS = 15 * 60_000;
+
 /** Mount once at the root. Web/PWA only; native no-ops. */
 export function useStaleBundleReload(): void {
   useEffect(() => {
@@ -49,9 +58,18 @@ export function useStaleBundleReload(): void {
     // Also check shortly after initial mount — catches the "reopened the PWA
     // and it restored the old page without firing visibilitychange" path.
     const t = setTimeout(checkForNewBundle, 5_000);
+    // Always-on-screen backstop (e.g. Context View on a TV that never
+    // backgrounds): re-check every 15 minutes while visible. The interval
+    // itself doesn't gate on visibility (it just always fires), but the
+    // check only actually does anything when the page is visible — no point
+    // re-fetching index.html for a hidden/backgrounded tab.
+    const iv = setInterval(() => {
+      if (!document.hidden) checkForNewBundle();
+    }, ALWAYS_ON_CHECK_INTERVAL_MS);
     return () => {
       document.removeEventListener('visibilitychange', onVis);
       clearTimeout(t);
+      clearInterval(iv);
     };
   }, []);
 }
