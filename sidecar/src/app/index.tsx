@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -44,7 +45,22 @@ export default function Index() {
   // Large landscape viewport (computer / tablet / TV) → view-only Context View.
   const isLarge = width >= 900 && width > height;
   const [override, setOverride] = useState<null | 'app' | 'context'>(null);
-  const showContext = isLarge && (override ?? 'context') === 'context';
+
+  // Desk View companion embed (web-only query-param routing). `?view=context`
+  // forces the Context View regardless of viewport size/orientation;
+  // `?embed=desk` marks desk-embed mode (implies view=context) so the
+  // companion app's dedicated window can neutralize Sidecar branding.
+  // Read once at mount — this route doesn't need to react to URL changes.
+  const { forceContext, embed } = useMemo(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return { forceContext: false, embed: null as 'desk' | null };
+    }
+    const sp = new URLSearchParams(window.location.search);
+    const embedParam: 'desk' | null = sp.get('embed') === 'desk' ? 'desk' : null;
+    return { forceContext: sp.get('view') === 'context' || embedParam === 'desk', embed: embedParam };
+  }, []);
+
+  const showContext = forceContext || (isLarge && (override ?? 'context') === 'context');
 
   const [simpleMode, setSimpleModeState] = useState(false);
 
@@ -87,7 +103,7 @@ export default function Index() {
   if (!session) return <LoginScreen />;
 
   // Large-landscape auto-switch to Context View always wins over simple mode.
-  if (showContext) return <ContextView onExit={() => setOverride('app')} />;
+  if (showContext) return <ContextView onExit={() => setOverride('app')} embed={embed} />;
 
   if (simpleMode) return <SimpleScreen onFullView={() => setSimpleMode(false)} />;
 

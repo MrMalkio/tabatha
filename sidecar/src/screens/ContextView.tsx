@@ -52,7 +52,16 @@ function dayLeft(resetHour: number): { text: string; mins: number } {
  * realtime. Controls stay on the phone/extension. Brand bottom-left, day
  * countdown top-right, current wall-clock time bottom-middle.
  */
-export default function ContextView({ onExit }: { onExit: () => void }) {
+export default function ContextView({
+  onExit,
+  embed = null,
+}: {
+  onExit: () => void;
+  // Desk View companion embed (?embed=desk) — neutralizes Sidecar branding
+  // to plain "TABATHA / CONTEXT VIEW" and hides the exit-to-app control,
+  // since the companion's dedicated window has no app to exit to.
+  embed?: 'desk' | null;
+}) {
   const { profile, browserProfileId } = useAuth();
   const { currentFocus, queue } = useFocus(profile?.id ?? null, browserProfileId);
   const now = useTick();
@@ -294,10 +303,21 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
       <View style={styles.foot}>
         <View style={styles.footLeft}>
           <View style={styles.brand}>
-            <Text style={styles.logo}>Tabby<Text style={{ color: colors.accent }}>·</Text>Sidecar</Text>
-            <Text style={styles.tag}>CONTEXT · VIEW-ONLY</Text>
+            {embed === 'desk' ? (
+              <>
+                <Text style={styles.logo}>TABATHA</Text>
+                <Text style={styles.tag}>CONTEXT VIEW</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.logo}>Tabby<Text style={{ color: colors.accent }}>·</Text>Sidecar</Text>
+                <Text style={styles.tag}>CONTEXT · VIEW-ONLY</Text>
+              </>
+            )}
           </View>
-          <Pressable onPress={onExit} style={styles.exit}><Text style={styles.exitTxt}>Use controls →</Text></Pressable>
+          {embed !== 'desk' && (
+            <Pressable onPress={onExit} style={styles.exit}><Text style={styles.exitTxt}>Use controls →</Text></Pressable>
+          )}
         </View>
         <Text style={styles.nowClock}>{nowTime(new Date(now))}</Text>
         <View style={styles.footRight} />
