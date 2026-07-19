@@ -258,7 +258,9 @@ export default function FocusScreen() {
       {/* Queue */}
       <SectionLabel>Queue ({queue.filter((q) => !q.tags?._parent).length})</SectionLabel>
       {queue.filter((q) => !q.tags?._parent).length === 0 ? (
-        <Empty text="Nothing queued." />
+        // Gate on loading so a cold load doesn't flash a false "Nothing
+        // queued." before the first focus_items fetch lands (Rook perf pass).
+        !loading && <Empty text="Nothing queued." />
       ) : (
         queue.filter((q) => !q.tags?._parent).map((item) => <QueueRow key={item.id} item={item} actions={actions} />)
       )}
