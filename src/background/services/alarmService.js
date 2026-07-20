@@ -36,6 +36,10 @@ import {
   runOutboxFlushAlarm,
   CLOUD_OUTBOX_ALARM
 } from './cloudWriteService.js';
+import {
+  handleFocusLiveIngestAlarm,
+  FOCUS_LIVE_INGEST_ALARM
+} from './focusIngestService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
 // local constant avoids the circular import.
@@ -115,6 +119,10 @@ async function handleAlarm(alarm) {
       // Cloud outbox retry — flushes queued cloud writes with backoff.
       case CLOUD_OUTBOX_ALARM:
         return runOutboxFlushAlarm();
+      // feat/ext-live-ingest: 60s cross-surface pull (focus_items +
+      // browser_profile_status) — see focusIngestService.js.
+      case FOCUS_LIVE_INGEST_ALARM:
+        return handleFocusLiveIngestAlarm();
       default:
         return;
     }
