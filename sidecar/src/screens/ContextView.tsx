@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
 import { useChaperoneOnPhoneAway } from '../lib/chaperone';
@@ -170,8 +171,11 @@ export default function ContextView({
 
   const big = Math.min(width * 0.14, 220);
 
+  // SafeAreaView (Malkio, 2026-07-19): on a phone/PWA the status bar was
+  // clipping the top row's day countdown — every other screen already
+  // renders inside safe-area insets; this one predated the pattern.
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
     <View style={styles.root}>
       {/* context bar */}
       <View style={styles.bar}>
@@ -340,7 +344,7 @@ export default function ContextView({
       <Text style={styles.alertBig}>Put the phone down</Text>
       <Text style={styles.alertSub}>You stepped away from focus — back to it.</Text>
     </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 }
 
