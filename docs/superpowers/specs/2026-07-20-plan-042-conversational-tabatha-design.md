@@ -229,3 +229,96 @@ device-scoped) without a schema change.
   Units 2+3 (PTT, two surfaces) are a third slice, since they're
   cross-codebase and best reviewed together for parity. Unit 5 is
   independent and can slot in anywhere.
+
+---
+
+## Koda vet + expansion (2026-07-20)
+
+### Reality-check re-verification
+
+Spot-checked the doc's own reality check rather than trusting it blind:
+
+- `sidecar/src/lib/speech.ts` confirmed line-for-line: `continuous = true`,
+  `interimResults = true`, `finalText` is a closure variable reset only
+  inside the exposed `start()` method (`finalText = ''`), never touched by
+  `onend`. The Bug A hypothesis holds up under a closer read than the doc
+  itself does: `finalText` only resets when **the app code** calls
+  `controller.start()` again. If Chrome's own engine silently restarts the
+  underlying recognition session without the SpeechRecognition object ever
+  firing a JS-visible `onend`/`onstart` pair the app reacts to, the browser's
+  internal `event.resultIndex` numbering restarts from 0 for the new internal
+  segment while `finalText` (JS-side) still holds the old accumulation —
+  exactly the "re-emits indices already folded in" mechanism the doc
+  describes. This is a plausible, well-reasoned diagnosis, not a guess
+  dressed up as one.
+- `sidecar/src/components/VoiceCheckIn.tsx` line citations are exact:
+  lines 157-173 are the 450ms grace-window effect verbatim; lines 205-212
+  are the staleness `baseline`/`staleMs` computation verbatim. The "ignores
+  checkpoint content" claim is confirmed — `notes[0].created_at` is read,
+  `notes[0].text` never is, and the spoken prompt is the hardcoded
+  `` `How's ${f.label} going?` `` with no interpolation.
+- `parseVoiceCommand` (Unit 2's reuse target) is a real exported function in
+  `sidecar/src/lib/voiceCheckin.ts:79`, and `settings.chaperone` (Unit 4's
+  reuse target) is real, confirmed live in `docs/features/182-chaperone-mode.md`
+  and read by `sidecar/src/screens/ContextView.tsx`'s
+  `useChaperoneOnPhoneAway`. Both cross-references check out.
+
+### Verdicts per unit
+
+| Unit | Verdict | Notes |
+|---|---|---|
+| **Unit 0 (voice bugs)** | **PROCEED** | Diagnosis verified against real line numbers, not paraphrased. Bug A's two-option fix (prefix-suppress vs. session-epoch) should pick (a) session-epoch tracking as primary — prefix-matching (b) is fragile against a restart landing mid-word (no clean prefix boundary to detect). |
+| **Unit 1 (provider abstraction)** | **PROCEED** | Low-risk interface extraction. One gap: the interface (`start(onSegment, onEnd)`, `stop()`, `providerId`) has no `onError` in its stated shape even though `speech.ts`'s real controller has one (`onError`) — the wrapper needs to surface mic-permission-denied through the same channel `useVoiceCapture` already uses, or PTT will fail silently on a denied mic. **Revise:** add `onError(code: string)` to the Unit 1 interface signature explicitly. |
+| **Unit 2 (Dispatch/PTT Sidecar)** | **PROCEED** | `parseVoiceCommand` reuse confirmed real and exported. |
+| **Unit 3 (Dispatch/PTT Extension)** | **PROCEED** | The no-shared-package decision is sound engineering judgment for a two-caller, two-runtime situation — don't force it. |
+| **Unit 4 (rotating presets)** | **PROCEED** | `settings.chaperone` reuse confirmed. |
+| **Unit 5 (device-handoff micro-summary)** | **PROCEED, with a named gap** | Page Visibility `visible` fires on tab-switch-back, but a **cold start** (tab was fully closed, phone was locked long enough to kill the PWA process, or a fresh install) never fires a `hidden→visible` transition at all — there's no prior "last-active" timestamp to diff against on a truly fresh mount. The unit as written silently produces no summary on cold start, which is actually the *more common* real-world case for "I just picked my phone back up" after hours away. **Revise:** on mount, if no local last-active timestamp exists yet (first-ever load) OR it's older than some threshold (e.g. 4h — implies a full session gap, not a tab-switch), treat it the same as a visibility-transition and compute the same diff from `AsyncStorage`'s stored timestamp rather than only wiring the `visibilitychange` listener. |
+
+### Security/robustness note (minor, non-blocking)
+
+Unit 2/3's Dispatch mutations are described as "best-effort" and untagged with
+any confidence score — a garbled PTT transcript that happens to parse as a
+valid command (e.g. background noise misheard as "resolve") silently
+resolves a real focus with zero confirmation UI (Dispatch explicitly has "no
+spoken/TTS feedback"). VoiceCheckIn's manual check-in mitigates this with a
+6-second Undo confirm strip; Dispatch as scoped has **no equivalent visible
+trail** beyond the `tags._src = 'dispatch'` audit tag, which only shows up if
+the user goes looking. **Revise (low-cost):** Dispatch mutations should still
+render the same `Confirmation`-strip UI pattern `VoiceCheckIn` already has
+(text + Undo), just without the *spoken* half of the round-trip — "no
+conversational feedback" should mean no TTS, not no visible confirmation.
+
+### Koda additions
+
+- **Dispatch-mode voice prefixes for routing ("for flux: …").** Since v2's
+  entire open question is "how does content route Tabatha-operational vs
+  Flux-personal" (§4, flagged as blocked on an undefined Flux-account
+  concept), v1's Dispatch channel could ship a **client-side-only** prefix
+  convention today, with zero Flux dependency: if a PTT utterance starts
+  with a recognized trigger word ("flux", "personal", "note to self"), don't
+  run it through `parseVoiceCommand` at all — instead append it to a local
+  `dispatch_overflow` log (or literally just drop it into the Sidecar's
+  existing checkpoint-notes free-text field, tagged `tags._src='dispatch_overflow'`)
+  rather than silently discarding unparseable command syntax. This gives
+  Malkio a place to safely test the voice-prefix habit *now*, and gives
+  Plan 042 v2 a real corpus of "what did people actually say when told
+  'for flux'" to design the eventual routing logic against, instead of
+  guessing at v2 design time.
+- **PTT "commit tone" instead of silence.** Right now Dispatch has literally
+  zero feedback on release — press, speak, release, and the user has no
+  signal the mutation even landed short of opening the app and checking.
+  A single short audio *tone* (not TTS, not a spoken reply — stays inside
+  "no conversational feedback") on successful parse vs. a different tone on
+  unparseable input would close the trust gap almost for free, and composes
+  cleanly with the confirmation-strip revision above (tone now, visual strip
+  whenever they next look).
+- **Unit 0's fix is itself a good "personality interrupt" seed.** Once the
+  check-in prompt knows `notes[0].text`, the same interpolation machinery
+  (`buildCheckInPrompt(focus, latestCheckpoint)`) is one templating step away
+  from varying *tone* based on how stale the checkpoint is — a 20-minute-old
+  checkpoint gets a soft "still on that?", a 3-hour-old one gets a more
+  pointed "haven't heard from you in a while — still real, or did priorities
+  shift?" This is Unit 4's rotating-preset pool, just keyed on staleness
+  bucket instead of pure rotation — cheap to add once the interpolation
+  helper exists, worth naming explicitly so it isn't rebuilt from scratch
+  when #182 Chaperone matures.

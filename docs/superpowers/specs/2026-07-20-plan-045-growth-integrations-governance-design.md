@@ -247,3 +247,147 @@ verified JWT) into the notes text, replacing the bare `userId` line.
 - **Scope-split points:** already three natural branches (a/b/c); within
   (b), B3 (Anasa) can slip to its own follow-up branch if the auth audit
   takes longer than the rest of the unit set.
+
+---
+
+## Koda vet + expansion (2026-07-20)
+
+### Security review — quota enforcement is server-side but not race-safe
+
+The task brief for this review specifically asked to scrutinize (a)'s quota
+enforcement for race-safety, so I checked it directly against
+`tabatha.create_invite_token` (migration 044, confirmed real —
+`p_org_id, p_team_id, p_role, p_expires_in_hours, p_kind`, no volume limit
+today, exactly as the doc states). The design's own quota-check query is:
+
+> `SELECT count(*) FROM invite_tokens WHERE created_by = v_caller_profile_id`
+> (all-time mint count)
+
+As drafted, this is a **read-then-write race** (TOCTOU), not an atomic
+check. Two concurrent invocations of `create_invite_token` from the same
+non-owner `profile_id` (e.g. two browser tabs, or a double-click) can both
+execute the `SELECT count(*)` before either has committed its `INSERT INTO
+invite_tokens`, both see `count = 4`, both pass the `< 5` check, and both
+insert — the caller ends up with 6 tokens, not 5. The function is
+`SECURITY DEFINER` and each top-level call is its own implicit transaction,
+so nothing currently serializes two concurrent calls from the same caller.
+Low real-world severity (worst case: a user mints a few extra invites, not
+a security bypass into someone else's data), but the task explicitly asked
+whether this is race-safe, and as literally specified, it is not.
+**Revise, exact — take a per-caller advisory lock before the count, inside
+`create_invite_token`, only on the non-owner path** (owners are unlimited
+and don't need it):
+
+```sql
+IF NOT v_caller_is_owner THEN
+  PERFORM pg_advisory_xact_lock(hashtext('invite_quota:' || v_caller_profile_id::text));
+  SELECT count(*) INTO v_current_count
+  FROM tabatha.invite_tokens
+  WHERE created_by = v_caller_profile_id;
+  IF v_current_count >= v_default_limit THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Invite quota exceeded');
+  END IF;
+END IF;
+```
+
+`pg_advisory_xact_lock` auto-releases at transaction end (no manual unlock
+needed, no risk of a stuck lock outliving the function call), and serializes
+only calls from the *same* caller — no cross-user contention. This is a
+one-block addition to the existing function body, not a schema change, so it
+doesn't touch the migration-056 table at all.
+
+### Verified claims
+
+- `create_invite_token`'s real signature, its "org owner OR
+  team owner/manager/sub_manager" gate for `'team'` kind, and its separate
+  "caller is owner of at least one org" gate for `'demo'`/`'personal'` kind
+  are all confirmed exactly as migration 044 has them. One implication worth
+  naming: today, only org owners can mint `demo`/`personal` invites at all
+  (per the existing gate), so the realistic non-owner population subject to
+  the new 5-invite quota is narrower than "every non-owner profile" reads —
+  it's specifically non-owner team managers/sub-managers minting `team`-kind
+  invites. Not a bug, just worth stating plainly so nobody is surprised the
+  quota "does nothing" for a plain team member (who couldn't mint invites
+  before this doc either).
+- `integration_credentials`/`tasks_registry`/`task_relations` CHECK
+  constraints (migration 035) confirmed exactly as quoted —
+  `provider IN ('asana')`, `external_platform IN ('tabatha','asana')`,
+  `source IN ('asana','tabatha')`.
+- `feedback-to-asana/index.ts` verified line-for-line against (c)'s claims:
+  payload is genuinely `{kind, text, version, context, submittedAt}` (no
+  `title`), `VALID_KINDS = new Set(["bug","idea"])`, title is synthesized at
+  `` `${emoji} [${kind}] ${text.slice(0,80)}${...}` `` (line 140), and the
+  only identity info embedded is `` `userId: ${userId}` `` — no name, no
+  email, no custom fields anywhere in the function. The brief's assumption
+  that field GIDs already exist in code is indeed false — confirmed zero
+  `custom_fields`/GID references anywhere in the function. (c)'s "don't
+  fabricate the field mapping, audit first" stance is the right call, not
+  hedging.
+- `profiles.display_name TEXT NOT NULL DEFAULT ''` (migration 001, line 19)
+  vs. `browser_profiles.display_name` (migration 045, per-device) — the
+  claimed distinction between the two columns is real, not a
+  misremembering; they're genuinely two different tables with two different
+  meanings for the same column name.
+- On B3's "flagged, not fabricated" stance re: Anasa's user-facing auth
+  surface — corroborating signal available in this very environment: the
+  `mcp__anasa-live__*` tools' own server instructions describe Anasa as
+  "the authenticated agent's workspace control plane" with inbox tools that
+  "default to the authenticated agent and cannot impersonate another
+  Player" — consistent with the doc's read that this is an *agent*-facing
+  surface, not necessarily a shape a Tabatha *end user's* PAT/API-key
+  connection could reuse directly. This doesn't resolve the open question,
+  but it's independent evidence the doc's caution is warranted rather than
+  overcautious.
+
+### Verdicts per unit
+
+| Unit | Verdict | Notes |
+|---|---|---|
+| **A1 (Invite quota + graph)** | **REVISE-WITH-EXACT-REVISION** | Add the advisory-lock guard above before landing migration 056. `invite_redemptions` table itself is clean — correct indexes, correct forward-only-with-stated-gap framing. |
+| **A2 (v2 Olympus wiring)** | **DEFER** | Correctly named, not built now. |
+| **B1 (widen CHECKs + catalog)** | **PROCEED, sequencing note** | See Plan 044's vet — recommend this doc's migration lands *first* (it needs the fuller provider list already) and Plan 044 depends on it, rather than "whichever lands second rebases." |
+| **B2 (TaskProvider interface)** | **PROCEED** | Clean refactor-first-then-extend approach; Asana-as-first-impl is the right sequencing. |
+| **B3 (Anasa provider)** | **PROCEED, correctly gated** | Audit-first stance verified reasonable given what's actually visible about Anasa's surface (see above). Don't relax this gate. |
+| **B4 (Coming-soon UI)** | **PROCEED** | |
+| **C1 (Title field)** | **PROCEED** | |
+| **C2 (Custom-field mapping)** | **PROCEED, correctly gated** | Confirmed zero GIDs exist in code today — the audit-first requirement is factually necessary, not caution theater. |
+| **C3 (Name + email)** | **PROCEED** | `profiles.display_name` + JWT-available email confirmed sufficient; no new lookup infra needed. |
+
+### Koda additions
+
+- **Quota visibility, not just enforcement.** Once A1's `invite_redemptions`
+  table exists, a non-owner minting their 4th of 5 invites currently gets no
+  warning until the 6th mint fails outright. Cheap, no-new-schema addition:
+  have `create_invite_token`'s success response include
+  `remaining_quota: v_default_limit - v_current_count - 1` in the returned
+  JSONB (the count is already computed for the check) so the Settings UI can
+  show "3 invites left" before the user hits the wall, instead of a bare
+  failure message on the 6th attempt.
+- **Invite-graph-powered "who brought you" surface.** `invite_redemptions`
+  (inviter → invitee) is exactly the data needed for a small trust/social
+  signal: once a profile has redeemed an invite, their Settings (or a
+  teammate-facing card) could show "invited by ⟨inviter's display_name⟩."
+  Purely additive read over the new table (a single indexed join on
+  `invitee_profile_id`), no new writes, and it's the kind of small warmth
+  detail that makes an invite-gated product feel less like a locked door and
+  more like a personal referral — cheap to add in the same PR as A1 since
+  the table is already there.
+- **Task-provider catalog as a genuine growth lever, not just a picker.**
+  B1's `task_providers` catalog table with `status IN ('available',
+  'coming_soon')` is currently framed purely as UI decoration (greyed
+  buttons). A near-zero-cost extension: let a signed-in user tap a
+  `coming_soon` provider to register interest (one new nullable column,
+  `tabatha.task_provider_interest(profile_id, provider_key, created_at)` —
+  or even simpler, reuse the existing feedback pipeline: tapping "notify me"
+  on a coming-soon provider posts a pre-filled `kind:'idea'` feedback
+  submission via the already-shipped `feedback-to-asana` function). Gives
+  Malkio real signal on which "coming soon" provider to build next instead
+  of guessing from the sort order.
+- **Feedback title field, defaulted from context.** (c)'s Unit C1 adds a
+  required Title input — a small UX improvement worth naming so it isn't
+  built as a bare empty field: pre-fill a sensible default from
+  `context.surface` (already in the payload — e.g. "Bug in Focus screen")
+  that the user can overwrite, rather than presenting an empty required
+  field as the very first thing between "I have a complaint" and actually
+  typing it. Zero schema change, purely a client-side default in whatever
+  form component C1 locates at build time.

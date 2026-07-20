@@ -186,3 +186,147 @@ a *subset-and-permission* view over what CV already draws, not a new design.
   everything else. Units 2+5 (Settings UI) are one slice; Units 3+4
   (redeem + PeerView) are a second slice, since a peer can't be tested
   without both. Unit 6 is explicitly v2, not part of this branch.
+
+---
+
+## Koda vet + expansion (2026-07-20)
+
+### Security review — "prove a peer session can never read outside its grant"
+
+The core trust-model argument (§1) is sound and I verified its load-bearing
+assumption directly: `profiles` rows are **only** ever created inside
+`redeem_invite_token` (migrations 042/043/044) — there is no `auth.users`
+insert trigger anywhere in `supabase/migrations/` that auto-provisions a
+`profiles` row for a freshly-created auth user. That means an anonymous
+peer's `auth.uid()` genuinely has no matching `profiles` row, so it falls
+through every existing owner-scoped RLS policy
+(`profile_id IN (SELECT id FROM tabatha.profiles WHERE auth_user_id = auth.uid())`)
+to an empty result set — the peer gets real containment from the *existing*
+tables for free, without Peer View touching a single existing policy. The
+"RPC not raw RLS" architecture (§2.2) is the right call for exactly the
+reason stated (future-column-proofing), and matches this repo's own
+`get_effective_permissions` precedent from the Olympus doc. **This part:
+PROCEED.**
+
+Three concrete gaps found that block a clean PROCEED on the schema as
+written:
+
+1. **Anonymous sign-ins are currently disabled at the project level.**
+   `supabase/config.toml:167` — `enable_anonymous_sign_ins = false`. Unit 3's
+   entire redeem flow (`signInAnonymously()`) is a no-op against the live
+   project until this flips to `true`. Not a design flaw, but an unstated
+   prerequisite with real blast radius: flipping it project-wide also
+   enables `enable_anonymous_sign_ins`'s rate limit
+   (`anonymous_users = 30`/hour/IP, already configured, good) but also means
+   *any* client — not just Peer View's redeem screen — can now call
+   `signInAnonymously()` against this project and get a JWT with
+   `role = authenticated`. Verified this is safe as long as no other RLS
+   policy in the schema grants on bare `role = authenticated` without an
+   owning-profile subquery — spot-checked `focus_items`, `focus_checkpoints`,
+   `task_relations`, `watch_pairing_codes`: all gate through the
+   `profile_id IN (SELECT ... auth_user_id = auth.uid())` pattern, so an
+   anonymous session sees nothing extra. **Revise (build-time step, not a
+   design change):** flip the config flag and re-run a project-wide RLS
+   audit sweep (grep every `GRANT ... TO authenticated` for one that
+   *doesn't* have an owning-profile predicate) as an explicit Unit 1 sub-step
+   before shipping, not an assumption.
+2. **No brute-force lockout column — a real regression vs. the pattern this
+   doc claims to reuse.** `watch_pairing_codes` (migration 040) has
+   `attempts INT NOT NULL DEFAULT 0` specifically so the redeem edge function
+   can lock a code after 5 bad guesses (migration 040's own header comment:
+   "added an `attempts` counter so the redeem edge fn can lock a code after 5
+   bad guesses"). `peer_grants` as drafted in §2.1 has no equivalent column —
+   only `code_hash`/`code_expires_at`/`redeemed_at`. §1 claims Peer View
+   "reuses the code mint/redeem UX (short numeric code, hashed, time-limited,
+   single-use)" — the brute-force defense is part of that UX in the pattern
+   it's citing, and got dropped in the copy. **Revise, exact:** add
+   `attempts INT NOT NULL DEFAULT 0` to `tabatha.peer_grants` (migration 051)
+   and have the redeem RPC/edge function reject once `attempts >= 5`,
+   incrementing on every failed-hash lookup, mirroring `pair-watch`'s logic
+   exactly.
+3. **`get_peer_view`'s SQL body is a comment, not code — the one place this
+   doc most needs to show its work.** §2.2 states the function "verifies
+   `auth.uid()` matches the grant's peer identity and grant is live" but
+   only as prose inside the function body, not as an actual `WHERE` clause.
+   For a security-critical SECURITY DEFINER function taking a caller-supplied
+   `p_grant_id`, the binding requirement should be spelled out in the design
+   doc itself, not left to build-time interpretation. **Revise, exact —
+   require this WHERE clause (or equivalent) to appear literally in migration
+   051's SQL, and treat any implementation lacking every clause as
+   non-compliant with this design:**
+   ```sql
+   WHERE id = p_grant_id
+     AND peer_auth_user_id = auth.uid()
+     AND revoked_at IS NULL
+     AND (grant_expires_at IS NULL OR grant_expires_at > now())
+   ```
+   The same four-clause liveness check (owner match + not revoked + not
+   expired) must be duplicated verbatim at the top of every migration-052 RPC
+   (`peer_create_intent`, `peer_add_checkpoint`, `peer_nudge`) *before* the
+   capability-flag check, not just "re-validates the grant is live" as
+   prose. Recommend factoring it into one shared
+   `tabatha.assert_live_peer_grant(p_grant_id UUID) RETURNS tabatha.peer_grants`
+   helper (raises/returns null on any failure) that all four RPCs call first,
+   so the four-clause check exists in exactly one place instead of being
+   hand-copied four times with the attendant risk of one copy drifting.
+
+None of these are architecture-level objections — the anonymous-session +
+capability-gated-RPC model is the right shape. They're the difference
+between "the trust model is sound" (true) and "the schema as literally
+written enforces it" (not yet — needs the three revisions above).
+
+### Verdicts per unit
+
+| Unit | Verdict | Notes |
+|---|---|---|
+| **Unit 1 (Schema)** | **REVISE-WITH-EXACT-REVISION** | Add `attempts` column (#2 above), spell out `get_peer_view`/write-RPC liveness WHERE clauses (#3 above), flip `enable_anonymous_sign_ins` + run the RLS grant sweep (#1 above) as an explicit sub-step. |
+| **Unit 2 (Mint UI)** | **PROCEED** | Depends on Unit 1's revision landing first. |
+| **Unit 3 (Redeem flow)** | **PROCEED, blocked on config** | Cannot function until `enable_anonymous_sign_ins = true` is applied to the live project — call this out as a literal pre-build checklist item, not folded into "Unit 1: none". |
+| **Unit 4 (PeerView component)** | **PROCEED** | Deriving from `ContextView.tsx`'s shell is the right reuse call — same visibility-map vocabulary, no new design language invented. |
+| **Unit 5 (Multi-peer management)** | **PROCEED** | |
+| **Unit 6 (v2, Tabatha-to-Tabatha)** | **DEFER** | Correctly scoped out; no objection. |
+
+### Koda additions
+
+- **Peer-view mutual "body-doubling" sessions.** This ties directly to
+  parked feature #215 (Body Doubling). Right now Peer View is
+  strictly asymmetric (owner broadcasts, peer optionally nudges/adds). A
+  cheap v1.5 extension: a `capabilities.mutualPresence: true` flag that,
+  when set, has the *peer's* own `signInAnonymously()` session write a tiny
+  presence heartbeat (`peer_grants.last_seen_at`, one new column, no new
+  table) that the **owner's** Context View/PeerView surfaces back as "Mom is
+  watching" — turning a one-way viewing grant into a lightweight
+  co-presence signal without building #215's full session model. This is
+  the single cheapest bridge from "Peer View exists" to "body doubling
+  exists" — worth flagging now so #215, when it's unparked, designs against
+  a `peer_grants` row that already has a presence column rather than
+  re-inventing one.
+- **Peer nudge escalation ladder.** Today `peer_nudge` is one flat action
+  (a preset-key banner + optional #182 audio ping). A peer who's genuinely
+  worried (the "Mom checking in" case, not the "assistant flagging a
+  meeting" case) has no way to signal urgency differently than a routine
+  nudge. Cheap addition: `peer_nudge(p_grant_id, p_preset_key, p_urgency)`
+  with `p_urgency IN ('low','normal','high')` — `high` skips the #182 quiet-
+  hours gate that Unit 4 of Plan 042 otherwise respects (an urgent peer
+  nudge is exactly the kind of thing that should interrupt quiet hours; a
+  routine one shouldn't). Small addition to the `peer_nudges` table
+  (one column) and to the capability-gate check.
+- **Grant templates.** `visibility`/`capabilities` are per-grant JSONB with
+  no starting point in the mint UI as scoped — every peer grant starts from
+  a blank slate. A tiny, purely client-side addition (no schema change):
+  ship 2-3 named presets in the Mint UI ("Just watching" — brand/timer/
+  focusLabel/upNext only, zero capabilities; "Can nudge me" — adds
+  `nudge: true`; "Full assistant" — everything but checkpoints) that
+  pre-fill the JSONB before the user fine-tunes. Removes the blank-JSONB-
+  form cold-start problem for the common cases without adding any new
+  schema surface.
+- **Revoke-on-suspicious-pattern auto-flag.** Since `peer_nudges` and every
+  peer-authored mutation already carry `tags._src = 'peer'`, a cheap
+  client-side (not server-enforced, just a UI hint) addition: if a single
+  `peer_grants` row generates an unusual burst of writes in a short window
+  (e.g. >10 nudges in 5 minutes), surface a "this peer has been unusually
+  active — review?" banner in the owner's Settings Peers section. Doesn't
+  require new schema (queryable from existing `peer_nudges.created_at` +
+  `tags._src` on checkpoints/focus_items), just a client-side query + a
+  banner. Cheap abuse-signal for a feature whose entire premise is "give a
+  scoped credential to someone who isn't you."

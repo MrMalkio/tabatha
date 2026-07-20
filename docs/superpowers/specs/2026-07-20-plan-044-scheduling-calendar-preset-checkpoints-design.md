@@ -220,3 +220,152 @@ Google push-notification webhooks replacing polling.
 - **Scope-split points:** Split at Unit boundary 1-3 (OAuth+UI, closes Plan
   035) vs 4-5 (scheduling) vs 6-7 (preset checkpoints) — three separate
   branches, each under a week, sequenced by the dependency table above.
+
+---
+
+## Koda vet + expansion (2026-07-20)
+
+### Top finding — the `preset_checkpoints` CHECK constraint is inverted
+
+§4.1's CHECK is written as:
+
+```sql
+CHECK ((expected_offset_min IS NOT NULL) <> (expected_at IS NULL) OR (expected_offset_min IS NULL AND expected_at IS NULL))
+```
+
+I truth-tabled all four cases and this constraint does the **opposite** of
+what the surrounding prose promises ("one of offset/at is set"):
+
+| offset | at | prose says | this CHECK actually does |
+|---|---|---|---|
+| NULL | NULL | *(ambiguous — "one is set" implies neither should be allowed)* | **PASSES** |
+| SET | NULL | valid — the whole point of the offset column | **FAILS — rejects a legitimate row** |
+| NULL | SET | valid — the whole point of the `expected_at` column | **FAILS — rejects a legitimate row** |
+| SET | SET | invalid — can't have both an offset and an absolute time | **PASSES — silently allows both** |
+
+This constraint would make the table effectively unusable as designed: every
+preset checkpoint that sets *only* `expected_offset_min` or *only*
+`expected_at` (the two cases the schema exists to support) gets rejected by
+Postgres at insert time, while the one combination that should never happen
+(both set) sails through. **Revise, exact — replace with:**
+
+```sql
+CHECK ((expected_offset_min IS NOT NULL) <> (expected_at IS NOT NULL))
+```
+
+This is real XOR (exactly one of the two must be set, neither-null also
+rejected, matching "one of offset/at is set" literally). If a checkpoint
+with no expected time at all should be a legal state (e.g. a pure checklist
+item with no timing expectation), use
+`CHECK (NOT (expected_offset_min IS NOT NULL AND expected_at IS NOT NULL))`
+instead — this permits neither/either but still blocks both. Either is a
+one-token fix; the version as drafted needs Malkio/Cindra to pick which of
+the two semantics is actually wanted, then land the corrected clause before
+migration 055 is written for real.
+
+### Verified claims
+
+- `tabatha.focus_items` (migration 001, line 57) genuinely has no
+  `scheduled_at`/timing-future-intent concept — confirmed by direct read,
+  Unit 4's premise holds.
+- `tabatha.integration_credentials` (migration 035) Vault-pointer pattern
+  (never stores the raw secret, only a `vault_secret_name`, resolved only
+  inside `SECURITY DEFINER` RPCs like `tabatha.get_vault_secret`) is real and
+  exactly as described — a legitimate template for Unit 3's Google OAuth
+  token storage.
+- The "existing auto-activation semantics already used elsewhere" citation
+  in Unit 4 checks out: `src/background/services/focusService.js` lines
+  481-498 (the resolve path) already promote the most-recently-paused item
+  to `active` when the resolved item was the active one — Unit 4's
+  activation cron can genuinely mirror this logic rather than invent new
+  semantics.
+- `send-focus-push` is genuinely already `kind`-keyed and multi-purpose
+  (`focus_away`, `timer_expired`, `checkpoint_stale`, `drifted` all confirmed
+  in the live edge function) — Unit 4's claim that firing a new alert kind
+  through it is "already generalized" is accurate, not aspirational.
+
+### Gap — Google OAuth token refresh has no design, unlike the Asana PAT it's modeled on
+
+§2's "vaults the refresh token the same way `connect-asana` vaults its
+PAT-equivalent secret" undersells a real difference: an Asana PAT
+(`upsert_asana_credential`, migration 035) **never expires** — it's a single
+long-lived secret, stored once, read once per sync. A Google OAuth **access**
+token expires in ~1 hour; only the **refresh** token is long-lived, and
+`sync-google-calendar` (a 5-minute cron per this doc) will need to exchange
+the refresh token for a fresh access token on effectively every run, then
+handle the refresh token itself eventually being revoked (user revokes app
+access from their Google Account, refresh token expires from inactivity,
+etc.) by flipping `integration_credentials.status` to `'error'` and
+surfacing a "reconnect Google Calendar" prompt — none of which the Asana
+integration needed to solve because PATs don't expire. **Revise:** Unit 3
+needs an explicit sub-step for token refresh (a `google_access_token`
+short-lived Vault entry alongside the long-lived refresh token, refreshed
+inline at the top of each `sync-google-calendar` run, with a defined
+"refresh failed → mark `status='error'`, stop retrying until reconnect"
+failure path) — this is not a detail that falls out of "mirror
+connect-asana," it's new scope the doc should name.
+
+### Coordination point — give Plan 044/045's shared CHECK a default winner
+
+Both this doc (§1, §7) and Plan 045 (§B1) correctly flag that they both
+widen `integration_credentials.provider`'s CHECK and both say "whichever
+lands second rebases." That's a real coordination point correctly named
+twice, but "whichever lands second" has no default answer if both branches
+open around the same time. **Revise:** nominate Plan 045 §B1 as the
+canonical widening commit (it already needs the fuller list — `'tabatha',
+'asana','anasa','notion','clickup','google_tasks','monday'` — adding
+`'google_calendar'` to that same list is a one-token addition), and have
+Plan 044 §1 simply depend on 045 §B1 landing first rather than each doc
+independently writing its own ALTER CHECK. This turns a soft "coordinate at
+build time" into an explicit sequencing decision made now, while it's cheap.
+
+### Verdicts per unit
+
+| Unit | Verdict | Notes |
+|---|---|---|
+| **1 (widen CHECK)** | **REVISE-WITH-EXACT-REVISION** | Depend on Plan 045 §B1 instead of parallel-authoring the same ALTER (coordination point above). |
+| **2 (Calendar UI)** | **PROCEED** | Reuses shipped `calendarService.js` cleanly; no schema risk. |
+| **3 (Google OAuth engine)** | **REVISE-WITH-EXACT-REVISION** | Add the token-refresh sub-step named above before this is build-ready. |
+| **4 (Scheduled intents)** | **PROCEED** | Auto-activation citation verified real. |
+| **5 (Push intent → calendar)** | **PROCEED** | Native path is genuinely unit-independent as claimed. |
+| **6 (Preset checkpoints schema)** | **REVISE-WITH-EXACT-REVISION** | Fix the CHECK constraint per the top finding above before migration 055 is written. |
+| **7 (Preset checkpoints UI + sweep)** | **PROCEED, blocked on Unit 6's fix** | Sweep-cron logic itself is sound; just needs a working schema underneath it. |
+
+### Koda additions
+
+- **Preset-checkpoint template library.** Once presets exist as a table,
+  the next natural step is user-authored *reusable* templates ("standup
+  prep: 1) pull yesterday's notes 2) check calendar 3) post update" — three
+  presets in one shot, reused across every standup-labeled intent). A tiny
+  addition: `tabatha.preset_checkpoint_templates` (profile-scoped, `label
+  TEXT`, `items JSONB` — array of `{text, offset_min}`), with one "apply
+  template" action in the intent edit panel that bulk-inserts into
+  `preset_checkpoints` for the current `focus_client_id`. This is
+  independent of AI-authored presets (§4.3/v2) — it's the manual-but-
+  reusable middle step between "type one checkpoint by hand every time" and
+  "AI writes them for you," buildable entirely in v1 scope with no LLM
+  dependency, and a template pool is exactly what a v2 AI-authoring feature
+  would want to seed from/write into later anyway.
+- **Streak/consistency signal from hit/miss tracking.** §4.2's sweep cron
+  already classifies every preset as `hit`/`missed`/`skipped` — that's a
+  ready-made input for a lightweight "consistency streak" surfaced
+  somewhere small (Settings, or a one-line stat on the Focus screen): "8 of
+  your last 10 preset checkpoints hit on time." Zero new schema — it's a
+  read-only aggregate query over `preset_checkpoints.status` grouped by
+  week. Worth flagging now because it's the kind of thing that's cheap
+  today and expensive to retrofit once hit/miss data has been accumulating
+  ungrouped for months — if there's any intent to ever show this, tag
+  `created_at`'s week bucket in the initial UI pass rather than as a
+  follow-up migration.
+- **Calendar-conflict auto-carve, concretized (CeeCee's v2 idea, given a
+  cheaper v1 slice).** §6 defers "auto-carve focus blocks from free/busy" to
+  v2 as reading Google free/busy. A cheaper first slice, buildable entirely
+  on Unit 2's UI + already-synced `calendar_events` (no new Google API
+  surface): when scheduling a future intent (Unit 4) for a specific
+  duration, client-side-only, scan already-synced `calendar_events` for that
+  window and if it's fully booked, suggest the *next* open slot found by
+  walking forward from the requested time — same non-blocking-hint pattern
+  §3 already describes for overlap detection, just extended to propose an
+  alternative instead of only warning. No free/busy API call needed since
+  the data's already local from the poll sync; genuinely a v1-shippable
+  slice of the v2 idea rather than the full free/busy-API version.
