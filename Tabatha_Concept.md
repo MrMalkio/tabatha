@@ -129,3 +129,48 @@ should be able to **just do and just say** — and the system (fed by everything
 Tabatha/Flux already knows) supplies the support, defaults, and follow-through
 toward the user's understood goals. Every new feature should ask: what does this
 *remove* from the user's upfront attention, not just what does it add.
+
+## The Ecosystem Journey: Tabatha → Flux → Caspera (added 2026-07-20)
+
+Tabatha is not the end state — it is the **on-ramp**. The Flux family of
+products is designed to baby-step a user deeper into the ecosystem, one layer
+of trust and context at a time, never demanding the deeper layers up front.
+
+1. **Tabatha — operational context.** *What the user is doing, always.* Tabs,
+   intents, focuses, checkpoints, tasks, time tracking. Tabatha only needs to
+   know the shape of the current work — it doesn't need to know why the work
+   matters or what else is going on in the user's life. This is the layer
+   every user starts on, and the layer that stays fully useful even if nobody
+   ever goes further.
+2. **Flux — personal context.** *Who the user is, ever-learning.*
+   Accountability, organization, time/life management, the connective tissue
+   between "what am I doing right now" (Tabatha) and "what actually matters
+   to me" (goals, relationships, recurring commitments, the stuff that
+   doesn't fit inside a browser tab). Flux is where Tabatha's operational
+   exhaust becomes long-term self-knowledge — Plan 042's Conversational
+   Tabatha is the first place this boundary becomes concrete: an in-app call
+   or intake conversation listens to *anything* on the user's mind, and
+   routes what belongs in Tabatha into Tabatha, and what belongs in Flux into
+   Flux.
+3. **Caspera — tasks handled *for* the person.** Once Flux has enough
+   ever-learning context about who the user is and how they work, Caspera
+   becomes viable: an operator that doesn't just track or advise, but
+   *acts* — via its own harness or Hermes/OpenClaw-style operators (the same
+   engine choice already resolved for #182 Chaperone's full-agentic tier).
+   This is the layer that requires the most trust and the most accumulated
+   context, which is exactly why it's last, not first.
+
+**The ordering isn't fixed — it's audience-dependent.** For a personal user,
+the natural path is Tabatha → Flux → Caspera: prove the operational layer is
+useful, build personal context over time, only then hand off real agency.
+For a professional/business user, the more likely path is **Tabatha → Caspera
+→ Flux, or some other ordering** — a business may want delegated execution
+(Caspera) on well-defined operational tasks before it wants a system that
+knows the individual person deeply (Flux). Neither ordering is the "correct"
+one; the point of naming both is that onboarding and upsell design for each
+audience should not assume the personal-user sequence is universal.
+
+This journey is also why Plan 042 (Conversational Tabatha) explicitly gates
+its deepest features behind "an active Flux account" rather than trying to
+absorb Flux's job into Tabatha itself — the layering above is the product
+boundary, not just a technical one.
