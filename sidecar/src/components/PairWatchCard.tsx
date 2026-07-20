@@ -3,11 +3,27 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 import { colors, radius } from '../lib/theme';
 
-// Plan 041 §6.3 — "Pair a watch". Mints a 6-digit, 5-minute, single-use code
+// Plan 041 §6.3 — "Pair a device". Mints a 6-digit, 5-minute, single-use code
 // via the pair-watch edge function (user JWT); the raw code exists only in
 // this component's state for the countdown window, never persisted or logged.
+//
+// Generalized (TV-sign-in follow-on, CeeCee design): the same code now also
+// redeems on a TV browser via CodeSignIn.tsx's "Sign in with a code" flow —
+// zero new backend, pair-watch's `redeem` action doesn't care which surface
+// asks for the session. The device-label picker below just tags the mint so
+// Settings/audit views can tell watches and TVs apart; it has no effect on
+// redemption.
+
+type DeviceKind = 'watch' | 'tv' | 'other';
+
+const DEVICE_OPTIONS: { key: DeviceKind; label: string; mintLabel: string }[] = [
+  { key: 'watch', label: 'Watch', mintLabel: 'Galaxy Watch' },
+  { key: 'tv', label: 'TV', mintLabel: 'TV' },
+  { key: 'other', label: 'Other', mintLabel: 'Other device' },
+];
 
 export default function PairWatchCard() {
+  const [device, setDevice] = useState<DeviceKind>('watch');
   const [code, setCode] = useState<string | null>(null);
   const [left, setLeft] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -27,6 +43,7 @@ export default function PairWatchCard() {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (!token) throw new Error('Not signed in');
+      const deviceLabel = DEVICE_OPTIONS.find((d) => d.key === device)?.mintLabel || 'Other device';
       const res = await fetch(`${SUPABASE_URL}/functions/v1/pair-watch`, {
         method: 'POST',
         headers: {
@@ -34,7 +51,7 @@ export default function PairWatchCard() {
           Authorization: `Bearer ${token}`,
           apikey: SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ action: 'mint', deviceLabel: 'Galaxy Watch' }),
+        body: JSON.stringify({ action: 'mint', deviceLabel }),
       });
       const body = await res.json();
       if (!res.ok || !body.code) throw new Error(body.error || 'Pairing service unavailable');
@@ -60,11 +77,29 @@ export default function PairWatchCard() {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>⌚ Pair a watch</Text>
+      <Text style={styles.title}>⌚📺 Pair a device</Text>
       <Text style={styles.sub}>
-        Open Tabby Watch on your watch, choose Pair, and enter this code. Codes last 5 minutes
-        and work once.
+        Works for Tabby Watch and TV sign-in. On the TV, choose &ldquo;Sign in with a code&rdquo;.
+        Codes last 5 minutes and work once.
       </Text>
+      {!code && (
+        <View style={styles.deviceRow}>
+          {DEVICE_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.key}
+              onPress={() => setDevice(opt.key)}
+              disabled={busy}
+              style={[styles.deviceChip, device === opt.key && styles.deviceChipActive]}
+            >
+              <Text
+                style={[styles.deviceChipText, device === opt.key && styles.deviceChipTextActive]}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
       {code ? (
         <View style={styles.codeWrap}>
           <Text style={styles.code}>{code.slice(0, 3) + ' ' + code.slice(3)}</Text>
@@ -93,6 +128,20 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
   sub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  deviceRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  deviceChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  deviceChipActive: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentDim,
+  },
+  deviceChipText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  deviceChipTextActive: { color: colors.accent },
   codeWrap: { alignItems: 'center', paddingVertical: 10 },
   code: { fontSize: 34, fontWeight: '800', color: colors.accent, letterSpacing: 6 },
   count: { fontSize: 12, color: colors.textMuted, marginTop: 4 },

@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { Btn } from '../ui/kit';
+import CodeSignIn from '../components/CodeSignIn';
 import { colors, radius } from '../lib/theme';
 
 export default function LoginScreen() {
@@ -90,6 +91,11 @@ export default function LoginScreen() {
           New here? Sign in with the email your invite was sent to, then enter your code.
         </Text>
 
+        <Text style={styles.tvHint}>On a TV? Sign in with a code from your phone.</Text>
+        <View style={styles.codeSignInWrap}>
+          <CodeSignIn />
+        </View>
+
         <Text style={styles.footer}>Synced to your Tabatha account</Text>
       </View>
     </SafeAreaView>
@@ -136,5 +142,7 @@ const styles = StyleSheet.create({
   sentSub: { color: colors.accent, fontSize: 13 },
   err: { color: colors.red, fontSize: 13, textAlign: 'center' },
   inviteHint: { color: colors.textMuted, fontSize: 12, marginTop: 22, textAlign: 'center' },
+  tvHint: { color: colors.textMuted, fontSize: 12, marginTop: 18, textAlign: 'center' },
+  codeSignInWrap: { width: '100%', marginTop: 10 },
   footer: { color: colors.textMuted, fontSize: 12, marginTop: 40 },
 });
