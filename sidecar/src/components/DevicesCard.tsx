@@ -27,6 +27,13 @@ type DeviceRow = {
   last_seen_at: string | null;
   paused: boolean;
   revoked_at: string | null;
+  // Migration 017 — `local_id` is the install's stable client-side id,
+  // `machine_id` is the desktop-companion browser_profile id this install
+  // is paired with (same-machine signal, best-effort/nullable). Used here
+  // purely for de-dup grouping (Fix 3, 2026-07-20 refinement); not
+  // displayed directly.
+  local_id: string | null;
+  machine_id: string | null;
 };
 
 function relTime(iso: string | null): string {
@@ -48,6 +55,69 @@ function surfaceLabel(row: DeviceRow): string {
   return row.browser;
 }
 
+// Fix 3c (2026-07-20): rows without a user-set `display_name` used to fall
+// back straight to `profile_name` (often generic/empty, e.g. "Default") or
+// the bare surface label — with ~100 undifferentiated rows that read as
+// "Chrome extension · chrome" repeated dozens of times. Derive a more
+// distinguishing name from browser/profile_name plus a short id-based
+// "machine hint" suffix so same-browser rows are at least tellable apart
+// until the user renames them.
+function deriveName(row: DeviceRow): string {
+  if (row.display_name) return row.display_name;
+  const bits = [surfaceLabel(row)];
+  const profileName = row.profile_name?.trim();
+  if (profileName && profileName.toLowerCase() !== 'default') bits.push(profileName);
+  bits.push(`#${row.id.slice(0, 4).toUpperCase()}`);
+  return bits.join(' · ');
+}
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Fix 3a: the default view hides stale, never-renamed, unfamiliar rows
+// (mostly abandoned installs/reinstalls) instead of rendering all ~100 at
+// once. A row stays visible by default if it's been seen recently, has been
+// given a name (a signal the user cares about it), or is the device you're
+// looking at this from right now. Nothing is deleted or archived here — the
+// full set is one tap away via "Show all", and a separate diagnosis task
+// owns any actual cleanup.
+function isDefaultVisible(row: DeviceRow, thisDeviceId: string | null): boolean {
+  if (row.id === thisDeviceId) return true;
+  if (row.display_name) return true;
+  if (row.last_seen_at && Date.now() - new Date(row.last_seen_at).getTime() <= THIRTY_DAYS_MS) return true;
+  return false;
+}
+
+// Fix 3a refinement (2026-07-20, per Rook's forensics): the ~731-row flood
+// on Malkio's account isn't really ~731 distinct devices — ~650 of them are
+// dupes of ONE Chrome install, caused by an extension-side local_id
+// regeneration bug (being fixed in parallel; server-side cleanup of the
+// existing dupe rows follows separately — this component does not
+// delete/archive anything). Until that cleanup lands, the default view
+// should show ONE row per physical device: group by `machine_id` when
+// present (an extension reaching the desktop companion is by definition the
+// same machine), falling back to `browser` + a `local_id` prefix when
+// `machine_id` is null, and finally to the row's own id when NEITHER
+// correlating field is set (e.g. most Sidecar/web/mobile rows) — those rows
+// can't be correlated to anything else, so each is its own group of one.
+function groupKey(row: DeviceRow): string {
+  if (row.machine_id) return `m:${row.machine_id}`;
+  if (row.local_id) return `l:${row.browser}:${row.local_id.slice(0, 16)}`;
+  return `id:${row.id}`;
+}
+
+// One representative row per group — the most-recently-seen one. `rows` is
+// already fetched ordered by `last_seen_at desc, nullsFirst: false`, so the
+// first row encountered per key IS the most recent; a plain first-wins Map
+// is enough, no separate max-by pass needed.
+function groupRows(rows: DeviceRow[]): DeviceRow[] {
+  const seen = new Map<string, DeviceRow>();
+  for (const r of rows) {
+    const key = groupKey(r);
+    if (!seen.has(key)) seen.set(key, r);
+  }
+  return Array.from(seen.values());
+}
+
 export default function DevicesCard() {
   const { profile, browserProfileId, session } = useAuth();
   const [rows, setRows] = useState<DeviceRow[]>([]);
@@ -57,6 +127,7 @@ export default function DevicesCard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [signedOutIds, setSignedOutIds] = useState<Set<string>>(new Set());
   const [err, setErr] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const reload = useCallback(async () => {
     if (!profile?.id) {
@@ -67,7 +138,7 @@ export default function DevicesCard() {
     const { data, error } = await supabase
       .from('browser_profiles')
       .select(
-        'id, browser, profile_name, display_name, classification, extension_installed, last_seen_at, paused, revoked_at'
+        'id, browser, profile_name, display_name, classification, extension_installed, last_seen_at, paused, revoked_at, local_id, machine_id'
       )
       .eq('profile_id', profile.id)
       .order('last_seen_at', { ascending: false, nullsFirst: false });
@@ -106,6 +177,19 @@ export default function DevicesCard() {
     setDraftName(row.display_name || row.profile_name || surfaceLabel(row));
     setErr(null);
   };
+
+  // Default view: one row per physical device (grouped, most-recent
+  // representative — see groupRows above), then narrowed by the recency/
+  // named/this-device filter. `showAll` bypasses BOTH steps and shows the
+  // raw ungrouped `rows` list — including the extension's regenerated-id
+  // dupes — until the parallel extension fix + server cleanup lands.
+  // `hiddenCount` is derived from the default (grouped+filtered) view
+  // regardless of `showAll`, so the toggle button doesn't disappear once
+  // expanded — it needs to stay put to let the user collapse back down.
+  const groupedRows = groupRows(rows);
+  const defaultVisibleRows = groupedRows.filter((r) => isDefaultVisible(r, browserProfileId));
+  const hiddenCount = rows.length - defaultVisibleRows.length;
+  const visibleRows = showAll ? rows : defaultVisibleRows;
 
   const saveRename = async (id: string) => {
     const name = draftName.trim();
@@ -176,12 +260,12 @@ export default function DevicesCard() {
         Every device signed into this account. Rename, pause, or sign one out remotely.
       </Text>
       {rows.length === 0 && <Text style={styles.sub}>No devices registered yet.</Text>}
-      {rows.map((row) => {
+      {visibleRows.map((row) => {
         const isThisDevice = row.id === browserProfileId;
         const isEditing = editingId === row.id;
         const isBusy = busyId === row.id;
         const isSignedOut = signedOutIds.has(row.id) || !!row.revoked_at;
-        const label = row.display_name || row.profile_name || surfaceLabel(row);
+        const label = deriveName(row);
         return (
           <View key={row.id} style={styles.row}>
             <View style={styles.rowTop}>
@@ -196,13 +280,27 @@ export default function DevicesCard() {
                     style={styles.renameInput}
                   />
                 ) : (
-                  <Pressable onPress={() => startRename(row)} disabled={isBusy}>
-                    <Text style={styles.deviceName} numberOfLines={1}>
-                      {label}
-                      {isThisDevice ? '  ·  ' : ''}
-                      {isThisDevice && <Text style={styles.thisDevice}>This device</Text>}
-                    </Text>
-                  </Pressable>
+                  <View style={styles.nameRow}>
+                    <Pressable onPress={() => startRename(row)} disabled={isBusy} style={{ flexShrink: 1 }}>
+                      <Text style={styles.deviceName} numberOfLines={1}>
+                        {label}
+                        {isThisDevice ? '  ·  ' : ''}
+                        {isThisDevice && <Text style={styles.thisDevice}>This device</Text>}
+                      </Text>
+                    </Pressable>
+                    {/* Fix 3b (2026-07-20): the whole name was tap-to-rename
+                        with no visible affordance — a pencil icon makes the
+                        action discoverable instead of relying on the user
+                        to guess the name text is a button. */}
+                    <Pressable
+                      onPress={() => startRename(row)}
+                      disabled={isBusy}
+                      hitSlop={8}
+                      style={styles.renameBtn}
+                    >
+                      <Text style={styles.renameIcon}>✏️</Text>
+                    </Pressable>
+                  </View>
                 )}
                 <Text style={styles.deviceMeta}>
                   {surfaceLabel(row)} · last seen {relTime(row.last_seen_at)}
@@ -239,6 +337,14 @@ export default function DevicesCard() {
           </View>
         );
       })}
+      {/* Fix 3a (2026-07-20): the other ~N stale/unnamed rows stay one tap
+          away instead of always rendering ~100 rows. Nothing is hidden
+          permanently — toggling back to the filtered view is just as easy. */}
+      {hiddenCount > 0 && (
+        <Pressable onPress={() => setShowAll((v) => !v)} style={styles.showAllBtn}>
+          <Text style={styles.showAllTxt}>{showAll ? 'Show fewer' : `Show all (${rows.length})`}</Text>
+        </Pressable>
+      )}
       {err && <Text style={styles.err}>{err}</Text>}
     </Card>
   );
@@ -253,9 +359,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   deviceName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
   thisDevice: { fontSize: 11, fontWeight: '700', color: colors.accent },
   deviceMeta: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  renameBtn: { paddingHorizontal: 2, paddingVertical: 2 },
+  renameIcon: { fontSize: 13, opacity: 0.75 },
+  showAllBtn: { alignSelf: 'center', marginTop: 10, paddingVertical: 6, paddingHorizontal: 14 },
+  showAllTxt: { fontSize: 12, fontWeight: '700', color: colors.accent },
   renameInput: {
     backgroundColor: colors.bgBase,
     borderWidth: 1,
