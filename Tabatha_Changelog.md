@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.42] - CWS publishing pipeline merged - _2026-07-20_
+
+> Tooling only: Chrome Web Store publish scripts + docs (feat/cws-activation). No extension code changed.
+
 ## [v6.7.41] - Marketing site: /docs — screensaver (Flux Refocus) guide - _2026-07-20_
 
 > Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
@@ -13,6 +17,22 @@ file.
 - **`/docs/getting-started-screensaver.html`** — a 6th Getting Started card/guide: "Screensaver (Flux Refocus)," covering the Tabatha Context View mode that shipped 2026-07-19 in the separate `Flux-Refocus-Screensaver-clock` repo (v2.1.0, merge commit `0c36ad4`). Every label verified against that repo's `src/App.tsx` settings panel (`Show Tabatha Context View` toggle, `Sign in to Tabatha…` button) after a fresh `git pull`. Honest framing kept: it's a separate Electron app with no installer release yet, built from source and registered as a Windows screensaver via `install.ps1`.
 - Cross-links added: the Context View getting-started guide gets a 6th step ("Put it on your screensaver (optional)"); the Settings & customization guide's "standing screen" section now covers both Desk View and the screensaver.
 - `docs-search-index.json` regenerated (108 records, was 99).
+=======
+## [v6.7.41] - Chrome Web Store API publishing pipeline reconciled into staging - _2026-07-20_
+
+> Merges `feat/cws-api` (built 2026-07-16 on `6.7.17`) forward onto the current staging line via `feat/cws-activation`.
+
+### Added
+
+- **`scripts/cws-auth.mjs` + `npm run cws:auth`** — one-time OAuth bootstrap for the CWS Items API: auto-locates the downloaded "Tabatha CWS Publisher" `client_secret_*.json` in Downloads, runs a local loopback consent flow (opens the default browser, no code-pasting), and writes `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` into the gitignored `deploy-creds.local`.
+- **`scripts/cws-publish.mjs` + `npm run cws:upload` / `cws:publish` / `cws:status`** — the release pipeline: mints an access token from the stored refresh token, uploads `store-assets/tabatha-store-v<version>.zip` (building it via `build:store` first if missing) to a new (`--new`, writes `CWS_APP_ID`) or existing item, publishes via `publishTarget` (defaults to `trustedTesters` for the staff rollout; `--target default` for the wider unlisted audience), and reports draft `--status`. Surfaces the API's own `itemError` messages verbatim; never logs a token value.
+- **`scripts/lib/deploy-creds.mjs`, `scripts/lib/cws-client.mjs`, `scripts/lib/cws-args.mjs`, `scripts/lib/cws-zip.mjs`** — pure, unit-tested helpers backing both scripts.
+- **`docs/cws-api-release.md`** — the runbook: one-time auth, the per-release loop, `publishTarget` vs. Visibility, review-latency expectations.
+- **`docs/CWS-PUBLISHING.md`** — the one-command flow plus the one-time human setup steps (account registration/fee, OAuth consent, first-listing creation as Private/domain-only, Workspace force-install repoint).
+
+### Fixed
+
+- **Replaced the orphaned, unwired `scripts/cws-auth.mjs`** that had landed on staging via an unrelated mobile-responsiveness merge (`8aa2d0b`, sourced from `feat/showcase-responsive`). That copy used Google's deprecated `urn:ietf:wg:oauth:2.0:oob` out-of-band flow and was never wired into `package.json` or paired with a publish script. This branch's loopback-listener implementation supersedes it.
 
 ## [v6.7.40] - Marketing site: new /docs help section - _2026-07-20_
 
@@ -338,6 +358,15 @@ file.
 - The 8 surface frames are unchanged and carry **no site chrome**. They are rendered at an exact 1280×800 as the whole viewport by the capture script, so adding a header or search box to them would corrupt the five Chrome Web Store screenshots. Their purpose copy lives on the hub, where they are presented.
 
 ---
+
+## [v6.7.17] - Chrome Web Store API publishing pipeline - _2026-07-16_
+
+### Added
+
+- **`scripts/cws-auth.mjs` + `npm run cws:auth`** — one-time OAuth bootstrap for the CWS Items API: auto-locates the downloaded "Tabatha CWS Publisher" `client_secret_*.json` in Downloads, runs a local loopback consent flow (opens the default browser, no code-pasting), and writes `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` into the gitignored `deploy-creds.local`.
+- **`scripts/cws-publish.mjs` + `npm run cws:upload` / `cws:publish` / `cws:status`** — the release pipeline: mints an access token from the stored refresh token, uploads `store-assets/tabatha-store-v<version>.zip` (building it via `build:store` first if missing) to a new (`--new`, writes `CWS_APP_ID`) or existing item, publishes via `publishTarget` (defaults to `trustedTesters` for the staff rollout; `--target default` for the wider unlisted audience), and reports draft `--status`. Surfaces the API's own `itemError` messages verbatim; never logs a token value.
+- **`scripts/lib/deploy-creds.mjs`, `scripts/lib/cws-client.mjs`, `scripts/lib/cws-args.mjs`, `scripts/lib/cws-zip.mjs`** — pure, unit-tested helpers backing both scripts (creds file parse/merge round-trip, client_secret discovery/parsing, argv parsing, store-zip path resolution).
+- **`docs/cws-api-release.md`** — the runbook: one-time auth, the per-release loop (bump → build:store → upload → publish), the `publishTarget` vs. Visibility distinction, and the review-latency expectation for the `identity` + `<all_urls>` permission combination.
 
 ## [v6.7.16] - Showcase expansion: full component inventory + card captures - _2026-07-16_
 

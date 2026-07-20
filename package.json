@@ -1,7 +1,7 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "6.7.41",
+  "version": "6.7.42",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -26,6 +26,10 @@
     "changelog:check": "node scripts/build-changelog.mjs --check",
     "mirror:extension": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mirror-extension.ps1",
     "publish:update": "node scripts/publish-update.mjs",
+    "cws:auth": "node scripts/cws-auth.mjs",
+    "cws:upload": "node scripts/cws-publish.mjs --upload",
+    "cws:publish": "node scripts/cws-publish.mjs --publish",
+    "cws:status": "node scripts/cws-publish.mjs --status",
     "prebuild": "node scripts/sync-version.mjs && node scripts/build-changelog.mjs --check"
   },
   "dependencies": {

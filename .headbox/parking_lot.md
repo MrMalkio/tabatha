@@ -595,3 +595,12 @@
   1. Park with the portfolio track; revisit at Flux planning ← **suggested**
   2. Prototype Hermes TTS pipeline early behind a flag
   3. Fold into the native-app milestone (call/SMS awareness anyway needs native)
+
+## 2026-07-20 — Scope-creep file landed on staging from an unrelated branch merge
+- **Noticed while:** reviewing `feat/cws-api` for merge-into-staging suitability (CWS activation task)
+- **What:** `scripts/cws-auth.mjs` already existed on `staging` (added in merge commit `8aa2d0b`, "showcase mobile responsiveness + honest companion state", whose second parent was `feat/showcase-responsive`) — a CWS OAuth-bootstrap script unrelated to that branch's stated scope. It used Google's deprecated `urn:ietf:wg:oauth:2.0:oob` out-of-band flow (Google stopped issuing OOB grants to new OAuth clients in Feb 2022) and was never wired into `package.json` or paired with a publish script, so it could never have worked. Resolved for this task by replacing it with `feat/cws-api`'s complete, working loopback-listener implementation during the `feat/cws-activation` merge — no action needed there. Flagging only the process gap: a file outside a branch's declared scope reached `staging` unnoticed.
+- **Why it matters:** worktree/branch scope discipline (per `docs/parallel-development-workflow.md`) is what keeps parallel agent work mergeable; a stray unwired file surviving on `staging` for 4 days undetected suggests the merge-review step isn't diffing file lists against declared scope.
+- **Options:**
+  1. No action — already superseded, isolated incident ← **suggested**
+  2. Add a lightweight pre-merge check that flags files touched outside a branch's stated scope in `docs/parallel-development-workflow.md`'s zone map
+  3. Audit other recent merge commits for similar unrelated-file drift
