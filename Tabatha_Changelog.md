@@ -4,6 +4,16 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.41] - Marketing site: /docs — screensaver (Flux Refocus) guide - _2026-07-20_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **`/docs/getting-started-screensaver.html`** — a 6th Getting Started card/guide: "Screensaver (Flux Refocus)," covering the Tabatha Context View mode that shipped 2026-07-19 in the separate `Flux-Refocus-Screensaver-clock` repo (v2.1.0, merge commit `0c36ad4`). Every label verified against that repo's `src/App.tsx` settings panel (`Show Tabatha Context View` toggle, `Sign in to Tabatha…` button) after a fresh `git pull`. Honest framing kept: it's a separate Electron app with no installer release yet, built from source and registered as a Windows screensaver via `install.ps1`.
+- Cross-links added: the Context View getting-started guide gets a 6th step ("Put it on your screensaver (optional)"); the Settings & customization guide's "standing screen" section now covers both Desk View and the screensaver.
+- `docs-search-index.json` regenerated (108 records, was 99).
+
 ## [v6.7.40] - Marketing site: new /docs help section - _2026-07-20_
 
 > Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.

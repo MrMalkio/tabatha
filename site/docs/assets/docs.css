@@ -42,7 +42,7 @@
 .dsec-sub { font-size: 13.5px; color: #9aa5b1; max-width: 72ch; margin: 6px 0 24px; line-height: 1.6; }
 
 /* Getting Started: one card per surface. */
-.startgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.startgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .startcard {
   background: var(--panel, #14171c); border: 1px solid var(--border, rgba(255,255,255,.09));
   border-radius: var(--r-lg, 8px); padding: 18px 16px; text-decoration: none; color: inherit;

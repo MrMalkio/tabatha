@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pairing devices · Tabatha Docs</title>
-<meta name="description" content="Link a Galaxy Watch or the desktop companion to your Tabatha account.">
+<title>Put Tabatha on your screensaver · Tabatha Docs</title>
+<meta name="description" content="A separate Windows app that turns idle time into a live Context View, automatically.">
 <link rel="stylesheet" href="../show/assets/site.css">
 <link rel="stylesheet" href="assets/docs.css">
 <style>
@@ -60,74 +60,72 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:
   <span class="verbadge">v6.7.41</span>
 </nav>
 <header class="phead">
-  <div class="kicker">How do I…</div>
-  <h1>Pairing devices</h1>
-  <p>Two different pairing flows, both short: a 6-digit code for the watch, a copy-paste token for the desktop companion.</p>
-  <div class="gwhere"><span class="e" aria-hidden="true">📍</span> Tabby Sidecar Settings, Tabby Watch, and the Desktop Companion tray</div>
+  <div class="kicker">Getting Started</div>
+  <h1>Put Tabatha on your screensaver</h1>
+  <p>Flux Refocus's screensaver clock is a small, separate Electron app from the rest of the Tabatha family. Turn on its Tabatha mode and your idle screen becomes a live Context View on your primary display — current focus, timer, timeline, phone-away alert — automatically falling back to its own flip clock if Tabatha can't be reached, and running the flip clock on any other displays regardless.</p>
+  <div class="gwhere"><span class="e" aria-hidden="true">📍</span> Windows — a separate app, "Flux Screensaver" (Flux Refocus screensaver clock)</div>
 </header>
-<div class="gsub">Pair a watch</div><div class="steps">
+<div class="devnote" style="margin:24px auto 0;max-width:1100px">
+    <span class="e" aria-hidden="true">🚧</span>
+    <span class="tx">This is a separate repo (<code>Flux-Refocus-Screensaver-clock</code>), not part of the Tabatha extension or site, and it has no installer release yet — you build it from source and register it as a Windows screensaver by hand.</span>
+  </div>
+<div class="steps">
   <div class="step">
     <div class="n">1</div>
     <div class="body">
-      <h3>Get a code, on your phone</h3>
-      <p>Sidecar → Settings → <b>⌚ Pair a watch</b> → <b>Get pairing code</b>. It shows a 6-digit code, valid 5 minutes, that works once.</p>
+      <h3>Build it</h3>
+      <p>Clone <code>MrMalkio/Flux-Refocus-Screensaver-clock</code>, run <code>npm install</code>, then <code>npm run electron:build</code>. That produces <code>release\win-unpacked\Flux Screensaver.exe</code>.</p>
       
     </div>
   </div>
   <div class="step">
     <div class="n">2</div>
     <div class="body">
-      <h3>Enter it, on the watch</h3>
-      <p>Open <b>Tabby Watch</b> → tap <b>"⌚ Pair with Tabatha"</b> (or <b>"⌚ Re-pair watch"</b> if you've paired before) → enter the 6 digits. It shows <b>"Pairing…"</b> then <b>"Paired ✓."</b></p>
+      <h3>Install it as your screensaver</h3>
+      <p>Run <code>install.ps1</code> as Administrator from the project folder. It copies the built app to <code>C:\ProgramData\FluxScreensaver</code>, renames it to a <code>.scr</code>, and points Windows' screensaver registry at it with a 5-minute idle timeout.</p>
       
     </div>
   </div>
   <div class="step">
     <div class="n">3</div>
     <div class="body">
-      <h3>If it fails</h3>
-      <p><i>"Code invalid or expired — mint a fresh one on your phone"</i> just means the 5 minutes ran out, or it was already used — get a new code and try again.</p>
-      
-    </div>
-  </div>
-</div>
-<div class="gsub">Pair the Desktop Companion</div><div class="steps">
-  <div class="step">
-    <div class="n">1</div>
-    <div class="body">
-      <h3>Copy a token, on the desktop</h3>
-      <p>Tabby Desk's tray menu → <b>🔗 Pair Extension (copy token)</b> copies a pairing token to your clipboard.</p>
+      <h3>Open its settings</h3>
+      <p>Windows Settings → Personalization → Lock screen → <b>Screen saver settings</b> → confirm <b>FluxScreensaver</b> is selected → click <b>Settings…</b> to open its own configuration panel.</p>
       
     </div>
   </div>
   <div class="step">
-    <div class="n">2</div>
+    <div class="n">4</div>
     <div class="body">
-      <h3>Paste it, in the browser</h3>
-      <p>Extension Settings → <b>🖥️ Desktop Activity</b> → Companion Pairing → paste it into <code>Paste pairing token</code> → <b>Save & Pair</b>. You'll see <b>"✓ Token saved — reconnecting to the companion."</b></p>
+      <h3>Turn on Context View</h3>
+      <p>In the panel's <b>Tabatha</b> section, under <b>Context View</b>, toggle <b>"Show Tabatha Context View."</b> On your primary display this replaces the flip clock with the live Context View; other displays keep the flip clock, and it falls back to the flip clock automatically if Tabatha can't be reached.</p>
       
     </div>
   </div>
   <div class="step">
-    <div class="n">3</div>
+    <div class="n">5</div>
     <div class="body">
-      <h3>Is it required?</h3>
-      <p>No — it's a security-hardening step, not a hard requirement. An unpaired companion still connects in open mode; pair it if you want the link authenticated.</p>
+      <h3>Sign in</h3>
+      <p>Under <b>Account</b>, click <b>"Sign in to Tabatha…"</b> — a one-time sign-in window. Once you're signed in, the Context View reuses that session automatically from then on.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">6</div>
+    <div class="body">
+      <h3>Preview it</h3>
+      <p>Back in Windows' Screen Saver Settings, click <b>Preview</b> to test it full-screen, or just leave the screen idle for 5 minutes.</p>
       
     </div>
   </div>
 </div>
-<div class="seeit">
-  <span class="lbl">See it</span>
-  <a href="../show/components-companion.html">Desktop Companion →</a>
-  <a href="../show/components-watch.html">Tabby Watch →</a>
-  <a href="../show/components-sidecar.html">Tabby Sidecar →</a>
-</div>
+
 <div class="related">
   <h2>Related guides</h2>
   <div class="grid">
+    <a href="getting-started-context-view.html"><span aria-hidden="true">📺</span> Context View (big screen)</a>
     <a href="getting-started-companion.html"><span aria-hidden="true">🖥️</span> Desktop Companion</a>
-    <a href="getting-started-watch.html"><span aria-hidden="true">⌚</span> Tabby Watch</a>
+    <a href="settings-and-customization.html"><span aria-hidden="true">⚙️</span> Settings & customization</a>
   </div>
 </div>
 <footer>
