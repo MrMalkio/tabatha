@@ -39,11 +39,21 @@ export const DEFAULT_CONTEXT_VIEW_SETTINGS: ContextViewSettings = {
   layout: 'v2',
 };
 
+// Device management (migration 045) — `device_settings` on the CURRENT
+// device's own browser_profiles row is an optional 4th layer, highest
+// precedence: device > contextView > legacy sidecar > defaults. v1 ships
+// only the plumbing (this merge + ContextView passing its own row's
+// device_settings through) — there is no per-device editor UI yet
+// (DevicesCard.tsx notes this explicitly). Any device without an override
+// resolves identically to pre-045 behavior (an empty device_settings object
+// contributes nothing to the spread).
 export function resolveContextViewSettings(
-  settings: Record<string, any> | null | undefined
+  settings: Record<string, any> | null | undefined,
+  deviceSettings?: Record<string, any> | null
 ): ContextViewSettings {
   const cv = settings?.contextView || {};
   const legacySidecar = settings?.sidecar || {};
+  const device = deviceSettings || {};
   return {
     ...DEFAULT_CONTEXT_VIEW_SETTINGS,
     // Legacy sidecar.* values apply BEFORE contextView so contextView always
@@ -54,5 +64,7 @@ export function resolveContextViewSettings(
       legacySidecar.focusAwayImmediate ?? DEFAULT_CONTEXT_VIEW_SETTINGS.focusAwayImmediate,
     showCheckpoints: legacySidecar.showCheckpoints ?? DEFAULT_CONTEXT_VIEW_SETTINGS.showCheckpoints,
     ...cv,
+    // device_settings wins over everything above it, including contextView.
+    ...device,
   };
 }

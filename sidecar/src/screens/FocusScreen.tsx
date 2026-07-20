@@ -20,6 +20,7 @@ import {
 import { useCheckpoints, PROGRESS_LEVELS, type Checkpoint } from '../data/checkpoints';
 import { useFocusEvents, type FocusEvent } from '../data/events';
 import { useVoiceCapture } from '../lib/speech';
+import { computePomodoroState, DEFAULT_POMODORO_CONFIG } from '../lib/pomodoro';
 import PhoneFocusMode from '../components/PhoneFocusMode';
 import VoiceCheckIn from '../components/VoiceCheckIn';
 import { Btn, Card, Chip, Empty, MicButton, SectionLabel } from '../ui/kit';
@@ -81,8 +82,14 @@ export default function FocusScreen() {
     useFocus(profile?.id ?? null, browserProfileId);
   const now = useNow();
 
-  const defaultRealm = profile?.settings?.sidecar?.defaultRealm || profile?.default_realm || 'professional';
-  const defaultTimer = profile?.settings?.sidecar?.defaultTimer || 15;
+  const sc = profile?.settings?.sidecar || {};
+  const defaultRealm = sc.defaultRealm || profile?.default_realm || 'professional';
+  const defaultTimer = sc.defaultTimer || 15;
+  // Pomodoro timer mode (Plan 040 roadmap "gusto" pick) — a VIEW over the
+  // same elapsedMsOf the timer already uses; no new writes, no change to
+  // focus_items/focus_events. See lib/pomodoro.ts.
+  const timerMode: 'simple' | 'pomodoro' = sc.timerMode === 'pomodoro' ? 'pomodoro' : 'simple';
+  const pomoConfig = { ...DEFAULT_POMODORO_CONFIG, ...(sc.pomodoro || {}) };
 
   const [label, setLabel] = useState('');
   const [timer, setTimer] = useState(String(defaultTimer));
@@ -123,12 +130,25 @@ export default function FocusScreen() {
   const cfElapsed = cf ? elapsedMsOf(cf, now) : 0;
   let remaining: number | null = null;
   let over = false;
+  // Pomodoro phase (focus/break/longBreak), when the mode is on — replaces
+  // the countdown target with the current phase's remaining time. `cf`'s
+  // own timer_minutes goal is unused in this mode; elapsed tracking itself
+  // (cfElapsed above) is untouched either way.
+  let pomoPhase: 'focus' | 'break' | 'longBreak' | null = null;
   if (cf && isSidecarSourced(cf)) {
-    // Continues across pauses (frozen while paused), never restarts on resume.
-    const dur = (cf.timer_minutes || 15) * 60000;
-    remaining = dur - cfElapsed;
-    over = remaining < 0;
+    if (timerMode === 'pomodoro') {
+      const pomo = computePomodoroState(cfElapsed, pomoConfig);
+      pomoPhase = pomo.phase;
+      remaining = pomo.phaseRemainingMs;
+      over = false;
+    } else {
+      // Continues across pauses (frozen while paused), never restarts on resume.
+      const dur = (cf.timer_minutes || 15) * 60000;
+      remaining = dur - cfElapsed;
+      over = remaining < 0;
+    }
   }
+  const onBreak = pomoPhase === 'break' || pomoPhase === 'longBreak';
 
   const subIntents = cf ? queue.filter((q) => q.tags?._parent === cf.client_id) : [];
 
@@ -155,7 +175,8 @@ export default function FocusScreen() {
             </View>
             {remaining != null && (
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.timer, { color: over ? colors.red : colors.accent }]}>{formatTimer(Math.abs(remaining))}</Text>
+                {onBreak && <Text style={styles.pomoCap}>{pomoPhase === 'longBreak' ? 'LONG BREAK' : 'BREAK'}</Text>}
+                <Text style={[styles.timer, { color: onBreak ? colors.amber : over ? colors.red : colors.accent }]}>{formatTimer(Math.abs(remaining))}</Text>
                 <Text style={styles.timerCap}>{over ? 'over' : 'left'}</Text>
               </View>
             )}
@@ -467,6 +488,7 @@ const styles = StyleSheet.create({
   cfMeta: { fontSize: 12, color: colors.textMuted },
   timer: { fontSize: 30, fontWeight: '800', fontVariant: ['tabular-nums'] },
   timerCap: { fontSize: 10, color: colors.textMuted },
+  pomoCap: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: colors.amber, marginBottom: 2 },
   noActive: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
   btnRow: { flexDirection: 'row', gap: 6, marginTop: 10, flexWrap: 'wrap' },
   input: { backgroundColor: colors.bgBase, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10, color: colors.textPrimary, fontSize: 15, marginBottom: 8 },

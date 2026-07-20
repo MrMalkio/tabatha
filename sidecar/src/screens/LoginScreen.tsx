@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { Btn } from '../ui/kit';
+import CodeSignIn from '../components/CodeSignIn';
 import { colors, radius } from '../lib/theme';
 
 export default function LoginScreen() {
@@ -17,6 +18,27 @@ export default function LoginScreen() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Self-healing provider button (2026-07-20): the Google provider is
+  // currently DISABLED at the auth layer, so a static "Continue with Google"
+  // is a dead button for invitees. Ask the auth server which external
+  // providers are actually on and only render buttons that work. Defaults to
+  // hidden until confirmed; magic link + code sign-in are always available.
+  const [googleOn, setGoogleOn] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    import('../lib/supabase').then(({ SUPABASE_URL, SUPABASE_ANON_KEY }) =>
+      fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
+        .then((r) => r.json())
+        .then((s) => {
+          if (alive) setGoogleOn(!!s?.external?.google);
+        })
+        .catch(() => {})
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const sendLink = async () => {
     if (!email.trim()) return;
@@ -38,13 +60,16 @@ export default function LoginScreen() {
         </Text>
 
         <View style={styles.form}>
-          <Btn label="Continue with Google" onPress={signInWithGoogle} filled />
-
-          <View style={styles.divider}>
-            <View style={styles.line} />
-            <Text style={styles.or}>or</Text>
-            <View style={styles.line} />
-          </View>
+          {googleOn && (
+            <>
+              <Btn label="Continue with Google" onPress={signInWithGoogle} filled />
+              <View style={styles.divider}>
+                <View style={styles.line} />
+                <Text style={styles.or}>or</Text>
+                <View style={styles.line} />
+              </View>
+            </>
+          )}
 
           {sent ? (
             <View style={styles.sentBox}>
@@ -84,6 +109,15 @@ export default function LoginScreen() {
             </>
           )}
           {err && <Text style={styles.err}>{err}</Text>}
+        </View>
+
+        <Text style={styles.inviteHint}>
+          New here? Sign in with the email your invite was sent to, then enter your code.
+        </Text>
+
+        <Text style={styles.tvHint}>On a TV? Sign in with a code from your phone.</Text>
+        <View style={styles.codeSignInWrap}>
+          <CodeSignIn />
         </View>
 
         <Text style={styles.footer}>Synced to your Tabatha account</Text>
@@ -131,5 +165,8 @@ const styles = StyleSheet.create({
   sentText: { color: colors.textPrimary, fontSize: 15, textAlign: 'center' },
   sentSub: { color: colors.accent, fontSize: 13 },
   err: { color: colors.red, fontSize: 13, textAlign: 'center' },
+  inviteHint: { color: colors.textMuted, fontSize: 12, marginTop: 22, textAlign: 'center' },
+  tvHint: { color: colors.textMuted, fontSize: 12, marginTop: 18, textAlign: 'center' },
+  codeSignInWrap: { width: '100%', marginTop: 10 },
   footer: { color: colors.textMuted, fontSize: 12, marginTop: 40 },
 });

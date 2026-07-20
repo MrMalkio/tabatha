@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
     const hash = await sha256Hex(code);
     const { data: row } = await admin
       .from("watch_pairing_codes")
-      .select("id, profile_id, expires_at, consumed_at, attempts")
+      .select("id, profile_id, expires_at, consumed_at, attempts, device_label")
       .eq("code_hash", hash)
       .is("consumed_at", null)
       .maybeSingle();
@@ -160,6 +160,10 @@ Deno.serve(async (req) => {
         access_token: session.session.access_token,
         refresh_token: session.session.refresh_token,
         expires_at: session.session.expires_at,
+        // Device management (migration 045): the redeeming device stashes
+        // this so its own registerDevice() upsert can mint with the name
+        // the pairing device chose, instead of a generic default.
+        device_label: row.device_label ?? null,
       },
       200,
       cors

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
 import { useChaperoneOnPhoneAway } from '../lib/chaperone';
@@ -9,6 +10,7 @@ import FocusTimeline from '../components/FocusTimeline';
 import ProgressRing from '../components/ProgressRing';
 import { supabase } from '../lib/supabase';
 import { resolveContextViewSettings } from '../lib/contextViewSettings';
+import { computePomodoroState, DEFAULT_POMODORO_CONFIG } from '../lib/pomodoro';
 import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
 
 // Coarse "how long ago" for the last-checkpoint preview — matches the rest of
@@ -55,12 +57,20 @@ function dayLeft(resetHour: number): { text: string; mins: number } {
 export default function ContextView({
   onExit,
   embed = null,
+  deviceSettings = null,
 }: {
   onExit: () => void;
   // Desk View companion embed (?embed=desk) — neutralizes Sidecar branding
   // to plain "TABATHA / CONTEXT VIEW" and hides the exit-to-app control,
   // since the companion's dedicated window has no app to exit to.
   embed?: 'desk' | null;
+  // Device management (migration 045) — THIS device's own `device_settings`
+  // override row, read once by app/index.tsx's honor-logic hook
+  // (useOwnDeviceStatus) and passed down rather than fetched again here.
+  // Highest precedence in resolveContextViewSettings; v1 has no editor UI
+  // for it yet (DevicesCard.tsx), so this is normally `{}` and changes
+  // nothing.
+  deviceSettings?: Record<string, any> | null;
 }) {
   const { profile, browserProfileId } = useAuth();
   const { currentFocus, queue } = useFocus(profile?.id ?? null, browserProfileId);
@@ -73,11 +83,20 @@ export default function ContextView({
   // doc §4). resolveContextViewSettings is the single source of truth for
   // every display toggle below; a profile with neither key renders
   // identically to pre-Epic-9 behavior (Sidecar-only users, design §2.2).
-  const cv = resolveContextViewSettings(profile?.settings);
+  // `deviceSettings` (migration 045) is layered on top, highest precedence.
+  const cv = resolveContextViewSettings(profile?.settings, deviceSettings);
   const resetHour = cv.dayResetHour;
   const day = dayLeft(resetHour);
   const immediateAlert = cv.focusAwayImmediate;
   const showCheckpoints = cv.showCheckpoints;
+
+  // Pomodoro timer mode (Plan 040 roadmap "gusto" pick) — a VIEW over the
+  // same elapsedMsOf the ring already derives its progress from; underlying
+  // focus timing/events (and the FocusTimeline's own goal-duration progress
+  // below) are untouched. See lib/pomodoro.ts.
+  const sc = profile?.settings?.sidecar || {};
+  const timerMode: 'simple' | 'pomodoro' = sc.timerMode === 'pomodoro' ? 'pomodoro' : 'simple';
+  const pomoConfig = { ...DEFAULT_POMODORO_CONFIG, ...(sc.pomodoro || {}) };
 
   // Checkpoint counter + last-note preview for the current focus (read-only,
   // ambient — Settings can turn it off). Reuses the existing
@@ -161,6 +180,16 @@ export default function ContextView({
   const frac = dur > 0 ? Math.max(0, Math.min(1, cfElapsed / dur)) : 0;
   const accent = over ? colors.red : shift?.state === 'on_break' ? colors.amber : colors.accent;
 
+  // Pomodoro state, computed but NOT substituted into remaining/over/
+  // overtimeMs/frac/accent above — those still drive the FocusTimeline's
+  // goal-duration progress unchanged. The ring block below reads `pomo`
+  // directly to override its own display only.
+  const pomo =
+    cf && isSidecarSourced(cf) && timerMode === 'pomodoro'
+      ? computePomodoroState(cfElapsed, pomoConfig)
+      : null;
+  const onBreak = !!pomo && pomo.phase !== 'focus';
+
   // shift elapsed
   let shiftText = '';
   if (shift?.since) {
@@ -170,8 +199,11 @@ export default function ContextView({
 
   const big = Math.min(width * 0.14, 220);
 
+  // SafeAreaView (Malkio, 2026-07-19): on a phone/PWA the status bar was
+  // clipping the top row's day countdown — every other screen already
+  // renders inside safe-area insets; this one predated the pattern.
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
     <View style={styles.root}>
       {/* context bar */}
       <View style={styles.bar}>
@@ -265,7 +297,29 @@ export default function ContextView({
               2026-07-18: "04:3(" cut off at 1h44m over). */}
           <View style={styles.ringZone} pointerEvents="none">
             {(() => {
-              const timerStr = remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed);
+              // Pomodoro override: swap in the current phase's remaining
+              // time + a phase-scoped progress fraction for the ring only.
+              // `remaining`/`frac`/`accent`/`over` above stay goal-duration
+              // based for the FocusTimeline below.
+              const displayRemaining = pomo ? pomo.phaseRemainingMs : remaining;
+              const ringFrac = pomo
+                ? (() => {
+                    const phaseDur = pomo.phaseElapsedMs + pomo.phaseRemainingMs;
+                    return phaseDur > 0 ? Math.max(0, Math.min(1, pomo.phaseElapsedMs / phaseDur)) : 0;
+                  })()
+                : frac;
+              const ringAccent = onBreak ? colors.amber : accent;
+              const modeLabel = pomo
+                ? pomo.phase === 'focus'
+                  ? 'FOCUS TIMER'
+                  : pomo.phase === 'longBreak'
+                    ? 'LONG BREAK'
+                    : 'BREAK'
+                : isSidecarSourced(cf)
+                  ? 'FOCUS TIMER'
+                  : 'IN FOCUS';
+
+              const timerStr = displayRemaining != null ? formatTimer(Math.abs(displayRemaining)) : formatElapsedMs(cfElapsed);
               // Fit-to-ring (Malkio, 2026-07-19): at 5+ characters ("04:30",
               // "104:30") the text must SHRINK to stay inside the ring — the
               // ring sits at the viewport's right edge, so any text wider than
@@ -277,12 +331,12 @@ export default function ContextView({
                   ? big
                   : Math.min(big, (ringSize * 0.9) / (0.58 * timerStr.length));
               return (
-                <ProgressRing size={ringSize} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
-                  <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
-                  <Text style={[styles.timerBig, { fontSize: timerFont, color: accent }]} numberOfLines={1}>
+                <ProgressRing size={ringSize} thickness={Math.max(6, big * 0.045)} progress={ringFrac} color={ringAccent} bgColor={colors.bgBase}>
+                  <Text style={[styles.timerMode, onBreak && { color: colors.amber }]}>{modeLabel}</Text>
+                  <Text style={[styles.timerBig, { fontSize: timerFont, color: ringAccent }]} numberOfLines={1}>
                     {timerStr}
                   </Text>
-                  <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
+                  <Text style={styles.timerCap}>{displayRemaining != null ? (pomo ? 'remaining' : over ? 'over' : 'remaining') : 'elapsed'}</Text>
                 </ProgressRing>
               );
             })()}
@@ -340,7 +394,7 @@ export default function ContextView({
       <Text style={styles.alertBig}>Put the phone down</Text>
       <Text style={styles.alertSub}>You stepped away from focus — back to it.</Text>
     </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 }
 

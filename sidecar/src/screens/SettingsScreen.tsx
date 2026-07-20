@@ -22,8 +22,17 @@ import {
 } from '../lib/feedback';
 import { connectAsana, syncAsanaNow, useAsanaIntegration } from '../data/integrations';
 import PairWatchCard from '../components/PairWatchCard';
+import InvitesCard from '../components/InvitesCard';
+import DevicesCard from '../components/DevicesCard';
+import { DEFAULT_POMODORO_CONFIG, type PomodoroConfig } from '../lib/pomodoro';
 
 const REALMS = ['professional', 'work', 'business', 'personal'];
+
+// Timer mode (Plan 040 roadmap "gusto" pick) — settings.sidecar.timerMode.
+const TIMER_MODE_OPTIONS: { value: 'simple' | 'pomodoro'; label: string }[] = [
+  { value: 'simple', label: 'Simple' },
+  { value: 'pomodoro', label: 'Pomodoro' },
+];
 
 const QUIET_HOUR_PRESETS: Array<{ label: string; start: number | null; end: number | null }> = [
   { label: 'Off', start: null, end: null },
@@ -76,6 +85,19 @@ export default function SettingsScreen() {
   const [dayReset, setDayReset] = useState(String(sc.dayResetHour ?? 0));
   const [awayImmediate, setAwayImmediate] = useState(!!sc.focusAwayImmediate);
   const [showCheckpoints, setShowCheckpoints] = useState(sc.showCheckpoints !== false); // default ON
+
+  // Timer mode (Plan 040 roadmap "gusto" pick) — settings.sidecar.timerMode
+  // + settings.sidecar.pomodoro. Read-modify-write the full pomodoro object
+  // on save (same shallow-merge rule as workDays/nudges below).
+  const [timerMode, setTimerMode] = useState<'simple' | 'pomodoro'>(
+    sc.timerMode === 'pomodoro' ? 'pomodoro' : 'simple'
+  );
+  const pomoSaved: PomodoroConfig = { ...DEFAULT_POMODORO_CONFIG, ...(sc.pomodoro || {}) };
+  const [pomoFocusMin, setPomoFocusMin] = useState(String(pomoSaved.focusMin));
+  const [pomoBreakMin, setPomoBreakMin] = useState(String(pomoSaved.breakMin));
+  const [pomoLongBreakMin, setPomoLongBreakMin] = useState(String(pomoSaved.longBreakMin));
+  const [pomoCycles, setPomoCycles] = useState(String(pomoSaved.cyclesToLongBreak));
+  const [pomoMsg, setPomoMsg] = useState<string | null>(null);
   const [pushOn, setPushOn] = useState(pushPermission() === 'granted' && !!sc.pushEnabled);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [chaperoneOn, setChaperoneOn] = useState(!!cp.enabled);
@@ -216,6 +238,28 @@ export default function SettingsScreen() {
     setVoiceStaleMin(String(n));
     await saveSidecarSettings({ voiceCheckin: { enabled: voiceOn, staleMinutes: n } });
     setVoiceMsg('Voice check-in settings saved.');
+  };
+
+  // Positive-int-or-fallback, mirrors pomodoro.ts's own clamp guards so a
+  // bad/empty field never round-trips a zero/negative value into settings.
+  const posOrFallback = (raw: string, fallback: number) => {
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+
+  const saveTimerMode = async () => {
+    const cfg: PomodoroConfig = {
+      focusMin: posOrFallback(pomoFocusMin, DEFAULT_POMODORO_CONFIG.focusMin),
+      breakMin: posOrFallback(pomoBreakMin, DEFAULT_POMODORO_CONFIG.breakMin),
+      longBreakMin: posOrFallback(pomoLongBreakMin, DEFAULT_POMODORO_CONFIG.longBreakMin),
+      cyclesToLongBreak: posOrFallback(pomoCycles, DEFAULT_POMODORO_CONFIG.cyclesToLongBreak),
+    };
+    setPomoFocusMin(String(cfg.focusMin));
+    setPomoBreakMin(String(cfg.breakMin));
+    setPomoLongBreakMin(String(cfg.longBreakMin));
+    setPomoCycles(String(cfg.cyclesToLongBreak));
+    await saveSidecarSettings({ timerMode, pomodoro: cfg });
+    setPomoMsg('Timer mode saved.');
   };
 
   const onConnectAsana = async () => {
@@ -385,6 +429,54 @@ export default function SettingsScreen() {
       </Card>
 
       <Card style={{ marginBottom: 14 }}>
+        <SectionLabel>Timer mode</SectionLabel>
+        <Text style={styles.rowSub}>
+          Pomodoro cycles the ring/countdown through focus and break phases instead of counting
+          down to the intent's own timer. Your focus tracking and checkpoints are unaffected either way.
+        </Text>
+        <View style={[styles.realmRow, { marginTop: 10 }]}>
+          {TIMER_MODE_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.value}
+              onPress={() => setTimerMode(opt.value)}
+              style={[
+                styles.realmPill,
+                timerMode === opt.value && { borderColor: colors.accent, backgroundColor: colors.accentDim },
+              ]}
+            >
+              <Text style={{ fontSize: 12, color: timerMode === opt.value ? colors.accent : colors.textMuted }}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {timerMode === 'pomodoro' && (
+          <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
+            <View>
+              <Text style={styles.rowTitle}>Focus (min)</Text>
+              <TextInput value={pomoFocusMin} onChangeText={setPomoFocusMin} keyboardType="number-pad" inputMode="numeric" style={styles.input} />
+            </View>
+            <View>
+              <Text style={styles.rowTitle}>Break (min)</Text>
+              <TextInput value={pomoBreakMin} onChangeText={setPomoBreakMin} keyboardType="number-pad" inputMode="numeric" style={styles.input} />
+            </View>
+            <View>
+              <Text style={styles.rowTitle}>Long break (min)</Text>
+              <TextInput value={pomoLongBreakMin} onChangeText={setPomoLongBreakMin} keyboardType="number-pad" inputMode="numeric" style={styles.input} />
+            </View>
+            <View>
+              <Text style={styles.rowTitle}>Cycles to long break</Text>
+              <TextInput value={pomoCycles} onChangeText={setPomoCycles} keyboardType="number-pad" inputMode="numeric" style={styles.input} />
+            </View>
+          </View>
+        )}
+        <View style={{ marginTop: 12 }}>
+          <Btn label="Save timer mode" onPress={saveTimerMode} filled />
+        </View>
+        {pomoMsg && <Text style={styles.msg}>{pomoMsg}</Text>}
+      </Card>
+
+      <Card style={{ marginBottom: 14 }}>
         <SectionLabel>Context View (big screen)</SectionLabel>
         <View style={styles.switchRow}>
           <View style={{ flex: 1 }}>
@@ -541,6 +633,10 @@ export default function SettingsScreen() {
       </Card>
 
       <PairWatchCard />
+
+      <DevicesCard />
+
+      <InvitesCard />
 
       <Card style={{ marginBottom: 14 }}>
         <SectionLabel>Task sync</SectionLabel>
