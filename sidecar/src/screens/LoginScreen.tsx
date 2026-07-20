@@ -86,6 +86,10 @@ export default function LoginScreen() {
           {err && <Text style={styles.err}>{err}</Text>}
         </View>
 
+        <Text style={styles.inviteHint}>
+          New here? Sign in with the email your invite was sent to, then enter your code.
+        </Text>
+
         <Text style={styles.footer}>Synced to your Tabatha account</Text>
       </View>
     </SafeAreaView>
@@ -131,5 +135,6 @@ const styles = StyleSheet.create({
   sentText: { color: colors.textPrimary, fontSize: 15, textAlign: 'center' },
   sentSub: { color: colors.accent, fontSize: 13 },
   err: { color: colors.red, fontSize: 13, textAlign: 'center' },
+  inviteHint: { color: colors.textMuted, fontSize: 12, marginTop: 22, textAlign: 'center' },
   footer: { color: colors.textMuted, fontSize: 12, marginTop: 40 },
 });

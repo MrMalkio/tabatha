@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getDeviceId, deviceLabel } from '../lib/device';
+import { redeemInviteToken } from '../lib/invites';
 
 export type Profile = {
   id: string;
@@ -25,10 +26,17 @@ type AuthState = {
   profile: Profile | null;
   browserProfileId: string | null;
   loading: boolean;
+  // Invite-signup gate: true once we know the authed user has no Tabatha
+  // profile row yet (see fetchProfile below — we no longer auto-provision
+  // one). False for every existing profiled account (back-compat: zero
+  // behavior change for them) and flips back to false once redeemInvite
+  // succeeds.
+  needsInvite: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  redeemInvite: (code: string) => Promise<{ ok: boolean; error?: string }>;
   saveSidecarSettings: (patch: Record<string, any>) => Promise<void>;
   saveChaperoneSettings: (patch: Record<string, any>) => Promise<void>;
 };
@@ -96,10 +104,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [browserProfileId, setBrowserProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsInvite, setNeedsInvite] = useState(false);
   const registered = useRef(false);
 
+  // Invite-signup gate. Previously this auto-created a bare profiles row
+  // for ANY authenticated user, which meant sign-in alone was enough to
+  // reach the full app with no invite required. Now: read-only. If no row
+  // exists, surface `needsInvite: true` instead of provisioning one —
+  // existing accounts (row already present) see zero behavior change.
+  // Provisioning now only happens as a direct result of a successful
+  // invite-code redemption (see redeemInvite below), not on every sign-in.
   const fetchProfile = useCallback(async (authUserId: string) => {
-    // Read or auto-provision the Tabatha profile (mirrors the extension).
     const { data: existing, error } = await supabase
       .from('profiles')
       .select('id, auth_user_id, display_name, default_realm, settings')
@@ -110,26 +125,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn('profile read failed', error.message);
     }
 
-    let prof = existing as Profile | null;
+    const prof = existing as Profile | null;
     if (!prof) {
-      const { data: userData } = await supabase.auth.getUser();
-      const u = userData?.user;
-      const displayName =
-        u?.user_metadata?.full_name ||
-        u?.user_metadata?.name ||
-        u?.email?.split('@')[0] ||
-        'Tabatha User';
-      const { data: created, error: insErr } = await supabase
-        .from('profiles')
-        .insert({ auth_user_id: authUserId, display_name: displayName })
-        .select('id, auth_user_id, display_name, default_realm, settings')
-        .single();
-      if (insErr) {
-        console.warn('profile create failed', insErr.message);
-        return null;
-      }
-      prof = created as Profile;
+      setNeedsInvite(true);
+      return null;
     }
+    setNeedsInvite(false);
     setProfile(prof);
     writeCachedProfile(authUserId, prof);
     return prof;
@@ -242,15 +243,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setProfile(null);
     setBrowserProfileId(null);
+    setNeedsInvite(false);
     registered.current = false;
     AsyncStorage.removeItem(CACHED_PROFILE_KEY).catch(() => {
       /* best effort */
     });
   }, []);
 
+  // Also registers the device the first time this resolves a profile — the
+  // initial mount effect only calls registerDevice when fetchProfile found
+  // a row *then*; a needsInvite user's first successful profile only shows
+  // up via redeemInvite's own refreshProfile() call below, so this has to
+  // pick up that case too. registerDevice no-ops after its first call
+  // (registered.current guard), so this is a no-op for already-registered
+  // existing accounts calling refreshProfile for any other reason.
   const refreshProfile = useCallback(async () => {
-    if (session?.user?.id) await fetchProfile(session.user.id);
-  }, [session, fetchProfile]);
+    if (session?.user?.id) {
+      const prof = await fetchProfile(session.user.id);
+      if (prof) registerDevice(prof);
+    }
+  }, [session, fetchProfile, registerDevice]);
+
+  // Invite-signup gate redeem flow.
+  //
+  // tabatha.redeem_invite_token (migrations 003 + 018) looks up the caller's
+  // profile by auth_user_id and REQUIRES that row to already exist — it
+  // attaches org/team membership + stamps profile defaults onto an existing
+  // profile, it does not create one. Since fetchProfile above no longer
+  // auto-provisions a profile on sign-in (that's the entire point of the
+  // gate), redemption has to create a minimal shell profile first so the
+  // RPC has something to find.
+  //
+  // That shell creation is gated behind this explicit, user-initiated
+  // Redeem action — never behind mere sign-in — so an un-invited user can't
+  // get a usable profile row (the gate's own signal) just by loading the
+  // screen. If the code turns out to be invalid/used/expired, the shell is
+  // rolled back (deleted) so needsInvite flips back to true rather than
+  // silently letting a failed attempt still open the gate.
+  const redeemInvite = useCallback(
+    async (rawCode: string): Promise<{ ok: boolean; error?: string }> => {
+      const uid = session?.user?.id;
+      if (!uid) return { ok: false, error: 'Not signed in.' };
+      const code = rawCode.trim();
+      if (!code) return { ok: false, error: 'Enter your invite code.' };
+
+      let prof = profile;
+      let createdShell = false;
+      if (!prof) {
+        const { data: userData } = await supabase.auth.getUser();
+        const u = userData?.user;
+        const displayName =
+          u?.user_metadata?.full_name ||
+          u?.user_metadata?.name ||
+          u?.email?.split('@')[0] ||
+          'Tabatha User';
+        const { data: created, error: insErr } = await supabase
+          .from('profiles')
+          .insert({ auth_user_id: uid, display_name: displayName })
+          .select('id, auth_user_id, display_name, default_realm, settings')
+          .single();
+        if (insErr || !created) {
+          return { ok: false, error: insErr?.message || 'Could not start redemption.' };
+        }
+        prof = created as Profile;
+        createdShell = true;
+      }
+
+      const result = await redeemInviteToken(code);
+      if (!result.success) {
+        if (createdShell) {
+          // Compensating delete — "Users see own profile" RLS is FOR ALL,
+          // so the just-created row's own author can remove it. Best
+          // effort: if this fails too, a rare orphaned org-less shell
+          // profile can remain (flagged in the delivery report).
+          try {
+            await supabase.from('profiles').delete().eq('id', prof.id);
+          } catch {
+            /* best effort rollback */
+          }
+        }
+        return { ok: false, error: result.error || 'That code isn’t valid or was already used.' };
+      }
+
+      const fresh = await fetchProfile(uid);
+      if (fresh) registerDevice(fresh);
+      return { ok: true };
+    },
+    [session, profile, fetchProfile, registerDevice]
+  );
 
   // Epic 9 — both settings writers go through the server-side
   // `update_profile_settings` RPC (migration 038) instead of a client-side
@@ -311,10 +391,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         browserProfileId,
         loading,
+        needsInvite,
         signInWithGoogle,
         signInWithMagicLink,
         signOut,
         refreshProfile,
+        redeemInvite,
         saveSidecarSettings,
         saveChaperoneSettings,
       }}

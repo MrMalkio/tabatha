@@ -22,6 +22,7 @@ import {
 } from '../lib/feedback';
 import { connectAsana, syncAsanaNow, useAsanaIntegration } from '../data/integrations';
 import PairWatchCard from '../components/PairWatchCard';
+import InvitesCard from '../components/InvitesCard';
 
 const REALMS = ['professional', 'work', 'business', 'personal'];
 
@@ -541,6 +542,8 @@ export default function SettingsScreen() {
       </Card>
 
       <PairWatchCard />
+
+      <InvitesCard />
 
       <Card style={{ marginBottom: 14 }}>
         <SectionLabel>Task sync</SectionLabel>

@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
+import InviteGateScreen from '../screens/InviteGateScreen';
 import FocusScreen from '../screens/FocusScreen';
 import TasksScreen from '../screens/TasksScreen';
 import ClockScreen from '../screens/ClockScreen';
@@ -39,7 +40,7 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
 ];
 
 export default function Index() {
-  const { session, loading, profile, saveSidecarSettings } = useAuth();
+  const { session, loading, profile, needsInvite, saveSidecarSettings } = useAuth();
   const [tab, setTab] = useState<TabKey>('focus');
   const { width, height } = useWindowDimensions();
   // Large landscape viewport (computer / tablet / TV) → view-only Context View.
@@ -101,6 +102,11 @@ export default function Index() {
   }
 
   if (!session) return <LoginScreen />;
+
+  // Invite-signup gate — no Tabatha profile row yet for this account. Wins
+  // over everything below (Context View, simple mode, main app): none of
+  // those should be reachable before a valid invite code is redeemed.
+  if (needsInvite) return <InviteGateScreen />;
 
   // Large-landscape auto-switch to Context View always wins over simple mode.
   if (showContext) return <ContextView onExit={() => setOverride('app')} embed={embed} />;
