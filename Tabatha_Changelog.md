@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.47] - Onboarding demo-walkthrough design spec - _2026-07-20_
+
+> Docs-only: approved design spec for the modular onboarding system (10 avatars, universal intro + branched journeys, tagged demo-data lifecycle, host-portable module registry, changelog-driven maintenance automation). No runtime changes.
+
 ## [v6.7.46] - Device-row flood fix: adopt-before-insert - _2026-07-20_
 
 > browser_profiles registration now adopts this install/machine's newest existing row before ever inserting a fresh one, so an amnesiac install identity converges instead of minting duplicate device rows every wake (650-row flood root-caused on the desktop install). Diagnostics added for adoption + identity minting.
