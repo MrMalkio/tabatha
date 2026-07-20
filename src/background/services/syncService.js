@@ -10,7 +10,7 @@
 import { getStorage, setStorage } from './storageService.js';
 import { getFocusEngine, setFocusEngine } from './focusService.js';
 import { PROGRESS_VALUES } from '../constants.js';
-import { getInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
+import { getInstallIdentity, patchInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
 import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
 import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
 import { getCompanionBrowserProfileId } from './companionInstallService.js';
@@ -168,8 +168,52 @@ async function ensureBrowserProfileRow(supabase, profileId) {
       return identity.supabaseId;
     }
 
-    // Fresh install: upsert on (profile_id, local_id) so concurrent sync
-    // cycles converge on one row instead of racing two INSERTs.
+    // ADOPT-BEFORE-INSERT (2026-07-20 device-flood fix): on Malkio's desktop
+    // this "fresh install" path ran on every ~15-min wake with a NEWLY minted
+    // localId each time — the persisted identity wasn't sticking on that
+    // install — so the (profile_id, local_id) upsert key never matched and
+    // 650 duplicate rows accumulated. Regardless of WHY an identity goes
+    // amnesiac (storage write failures, profile resets), the durable defense
+    // is to look for this install's newest existing row first and adopt it,
+    // so an amnesiac identity converges on one row instead of minting
+    // forever. Match on (profile_id, browser, machine_id) — machine_id is
+    // the companion-pairing id, stable per physical machine; when it's null
+    // we still adopt the newest null-machine chrome row for this profile
+    // rather than insert (the 6.7.22 workspace installs live there).
+    let adoptQuery = supabase
+      .schema('tabatha')
+      .from('browser_profiles')
+      .select('id, local_id')
+      .eq('profile_id', profileId)
+      .eq('browser', 'chrome')
+      .order('last_seen_at', { ascending: false })
+      .limit(1);
+    adoptQuery = machineId ? adoptQuery.eq('machine_id', machineId) : adoptQuery.is('machine_id', null);
+    const { data: adoptable } = await adoptQuery.maybeSingle();
+    if (adoptable?.id) {
+      await recordDiagnostic('browser_profile_adopted_existing', { id: adoptable.id });
+      const { error: adoptErr } = await supabase
+        .schema('tabatha')
+        .from('browser_profiles')
+        .update({ ...payload, local_id: adoptable.local_id || payload.local_id })
+        .eq('id', adoptable.id)
+        .eq('profile_id', profileId);
+      if (!adoptErr) {
+        await recordSupabaseId(adoptable.id);
+        if (adoptable.local_id) {
+          // Converge the local identity onto the adopted row's local_id too,
+          // so even if THIS write sticks the pairing stays consistent.
+          await patchInstallIdentity({ localId: adoptable.local_id });
+        }
+        return adoptable.id;
+      }
+      await recordDiagnostic('browser_profile_adopt_failed', adoptErr);
+      // fall through to insert as a last resort
+    }
+
+    // Genuinely fresh install (no adoptable row): upsert on
+    // (profile_id, local_id) so concurrent sync cycles converge on one row
+    // instead of racing two INSERTs.
     const { data, error } = await supabase
       .schema('tabatha')
       .from('browser_profiles')

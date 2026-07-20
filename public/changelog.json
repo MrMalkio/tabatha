@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.46",
+      "title": "Device-row flood fix: adopt-before-insert",
+      "date": "2026-07-20",
+      "intro": "> browser_profiles registration now adopts this install/machine's newest existing row before ever inserting a fresh one, so an amnesiac install identity converges instead of minting duplicate device rows every wake (650-row flood root-caused on the desktop install). Diagnostics added for adoption + identity minting.",
+      "sections": []
+    },
+    {
       "version": "6.7.45",
       "title": "Continuous cross-surface live ingest (focus + clock)",
       "date": "2026-07-20",

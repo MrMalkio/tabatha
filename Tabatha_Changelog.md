@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.46] - Device-row flood fix: adopt-before-insert - _2026-07-20_
+
+> browser_profiles registration now adopts this install/machine's newest existing row before ever inserting a fresh one, so an amnesiac install identity converges instead of minting duplicate device rows every wake (650-row flood root-caused on the desktop install). Diagnostics added for adoption + identity minting.
+
 ## [v6.7.45] - Continuous cross-surface live ingest (focus + clock) - _2026-07-20_
 
 > Fixes the top-reported round-trip bug: intents/switches made in the Sidecar (or another browser install) never reached a running extension — it only pushed to Cloud Sync and rehydrated once per install. The extension now pulls continuously and arbitrates account-wide "what's current" for both focus and clock.
