@@ -152,6 +152,16 @@ export const SETTINGS_SEARCH_INDEX = [
   { id: 'section-desktop', section: 'desktop', label: 'Desktop Activity', keywords: ['companion', 'desktop', 'activity', 'timeline', 'switches'] },
   { id: 'section-integrations', section: 'integrations', label: 'Integrations', keywords: ['asana', 'supabase', 'companion', 'external', 'services'] },
   { id: 'section-developer', section: 'developer', label: 'Developer', keywords: ['debug', 'logs', 'developer', 'diagnostics'] },
+  { id: 'section-contextview', section: 'contextview', label: 'Context View', keywords: ['context view', 'tv', 'big screen', 'ambient', 'display'] },
+  { id: 'contextview-signin', section: 'contextview', label: 'Context View — Cloud Sync sign-in', keywords: ['sign in', 'cloud sync', 'context view'] },
+  { id: 'contextview-panel', section: 'contextview', label: 'Context View customization', keywords: ['customize', 'context view', 'toggles'] },
+  { id: 'contextview-day-countdown', section: 'contextview', label: 'Day countdown', keywords: ['day', 'countdown', '1440', 'left today'] },
+  { id: 'contextview-up-next', section: 'contextview', label: 'Up next', keywords: ['up next', 'queue', 'pending'] },
+  { id: 'contextview-timeline', section: 'contextview', label: 'Bottom timeline', keywords: ['timeline', 'checkpoints', 'nodes'] },
+  { id: 'contextview-checkpoint-preview', section: 'contextview', label: 'Checkpoint counter and last note', keywords: ['checkpoint', 'counter', 'note', 'preview'] },
+  { id: 'contextview-fade-speed', section: 'contextview', label: 'Phone-away fade speed', keywords: ['phone away', 'red', 'fade', 'immediate', 'slow'] },
+  { id: 'contextview-day-reset-hour', section: 'contextview', label: 'Day reset hour', keywords: ['day reset', 'hour', 'midnight'] },
+  { id: 'desktop-pairing', section: 'desktop', label: 'Companion pairing', keywords: ['pair', 'pairing', 'token', 'companion', 'desktop'] },
   { id: 'section-about', section: 'about', label: 'About', keywords: ['version', 'changelog', 'about', 'flux'] },
 
   // ── Appearance ──

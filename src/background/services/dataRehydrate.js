@@ -66,7 +66,10 @@ function serverIntentToLocal(row) {
   };
 }
 
-function serverFocusToLocal(row) {
+// Exported for reuse by focusIngestService.js (feat/ext-live-ingest): the
+// continuous ingest loop maps brand-new server rows into local engine items
+// the exact same way the one-time rehydrate does.
+export function serverFocusToLocal(row) {
   const completedAt = row.completed_at || null;
   const tags = row.tags || {};
   const mapped = {

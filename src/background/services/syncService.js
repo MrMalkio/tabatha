@@ -10,10 +10,11 @@
 import { getStorage, setStorage } from './storageService.js';
 import { getFocusEngine, setFocusEngine } from './focusService.js';
 import { PROGRESS_VALUES } from '../constants.js';
-import { getInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
+import { getInstallIdentity, patchInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
 import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
 import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
 import { getCompanionBrowserProfileId } from './companionInstallService.js';
+import { runLiveIngestAfterPush } from './focusIngestService.js';
 
 let deps = {};
 let syncTimeout = null;
@@ -167,8 +168,52 @@ async function ensureBrowserProfileRow(supabase, profileId) {
       return identity.supabaseId;
     }
 
-    // Fresh install: upsert on (profile_id, local_id) so concurrent sync
-    // cycles converge on one row instead of racing two INSERTs.
+    // ADOPT-BEFORE-INSERT (2026-07-20 device-flood fix): on Malkio's desktop
+    // this "fresh install" path ran on every ~15-min wake with a NEWLY minted
+    // localId each time — the persisted identity wasn't sticking on that
+    // install — so the (profile_id, local_id) upsert key never matched and
+    // 650 duplicate rows accumulated. Regardless of WHY an identity goes
+    // amnesiac (storage write failures, profile resets), the durable defense
+    // is to look for this install's newest existing row first and adopt it,
+    // so an amnesiac identity converges on one row instead of minting
+    // forever. Match on (profile_id, browser, machine_id) — machine_id is
+    // the companion-pairing id, stable per physical machine; when it's null
+    // we still adopt the newest null-machine chrome row for this profile
+    // rather than insert (the 6.7.22 workspace installs live there).
+    let adoptQuery = supabase
+      .schema('tabatha')
+      .from('browser_profiles')
+      .select('id, local_id')
+      .eq('profile_id', profileId)
+      .eq('browser', 'chrome')
+      .order('last_seen_at', { ascending: false })
+      .limit(1);
+    adoptQuery = machineId ? adoptQuery.eq('machine_id', machineId) : adoptQuery.is('machine_id', null);
+    const { data: adoptable } = await adoptQuery.maybeSingle();
+    if (adoptable?.id) {
+      await recordDiagnostic('browser_profile_adopted_existing', { id: adoptable.id });
+      const { error: adoptErr } = await supabase
+        .schema('tabatha')
+        .from('browser_profiles')
+        .update({ ...payload, local_id: adoptable.local_id || payload.local_id })
+        .eq('id', adoptable.id)
+        .eq('profile_id', profileId);
+      if (!adoptErr) {
+        await recordSupabaseId(adoptable.id);
+        if (adoptable.local_id) {
+          // Converge the local identity onto the adopted row's local_id too,
+          // so even if THIS write sticks the pairing stays consistent.
+          await patchInstallIdentity({ localId: adoptable.local_id });
+        }
+        return adoptable.id;
+      }
+      await recordDiagnostic('browser_profile_adopt_failed', adoptErr);
+      // fall through to insert as a last resort
+    }
+
+    // Genuinely fresh install (no adoptable row): upsert on
+    // (profile_id, local_id) so concurrent sync cycles converge on one row
+    // instead of racing two INSERTs.
     const { data, error } = await supabase
       .schema('tabatha')
       .from('browser_profiles')
@@ -326,10 +371,24 @@ function buildFocusRows(engine, scope) {
     // tags._backburner). Mirror the extension's fields into tags on every
     // push so items created here render correctly as nested sub-intents /
     // a collapsed Backburner group on the Sidecar and Context View.
+    //
+    // feat/ext-live-ingest: also mirror tags._startedAt / tags._elapsedMs —
+    // the Sidecar's own "current active run began at" / "frozen elapsed"
+    // convention (sidecar/src/data/focus.ts) — so the cross-surface live
+    // ingest arbitration (extension AND Sidecar) can compare an
+    // extension-authored row against a Sidecar-authored one on equal terms.
+    // _startedAt while active = lastResumedAt (the current run's start,
+    // matching the Sidecar's back-dated semantics); while paused it stays
+    // frozen at whatever it already was (falls back to startedAt/createdAt
+    // the first time a paused item is ever pushed).
     tags: {
       ...(item.tags || {}),
       ...(item.parentFocusId ? { _parent: item.parentFocusId } : {}),
-      _backburner: !!item.backburnered
+      _backburner: !!item.backburnered,
+      _startedAt: item.focusState === 'active' && item.lastResumedAt
+        ? item.lastResumedAt
+        : (item.tags?._startedAt || item.startedAt || item.createdAt || null),
+      ...(item.focusState !== 'active' ? { _elapsedMs: item.elapsedMs || 0 } : {})
     },
     created_at: isoOrNow(item.createdAt || item.startedAt),
     completed_at: isoOrNull(item.completedAt || item.endedAt),
@@ -1025,6 +1084,16 @@ export async function syncToSupabase() {
       await recordDiagnostic('sync_completed_with_errors', 'One or more sync blocks failed. See the preceding diagnostic rows for details.');
     } else {
       await recordSuccess();
+    }
+
+    // feat/ext-live-ingest: pull right after every push cycle too, not just
+    // the 60s alarm — closes the round trip fast when the user is actively
+    // switching between the Sidecar and the extension. Best-effort: a pull
+    // failure here must never mark the push itself as failed.
+    try {
+      await runLiveIngestAfterPush({ supabase, profileId, browserProfileId });
+    } catch (err) {
+      await recordDiagnostic('live_ingest_after_push_failed', err);
     }
   } catch (err) {
     await recordDiagnostic('sync_threw', err);
