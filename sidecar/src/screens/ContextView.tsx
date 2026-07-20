@@ -57,12 +57,20 @@ function dayLeft(resetHour: number): { text: string; mins: number } {
 export default function ContextView({
   onExit,
   embed = null,
+  deviceSettings = null,
 }: {
   onExit: () => void;
   // Desk View companion embed (?embed=desk) — neutralizes Sidecar branding
   // to plain "TABATHA / CONTEXT VIEW" and hides the exit-to-app control,
   // since the companion's dedicated window has no app to exit to.
   embed?: 'desk' | null;
+  // Device management (migration 045) — THIS device's own `device_settings`
+  // override row, read once by app/index.tsx's honor-logic hook
+  // (useOwnDeviceStatus) and passed down rather than fetched again here.
+  // Highest precedence in resolveContextViewSettings; v1 has no editor UI
+  // for it yet (DevicesCard.tsx), so this is normally `{}` and changes
+  // nothing.
+  deviceSettings?: Record<string, any> | null;
 }) {
   const { profile, browserProfileId } = useAuth();
   const { currentFocus, queue } = useFocus(profile?.id ?? null, browserProfileId);
@@ -75,7 +83,8 @@ export default function ContextView({
   // doc §4). resolveContextViewSettings is the single source of truth for
   // every display toggle below; a profile with neither key renders
   // identically to pre-Epic-9 behavior (Sidecar-only users, design §2.2).
-  const cv = resolveContextViewSettings(profile?.settings);
+  // `deviceSettings` (migration 045) is layered on top, highest precedence.
+  const cv = resolveContextViewSettings(profile?.settings, deviceSettings);
   const resetHour = cv.dayResetHour;
   const day = dayLeft(resetHour);
   const immediateAlert = cv.focusAwayImmediate;

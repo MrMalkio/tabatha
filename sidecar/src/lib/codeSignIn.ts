@@ -25,6 +25,10 @@ export type RedeemSession = {
   access_token: string;
   refresh_token: string;
   expires_at?: number;
+  // Device management (migration 045) — the label the pairing device chose
+  // (PairWatchCard's free-text "Device name" input, or its chip default).
+  // Null when the code was minted before that field existed, or left blank.
+  device_label?: string | null;
 };
 
 /** Response-shape guard for the redeem POST body. pair-watch returns either

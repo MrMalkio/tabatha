@@ -84,6 +84,17 @@ test('isValidRedeemSession rejects empty-string tokens', () => {
   assert.equal(isValidRedeemSession({ access_token: 'a', refresh_token: '' }), false);
 });
 
+test('isValidRedeemSession still accepts a body carrying device_label (migration 045 addition, ignored by this guard)', () => {
+  assert.equal(
+    isValidRedeemSession({ access_token: 'a.b.c', refresh_token: 'r-token', device_label: 'Living-room TV' }),
+    true
+  );
+  assert.equal(
+    isValidRedeemSession({ access_token: 'a.b.c', refresh_token: 'r-token', device_label: null }),
+    true
+  );
+});
+
 test('isValidRedeemSession rejects non-string tokens and non-object bodies', () => {
   assert.equal(isValidRedeemSession({ access_token: 123, refresh_token: 'r' }), false);
   assert.equal(isValidRedeemSession(null), false);

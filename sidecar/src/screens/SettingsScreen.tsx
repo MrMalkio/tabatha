@@ -23,6 +23,7 @@ import {
 import { connectAsana, syncAsanaNow, useAsanaIntegration } from '../data/integrations';
 import PairWatchCard from '../components/PairWatchCard';
 import InvitesCard from '../components/InvitesCard';
+import DevicesCard from '../components/DevicesCard';
 import { DEFAULT_POMODORO_CONFIG, type PomodoroConfig } from '../lib/pomodoro';
 
 const REALMS = ['professional', 'work', 'business', 'personal'];
@@ -632,6 +633,8 @@ export default function SettingsScreen() {
       </Card>
 
       <PairWatchCard />
+
+      <DevicesCard />
 
       <InvitesCard />
 

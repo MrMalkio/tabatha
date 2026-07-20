@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 import { colors, radius } from '../lib/theme';
 import { isValidPairingCode, isValidRedeemSession, normalizePairingCode } from '../lib/codeSignIn';
+import { PAIRED_DEVICE_NAME_KEY } from '../lib/device';
 
 // "Sign in with a code" — TV-browser sign-in (CeeCee design: reuse the
 // deployed pair-watch device-pairing backend, zero new backend). A
@@ -59,6 +61,13 @@ export default function CodeSignIn() {
       const body = await res.json().catch(() => ({}) as unknown);
       if (!res.ok || !isValidRedeemSession(body)) {
         throw new Error('invalid code');
+      }
+      // Stash the pairing device's chosen name BEFORE setSession fires the
+      // onAuthStateChange listener that triggers AuthContext's
+      // registerDevice() — that upsert reads this key synchronously off
+      // AsyncStorage to name itself, then clears it (see registerDevice).
+      if (body.device_label) {
+        await AsyncStorage.setItem(PAIRED_DEVICE_NAME_KEY, body.device_label).catch(() => {});
       }
       const { error } = await supabase.auth.setSession({
         access_token: body.access_token,

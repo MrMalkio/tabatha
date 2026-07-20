@@ -10,8 +10,9 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { getDeviceId, deviceLabel } from '../lib/device';
+import { getDeviceId, deviceLabel, PAIRED_DEVICE_NAME_KEY } from '../lib/device';
 import { redeemInviteToken, type InviteKind } from '../lib/invites';
+import { sessionIdFromAccessToken } from '../lib/jwt';
 
 export type Profile = {
   id: string;
@@ -137,6 +138,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Register the phone as its own device row (best-effort, non-blocking).
+  //
+  // Device management (migration 045) additions on top of the original
+  // upsert:
+  //   (a) auth_session_id — decoded off the CURRENT session's access token
+  //       (the `session_id` GoTrue claim), so device-signout can revoke
+  //       this exact session later even if this device is offline.
+  //   (b) a name minted on ANOTHER device via PairWatchCard's free-text
+  //       input survives the redeem round-trip in AsyncStorage
+  //       (PAIRED_DEVICE_NAME_KEY, written by CodeSignIn.tsx just before
+  //       setSession fires this whole flow) — read it once, apply it as
+  //       both display_name and profile_name, then clear it so it can't
+  //       leak into a LATER re-register on this same device after a rename
+  //       from elsewhere.
+  //   (c) display_name is otherwise sticky: this runs on every sign-in
+  //       (once per app lifetime via the `registered` guard, but a fresh
+  //       reinstall/relaunch means "every sign-in" in practice), and a
+  //       plain upsert would silently re-blank a user's rename back to
+  //       nothing every time. Fetching the existing row's display_name
+  //       first and omitting the key entirely from the upsert payload when
+  //       there's nothing new to set means Postgres's ON CONFLICT DO
+  //       UPDATE never touches that column — supabase-js only emits
+  //       `SET col = excluded.col` for keys present in the payload object.
   const registerDevice = useCallback(async (prof: Profile) => {
     if (registered.current) return;
     registered.current = true;
@@ -149,18 +172,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // local_id is stable per surface so the user's mobile presence collapses
       // to one row (also satisfying the mobile-surface uniqueness in mig 013).
       const localId = `sidecar-${surface}`;
+
+      const { data: existing } = await supabase
+        .from('browser_profiles')
+        .select('display_name')
+        .eq('profile_id', prof.id)
+        .eq('local_id', localId)
+        .maybeSingle();
+
+      let pairedName: string | null = null;
+      try {
+        pairedName = await AsyncStorage.getItem(PAIRED_DEVICE_NAME_KEY);
+      } catch {
+        /* ignore — falls through to no override */
+      }
+
+      let profileName = deviceLabel();
+      const namePatch: { display_name?: string } = {};
+      if (pairedName) {
+        profileName = pairedName;
+        namePatch.display_name = pairedName;
+        AsyncStorage.removeItem(PAIRED_DEVICE_NAME_KEY).catch(() => {
+          /* best effort */
+        });
+      } else if (!existing?.display_name) {
+        // No prior custom name and nothing new to set — leave the column
+        // out of the payload so INSERT gets NULL (client-side fallback to
+        // profile_name/browser, see DevicesCard's surfaceLabel) and UPDATE
+        // leaves whatever's already there (also NULL in this branch) alone.
+      }
+      // else: existing.display_name is set and there's no new pairedName —
+      // namePatch stays empty, so the upsert below omits display_name
+      // entirely and the existing value survives untouched.
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionId = sessionIdFromAccessToken(sessionData.session?.access_token);
+
       const { data, error } = await supabase
         .from('browser_profiles')
         .upsert(
           {
             profile_id: prof.id,
             browser: surface,
-            profile_name: deviceLabel(),
+            profile_name: profileName,
             classification: 'professional',
             extension_installed: false,
             local_id: localId,
             machine_id: deviceId,
             last_seen_at: new Date().toISOString(),
+            ...(sessionId ? { auth_session_id: sessionId } : {}),
+            ...namePatch,
           },
           { onConflict: 'profile_id,local_id' }
         )

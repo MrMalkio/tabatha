@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 import { colors, radius } from '../lib/theme';
 
@@ -24,6 +24,14 @@ const DEVICE_OPTIONS: { key: DeviceKind; label: string; mintLabel: string }[] = 
 
 export default function PairWatchCard() {
   const [device, setDevice] = useState<DeviceKind>('watch');
+  // Device management (migration 045) — optional free-text name, so a paired
+  // device can register with something more useful than its generic
+  // chip default ("Living-room TV" instead of just "TV"). Passed straight
+  // through to mint as deviceLabel; redeem hands it back to the redeeming
+  // device (see pair-watch/index.ts) which stashes it for its first
+  // registerDevice() upsert (CodeSignIn.tsx → lib/device.ts's
+  // PAIRED_DEVICE_NAME_KEY).
+  const [customName, setCustomName] = useState('');
   const [code, setCode] = useState<string | null>(null);
   const [left, setLeft] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -43,7 +51,8 @@ export default function PairWatchCard() {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (!token) throw new Error('Not signed in');
-      const deviceLabel = DEVICE_OPTIONS.find((d) => d.key === device)?.mintLabel || 'Other device';
+      const chipDefault = DEVICE_OPTIONS.find((d) => d.key === device)?.mintLabel || 'Other device';
+      const deviceLabel = customName.trim() || chipDefault;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/pair-watch`, {
         method: 'POST',
         headers: {
@@ -83,22 +92,34 @@ export default function PairWatchCard() {
         Codes last 5 minutes and work once.
       </Text>
       {!code && (
-        <View style={styles.deviceRow}>
-          {DEVICE_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt.key}
-              onPress={() => setDevice(opt.key)}
-              disabled={busy}
-              style={[styles.deviceChip, device === opt.key && styles.deviceChipActive]}
-            >
-              <Text
-                style={[styles.deviceChipText, device === opt.key && styles.deviceChipTextActive]}
+        <>
+          <View style={styles.deviceRow}>
+            {DEVICE_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt.key}
+                onPress={() => setDevice(opt.key)}
+                disabled={busy}
+                style={[styles.deviceChip, device === opt.key && styles.deviceChipActive]}
               >
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+                <Text
+                  style={[styles.deviceChipText, device === opt.key && styles.deviceChipTextActive]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <TextInput
+            value={customName}
+            onChangeText={setCustomName}
+            editable={!busy}
+            placeholder={
+              DEVICE_OPTIONS.find((d) => d.key === device)?.mintLabel || 'Device name'
+            }
+            placeholderTextColor={colors.textMuted}
+            style={styles.nameInput}
+          />
+        </>
       )}
       {code ? (
         <View style={styles.codeWrap}>
@@ -142,6 +163,17 @@ const styles = StyleSheet.create({
   },
   deviceChipText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   deviceChipTextActive: { color: colors.accent },
+  nameInput: {
+    marginTop: 10,
+    backgroundColor: colors.bgBase,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: colors.textPrimary,
+    fontSize: 13,
+  },
   codeWrap: { alignItems: 'center', paddingVertical: 10 },
   code: { fontSize: 34, fontWeight: '800', color: colors.accent, letterSpacing: 6 },
   count: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
