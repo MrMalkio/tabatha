@@ -5,6 +5,21 @@ file.
 
 ---
 
+## [v6.7.38] - Feature intake: tab grouping, agent browsing, agent history specs - _2026-07-19_
+
+> Docs-only. No extension code changed.
+
+### Added
+
+- **Feature spec #217 — Intent Tab Grouping Suite** (`docs/features/217-intent-tab-grouping-suite.md`): per-intent tab counts (related/open/closed) on home + sidebar, "group this intent's tabs" action, multiple tab groups per intent across windows (multi-monitor use case), multi-select tabs → toolbar icon contextual group/split menu, consolidate-into-N-windows gather action, and foreign-group adoption. Phased 1–3; Phase 3's cross-window live reparenting question is explicitly left open.
+- **Feature spec #218 — Agent Browsing Detection** (`docs/features/218-agent-browsing-detection.md`): classify agent-created tab groups via the C11a agent-session service plus honest heuristics, suppress InPop or show an InPop-Agent variant (no Sugar Box / Side Quest for agents), manual per-group override.
+- **Feature spec #219 — Agent vs Human History** (`docs/features/219-agent-vs-human-history.md`): actor attribution (`human` | `agent:{sessionId}`) on every history-bearing record, LogsPanel filter chips, agent time excluded from analytics by default, per-session agent audit view.
+
+### Changed
+
+- **#211 Audio Input & Voice Control**: InBar mic button promoted to a first-class requirement (speak notes, checkpoints, intent changes); `log_checkpoint` / `append_note` / `change_intent` added to the voice action-routing schema; C9 voice v0 groundwork referenced.
+- **features.md matrix**: registered #215–#219 under a new "Input, Sessions, Grouping & Agent Browsing (Backlog 2026-07-16)" section (215/216 had specs but were never registered).
+
 ## [v6.7.37] - Marketing site: Desktop Companion 0.3.1 download live - _2026-07-19_
 
 > Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
