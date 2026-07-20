@@ -368,3 +368,110 @@ inside a single week; no scope-split needed beyond the unit table above.
    numeric-limit column worth the extra migration complexity now instead of in v2?
 6. **Repo naming.** "Argus" as the codename, `flux-argus` as the repo — confirm both, or
    propose a preferred name before Unit E scaffolds anything.
+
+---
+
+## Koda vet (2026-07-20)
+
+Checked against: `SS-App/Zeus-Control` source (`src/lib/auth/zeus-admin.ts`,
+`src/lib/auth/admin-access.ts`, `src/lib/zeus/nav.ts` — all verified real, not
+fabricated-by-reference), `01-zeus-architecture.md` / `03-implementation-scope.md`,
+`supabase/migrations/001-045` (`ls` run directly), migration 044's `create_invite_token`, and
+this repo's RLS conventions (migrations 015/019/034).
+
+### Verdict per unit (§7 lettering)
+
+| Unit | Verdict | Note |
+|---|---|---|
+| **A — Schema (046-049)** | **PROCEED** | Migration numbering verified correct: `045_device_management.sql` is the current highest on disk, 046-049 is genuinely free. CHECK `(profile_id IS NOT NULL) <> (org_id IS NOT NULL)` is valid Postgres (boolean `<>` is XOR) and correctly enforces exactly-one-of. Audit-log grant shape (`REVOKE ALL ... GRANT SELECT, INSERT TO service_role`) faithfully mirrors migration 019's service-role-only convention. |
+| **B — Resolver (`get_effective_permissions`)** | **REVISE** | Two concrete gaps, see Finding 1 below — both need a stated answer before Unit B is built, not a DB-level fix. |
+| **C — Sidecar client** | **REVISE (minor)** | Caching/invalidation strategy underspecified — see Finding 2. |
+| **D — Extension client** | **REVISE (minor)** | Same gap as C — "fetches once at background init" has no re-fetch/broadcast-on-change path. |
+| **E — Console scaffold** | **PROCEED** | `zeus-admin.ts`/`admin-access.ts`/`ZEUS_NAV_ITEMS` all verified real with the shape claimed. `argus_admin`/`super_admin` claim check is an accurate, reasonably-scoped adaptation of Zeus's actual `isSupabaseAdmin()` (which checks `zeus_admin`/`is_admin`/`admin`/role strings). |
+| **F — Console pages** | **PROCEED** | `/provisioning` correctly wraps `tabatha.create_invite_token` rather than reinventing it — verified migration 044's signature (`p_org_id, p_team_id, p_role, p_expires_in_hours, p_kind`) matches what a thin wrapper needs. |
+| **G — Plan content** | **PROCEED** | Contingent on A. |
+
+### Findings
+
+**1. (b) Resolver — two precision gaps in §2.5, both real against the actual schema.**
+
+- **Multi-org profiles are silently under-served.** `tabatha.org_members` (migration 001) is a
+  genuine many-to-many table — a profile can belong to more than one org (e.g. accepting a
+  second team invite over time). §2.5 rule 2 resolves the org-level row via `org_id = profile's
+  default_org_id` — **only** the default org. The RPC signature in §3
+  (`get_effective_permissions(p_feature_keys TEXT[])`) takes no org parameter and resolves "for
+  `auth.uid()`'s own profile only." Net effect: an org-level override on any org a profile
+  belongs to *other than* their default is invisible to that profile, permanently, with no
+  error and no way for the profile to know. This isn't a hypothetical — team invites (migration
+  012/044) are exactly the mechanism that puts a profile in more than one org. Needs an explicit
+  answer: is "acting org = default_org_id" a deliberate v1 simplification (state it), or should
+  the resolver check all orgs the profile belongs to (and if so, with what precedence when two
+  orgs disagree)?
+- **The read path is not inheritance-aware, and that has a concrete drift scenario.** §2.2
+  states the downward-inheritance rule ("user-level row must never grant more than the org-level
+  row") is enforced only at the console's write path, "flagged for Koda: worth a DB-level check
+  in v2, not before" — that's a reasonable v1 cut on its own. But §2.5's resolver doesn't even
+  read the org-level row when a user-level row exists (rule 1 returns outright on match, rule 2
+  never runs) — so it can't detect drift even to log it. Concrete failure: an admin grants a
+  user-level `admin_override` while the org is on a generous plan; the org's plan is later
+  downgraded (org-level row changes or a new lower `plan_template_features` row applies); the
+  stale user-level override keeps being returned as-is, forever, since nothing at read time ever
+  compares it against the *current* org ceiling. This is strictly less code than a DB trigger —
+  worth naming explicitly as an accepted v1 gap (with this scenario written down) rather than
+  leaving it implicit, since right now the doc's "worth a v2 DB check" framing reads as if
+  write-path validation alone prevents drift, and it doesn't cover permissions that were valid
+  when written and became excessive later.
+
+**2. (b) Caching/invalidation — underspecified for both clients, and this codebase already has
+the pattern to borrow.** §3's client contract says Sidecar caches "in a context provider, same
+shape as `useFocus`" and the extension "fetches once at background init, broadcasts... to
+popup/sidebar/InBar" — neither says what happens when an Argus admin changes a permission while
+the client already has a session open. Compare migration 045
+(`045_device_management.sql`), which added `browser_profiles` to `supabase_realtime` for
+exactly this class of problem — "a pause/rename/revoke from one device reaches every other
+device's Devices card AND its own honor-logic listener instantly instead of waiting on a poll
+interval." An Argus admin flipping `can_write` off for `asana_sync` mid-session is the same
+shape of problem (remote-actor changes something about *this* session) and the doc doesn't say
+whether it's addressed the same way, addressed differently, or explicitly deferred to "next
+cold load." Needs one sentence in §3 either way.
+
+**3. (c) CHECK constraint — verified correct.** No issue.
+
+**4. (e) Audit RLS — verified correct, with one citation error to fix.** §2.6's shape
+(`REVOKE ALL FROM PUBLIC, authenticated, anon; GRANT SELECT, INSERT TO service_role`) is a
+faithful match for migration 019's service-role-only pattern (views there, a table here — same
+zero-client-exposure guarantee). However, the citation "Zeus's own resolved decision, §9
+open-questions row 3 — copied verbatim" is wrong on two counts: `01-zeus-architecture.md` §9 is
+titled "Open Architecture Questions" and its row 3 is about **Helm webhook coverage**, not
+audit logging — and everything in that section is an unchecked `- [ ]` (i.e. explicitly
+*unresolved*), not a resolved decision. The actual resolution — "Audit log requirement — log
+every permission write for support? ✅ Resolved. Yes, always. Every permission write is
+logged." — lives in `03-implementation-scope.md`'s decision table, row 3. The underlying claim
+(Zeus really did resolve to "always audit") is true and correctly carried over; just fix the
+citation to point at the right file.
+
+**5. (d) Downward-inheritance, write-path-only for v1 — acceptable, and the doc is honest about
+it.** §2.2 correctly represents Zeus's own architecture doc as leaving this an *open* question
+too (verified: `01-zeus-architecture.md` §9 row 1, "Can a venue admin grant a user less than the
+venue-level permission? Or only the same or more restricted?" — genuinely unresolved in the
+template). No issue here beyond Finding 1's read-path-awareness point above.
+
+**6. (f) CODENAME COLLISION — confirmed, and it's not a taste concern, it's a live collision.**
+"argus" is an active, currently-running fleet persona, not a retired or hypothetical name:
+`Ai Agent building/agent-prompts/OD-3-argus-tabatha.md` is an Antigravity agent brief for an
+agent literally named **argus working on Tabatha itself** on the OD machine; `fleet-collab/agents/argus/`
+has a live `agent.json`, `soul.md`, `inbox/`, `sent/`, `heartbeat.md` — an operating identity,
+not a doc reference; further hits at `Heimdall/.git/worktrees/argus`, `Heimdall-wt/argus`,
+`ss-avengers/agents/argus`, `SteadyStars/agent-access/argus.env`, and a dedicated
+`argus.slack-manifest.json`. Shipping a product called "Argus" into this same ecosystem would
+collide with an identity other agents already address by name in the mailbox/Asana/Slack
+surfaces used for exactly this kind of coordination.
+
+**Ruling (binding): rename the codename and repo.** Adopt CeeCee's proposal — **"Olympus" /
+`flux-olympus`** — before Unit E scaffolds anything. Same mythological register as Zeus (sits
+above the whole pantheon rather than being one god among many, which if anything fits "watches
+five surfaces across the whole Flux ecosystem" better than a single all-seeing watcher does),
+zero collision with any existing fleet identity checked above. §0, §4 (repo name, nav
+constants), and open question 6 should be updated to Olympus/`flux-olympus` before build tasks
+are assigned; every other reference to "Argus"/"argus_admin"/"flux-argus" in this doc renames
+along with it (e.g. `app_metadata.olympus_admin`).

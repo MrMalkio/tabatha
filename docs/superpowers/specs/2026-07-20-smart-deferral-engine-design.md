@@ -248,3 +248,83 @@ before merging) to avoid a late three-way conflict in one screen file.
 4. Declining is not permanent silence — it re-arms on the next new qualifying event, so a
    focus that keeps getting extended keeps getting asked, gently, per Backburner's own design
    philosophy: **"subtle, consistent, demanding, but not derailing."**
+
+---
+
+## Koda vet (2026-07-20)
+
+Checked against shipped reality: `focus_events.kind` CHECK through migration 041
+(`supabase/migrations/041_focus_events_backburner_kinds.sql` — confirmed set is `start | pause
+| resume | resolve | extend | snooze | backburner | unbackburner`, matches §0/§5 exactly),
+`sidecar/src/data/focus.ts` actions (`snoozeBackburner` L320, `sendToBackburner` L309,
+`dismissBackburner` L326, `resolve` L267, `createIntent` L164-169), `settings.sidecar.workDays`
+shape via `SettingsScreen.tsx` (`normalizeWorkDays`, `DaySchedule = { enabled, start, end }`)
+and `supabase/functions/send-schedule-nudges/index.ts` (`profileLocalClock` +
+`hhmmToMinutes`), and the sub-intent path (`tags._parent`, `FocusScreen.tsx`,
+`ContextView.tsx`).
+
+### Verdict per unit
+
+| Unit | Verdict | One-line revision |
+|---|---|---|
+| **Unit 1 — Suggestion engine (pure)** | **REVISE** | Add to §1: *"If both `computeRescheduleSuggestion` and `computeSplitSuggestion` return non-null for the same focus, the split suggestion wins and the reschedule suggestion is suppressed until it's accepted or declined."* |
+| **Unit 2 — Split accept flow / auto-close** | **REVISE** | In §2 step 5, replace "does the queue still contain any non-resolved item with this `tags._parent`" with: *"does the queue still contain any sibling with `focus_state !== 'completed' && funnel_stage !== 'resolved'`"* — i.e. the exact `notDone` predicate (`focus.ts:333`), not funnel_stage alone. |
+| **Unit 3 — Reschedule accept flow** | **PROCEED** | No changes. `workDays`/`normalizeWorkDays`/`profileLocalClock`+`hhmmToMinutes` citations all verified accurate against `SettingsScreen.tsx` and `send-schedule-nudges/index.ts`. |
+| **Unit 4 — Dismissal plumbing** | **PROCEED** | Tag-key approach is sound and matches the existing `_snoozeUntil`/`_backburner` pattern. Contingent on Unit 2's revision — `dismissSuggestion` and auto-close must agree on what "still active" means for a sibling sub-intent. |
+
+### Findings
+
+**1. Unit 1 — missing precedence rule (threshold overlap is real, not hypothetical).**
+The reschedule trigger (§1.1: ≥2 `snooze`/`backburner` events, focus "not active") and the
+split trigger (§1.2: ≥3 combined `snooze`+`backburner` events, focus "active or paused") are
+not mutually exclusive. `sendToBackburner` (`focus.ts:309`) sets `focus_state: 'paused'` — so a
+focus that has been backburnered 3 times is simultaneously: (a) "not active" with ≥2
+snooze/backburner events → reschedule qualifies, and (b) "paused" with ≥3 combined
+snooze/backburner events → split qualifies. §1's preamble asserts "at most one suggestion per
+focus at a time" but nothing in §1.1/§1.2/§6 Unit 1 says which of the two pure functions wins
+when both return non-null for the same focus. This has to be specified before Unit 1 is coded,
+not discovered by whichever of Unit 2/3 happens to read the stub first.
+
+**2. Unit 2 — the split-accept flow's auto-resolve semantics are imprecise on exactly the
+"dismissed, not resolved" case CeeCee flagged.** Verified there are two distinct ways a
+sub-intent leaves the active queue, and they set different fields:
+- `resolve(id)` (`focus.ts:267-275`) sets **both** `focus_state: 'completed'` **and**
+  `funnel_stage: 'resolved'`.
+- `dismissBackburner(id)` (`focus.ts:326-329`) — reachable for *any* queue row, sub-intents
+  included, via QueueRow's "🔥 Backburner" button (`FocusScreen.tsx:471`) followed by the ✕ in
+  the backburner section (`FocusScreen.tsx:273`) — sets **only** `focus_state: 'completed'`.
+  `funnel_stage` is left untouched (never becomes `'resolved'`).
+
+The shipped `notDone`/queue filter (`focus.ts:333`) correctly excludes both cases:
+`f.focus_state !== 'completed' && f.funnel_stage !== 'resolved'`. But §2 step 5's English
+description — "does the queue still contain any **non-resolved** item with this
+`tags._parent`" — reads as a funnel_stage-only check. An implementer who codes that literally
+will check `funnel_stage !== 'resolved'` alone, and a sub-intent the user *dismissed* (via
+backburner→✕, `focus_state: 'completed'`, `funnel_stage` still `'focus'` or whatever it was)
+will keep reading as "still open," permanently blocking the parent's auto-close. This is
+precisely the "dismissed rather than resolved" gap flagged for scrutiny — it's real, it has a
+concrete repro path through shipped UI, and it's a one-line fix (match `notDone`'s predicate
+verbatim, cite `focus.ts:333`).
+
+**3. §5 migration-number citation is already stale as of this same day.** §5 states "044 is
+the next open slot as of this doc (`supabase/migrations/` runs through
+`043_app_level_invites.sql`)." Verified via `ls supabase/migrations`: the current highest
+migration is `045_device_management.sql` (044 is `044_invite_kinds_remodel.sql`, landed after
+043). The correct next-open slot is **046**, matching Dex's independently-verified 046-049
+claim in the same-day Zeus/Argus doc. Not a blocking issue — §5 already instructs re-checking
+`ls` at build time — but flagging so nobody anchors on "044" from this doc in the meantime.
+
+**4. Minor citation drift (not blocking).** §3 cites `ContextView.tsx:149` for the view-only
+empty-state comment and §2 implies `FocusScreen.tsx:133` for the `_parent` filter (via the
+"already filtered... at `FocusScreen.tsx:133`" line). Current lines are `ContextView.tsx:167-173`
+and `FocusScreen.tsx:153`/`280-286` respectively — same logic, same intent, just shifted by
+unrelated edits since the doc was drafted. Re-verify line numbers at build time; the described
+behavior itself is accurate.
+
+**5. Threshold sanity (§1.1/§1.2), interaction contract (§7), and re-arm semantics
+(`_deferSuggestDismissedAt`, §1.3) are all otherwise sound.** The re-arm rule is
+computable as specified: `computeSplitSuggestion`/`computeRescheduleSuggestion` both receive
+the `focus` object (hence `focus.tags._splitSuggestDismissedAt`/`_deferSuggestDismissedAt`) and
+`events` (each carrying `at`), so "re-arm iff a qualifying event's `at` is newer than the
+dismissal timestamp" is fully expressible inside the pure function signatures already proposed
+— no structural gap there.
