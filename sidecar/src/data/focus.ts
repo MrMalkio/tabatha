@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { getDeviceId } from '../lib/device';
+import { insertFocusEvent } from './events';
 
 export type FocusItem = {
   id: string;
@@ -143,7 +144,10 @@ export function useFocus(
   const patch = useCallback(
     async (id: string, updates: Record<string, any>) => {
       setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...updates } : it)));
-      await supabase.from('focus_items').update(updates).eq('id', id);
+      // "Stuck Sidecar" incident follow-up: a silently-failing write let the
+      // optimistic flip get reverted by load() with zero signal. Surface it.
+      const { error } = await supabase.from('focus_items').update(updates).eq('id', id);
+      if (error) console.warn('focus_items update failed:', error.message, updates);
       load();
     },
     [load]
@@ -209,6 +213,7 @@ export function useFocus(
         browser_profile_id: browserProfileId,
         timestamp: nowIso,
       });
+      if (active) insertFocusEvent(profileId, clientId, 'start', { label: label.trim() });
       if (active && data?.id) await persistCurrent(data.id);
       load();
       return data?.id || null;
@@ -222,21 +227,29 @@ export function useFocus(
       const others = items.filter(
         (f) => f.focus_state === 'active' && isSidecarSourced(f) && f.id !== id
       );
-      for (const f of others)
+      for (const f of others) {
         await supabase
           .from('focus_items')
           .update({ focus_state: 'paused', tags: { ...(f.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f)) } })
           .eq('id', f.id);
+        insertFocusEvent(profileId, f.client_id, 'pause');
+      }
       await persistCurrent(id);
       const target = items.find((i) => i.id === id);
       const el = Number(target?.tags?._elapsedMs) || 0; // continue accumulated time
+      const wasBackburnered = !!target?.tags?._backburner;
       await patch(id, {
         focus_state: 'active',
         tags: { ...(target?.tags || {}), _startedAt: new Date(Date.now() - el).toISOString(), _backburner: false, _snoozeUntil: null },
       });
+      if (target?.client_id) {
+        insertFocusEvent(profileId, target.client_id, 'start');
+        if (wasBackburnered) insertFocusEvent(profileId, target.client_id, 'unbackburner', {});
+      }
     },
     pause: (id: string) => {
       const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'pause');
       return patch(id, {
         focus_state: 'paused',
         tags: { ...(f?.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f as FocusItem)) },
@@ -245,6 +258,7 @@ export function useFocus(
     resume: (id: string) => {
       const f = items.find((i) => i.id === id);
       const el = Number(f?.tags?._elapsedMs) || 0; // resume where it left off
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'resume');
       return patch(id, {
         focus_state: 'active',
         tags: { ...(f?.tags || {}), _startedAt: new Date(Date.now() - el).toISOString() },
@@ -252,6 +266,8 @@ export function useFocus(
     },
     resolve: async (id: string) => {
       if (currentId === id) await persistCurrent(null);
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'resolve');
       return patch(id, {
         focus_state: 'completed',
         funnel_stage: 'resolved',
@@ -260,7 +276,14 @@ export function useFocus(
     },
     extend: (id: string, mins: number) => {
       const cur = items.find((i) => i.id === id);
-      return patch(id, { timer_minutes: (cur?.timer_minutes || 15) + mins });
+      const from = cur?.timer_minutes || 15;
+      if (cur?.client_id)
+        insertFocusEvent(profileId, cur.client_id, 'extend', {
+          addedMinutes: mins,
+          fromMinutes: from,
+          toMinutes: from + mins,
+        });
+      return patch(id, { timer_minutes: from + mins });
     },
     setPriority: (id: string, p: number) => patch(id, { priority: p }),
     setStage: (id: string, stage: string) => patch(id, { funnel_stage: stage }),
@@ -285,11 +308,21 @@ export function useFocus(
     setCurrent: (id: string | null) => persistCurrent(id),
     sendToBackburner: (id: string) => {
       if (currentId === id) persistCurrent(null);
-      return patch(id, { focus_state: 'paused', tags: { ...(items.find((i) => i.id === id)?.tags || {}), _backburner: true } });
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'backburner', {});
+      return patch(id, { focus_state: 'paused', tags: { ...(f?.tags || {}), _backburner: true } });
     },
-    resumeBackburner: (id: string) => mergeTags(id, { _backburner: false, _snoozeUntil: null }),
-    snoozeBackburner: (id: string, mins: number) =>
-      mergeTags(id, { _backburner: true, _snoozeUntil: new Date(Date.now() + mins * 60000).toISOString() }),
+    resumeBackburner: (id: string) => {
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'unbackburner', {});
+      return mergeTags(id, { _backburner: false, _snoozeUntil: null });
+    },
+    snoozeBackburner: (id: string, mins: number) => {
+      const until = new Date(Date.now() + mins * 60000).toISOString();
+      const f = items.find((i) => i.id === id);
+      if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'snooze', { mins, until });
+      return mergeTags(id, { _backburner: true, _snoozeUntil: until });
+    },
     dismissBackburner: async (id: string) => {
       if (currentId === id) await persistCurrent(null);
       return patch(id, { focus_state: 'completed', tags: { ...(items.find((i) => i.id === id)?.tags || {}), _backburner: false } });
@@ -301,13 +334,36 @@ export function useFocus(
   const backburner = notDone.filter((f) => f.tags?._backburner);
   const nonBB = notDone.filter((f) => !f.tags?._backburner);
 
-  // Current focus: the locally-pinned one if still open, else most-recent active.
-  let currentFocus: FocusItem | null =
-    (currentId && nonBB.find((f) => f.id === currentId)) || null;
-  if (!currentFocus) {
-    currentFocus =
-      nonBB.filter((f) => f.focus_state === 'active').sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] || null;
-  }
+  // Current focus (B2/B2b — data-driven, not device-pin-dependent): an
+  // `active` focus always wins; else the most-recent `paused` (non-resolved)
+  // focus keeps showing — paused is not gone, so a Context View running on a
+  // different device shouldn't fall back to "no active focus" just because
+  // the pin lives in *this* device's AsyncStorage. Only truly empty (no
+  // active and no paused candidate — e.g. the last one was resolved) falls
+  // through to null, at which point the caller (ContextView) renders the
+  // pending queue as B2b's choose-from cards. `currentId` (the local pin) is
+  // a same-device tiebreaker only: within whichever tier is in play
+  // (active, then paused), the pinned item wins that tier if it qualifies —
+  // it never overrides the active-beats-paused precedence.
+  // Known limitation: within a tier, "most recent" is ordered by
+  // startedAtOf() (this reuses the same heuristic the pre-existing
+  // most-recent-active logic used) which reflects when a focus was last
+  // started/resumed, not when it was paused — there's no `_pausedAt`/
+  // `updated_at` on FocusItem to rank by actual pause time. With >1 paused
+  // candidate this can pick one that was started earlier but paused later
+  // over one started later but paused first. Acceptable for this pass (no
+  // schema change); revisit if multi-paused ordering becomes a real problem.
+  const activeCandidates = nonBB.filter((f) => f.focus_state === 'active');
+  const pausedCandidates = nonBB.filter((f) => f.focus_state === 'paused');
+  const pickTier = (tier: FocusItem[]): FocusItem | null =>
+    (currentId && tier.find((f) => f.id === currentId)) ||
+    tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] ||
+    null;
+  const currentFocus: FocusItem | null = activeCandidates.length
+    ? pickTier(activeCandidates)
+    : pausedCandidates.length
+      ? pickTier(pausedCandidates)
+      : null;
 
   const queue = nonBB
     .filter((f) => !currentFocus || f.id !== currentFocus.id)

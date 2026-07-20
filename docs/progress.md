@@ -1055,3 +1055,53 @@ turns red ("Put the phone down") with a slow fade-in (~7s), or immediate via a
 new Settings toggle `focusAwayImmediate`. Cross-device path verified 2/2 under
 RLS with a minted session; tsc clean; deployed v0.2.1. Mockup updated with a
 "📵 Phone away" preview.
+
+## 2026-07-18 — Persona ops: System Map + Feature Matrix + Plan 040 vet (CeeCee orchestrating)
+
+Operating model live: CeeCee (CC1) orchestrates; named players on real Asana tasks.
+- **Argus** → docs/system-map/SYSTEM-MAP.md (Asana 1216678592681467; posted own
+  comments via `asana-cli --as argus`). Top risks: dist/ landmine (6.8.2 unreviewed
+  Koda build on the Chrome load-unpacked path while user believes 6.7.22), two
+  divergent staging lines (local 6.7.8 vs origin 6.6.0; extension run never pushed),
+  prod stuck behind update channel (swap-step bug; fix on fix/updater-swap 6.7.24),
+  6.8.x version tangle, 11 prunable branches + 2 stale worktrees. 8-step GitHub
+  restoration plan PROPOSED (not executed). Daily update: scheduled cloud agent rec.
+- **Cirra** → docs/FEATURE-MATRIX.md (Asana 1216678675876448; comments relayed).
+  124 rows / 8 domains × 6 surfaces + update-in-same-commit protocol. Top gaps:
+  checkpoints don't round-trip, per-task time is widget-only, Sidecar tasks bare,
+  voice missing on Sidecar, team/org extension-only.
+- **Koda** → Plan 040 vet (Asana 1216678720421332; comment relayed). 8/13 proceed,
+  5 revise (B1 pause-ownership, E2/E4 Sidecar-only time label, E3 relation table +
+  conflict strategy, E8 dedup v2, E9 settings write-race). Delegation lanes decided
+  (addendum 5): sequential ContextView lane, parallel 1/5/7(+10), design gates 3/9,
+  design-first 8. Deeper collaboration: YES.
+
+## 2026-07-18 (cont.) — Wave 1 shipped: Sidecar v0.3.0 + repo restoration
+
+Fleet outcomes (all verified by CeeCee before ship):
+- Merged Rook (4f0b4fa), Cirra (13d79bc), Cindra (2c24803/68e66cf/4597744);
+  resolved SettingsScreen + ContextView conflicts; tsc clean; bumped 0.3.0;
+  deployed Worker 4d72371c. Edge fns: send-focus-push (focus_away pass, Cindra's
+  per-episode dedup) + feedback-to-asana (CORS widened to sidecar origin,
+  ASANA_PAT/ASANA_PROJECT_GID secrets set) both deployed; preflight verified.
+- Kael: PRs #27-#31 → origin/staging 6.7.27 (verified), dist 6.7.24 (verified),
+  main untouched (verified). Blocker queued: feat/companion-update-manifest +
+  feat/site-sidecar-promo are stacked on Koda's widget commits — needs Koda
+  carve-out or cherry-pick (follow-up task for Koda).
+- Aegis (Haiku) board monitor cycling every 30m; Argus/Hermes updater in flight.
+
+## 2026-07-18 (PM) — CeeCee: Plan 040 execution wave (Sidecar 0.4.2→0.7.0, ext 6.7.32→6.7.34, companion 0.3.1)
+- **Goal:** continuous Plan 040 execution with the persona fleet; Malkio directives folded in live (extension tracking, extension deploy, watch app, voice check-ins).
+- **Shipped Sidecar:** 0.4.2 (useRef hotfix), 0.4.3 (extend/snooze as focus_events + ⏳ CV timeline nodes, mig 039), 0.5.0 (Epic 9 RPC writers + CV prefs, Epic 8 nudges card), 0.6.0 (Epic 3 U5 Tasks view + Asana connect; CrashGuard; PWA stale-bundle auto-reload; surfaced write errors), 0.6.1 (CV title-col clip fix from Rook visual QA), 0.6.2 (build --clear guard), 0.7.0 (proactive voice check-ins v1, Addendum 7).
+- **Migrations applied:** 035 (task sync foundation), 036/037 (push_log + nudge cron), 038 (update_profile_settings RPC), 039 (extend/snooze kinds). Edge fns deployed: send-focus-push (batched), send-schedule-nudges, connect-asana, asana-webhook, sync-asana-tasks.
+- **Extension:** staging 6.7.31→6.7.34 (Epic 9 CV customization card 6.7.32; companion HELLO pairing client 6.7.33; changelog 6.7.34). Chrome dist at 6.7.34; both update channels published + hash-verified (Koda).
+- **Companion:** PR #1 (WS Stage-2 handshake auth, Cindra) security-reviewed line-by-line by CeeCee, merged → 0.3.1, 105/105 tests. Distribution hold lifts once 0.3.1 installers built.
+- **Incidents:** (1) "stuck Sidecar" — stale PWA running broken v0.4.1 bundle; fixed via CrashGuard + freshness auto-reload; (2) routeless skeleton deploy — shared Metro cache (node_modules/.cache via junctions) poisoned by concurrent dev-server; fixed via --clear in build script + mandatory local bundle preflight before deploy.
+- **In flight:** Soren (Opus) — Tabby Watch (Plan 041, Galaxy Watch 6 / Wear OS, own repo tabatha-watch); Argus — /show milestone update.
+- **Next:** integrate Soren's watch deliverable; extension-side voice/checkpoint sync epics; Epic 3 v1.1 (due_on mapping, workspace name); flip STAGE1_COMPAT_WINDOW=false in companion 0.3.2 after HELLO rollout.
+
+## 2026-07-19 (early AM) — CeeCee: feedback-batch closeout (Sidecar 0.8.1, ext 6.7.37, companion 0.3.2, watch 0.2.0, screensaver 2.1.0)
+- **Malkio feedback batch, all shipped:** CV overtime-timer clip fix (0.7.2); backburner in/out as focus_events + 🔥/▲ timeline nodes + checkpoint-stream interleave (mig 041, 0.8.0); cold-load lag fixed via hydrate-then-revalidate profile cache + parallelized fetches, 68% waterfall cut (0.8.1, Rook); `?view=context`/`?embed=desk` embed mode with neutral TABATHA branding (0.8.0); companion **Desk View** tray window at the embed URL + always-on-top (0.3.2, merged); Flux Refocus screensaver **Tabatha Context View mode** (2.1.0, merged — hardened webview, offline flip-clock fallback, one-time sign-in partition); /show full Sidecar page (12 cards) + Tabby Watch page (8 cards, sideload-beta framing) at 6.7.36; companion download panel → public-mirrored, hash-verified 0.3.1 installers at 6.7.37 (Argus caught the private-repo 404 trap).
+- **Watch:** pairing-gap incident — v0.1.x had redeemPairingCode with NO UI caller (Malkio caught on-device). v0.2.0 ships the Pair screen (first-item affordance, number pad, live-mode swap, 27/27 tests incl. routing pair + live endpoint 4xx test); CeeCee independently verified wiring in source. New permanent fleet rule recorded in memory: reachability proof (artifact grep + entry-point evidence) required before accepting any user-facing "done". Also v0.1.3 targetSdk 35 = Watch 6/7/8 forward-compat.
+- **Companion 0.3.1 released** (NSIS+MSI, hash-verified, updater artifacts disabled pending signing key) — distribution security hold LIFTED; public mirror release desktop-v0.3.1 on MrMalkio/tabatha.
+- **Pending Malkio:** sideload watch v0.2.0 + pair; optional 0.3.2 companion build for his machine; signing-key decision.

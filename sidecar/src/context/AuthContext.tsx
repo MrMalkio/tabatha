@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getDeviceId, deviceLabel } from '../lib/device';
@@ -29,9 +30,47 @@ type AuthState = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   saveSidecarSettings: (patch: Record<string, any>) => Promise<void>;
+  saveChaperoneSettings: (patch: Record<string, any>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
+
+// Cold-load perf (Epic 7 follow-on pass, Rook): the splash gate used to stay
+// up for a full network round trip to `profiles` before FocusScreen ever
+// mounted, which meant FocusScreen's own `focus_items` fetch didn't even
+// *start* until the profile fetch finished — two Supabase round trips fully
+// serialized. Measured against prod Supabase from a dev box: ~480ms serial
+// vs ~155ms when the two requests run concurrently. Since profile.id is
+// stable per user, a cached copy from the last successful fetch is safe to
+// paint with immediately (hydrate-then-revalidate) — this unblocks
+// FocusScreen's mount (and therefore its own fetch) without waiting on the
+// network, then the real fetch below still runs and reconciles display_name
+// /settings/default_realm once it lands. No data semantics change — this
+// only decides how soon the *same* data appears.
+const CACHED_PROFILE_KEY = 'tabby.sidecar.cachedProfile';
+
+async function readCachedProfile(authUserId: string): Promise<Profile | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHED_PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.authUserId === authUserId && parsed?.profile?.id) {
+      return parsed.profile as Profile;
+    }
+  } catch {
+    /* ignore — falls through to the network fetch as usual */
+  }
+  return null;
+}
+
+function writeCachedProfile(authUserId: string, prof: Profile): void {
+  AsyncStorage.setItem(
+    CACHED_PROFILE_KEY,
+    JSON.stringify({ authUserId, profile: prof })
+  ).catch(() => {
+    /* best effort */
+  });
+}
 
 function surfaceForDevice(): 'mobile_ios' | 'mobile_android' | 'tabatha_web' {
   const ua =
@@ -92,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       prof = created as Profile;
     }
     setProfile(prof);
+    writeCachedProfile(authUserId, prof);
     return prof;
   }, []);
 
@@ -142,8 +182,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data } = await supabase.auth.getSession();
         if (cancelled) return;
         setSession(data.session ?? null);
-        if (data.session?.user?.id) {
-          const prof = await fetchProfile(data.session.user.id);
+        const uid = data.session?.user?.id;
+        if (uid) {
+          // Cache-first paint (see CACHED_PROFILE_KEY note above): if we have
+          // a last-known profile for this same user, show it and drop the
+          // splash gate immediately so FocusScreen mounts and starts its own
+          // fetch right away, in parallel with the fetchProfile revalidation
+          // below instead of after it.
+          const cached = await readCachedProfile(uid);
+          if (cached && !cancelled) {
+            setProfile(cached);
+            setLoading(false);
+          }
+          const prof = await fetchProfile(uid);
+          if (cancelled) return;
           if (prof) registerDevice(prof);
         }
       } finally {
@@ -191,24 +243,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     setBrowserProfileId(null);
     registered.current = false;
+    AsyncStorage.removeItem(CACHED_PROFILE_KEY).catch(() => {
+      /* best effort */
+    });
   }, []);
 
   const refreshProfile = useCallback(async () => {
     if (session?.user?.id) await fetchProfile(session.user.id);
   }, [session, fetchProfile]);
 
+  // Epic 9 — both settings writers go through the server-side
+  // `update_profile_settings` RPC (migration 038) instead of a client-side
+  // read-modify-write of the whole `settings` column. That old pattern was a
+  // cross-surface race: the extension (Epic 9's own first settings writer)
+  // could fetch `profile.settings`, this tab could write a different
+  // top-level key in between, and this write would silently clobber it
+  // because `nextSettings` was computed from a stale snapshot. The RPC does
+  // an atomic, server-side `jsonb_set` merge per top-level key, so two
+  // concurrent writers touching different (or the same) keys never lose data
+  // to each other. Local state still gets an optimistic merge on success —
+  // same shape callers already rely on.
   const saveSidecarSettings = useCallback(
     async (patch: Record<string, any>) => {
       if (!profile) return;
-      const nextSettings = {
-        ...(profile.settings || {}),
-        sidecar: { ...(profile.settings?.sidecar || {}), ...patch },
-      };
-      const { error } = await supabase
-        .from('profiles')
-        .update({ settings: nextSettings })
-        .eq('id', profile.id);
-      if (!error) setProfile({ ...profile, settings: nextSettings });
+      const { data, error } = await supabase.rpc('update_profile_settings', {
+        p_profile_id: profile.id,
+        p_patch: { sidecar: patch },
+      });
+      // The Sidecar's `supabase` client is pre-scoped `db: { schema: 'tabatha' }`
+      // (sidecar/src/lib/supabase.ts:23) — no .schema('tabatha') needed here,
+      // unlike the extension's default client (see ContextViewPanel.jsx).
+      if (!error && data?.success) {
+        setProfile({ ...profile, settings: data.settings });
+      } else if (error) {
+        console.warn('saveSidecarSettings RPC failed', error.message);
+      } else if (data && !data.success) {
+        console.warn('saveSidecarSettings RPC rejected', data.error);
+      }
+    },
+    [profile]
+  );
+
+  // Distinct top-level `settings.chaperone` key (Plan 040 Epic 10 / #182) —
+  // kept separate from `settings.sidecar` so this write never clobbers it.
+  const saveChaperoneSettings = useCallback(
+    async (patch: Record<string, any>) => {
+      if (!profile) return;
+      const { data, error } = await supabase.rpc('update_profile_settings', {
+        p_profile_id: profile.id,
+        p_patch: { chaperone: patch },
+      });
+      if (!error && data?.success) {
+        setProfile({ ...profile, settings: data.settings });
+      } else if (error) {
+        console.warn('saveChaperoneSettings RPC failed', error.message);
+      } else if (data && !data.success) {
+        console.warn('saveChaperoneSettings RPC rejected', data.error);
+      }
     },
     [profile]
   );
@@ -225,6 +316,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         refreshProfile,
         saveSidecarSettings,
+        saveChaperoneSettings,
       }}
     >
       {children}

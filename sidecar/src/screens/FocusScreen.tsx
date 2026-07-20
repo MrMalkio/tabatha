@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -17,9 +17,12 @@ import {
   startedAtOf,
   type FocusItem,
 } from '../data/focus';
-import { useCheckpoints, PROGRESS_LEVELS } from '../data/checkpoints';
+import { useCheckpoints, PROGRESS_LEVELS, type Checkpoint } from '../data/checkpoints';
+import { useFocusEvents, type FocusEvent } from '../data/events';
+import { useVoiceCapture } from '../lib/speech';
 import PhoneFocusMode from '../components/PhoneFocusMode';
-import { Btn, Card, Chip, Empty, SectionLabel } from '../ui/kit';
+import VoiceCheckIn from '../components/VoiceCheckIn';
+import { Btn, Card, Chip, Empty, MicButton, SectionLabel } from '../ui/kit';
 import {
   colors,
   radius,
@@ -86,6 +89,22 @@ export default function FocusScreen() {
   const [realm, setRealm] = useState(defaultRealm);
   const [creating, setCreating] = useState(false);
 
+  // Voice capture (#165 / Epic 1) — speak a new intent. Base text is
+  // whatever was already typed when the mic was tapped; the live
+  // transcript is appended onto it and stays editable afterward.
+  const labelBaseRef = useRef('');
+  const labelVoice = useVoiceCapture((text) => {
+    setLabel(labelBaseRef.current ? `${labelBaseRef.current} ${text}` : text);
+  });
+  const onMicLabel = () => {
+    if (labelVoice.listening) {
+      labelVoice.stop();
+      return;
+    }
+    labelBaseRef.current = label.trim();
+    labelVoice.start();
+  };
+
   const [showEdit, setShowEdit] = useState(false);
   const [showCp, setShowCp] = useState(false);
   const [showSub, setShowSub] = useState(false);
@@ -119,7 +138,7 @@ export default function FocusScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />}
     >
-      <PhoneFocusMode />
+      <PhoneFocusMode currentFocus={cf} onPause={actions.pause} />
       {cf ? (
         <Card style={{ marginBottom: 12 }}>
           {/* NOW bar */}
@@ -163,6 +182,10 @@ export default function FocusScreen() {
             <StageRow current={cf.funnel_stage} onChange={(s) => actions.setStage(cf.id, s)} />
           </View>
 
+          {/* Voice check-in (Plan 040 Addendum 7) — manual 🎙 + proactive
+              "How's it going?" prompt; sits by the checkpoint composer. */}
+          <VoiceCheckIn focus={cf} actions={actions} />
+
           {showEdit && <EditPanel key={cf.id} focus={cf} onSave={(u) => { actions.updateFocus(cf.id, u); setShowEdit(false); }} />}
           {showCp && <CheckpointPanel profileId={profile?.id ?? null} focus={cf} />}
           {showSub && (
@@ -197,7 +220,10 @@ export default function FocusScreen() {
       {/* New intent */}
       <Card style={{ marginBottom: 12 }}>
         <SectionLabel>{cf ? '+ New intent' : '🎯 Set focus'}</SectionLabel>
-        <TextInput value={label} onChangeText={setLabel} placeholder="What are you focusing on?" placeholderTextColor={colors.textMuted} style={styles.input} onSubmitEditing={submit} />
+        <View style={styles.inputRow}>
+          <TextInput value={label} onChangeText={setLabel} placeholder="What are you focusing on?" placeholderTextColor={colors.textMuted} style={[styles.input, styles.inputFlex]} onSubmitEditing={submit} />
+          <MicButton listening={labelVoice.listening} supported={labelVoice.supported} onPress={onMicLabel} />
+        </View>
         <View style={styles.createRow}>
           <View style={styles.timerBox}>
             <TextInput value={timer} onChangeText={setTimer} keyboardType="number-pad" inputMode="numeric" style={styles.timerInput} />
@@ -232,7 +258,9 @@ export default function FocusScreen() {
       {/* Queue */}
       <SectionLabel>Queue ({queue.filter((q) => !q.tags?._parent).length})</SectionLabel>
       {queue.filter((q) => !q.tags?._parent).length === 0 ? (
-        <Empty text="Nothing queued." />
+        // Gate on loading so a cold load doesn't flash a false "Nothing
+        // queued." before the first focus_items fetch lands (Rook perf pass).
+        !loading && <Empty text="Nothing queued." />
       ) : (
         queue.filter((q) => !q.tags?._parent).map((item) => <QueueRow key={item.id} item={item} actions={actions} />)
       )}
@@ -300,14 +328,62 @@ function EditPanel({ focus, onSave }: { focus: FocusItem; onSave: (u: any) => vo
   );
 }
 
+// System (read-only) context entries interleaved into the checkpoint
+// "Timeline" — extend (migration 039) and backburner/unbackburner
+// (migration 041) events. Not deletable, not editable; purely presentational
+// (Malkio: "backburning should be on the timeline and added to the
+// checkpoint when an intent goes in or out of backburner").
+const SYSTEM_KINDS = new Set<FocusEvent['kind']>(['extend', 'backburner', 'unbackburner']);
+
+function systemEntryLabel(e: FocusEvent): { icon: string; text: string } {
+  if (e.kind === 'backburner') return { icon: '🔥', text: 'Sent to backburner' };
+  if (e.kind === 'unbackburner') return { icon: '▲', text: 'Back from backburner' };
+  const added = Number(e.meta?.addedMinutes) || 0;
+  const to = Number(e.meta?.toMinutes) || 0;
+  return { icon: '⏳', text: added ? `Extended +${added}m${to ? ` (→ ${to}m)` : ''}` : 'Extended' };
+}
+
+type StreamEntry =
+  | { kind: 'checkpoint'; t: number; note: Checkpoint }
+  | { kind: 'system'; t: number; event: FocusEvent };
+
 // ── Checkpoint panel ───────────────────────────────────────
 function CheckpointPanel({ profileId, focus }: { profileId: string | null; focus: FocusItem }) {
   const { notes, add, remove } = useCheckpoints(profileId, focus.client_id);
+  const { events } = useFocusEvents(profileId, focus.client_id);
   const [text, setText] = useState('');
+
+  // Voice capture (#165 / Epic 1) — speak a checkpoint/progress note.
+  const noteBaseRef = useRef('');
+  const noteVoice = useVoiceCapture((t) => {
+    setText(noteBaseRef.current ? `${noteBaseRef.current} ${t}` : t);
+  });
+  const onMicNote = () => {
+    if (noteVoice.listening) {
+      noteVoice.stop();
+      return;
+    }
+    noteBaseRef.current = text.trim();
+    noteVoice.start();
+  };
+
+  // Merge checkpoint notes (editable/deletable) with system context events
+  // (read-only) into one chronological "Timeline" — newest first, matching
+  // `notes`' existing order.
+  const stream: StreamEntry[] = [
+    ...notes.map((n) => ({ kind: 'checkpoint' as const, t: new Date(n.created_at).getTime(), note: n })),
+    ...events
+      .filter((e) => SYSTEM_KINDS.has(e.kind))
+      .map((e) => ({ kind: 'system' as const, t: new Date(e.at).getTime(), event: e })),
+  ].sort((a, b) => b.t - a.t);
+
   return (
     <View style={styles.panel}>
       <Text style={styles.fieldLabel}>📋 Checkpoint note</Text>
-      <TextInput value={text} onChangeText={setText} placeholder="What have you done since the last checkpoint?" placeholderTextColor={colors.textMuted} multiline style={[styles.input, { minHeight: 54, textAlignVertical: 'top' }]} />
+      <View style={[styles.inputRow, { alignItems: 'flex-start' }]}>
+        <TextInput value={text} onChangeText={setText} placeholder="What have you done since the last checkpoint?" placeholderTextColor={colors.textMuted} multiline style={[styles.input, styles.inputFlex, { minHeight: 54, textAlignVertical: 'top' }]} />
+        <MicButton listening={noteVoice.listening} supported={noteVoice.supported} onPress={onMicNote} />
+      </View>
       <Text style={[styles.fieldLabel, { marginTop: 6 }]}>Submit with progress:</Text>
       <View style={styles.wrapRow}>
         {PROGRESS_LEVELS.map((l) => (
@@ -316,10 +392,23 @@ function CheckpointPanel({ profileId, focus }: { profileId: string | null; focus
           </Pressable>
         ))}
       </View>
-      {notes.length > 0 && (
+      {stream.length > 0 && (
         <View style={{ marginTop: 10 }}>
           <Text style={styles.subHdr}>Timeline</Text>
-          {notes.map((n) => {
+          {stream.map((entry) => {
+            if (entry.kind === 'system') {
+              const { icon, text: sysText } = systemEntryLabel(entry.event);
+              return (
+                <View key={entry.event.id} style={[styles.cpRow, styles.cpRowSystem]}>
+                  <Text style={{ fontSize: 12 }}>{icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cpSystemText}>{sysText}</Text>
+                    <Text style={styles.cpTime}>{new Date(entry.t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
+                  </View>
+                </View>
+              );
+            }
+            const n = entry.note;
             const lv = PROGRESS_LEVELS.find((l) => l.key === n.progress_level);
             return (
               <View key={n.id} style={styles.cpRow}>
@@ -381,6 +470,8 @@ const styles = StyleSheet.create({
   noActive: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
   btnRow: { flexDirection: 'row', gap: 6, marginTop: 10, flexWrap: 'wrap' },
   input: { backgroundColor: colors.bgBase, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10, color: colors.textPrimary, fontSize: 15, marginBottom: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  inputFlex: { flex: 1, marginBottom: 0 },
   createRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' },
   timerBox: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   timerInput: { width: 48, backgroundColor: colors.bgBase, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingVertical: 8, color: colors.textPrimary, fontSize: 14, textAlign: 'center' },
@@ -403,6 +494,10 @@ const styles = StyleSheet.create({
   cpRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border },
   cpText: { fontSize: 13, color: colors.textPrimary },
   cpTime: { fontSize: 10, color: colors.textMuted, marginTop: 1 },
+  // System (read-only) timeline entries — muted/italic, distinct from
+  // user-authored checkpoint notes, no delete affordance.
+  cpRowSystem: { opacity: 0.72 },
+  cpSystemText: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic' },
   histRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border },
   histLabel: { fontSize: 13, color: colors.textPrimary },
 });

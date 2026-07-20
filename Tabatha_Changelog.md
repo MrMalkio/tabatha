@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.39] - Sidecar line reconciled into staging - _2026-07-19_
+
+> Merge commit: brings the entire Tabby Sidecar 0.x line (sidecar/ app v0.8.2, Supabase migrations 030-041 + 5 edge functions, Plan 040/041 specs and docs) into staging. No extension code changed.
+
 
 ## [v6.7.38] - Feature intake: tab grouping, agent browsing, agent history specs - _2026-07-19_
 
@@ -1323,3 +1327,57 @@ https://tabatha.pondocean.co/sidecar
   phone down". **Slow fade-in (~7s) by default**, or **immediate** via a new
   Settings toggle ("Immediate phone-away alert"). Clears when the phone returns.
 - Verified cross-device end-to-end under RLS (signal set → detected → cleared).
+
+---
+
+## [Tabby Sidecar v0.3.0] - Voice, chaperone v0, feedback, pause-on-leave - _2026-07-18_
+
+Built by the persona fleet under CeeCee (Plan 040 wave 1): Cindra (Lane A),
+Cirra (Epic 1+10), Rook (Epic 7); Koda vetted; Kael ran the repo restoration.
+
+### Added
+- **Voice capture (#165)** — mic on the new-intent input + checkpoint note
+  field (Web Speech, Android/desktop Chrome; graceful no-op on iOS).
+- **Chaperone v0 (#182)** — pre-recorded personality lines ("Don't you dare
+  touch that phone.") play on the Context View when the phone walks off in
+  Focus Mode; 'classic' pack, quiet hours, default off (settings.chaperone).
+- **Feedback & bug reporting (Epic 7)** — Settings card → feedback-to-asana
+  edge fn (now deployed, CORS widened to the sidecar origin) with an
+  AsyncStorage queue fallback; sidecar-only users can report.
+- **Context View: checkpoint counter + last-note preview** (optional,
+  settings.sidecar.showCheckpoints, default on).
+- **Empty-state choose-from cards** — no active focus ⇒ priority-ordered
+  pending-focus cards (view-only).
+- **focus_away server push** — reliable "you walked off" notification with
+  per-episode dedup (metadata.awayNotifiedAt vs awaySince).
+
+### Changed / Fixed
+- **Pause-on-leave (B1):** leaving in Focus Mode pauses (not clears) the
+  active focus client-side, reusing the _elapsedMs freeze.
+- **Current focus is data-driven (B2):** active → most-recent paused
+  (non-resolved) → empty only when resolved; local pin is a tiebreaker.
+
+### Repo/infra (extension line)
+- GitHub restoration (Kael): staging reconciled at **6.7.27** (PRs #27–#31),
+  the 6.7.9→6.7.24 run pushed, dist defused to **6.7.24** (was unreviewed
+  6.8.2), 11 branches + 2 stale worktrees pruned (uncommitted InBar work
+  rescue-stashed). main untouched.
+
+---
+
+## [Tabby Sidecar v0.4.0] - Context View timeline + layout v2 + focus_events - _2026-07-18_
+
+### Added
+- **focus_events** log (migration 034, realtime) — every start/pause/resume/
+  resolve recorded; foundation for accurate per-focus/per-task time.
+- **Context View bottom timeline** — fills as the timer runs; nodes for
+  checkpoints + every start (press/hover = date-time + cumulative
+  "📱 Sidecar-tracked" time); overtime feeds a slow-pulsing, capped-growth
+  circle with a halo trail; reduced-motion respected.
+- **ProgressRing** — RN-native circular timer ring (no CSS conic-gradient),
+  native-build safe.
+- **Layout v2** — huge title top-left overlapping the ring, huge timer
+  bottom-right, brand+controls bottom-left, day-countdown compact top-right,
+  clock bottom-middle.
+- (v0.3.1) **Notes-simple capture mode** ("What's on your mind?" — type or
+  speak → intent) + **Install Tabby** PWA CTA.

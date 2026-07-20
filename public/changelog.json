@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.39",
+      "title": "Sidecar line reconciled into staging",
+      "date": "2026-07-19",
+      "intro": "> Merge commit: brings the entire Tabby Sidecar 0.x line (sidecar/ app v0.8.2, Supabase migrations 030-041 + 5 edge functions, Plan 040/041 specs and docs) into staging. No extension code changed.",
+      "sections": []
+    },
+    {
       "version": "6.7.38",
       "title": "Feature intake: tab grouping, agent browsing, agent history specs",
       "date": "2026-07-19",
@@ -1189,6 +1196,38 @@
         {
           "label": "Added",
           "body": "- **Phone-away red alert on the Context View.** When the phone is in **Phone\n  Focus Mode** and you navigate away from the Sidecar, the phone broadcasts an\n  \"away\" signal (`browser_profile_status.metadata.focusAway`); the big-screen\n  Context View — already subscribed via realtime — washes **red** with \"Put the\n  phone down\". **Slow fade-in (~7s) by default**, or **immediate** via a new\n  Settings toggle (\"Immediate phone-away alert\"). Clears when the phone returns.\n- Verified cross-device end-to-end under RLS (signal set → detected → cleared)."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.3.0",
+      "title": "Voice, chaperone v0, feedback, pause-on-leave",
+      "date": "2026-07-18",
+      "intro": "Built by the persona fleet under CeeCee (Plan 040 wave 1): Cindra (Lane A),\nCirra (Epic 1+10), Rook (Epic 7); Koda vetted; Kael ran the repo restoration.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Voice capture (#165)** — mic on the new-intent input + checkpoint note\n  field (Web Speech, Android/desktop Chrome; graceful no-op on iOS).\n- **Chaperone v0 (#182)** — pre-recorded personality lines (\"Don't you dare\n  touch that phone.\") play on the Context View when the phone walks off in\n  Focus Mode; 'classic' pack, quiet hours, default off (settings.chaperone).\n- **Feedback & bug reporting (Epic 7)** — Settings card → feedback-to-asana\n  edge fn (now deployed, CORS widened to the sidecar origin) with an\n  AsyncStorage queue fallback; sidecar-only users can report.\n- **Context View: checkpoint counter + last-note preview** (optional,\n  settings.sidecar.showCheckpoints, default on).\n- **Empty-state choose-from cards** — no active focus ⇒ priority-ordered\n  pending-focus cards (view-only).\n- **focus_away server push** — reliable \"you walked off\" notification with\n  per-episode dedup (metadata.awayNotifiedAt vs awaySince)."
+        },
+        {
+          "label": "Changed / Fixed",
+          "body": "- **Pause-on-leave (B1):** leaving in Focus Mode pauses (not clears) the\n  active focus client-side, reusing the _elapsedMs freeze.\n- **Current focus is data-driven (B2):** active → most-recent paused\n  (non-resolved) → empty only when resolved; local pin is a tiebreaker."
+        },
+        {
+          "label": "Repo/infra (extension line)",
+          "body": "- GitHub restoration (Kael): staging reconciled at **6.7.27** (PRs #27–#31),\n  the 6.7.9→6.7.24 run pushed, dist defused to **6.7.24** (was unreviewed\n  6.8.2), 11 branches + 2 stale worktrees pruned (uncommitted InBar work\n  rescue-stashed). main untouched."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.4.0",
+      "title": "Context View timeline + layout v2 + focus_events",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **focus_events** log (migration 034, realtime) — every start/pause/resume/\n  resolve recorded; foundation for accurate per-focus/per-task time.\n- **Context View bottom timeline** — fills as the timer runs; nodes for\n  checkpoints + every start (press/hover = date-time + cumulative\n  \"📱 Sidecar-tracked\" time); overtime feeds a slow-pulsing, capped-growth\n  circle with a halo trail; reduced-motion respected.\n- **ProgressRing** — RN-native circular timer ring (no CSS conic-gradient),\n  native-build safe.\n- **Layout v2** — huge title top-left overlapping the ring, huge timer\n  bottom-right, brand+controls bottom-left, day-countdown compact top-right,\n  clock bottom-middle.\n- (v0.3.1) **Notes-simple capture mode** (\"What's on your mind?\" — type or\n  speak → intent) + **Install Tabby** PWA CTA."
         }
       ]
     }

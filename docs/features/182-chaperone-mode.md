@@ -85,3 +85,43 @@ User drifts → Background detects (URL change / idle / phone pickup)
 - How to handle interruption — if user is talking on phone, should Chaperone wait?
 - Multi-language support for the voice?
 - Should Chaperone be able to take actions? (e.g., "Should I start the next focus?")
+
+---
+
+## Enrichment — 2026-07-18 (voice-transcript intake)
+
+### New User Context (Quotes)
+
+> "Phone rings — before the first ring even completes, the sidecar or the extension literally audibly says: 'Don't you dare touch that phone… if you touch this phone, I will delete this entire computer.' An empty threat — part of the personality. … Oh wait, it's your mom. Answer that."
+
+> "That first audio message could really just be something that's pre-recorded… scenarios: somebody calls, somebody texts, the user just picks up their phone for no known reason — those alerts just play on that trigger."
+
+> "It's creating a supervisor, a coworker, a digital body doubler, an assistant, someone to keep them accountable — batched in."
+
+> "The user should be able to just click a button and engage with that same agent… tapping into the context of Flux, Tabatha, and my second brain."
+
+### v0 slice — pre-recorded Personality Interrupts (Tabatha + Sidecar only, NO AI needed)
+
+The full Chaperone is Flux-tier, but a v0 ships on rails that exist **today**:
+
+1. **Trigger:** phone-side detection → the same `browser_profile_status` realtime
+   signal used by Phone Focus Mode / phone-away (shipping in Plan 040 Epic 0).
+   Web-detectable now: pickup/navigate-away (visibility, motion). Native-tier
+   (parked with #164/#183): incoming call, SMS, caller identity ("it's your mom").
+2. **Response:** the **Context View / extension plays a pre-recorded audio line**
+   (< 1s latency via the existing realtime channel) — e.g. "Don't you dare touch
+   that phone." Personality packs = sets of pre-recorded lines per scenario
+   (pickup / repeated pickup / return). Empty threats are theater — config-gated,
+   never real actions.
+3. **Config:** personality selection + intensity + quiet hours in settings
+   (`settings.chaperone`); defaults apply for sidecar-only users.
+4. **Escalation path:** v0 pre-recorded → later TTS w/ context interpolation →
+   full agentic Chaperone (engine: **Hermes first, OpenClaw if needed** — both
+   installed; the "click to engage" button connects to the same personality with
+   Flux/second-brain context).
+
+### Also related
+- #210 Priority Challenge & Accountability Interrupts (text-modal sibling)
+- #211 Audio Input & Voice Control (the inbound half; #182 is outbound)
+- #215 Body Doubling (the human-powered variant of the same accountability need)
+- Plan 040 Epic 10 (v0 slice scheduling); body-doubling science research task in #215

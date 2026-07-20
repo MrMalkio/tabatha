@@ -2,8 +2,26 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useFocus, isSidecarSourced, isOffComputer, elapsedMsOf, startedAtOf } from '../data/focus';
+import { useChaperoneOnPhoneAway } from '../lib/chaperone';
+import { useCheckpoints, PROGRESS_LEVELS } from '../data/checkpoints';
+import { useFocusEvents } from '../data/events';
+import FocusTimeline from '../components/FocusTimeline';
+import ProgressRing from '../components/ProgressRing';
 import { supabase } from '../lib/supabase';
-import { colors, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+import { resolveContextViewSettings } from '../lib/contextViewSettings';
+import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+
+// Coarse "how long ago" for the last-checkpoint preview — matches the rest of
+// the view's compact, glanceable style (no seconds precision needed here).
+function relTime(iso: string, now: number): string {
+  const ms = Math.max(0, now - new Date(iso).getTime());
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
 function useTick(ms = 1000) {
   const [n, setN] = useState(Date.now());
@@ -34,7 +52,16 @@ function dayLeft(resetHour: number): { text: string; mins: number } {
  * realtime. Controls stay on the phone/extension. Brand bottom-left, day
  * countdown top-right, current wall-clock time bottom-middle.
  */
-export default function ContextView({ onExit }: { onExit: () => void }) {
+export default function ContextView({
+  onExit,
+  embed = null,
+}: {
+  onExit: () => void;
+  // Desk View companion embed (?embed=desk) — neutralizes Sidecar branding
+  // to plain "TABATHA / CONTEXT VIEW" and hides the exit-to-app control,
+  // since the companion's dedicated window has no app to exit to.
+  embed?: 'desk' | null;
+}) {
   const { profile, browserProfileId } = useAuth();
   const { currentFocus, queue } = useFocus(profile?.id ?? null, browserProfileId);
   const now = useTick();
@@ -42,9 +69,37 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   const [shift, setShift] = useState<{ state: string; since: string | null } | null>(null);
   const [phoneAway, setPhoneAway] = useState(false);
 
-  const resetHour = profile?.settings?.sidecar?.dayResetHour ?? 0;
+  // Epic 9 — `contextView` key > legacy `sidecar` keys > defaults (design
+  // doc §4). resolveContextViewSettings is the single source of truth for
+  // every display toggle below; a profile with neither key renders
+  // identically to pre-Epic-9 behavior (Sidecar-only users, design §2.2).
+  const cv = resolveContextViewSettings(profile?.settings);
+  const resetHour = cv.dayResetHour;
   const day = dayLeft(resetHour);
-  const immediateAlert = !!profile?.settings?.sidecar?.focusAwayImmediate;
+  const immediateAlert = cv.focusAwayImmediate;
+  const showCheckpoints = cv.showCheckpoints;
+
+  // Checkpoint counter + last-note preview for the current focus (read-only,
+  // ambient — Settings can turn it off). Reuses the existing
+  // `focus_checkpoints` hook rather than a bespoke query; that hook has no
+  // realtime/poll of its own, so a light interval here keeps the count fresh
+  // if a checkpoint lands from the phone while this view is up on a TV.
+  const { notes: cpNotes, reload: reloadCp } = useCheckpoints(
+    profile?.id ?? null,
+    currentFocus?.client_id ?? null
+  );
+
+  // Lane A chunk 2 (Plan 040 §3/Epic 2) — the focus_events log backing the
+  // bottom timeline's start-nodes and "cumulative Sidecar-tracked time".
+  const { events: focusEvents } = useFocusEvents(profile?.id ?? null, currentFocus?.client_id ?? null);
+  useEffect(() => {
+    if (!showCheckpoints || !currentFocus?.client_id) return;
+    const iv = setInterval(reloadCp, 20000);
+    return () => clearInterval(iv);
+  }, [showCheckpoints, currentFocus?.client_id, reloadCp]);
+
+  // Personality Interrupts v0 (#182 Epic 10) — rides this same phoneAway signal.
+  useChaperoneOnPhoneAway(phoneAway, profile?.settings?.chaperone);
 
   // Account-wide device status (live): the shift, plus the Phone Focus Mode
   // "away" signal from any OTHER device — which drives the red overlay.
@@ -90,11 +145,19 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
   }, [phoneAway, immediateAlert, alertOpacity]);
 
   const cf = currentFocus;
+  // B2b: when there's no current focus (active or paused), show the pending
+  // queue as priority-ordered choose-from cards instead of a bare "no active
+  // focus" message. Excludes sub-intents (`_parent`) — they belong under a
+  // parent that isn't on screen. `queue` from `useFocus` is already sorted
+  // priority-first. Still strictly view-only: no press handlers — selection
+  // happens from the phone or extension.
+  const pending = !cf ? queue.filter((q) => !q.tags?._parent) : [];
   const stage = cf ? FUNNEL_STAGES[cf.funnel_stage] || FUNNEL_STAGES.unsorted : null;
   const cfElapsed = cf ? elapsedMsOf(cf, now) : 0;
   const dur = cf ? (cf.timer_minutes || 15) * 60000 : 0;
   const remaining = cf && isSidecarSourced(cf) ? dur - cfElapsed : null;
   const over = remaining != null && remaining < 0;
+  const overtimeMs = over && remaining != null ? Math.abs(remaining) : 0;
   const frac = dur > 0 ? Math.max(0, Math.min(1, cfElapsed / dur)) : 0;
   const accent = over ? colors.red : shift?.state === 'on_break' ? colors.amber : colors.accent;
 
@@ -121,73 +184,152 @@ export default function ContextView({ onExit }: { onExit: () => void }) {
           {cf?.tags?.client ? `${cf.tags.client}` : profile?.display_name || 'Tabatha'}
           {cf?.tags?.project ? ` · ${cf.tags.project}` : ''}
         </Text>
-        <View style={styles.dayBox}>
-          <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveTxt}>LIVE</Text></View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.dayNum}>{day.text}</Text>
-            <Text style={styles.dayLabel}>left today · {day.mins}/1440</Text>
+        {cv.showDayCountdown && (
+          <View style={styles.dayBox}>
+            <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveTxt}>LIVE</Text></View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.dayNumSm}>{day.text}</Text>
+              <Text style={styles.dayLabelSm}>left today</Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
       {/* main */}
-      <View style={styles.main}>
-        <View style={styles.left}>
-          {cf ? (
-            <>
-              <Text style={styles.eyebrow}>
-                {shift?.state === 'on_break' ? 'ON BREAK' : 'IN FOCUS'}
-                {stage ? `   ·   ` : ''}
-                <Text style={{ color: stage?.color }}>{stage ? `${stage.icon} ${stage.label}` : ''}</Text>
-                {isOffComputer(cf) ? '   ·   🚶 off-computer' : ''}
-              </Text>
-              <Text style={[styles.focusLabel, { fontSize: Math.min(width * 0.052, 84) }]} numberOfLines={4}>{cf.label}</Text>
-              <View style={styles.metaRow}>
-                <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
-                <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
-              </View>
-              {queue.filter((q) => !q.tags?._parent).length > 0 && (
-                <View style={styles.next}>
-                  <Text style={styles.nextHdr}>UP NEXT</Text>
-                  {queue.filter((q) => !q.tags?._parent).slice(0, 3).map((q) => (
-                    <View key={q.id} style={styles.qrow}>
-                      <Text style={[styles.qp, { color: priorityColor(q.priority || 5), borderColor: priorityColor(q.priority || 5) }]}>P{q.priority || 5}</Text>
-                      <Text style={styles.qt} numberOfLines={1}>{q.label}</Text>
-                    </View>
-                  ))}
+      {pending.length > 0 ? (
+        <View style={styles.pendingWrap}>
+          <Text style={styles.pendingHdr}>Choose a focus · {pending.length} pending</Text>
+          <View style={styles.pendingGrid}>
+            {pending.slice(0, 12).map((q) => {
+              const s = FUNNEL_STAGES[q.funnel_stage] || FUNNEL_STAGES.unsorted;
+              return (
+                <View key={q.id} style={styles.pendingCard}>
+                  <View style={styles.pendingCardTop}>
+                    <Text style={[styles.pendingP, { color: priorityColor(q.priority || 5), borderColor: priorityColor(q.priority || 5) }]}>P{q.priority || 5}</Text>
+                    <Text style={{ color: s.color, fontSize: 22 }}>{s.icon}</Text>
+                  </View>
+                  <Text style={styles.pendingLabel} numberOfLines={4}>{q.label}</Text>
+                  <Text style={[styles.pendingStage, { color: s.color }]}>{s.label}</Text>
                 </View>
-              )}
-            </>
-          ) : (
-            <Text style={styles.idle}>No active focus.{'\n'}Set one from your phone or extension.</Text>
-          )}
+              );
+            })}
+          </View>
         </View>
+      ) : cf ? (
+        // Layout v2 (Plan 040 Epic 6): title HUGE top-left, deliberately
+        // overlapping the ring's upper region; timer HUGE bottom-right inside
+        // a circular progress ring; brand+options move to the footer's
+        // bottom-left cluster; current time stays bottom-middle.
+        <View style={styles.mainV2}>
+          <View style={styles.titleCol} pointerEvents="none">
+            <Text style={styles.eyebrow}>
+              {shift?.state === 'on_break' ? 'ON BREAK' : 'IN FOCUS'}
+              {stage ? `   ·   ` : ''}
+              <Text style={{ color: stage?.color }}>{stage ? `${stage.icon} ${stage.label}` : ''}</Text>
+              {isOffComputer(cf) ? '   ·   🚶 off-computer' : ''}
+            </Text>
+            <Text style={[styles.focusLabelHuge, { fontSize: Math.min(width * 0.078, 128) }]} numberOfLines={3}>{cf.label}</Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
+              <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
+            </View>
+            {showCheckpoints && cpNotes.length > 0 && (() => {
+              const last = cpNotes[0];
+              const lastLevel = PROGRESS_LEVELS.find((l) => l.key === last.progress_level);
+              return (
+                <Text style={styles.cpLine} numberOfLines={1}>
+                  📋 {cpNotes.length} checkpoint{cpNotes.length === 1 ? '' : 's'}
+                  {'  ·  last: '}
+                  {last.text ? `“${last.text}” ` : ''}
+                  {lastLevel?.icon || ''} {relTime(last.created_at, now)}
+                </Text>
+              );
+            })()}
+            {cv.showUpNext && queue.filter((q) => !q.tags?._parent).length > 0 && (
+              <View style={styles.next}>
+                <Text style={styles.nextHdr}>UP NEXT</Text>
+                {queue.filter((q) => !q.tags?._parent).slice(0, 3).map((q) => (
+                  <View key={q.id} style={styles.qrow}>
+                    <Text style={[styles.qp, { color: priorityColor(q.priority || 5), borderColor: priorityColor(q.priority || 5) }]}>P{q.priority || 5}</Text>
+                    <Text style={styles.qt} numberOfLines={1}>{q.label}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
 
-        {/* timer */}
-        <View style={styles.right}>
-          {cf && (
-            <>
-              <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
-              <Text style={[styles.timerBig, { fontSize: big, color: accent }]}>
-                {remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed)}
-              </Text>
-              <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
-              {dur > 0 && (
-                <View style={styles.track}><View style={[styles.fill, { width: `${frac * 100}%`, backgroundColor: accent }]} /></View>
-              )}
-            </>
-          )}
+          {/* timer — huge, bottom-right, inside a circular progress ring.
+              Font scales DOWN as the string grows ("4:30" → "104:30" once
+              overtime passes an hour) so long timers shrink to fit instead of
+              clipping at the ring / viewport edge (Malkio screenshot,
+              2026-07-18: "04:3(" cut off at 1h44m over). */}
+          <View style={styles.ringZone} pointerEvents="none">
+            {(() => {
+              const timerStr = remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed);
+              // Fit-to-ring (Malkio, 2026-07-19): at 5+ characters ("04:30",
+              // "104:30") the text must SHRINK to stay inside the ring — the
+              // ring sits at the viewport's right edge, so any text wider than
+              // the ring clips off-screen. ≤4 chars ("4:30") keeps the huge
+              // look. 0.58em ≈ average digit+colon advance for this weight.
+              const ringSize = Math.min(width * 0.3, big * 2.3);
+              const timerFont =
+                timerStr.length <= 4
+                  ? big
+                  : Math.min(big, (ringSize * 0.9) / (0.58 * timerStr.length));
+              return (
+                <ProgressRing size={ringSize} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
+                  <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
+                  <Text style={[styles.timerBig, { fontSize: timerFont, color: accent }]} numberOfLines={1}>
+                    {timerStr}
+                  </Text>
+                  <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
+                </ProgressRing>
+              );
+            })()}
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.mainV2}>
+          <Text style={styles.idle}>No active focus.{'\n'}Set one from your phone or extension.</Text>
+        </View>
+      )}
 
-      {/* footer */}
+      {/* bottom timeline (Plan 040 Epic 2) — checkpoints + focus_events start-nodes */}
+      {cv.showTimeline && cf && dur > 0 && (
+        <FocusTimeline
+          focus={cf}
+          now={now}
+          checkpoints={cpNotes}
+          events={focusEvents}
+          frac={frac}
+          durationMs={dur}
+          over={over}
+          overtimeMs={overtimeMs}
+        />
+      )}
+
+      {/* footer — brand + options bottom-left, current time bottom-middle */}
       <View style={styles.foot}>
-        <View style={styles.brand}>
-          <Text style={styles.logo}>Tabby<Text style={{ color: colors.accent }}>·</Text>Sidecar</Text>
-          <Text style={styles.tag}>CONTEXT · VIEW-ONLY</Text>
+        <View style={styles.footLeft}>
+          <View style={styles.brand}>
+            {embed === 'desk' ? (
+              <>
+                <Text style={styles.logo}>TABATHA</Text>
+                <Text style={styles.tag}>CONTEXT VIEW</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.logo}>Tabby<Text style={{ color: colors.accent }}>·</Text>Sidecar</Text>
+                <Text style={styles.tag}>CONTEXT · VIEW-ONLY</Text>
+              </>
+            )}
+          </View>
+          {embed !== 'desk' && (
+            <Pressable onPress={onExit} style={styles.exit}><Text style={styles.exitTxt}>Use controls →</Text></Pressable>
+          )}
         </View>
         <Text style={styles.nowClock}>{nowTime(new Date(now))}</Text>
-        <Pressable onPress={onExit} style={styles.exit}><Text style={styles.exitTxt}>Use controls →</Text></Pressable>
+        <View style={styles.footRight} />
       </View>
     </View>
 
@@ -216,32 +358,60 @@ const styles = StyleSheet.create({
   liveTxt: { color: colors.accent, fontSize: 12, fontWeight: '700', letterSpacing: 2 },
   dayNum: { color: colors.textPrimary, fontWeight: '700', fontSize: 26, fontVariant: ['tabular-nums'] },
   dayLabel: { color: colors.textMuted, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' },
-  main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 56 },
-  left: { flex: 1.15, justifyContent: 'center' },
+  // Layout v2 (Epic 6) — day-countdown shrinks to make room for the title's
+  // new dominance; still top-right, just quieter.
+  dayNumSm: { color: colors.textPrimary, fontWeight: '700', fontSize: 18, fontVariant: ['tabular-nums'] },
+  dayLabelSm: { color: colors.textMuted, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
+  // Layout v2: relative container — title overlaps the ring by design
+  // (huge top-left title, huge bottom-right ring); z-index keeps the title
+  // readable over the ring's upper edge where they intersect.
+  mainV2: { flex: 1, position: 'relative' },
+  // QA fix (dev-cv harness, layout v2 first render): `titleCol` had no
+  // `bottom`/`height`, so as an absolutely-positioned box it grew to its
+  // natural content height instead of respecting `mainV2`'s flex-computed
+  // box. With a 3-line title + a checkpoint preview line + a 3-row "UP
+  // NEXT" list, the column measured ~709px against a ~601px `mainV2` at
+  // 1280x800 — the last 1-2 queue rows spilled ~100px past the parent,
+  // straight into the FocusTimeline/footer band below. `bottom: 0` +
+  // `overflow: 'hidden'` bounds the column to the real available height so
+  // it clips gracefully instead of overlapping the footer.
+  titleCol: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '66%', maxWidth: 920, zIndex: 3, overflow: 'hidden' },
+  ringZone: { position: 'absolute', right: 0, bottom: 0, zIndex: 1, alignItems: 'center', justifyContent: 'center' },
   eyebrow: { color: colors.accent, fontSize: 15, letterSpacing: 3, fontWeight: '700', marginBottom: 18, textTransform: 'uppercase' },
-  focusLabel: { color: colors.textPrimary, fontWeight: '800', lineHeight: undefined, marginBottom: 22 },
+  focusLabelHuge: { color: colors.textPrimary, fontWeight: '800', letterSpacing: -2, marginBottom: 22 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   meta: { color: colors.textMuted, fontSize: 20 },
   metaB: { color: colors.textPrimary, fontWeight: '700', fontVariant: ['tabular-nums'] },
   metaP: { fontSize: 16, fontWeight: '700', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 2 },
+  cpLine: { color: colors.textMuted, fontSize: 15, marginTop: 10 },
   next: { marginTop: 40, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 20, gap: 12, maxWidth: 640 },
   nextHdr: { color: colors.textMuted, fontSize: 12, letterSpacing: 3, fontWeight: '700' },
   qrow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   qp: { fontSize: 13, fontWeight: '700', borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 1 },
   qt: { color: colors.textMuted, fontSize: 20, flex: 1 },
-  right: { flex: 0.85, alignItems: 'center', justifyContent: 'center' },
   timerMode: { color: colors.accent, fontSize: 14, letterSpacing: 3, fontWeight: '700', marginBottom: 8 },
   timerBig: { fontWeight: '800', fontVariant: ['tabular-nums'], letterSpacing: -2, lineHeight: undefined },
   timerCap: { color: colors.textMuted, fontSize: 15, letterSpacing: 4, textTransform: 'uppercase', fontWeight: '700', marginTop: 6 },
-  track: { width: '80%', height: 6, backgroundColor: colors.border, borderRadius: 3, marginTop: 26, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 3 },
   idle: { color: colors.textMuted, fontSize: 30, fontWeight: '600', lineHeight: 42 },
+  pendingWrap: { flex: 1, justifyContent: 'center' },
+  pendingHdr: { color: colors.textMuted, fontSize: 15, letterSpacing: 3, fontWeight: '700', textTransform: 'uppercase', textAlign: 'center', marginBottom: 28 },
+  pendingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, justifyContent: 'center' },
+  pendingCard: { width: 300, minHeight: 150, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 22, justifyContent: 'space-between' },
+  pendingCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pendingP: { fontSize: 15, fontWeight: '700', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+  pendingLabel: { color: colors.textPrimary, fontSize: 24, fontWeight: '800', lineHeight: 30, marginTop: 16 },
+  pendingStage: { fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginTop: 14 },
   foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 },
-  brand: { flexDirection: 'row', alignItems: 'baseline', gap: 10, flex: 1 },
+  // Layout v2: brand + the "Use controls" option live together bottom-left;
+  // time keeps its bottom-middle spot; footRight is a same-width spacer so
+  // the centered clock doesn't drift when the left cluster's width changes.
+  footLeft: { flex: 1, gap: 8 },
+  footRight: { flex: 1 },
+  brand: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
   logo: { color: colors.textPrimary, fontWeight: '800', fontSize: 22 },
   tag: { color: colors.textMuted, fontSize: 12, letterSpacing: 2 },
   nowClock: { color: colors.textPrimary, fontSize: 26, fontWeight: '600', fontVariant: ['tabular-nums'], flex: 1, textAlign: 'center' },
-  exit: { flex: 1, alignItems: 'flex-end' },
+  exit: { alignSelf: 'flex-start' },
   exitTxt: { color: colors.textMuted, fontSize: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, overflow: 'hidden' },
   alert: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
