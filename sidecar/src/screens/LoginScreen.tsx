@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -18,6 +18,27 @@ export default function LoginScreen() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Self-healing provider button (2026-07-20): the Google provider is
+  // currently DISABLED at the auth layer, so a static "Continue with Google"
+  // is a dead button for invitees. Ask the auth server which external
+  // providers are actually on and only render buttons that work. Defaults to
+  // hidden until confirmed; magic link + code sign-in are always available.
+  const [googleOn, setGoogleOn] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    import('../lib/supabase').then(({ SUPABASE_URL, SUPABASE_ANON_KEY }) =>
+      fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
+        .then((r) => r.json())
+        .then((s) => {
+          if (alive) setGoogleOn(!!s?.external?.google);
+        })
+        .catch(() => {})
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const sendLink = async () => {
     if (!email.trim()) return;
@@ -39,13 +60,16 @@ export default function LoginScreen() {
         </Text>
 
         <View style={styles.form}>
-          <Btn label="Continue with Google" onPress={signInWithGoogle} filled />
-
-          <View style={styles.divider}>
-            <View style={styles.line} />
-            <Text style={styles.or}>or</Text>
-            <View style={styles.line} />
-          </View>
+          {googleOn && (
+            <>
+              <Btn label="Continue with Google" onPress={signInWithGoogle} filled />
+              <View style={styles.divider}>
+                <View style={styles.line} />
+                <Text style={styles.or}>or</Text>
+                <View style={styles.line} />
+              </View>
+            </>
+          )}
 
           {sent ? (
             <View style={styles.sentBox}>
