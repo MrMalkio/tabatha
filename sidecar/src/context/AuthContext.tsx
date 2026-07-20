@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getDeviceId, deviceLabel } from '../lib/device';
-import { redeemInviteToken } from '../lib/invites';
+import { redeemInviteToken, type InviteKind } from '../lib/invites';
 
 export type Profile = {
   id: string;
@@ -36,7 +36,7 @@ type AuthState = {
   signInWithMagicLink: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  redeemInvite: (code: string) => Promise<{ ok: boolean; error?: string }>;
+  redeemInvite: (code: string) => Promise<{ ok: boolean; error?: string; kind?: InviteKind }>;
   saveSidecarSettings: (patch: Record<string, any>) => Promise<void>;
   saveChaperoneSettings: (patch: Record<string, any>) => Promise<void>;
 };
@@ -281,7 +281,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // rolled back (deleted) so needsInvite flips back to true rather than
   // silently letting a failed attempt still open the gate.
   const redeemInvite = useCallback(
-    async (rawCode: string): Promise<{ ok: boolean; error?: string }> => {
+    async (rawCode: string): Promise<{ ok: boolean; error?: string; kind?: InviteKind }> => {
       const uid = session?.user?.id;
       if (!uid) return { ok: false, error: 'Not signed in.' };
       const code = rawCode.trim();
@@ -292,6 +292,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // client-side shell-insert + compensating-delete had a crash window
       // that could orphan a profile and bypass the invite gate. One call,
       // no client-side provisioning.
+      //
+      // Migration 043 adds `kind` ('demo' | 'team' | 'founder') to the
+      // payload — passed through here so a caller COULD show kind-specific
+      // copy, but InviteGateScreen doesn't today: `needsInvite` flips to
+      // false as soon as this resolves `ok: true`, and app/index.tsx
+      // re-renders straight past this screen into the normal app in the
+      // same tick, so there's no frame in which a success message here
+      // would actually be visible.
       const result = await redeemInviteToken(code);
       if (!result.success) {
         return { ok: false, error: result.error || 'That code isn’t valid or was already used.' };
@@ -299,7 +307,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const fresh = await fetchProfile(uid);
       if (fresh) registerDevice(fresh);
-      return { ok: true };
+      return { ok: true, kind: result.kind };
     },
     [session, profile, fetchProfile, registerDevice]
   );

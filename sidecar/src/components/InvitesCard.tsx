@@ -6,25 +6,55 @@ import { colors, radius } from '../lib/theme';
 import {
   createInviteToken,
   fetchOwnScopes,
+  type InviteKind,
   type OrgMembership,
   type TeamMembership,
 } from '../lib/invites';
 
 const ROLE_OPTIONS = ['user', 'sub_manager', 'manager', 'read_only'];
 
+// Invite type — migration 043. 'demo'/'founder' are account-only (no
+// org/team picker, no role picker — role only matters for a membership
+// row, which neither kind creates); 'team' is the pre-existing flow. The
+// RPC is still the authority on who may mint each kind (team: org owner
+// or team owner/manager/sub_manager for the target; demo/founder: owner
+// of at least one org) — this UI doesn't pre-hide any chip by role.
+const INVITE_KIND_OPTIONS: { value: InviteKind; label: string }[] = [
+  { value: 'demo', label: 'Demo' },
+  { value: 'team', label: 'My team' },
+  { value: 'founder', label: 'Founder' },
+];
+
+const KIND_RESULT_LABEL: Record<InviteKind, string> = {
+  demo: 'Demo invite — account only',
+  team: 'Team invite',
+  founder: "Founder invite — they'll create their own team",
+};
+
+// Founder invites hand the redeemer a bare account; they create their own
+// org afterward via tabatha.create_organization (migration 020). That RPC
+// currently has NO UI surface in the Sidecar (extension-only, see
+// src/settings/... in the main app) — a founder-kind invitee has nowhere
+// in the Sidecar today to actually create their org. Flagged, not built
+// here (out of scope for this card).
+const FOUNDER_ORG_CREATE_GAP =
+  'They’ll need the browser extension to create their org for now — the Sidecar has no "create organisation" screen yet.';
+
 // Invites card — Settings. Mints tabatha.invite_tokens via the
-// SECURITY DEFINER RPC tabatha.create_invite_token (migration 012); org
-// owners / team owners-managers-sub_managers only. The RPC itself is the
-// authority on who may mint — this card stays visible and lets anyone with
-// at least one org/team membership attempt it, surfacing the RPC's own
-// permission error with friendly copy rather than pre-hiding the form by
-// role (a plain 'user' role member should still be able to try and see why
-// it's refused, matching how the extension's TeamActivityPanel works).
+// SECURITY DEFINER RPC tabatha.create_invite_token (migration 012 + 043);
+// org owners / team owners-managers-sub_managers only for 'team' kind, org
+// owners only for 'demo'/'founder'. The RPC itself is the authority on who
+// may mint — this card stays visible and lets anyone with at least one
+// org/team membership attempt it, surfacing the RPC's own permission error
+// with friendly copy rather than pre-hiding the form by role (a plain
+// 'user' role member should still be able to try and see why it's
+// refused, matching how the extension's TeamActivityPanel works).
 export default function InvitesCard() {
   const { profile } = useAuth();
   const [orgs, setOrgs] = useState<OrgMembership[]>([]);
   const [teams, setTeams] = useState<TeamMembership[]>([]);
   const [scopesLoaded, setScopesLoaded] = useState(false);
+  const [kind, setKind] = useState<InviteKind>('team');
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +75,9 @@ export default function InvitesCard() {
   const [role, setRole] = useState('user');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<
-    { ok: true; token: string; expiresAt?: string } | { ok: false; error: string } | null
+    | { ok: true; token: string; expiresAt?: string; kind: InviteKind }
+    | { ok: false; error: string }
+    | null
   >(null);
 
   useEffect(() => {
@@ -53,15 +85,21 @@ export default function InvitesCard() {
   }, [orgs, orgId]);
 
   const hasScope = orgs.length > 0 || teams.length > 0;
+  const isTeamKind = kind === 'team';
+  const canMint = isTeamKind ? !!orgId : true;
 
   const mint = async () => {
-    if (busy || !orgId) return;
+    if (busy || !canMint) return;
     setBusy(true);
     setResult(null);
     try {
-      const res = await createInviteToken({ orgId, teamId: teamId || null, role, expiresInHours: 168 });
+      const res = await createInviteToken(
+        isTeamKind
+          ? { orgId, teamId: teamId || null, role, expiresInHours: 168, kind }
+          : { orgId: null, teamId: null, expiresInHours: 168, kind }
+      );
       if (res.success && res.token) {
-        setResult({ ok: true, token: res.token, expiresAt: res.expires_at });
+        setResult({ ok: true, token: res.token, expiresAt: res.expires_at, kind: res.kind ?? kind });
       } else {
         const raw = res.error || 'Could not create an invite.';
         const friendly = /not authoris/i.test(raw) ? "Your account can't create invites yet." : raw;
@@ -102,7 +140,29 @@ export default function InvitesCard() {
             extension is unlisted. Codes are single-use.
           </Text>
 
-          {orgs.length > 0 && (
+          <View style={{ marginTop: 10 }}>
+            <Text style={styles.label}>Invite type</Text>
+            <View style={styles.pillRow}>
+              {INVITE_KIND_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => {
+                    setKind(opt.value);
+                    setResult(null);
+                  }}
+                  style={[styles.pill, kind === opt.value && styles.pillOn]}
+                >
+                  <Text style={[styles.pillTxt, kind === opt.value && styles.pillTxtOn]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {kind === 'founder' && <Text style={styles.hint}>{FOUNDER_ORG_CREATE_GAP}</Text>}
+
+          {isTeamKind && orgs.length > 0 && (
             <View style={{ marginTop: 10 }}>
               <Text style={styles.label}>Organisation</Text>
               <View style={styles.pillRow}>
@@ -121,7 +181,7 @@ export default function InvitesCard() {
             </View>
           )}
 
-          {teams.length > 0 && (
+          {isTeamKind && teams.length > 0 && (
             <View style={{ marginTop: 10 }}>
               <Text style={styles.label}>Team (optional)</Text>
               <View style={styles.pillRow}>
@@ -143,29 +203,31 @@ export default function InvitesCard() {
             </View>
           )}
 
-          <View style={{ marginTop: 10 }}>
-            <Text style={styles.label}>Role</Text>
-            <View style={styles.pillRow}>
-              {ROLE_OPTIONS.map((r) => (
-                <Pressable key={r} onPress={() => setRole(r)} style={[styles.pill, role === r && styles.pillOn]}>
-                  <Text style={[styles.pillTxt, role === r && styles.pillTxtOn]}>{r}</Text>
-                </Pressable>
-              ))}
+          {isTeamKind && (
+            <View style={{ marginTop: 10 }}>
+              <Text style={styles.label}>Role</Text>
+              <View style={styles.pillRow}>
+                {ROLE_OPTIONS.map((r) => (
+                  <Pressable key={r} onPress={() => setRole(r)} style={[styles.pill, role === r && styles.pillOn]}>
+                    <Text style={[styles.pillTxt, role === r && styles.pillTxtOn]}>{r}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
           <View style={{ marginTop: 12 }}>
             <Btn
               label={busy ? 'Creating…' : 'Create invite code'}
               onPress={mint}
               filled
-              disabled={busy || !orgId}
+              disabled={busy || !canMint}
             />
           </View>
 
           {result?.ok && (
             <View style={styles.resultBox}>
-              <Text style={styles.resultOk}>✓ Code created</Text>
+              <Text style={styles.resultOk}>✓ {KIND_RESULT_LABEL[result.kind]}</Text>
               <View style={styles.codeRow}>
                 <TextInput value={result.token} editable={false} selectTextOnFocus style={styles.codeInput} />
                 <Pressable onPress={() => copyCode(result.token)} style={styles.copyBtn}>
