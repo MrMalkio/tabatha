@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.44] - Sidecar 0.9-0.11 line reconciled - _2026-07-20_
+
+> Merge: invite signups (Demo/Personal/Team), TV code sign-in, Pomodoro mode, device management (naming/remote sign-out/pause), migrations 042-045, Olympus + Smart Deferral design docs (Koda-vetted). No extension code changed.
+
 ## [v6.7.43] - Cross-surface round-trip parity - _2026-07-20_
 
 > Extension now emits focus_events (start/pause/resume/resolve/extend/backburner/snooze), syncs checkpoints to/from Cloud Sync, and renders Sidecar sub-intents nested + backburnered items grouped. Fixes backburner flag not clearing on direct switch.

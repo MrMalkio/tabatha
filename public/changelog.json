@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.44",
+      "title": "Sidecar 0.9-0.11 line reconciled",
+      "date": "2026-07-20",
+      "intro": "> Merge: invite signups (Demo/Personal/Team), TV code sign-in, Pomodoro mode, device management (naming/remote sign-out/pause), migrations 042-045, Olympus + Smart Deferral design docs (Koda-vetted). No extension code changed.",
+      "sections": []
+    },
+    {
       "version": "6.7.43",
       "title": "Cross-surface round-trip parity",
       "date": "2026-07-20",
