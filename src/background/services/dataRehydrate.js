@@ -68,18 +68,27 @@ function serverIntentToLocal(row) {
 
 function serverFocusToLocal(row) {
   const completedAt = row.completed_at || null;
-  return {
+  const tags = row.tags || {};
+  const mapped = {
     id: row.client_id,
     label: row.label || 'Untitled focus',
     funnelStage: row.funnel_stage || 'unsorted',
     focusState: row.focus_state || (completedAt ? 'completed' : 'paused'),
     timerMinutes: Number.isFinite(Number(row.timer_minutes)) ? Number(row.timer_minutes) : 15,
-    tags: row.tags || {},
+    tags,
     createdAt: row.created_at || null,
     completedAt,
     // Carried for the newest-wins merge only (the server stamps every push).
     syncedAt: row.synced_at || null,
   };
+  // Sidecar round-trip parity: mirror tags._parent / tags._backburner (the
+  // Sidecar's representation) into the extension's dedicated fields — but
+  // ONLY when present, so an item that has never touched the Sidecar (and
+  // therefore has no such tags) doesn't get a local-only parentFocusId/
+  // backburnered value clobbered by an absent tag on every rehydrate.
+  if (tags._parent) mapped.parentFocusId = tags._parent;
+  if (tags._backburner) mapped.backburnered = true;
+  return mapped;
 }
 
 // Reference time for newest-wins on focus items. Prefer an explicit edit/

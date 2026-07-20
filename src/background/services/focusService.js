@@ -80,6 +80,10 @@ async function _handleMessage(type, message) {
         item.backburnerExpired = false;
         chrome.alarms.clear(`backburner-timer-${message.focusId}`);
         await setFocusEngine(engine);
+        // Matches the Sidecar's resumeBackburner: un-hides the item from the
+        // Backburner group without activating it (still lands back in the
+        // regular paused queue).
+        logFocusEvent(message.focusId, 'unbackburner', {});
         broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
       }
       return { focusEngine: engine };
@@ -94,6 +98,7 @@ async function _handleMessage(type, message) {
         chrome.alarms.clear(`backburner-timer-${message.focusId}`);
         chrome.alarms.create(`backburner-timer-${message.focusId}`, { delayInMinutes: 10 });
         await setFocusEngine(engine);
+        logFocusEvent(message.focusId, 'snooze', { mins: 10, until: new Date(Date.now() + 10 * 60000).toISOString() });
         broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
       }
       return { focusEngine: engine };
@@ -135,6 +140,12 @@ async function _handleMessage(type, message) {
 
       engine.activeFocusId = message.focusId;
       await setFocusEngine(engine);
+      // Unlike the Sidecar's resumeBackburner (which only un-hides, see
+      // DISMISS_BACKBURNER above), the extension's RESUME_BACKBURNER also
+      // activates the item — semantically closer to switchFocus's
+      // was-backburnered case, so it emits both kinds.
+      logFocusEvent(message.focusId, 'start');
+      logFocusEvent(message.focusId, 'unbackburner', {});
       broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
       return { focusEngine: engine };
     }
@@ -228,6 +239,27 @@ async function emitAudit(type, message) {
   });
 }
 
+// ── Cross-surface focus_events emission (Sidecar round-trip parity) ──
+// Best-effort local append; syncService batches these to `tabatha.focus_events`
+// on the existing sync cadence (mirrors the intent_history push block) so a
+// write failure here can never block the lifecycle action it rides alongside.
+// Kinds/meta shapes mirror the Sidecar's `insertFocusEvent`
+// (sidecar/src/data/events.ts) exactly so the Context View timeline reads
+// extension- and Sidecar-authored events identically.
+const MAX_FOCUS_EVENT_LOG = 500;
+
+async function logFocusEvent(focusClientId, kind, meta = {}) {
+  if (!focusClientId) return;
+  try {
+    const { _focusEventLog } = await getStorage('_focusEventLog');
+    const log = Array.isArray(_focusEventLog) ? _focusEventLog : [];
+    log.push({ focusClientId, kind, at: new Date().toISOString(), meta });
+    await setStorage({ _focusEventLog: log.slice(-MAX_FOCUS_EVENT_LOG) });
+  } catch {
+    /* best effort — the cross-surface timeline degrades gracefully without this row */
+  }
+}
+
 // ── Auto-generated system checkpoint for lifecycle transitions ──
 function autoCheckpoint(item, event) {
   if (!item) return;
@@ -301,6 +333,7 @@ function pauseItem(item, reason, engine) {
   if (reason) item.pausedReason = reason;
   if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
   autoCheckpoint(item, reason ? `Paused (${reason})` : 'Paused');
+  if (item.id) logFocusEvent(item.id, 'pause');
 }
 
 async function persistFocusHistoryCap(engine) {
@@ -365,6 +398,7 @@ export async function startFocus(label, timerMinutes = 15, tags = {}) {
 
   engine.activeFocusId = id;
   await setFocusEngine(engine);
+  logFocusEvent(id, 'start', { label });
 
   if (timerMinutes > 0) {
     chrome.alarms.create(`focus-timer-${id}`, { delayInMinutes: timerMinutes });
@@ -431,6 +465,20 @@ export async function switchFocus(focusId) {
   }
 
   const target = engine.items[focusId];
+  // Round-trip parity gap fix: switching directly into a backburnered item
+  // must clear its backburner state (mirrors the Sidecar's switchTo, which
+  // clears tags._backburner on activation) — previously this left `item.
+  // backburnered` stuck true after a direct switch, so it kept rendering as
+  // backburnered even while active.
+  const wasBackburnered = !!target.backburnered;
+  if (wasBackburnered) {
+    target.backburnered = false;
+    target.backburnerExpired = false;
+    target.backburnerReason = null;
+    target.backburnerDurationMinutes = null;
+    target.backburneredAt = null;
+    chrome.alarms.clear(`backburner-timer-${focusId}`);
+  }
   target.focusState = 'active';
   target.funnelStage = target.funnelStage === 'todo' || target.funnelStage === 'unsorted' ? 'focus' : target.funnelStage;
   target.lastResumedAt = new Date().toISOString();
@@ -440,6 +488,8 @@ export async function switchFocus(focusId) {
 
   engine.activeFocusId = focusId;
   await setFocusEngine(engine);
+  logFocusEvent(focusId, 'start');
+  if (wasBackburnered) logFocusEvent(focusId, 'unbackburner', {});
 
   const totalTimerMs = target.timerMinutes * 60 * 1000;
   const remaining = totalTimerMs - (target.elapsedMs || 0);
@@ -469,6 +519,7 @@ export async function completeFocus(focusId) {
     addElapsedSinceResume(item, engine);
   }
   autoCheckpoint(item, 'Completed / Resolved');
+  logFocusEvent(id, 'resolve');
   item.focusState = 'completed';
   item.funnelStage = 'resolved';
   item.endedAt = new Date().toISOString();
@@ -519,7 +570,9 @@ export async function extendFocusTimer(focusId, extraMinutes = 5) {
   if (!id || !engine.items[id]) return engine;
 
   const item = engine.items[id];
-  item.timerMinutes = (item.timerMinutes || 0) + extraMinutes;
+  const fromMinutes = item.timerMinutes || 0;
+  item.timerMinutes = fromMinutes + extraMinutes;
+  logFocusEvent(id, 'extend', { addedMinutes: extraMinutes, fromMinutes, toMinutes: item.timerMinutes });
 
   if (item.focusState === 'drifted') {
     if (item.lastResumedAt) {
@@ -586,6 +639,7 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
   item.backburneredAt = new Date().toISOString();
   item.backburnerDurationMinutes = durationMinutes;
   autoCheckpoint(item, `Backburnered for ${durationMinutes}m${reason ? ': ' + reason : ''}`);
+  logFocusEvent(id, 'backburner', {});
   item.backburnerReason = reason;
   item.lastPausedAt = new Date().toISOString();
   item.backburnerExpired = false; // reset expired flag
@@ -609,6 +663,7 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
 
   // Track if we need to switch or create focus
   let newActiveFocusId = null;
+  const pendingEvents = [];
 
   if (createNewFocusLabel && createNewFocusLabel.trim() !== '') {
     // Create new focus
@@ -641,6 +696,7 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
     };
     newActiveFocusId = newId;
     item.backburnerTransitionFocusId = newId;
+    pendingEvents.push({ id: newId, kind: 'start', meta: { label: createNewFocusLabel.trim() } });
 
     // Create default 15 min focus timer for new temporary focus if desired
     chrome.alarms.create(`focus-timer-${newId}`, { delayInMinutes: 15 });
@@ -648,9 +704,18 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
     // Switch to existing focus
     newActiveFocusId = switchToFocusId;
     const targetItem = engine.items[switchToFocusId];
+    const targetWasBackburnered = !!targetItem.backburnered;
+    if (targetWasBackburnered) {
+      targetItem.backburnered = false;
+      targetItem.backburnerExpired = false;
+      targetItem.backburnerReason = null;
+      targetItem.backburnerDurationMinutes = null;
+      targetItem.backburneredAt = null;
+      chrome.alarms.clear(`backburner-timer-${switchToFocusId}`);
+    }
     targetItem.focusState = 'active';
     targetItem.lastResumedAt = new Date().toISOString();
-    
+
     // Set timer for the existing focus if it had one
     if (targetItem.timerEndAt) {
       const remainingMs = new Date(targetItem.timerEndAt).getTime() - Date.now();
@@ -658,12 +723,15 @@ export async function backburnerFocus(focusId, durationMinutes, reason, switchTo
         chrome.alarms.create(`focus-timer-${switchToFocusId}`, { delayInMinutes: remainingMs / 60000 });
       }
     }
+    pendingEvents.push({ id: switchToFocusId, kind: 'start', meta: {} });
+    if (targetWasBackburnered) pendingEvents.push({ id: switchToFocusId, kind: 'unbackburner', meta: {} });
   }
 
   engine.activeFocusId = newActiveFocusId;
 
   // Sync / broadcast updates
   await setFocusEngine(engine);
+  for (const ev of pendingEvents) logFocusEvent(ev.id, ev.kind, ev.meta);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
   return engine;
 }
@@ -834,6 +902,7 @@ async function resumeFocus(focusId) {
   item.lastResumedAt = new Date().toISOString();
   item.pausedAt = null;
   autoCheckpoint(item, 'Resumed');
+  logFocusEvent(focusId, 'resume');
   if (item.funnelStage === 'focus' || item.funnelStage === 'todo' || item.funnelStage === 'unsorted') {
     item.funnelStage = 'addressing';
   }

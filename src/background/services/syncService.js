@@ -8,7 +8,8 @@
 // ============================================================
 
 import { getStorage, setStorage } from './storageService.js';
-import { getFocusEngine } from './focusService.js';
+import { getFocusEngine, setFocusEngine } from './focusService.js';
+import { PROGRESS_VALUES } from '../constants.js';
 import { getInstallIdentity, recordSupabaseId, touchLastSeen } from '../../services/installIdentity.js';
 import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
 import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
@@ -319,11 +320,131 @@ function buildFocusRows(engine, scope) {
     // FIX-10: persist the engine's numeric priority (1=critical..10=low) so
     // cross-device readers can show a P-priority. Null when unset/out of range.
     priority: (item.priority == null || !Number.isFinite(Number(item.priority))) ? null : Number(item.priority),
-    tags: item.tags || {},
+    // Sidecar round-trip parity: the extension keeps sub-intent/backburner
+    // state as dedicated fields (item.parentFocusId / item.backburnered)
+    // while the Sidecar encodes the same concepts inside tags (tags._parent /
+    // tags._backburner). Mirror the extension's fields into tags on every
+    // push so items created here render correctly as nested sub-intents /
+    // a collapsed Backburner group on the Sidecar and Context View.
+    tags: {
+      ...(item.tags || {}),
+      ...(item.parentFocusId ? { _parent: item.parentFocusId } : {}),
+      _backburner: !!item.backburnered
+    },
     created_at: isoOrNow(item.createdAt || item.startedAt),
     completed_at: isoOrNull(item.completedAt || item.endedAt),
     synced_at: new Date().toISOString()
   }));
+}
+
+// ── focus_checkpoints round-trip (Sidecar parity) ──
+// Only user-authored notes (triggeredBy !== 'system') push to the cloud —
+// system autoCheckpoint entries ("Paused", "Resumed", …) are lifecycle noise
+// that focus_events now covers distinctly; mirroring them too would just
+// duplicate the same transition twice in the Sidecar's checkpoint timeline.
+function collectPendingCheckpoints(engine) {
+  const pending = [];
+  const consider = (item) => {
+    if (!item?.id || !Array.isArray(item.checkpoint)) return;
+    for (const cp of item.checkpoint) {
+      if (!cp || cp.cloudId) continue;
+      if (cp.triggeredBy === 'system') continue;
+      pending.push(cp);
+    }
+  };
+  for (const item of Object.values(engine?.items || {})) consider(item);
+  for (const item of toArray(engine?.history)) consider(item);
+  return pending;
+}
+
+function findFocusContainer(engine, clientId) {
+  if (engine?.items?.[clientId]) return engine.items[clientId];
+  const history = toArray(engine?.history);
+  return history.find(h => h?.id === clientId) || null;
+}
+
+// Push any not-yet-synced local checkpoint notes, then pull cloud rows
+// (Sidecar-authored, or another install's) newer than the watermark. Mutates
+// `engine` in place and persists it when anything changed. Capped at 50
+// pending pushes per cycle — checkpoints are low-volume; this is a defensive
+// bound, not an expected steady state.
+async function syncFocusCheckpoints(supabase, scope, engine) {
+  const profileId = scope.profile_id;
+  let hadError = false;
+  let mutated = false;
+
+  const pending = collectPendingCheckpoints(engine).slice(0, 50);
+  for (const cp of pending) {
+    const { data, error } = await supabase
+      .schema('tabatha')
+      .from('focus_checkpoints')
+      .insert({
+        profile_id: profileId,
+        focus_client_id: cp.focusId,
+        text: cp.text || '',
+        progress_level: cp.progressLevel || 'none',
+        source: 'extension'
+      })
+      .select('id')
+      .single();
+    if (error) {
+      hadError = true;
+      await recordDiagnostic('focus_checkpoints_insert_failed', error);
+      continue;
+    }
+    if (data?.id) {
+      cp.cloudId = data.id;
+      mutated = true;
+    }
+  }
+
+  const { lastCheckpointPull } = await getStorage('lastCheckpointPull');
+  const baseQuery = supabase
+    .schema('tabatha')
+    .from('focus_checkpoints')
+    .select('id, focus_client_id, text, progress_level, source, created_at')
+    .eq('profile_id', profileId)
+    .order('created_at', { ascending: true });
+  const { data: rows, error: pullError } = lastCheckpointPull
+    ? await baseQuery.gt('created_at', lastCheckpointPull)
+    : await baseQuery;
+
+  if (pullError) {
+    hadError = true;
+    await recordDiagnostic('focus_checkpoints_pull_failed', pullError);
+  } else if (rows?.length) {
+    let newest = lastCheckpointPull || null;
+    for (const row of rows) {
+      newest = maxIso(newest, row.created_at);
+      const item = findFocusContainer(engine, row.focus_client_id);
+      if (!item) continue; // the focus itself hasn't reached this install yet
+      if (!Array.isArray(item.checkpoint)) item.checkpoint = [];
+      if (item.checkpoint.some(c => c.cloudId === row.id)) continue;
+      item.checkpoint.push({
+        id: `cp_srv_${row.id}`,
+        cloudId: row.id,
+        text: row.text || '',
+        progressLevel: row.progress_level || 'none',
+        progressValue: PROGRESS_VALUES[row.progress_level] ?? 0,
+        createdAt: row.created_at,
+        focusId: row.focus_client_id,
+        elapsedAtMs: null,
+        triggeredBy: row.source === 'extension' ? 'manual' : (row.source || 'sidecar')
+      });
+      mutated = true;
+    }
+    if (newest) await setStorage({ lastCheckpointPull: newest });
+  }
+
+  if (mutated) await setFocusEngine(engine);
+  return !hadError;
+}
+
+function maxIso(a, b) {
+  const ta = a ? new Date(a).getTime() : 0;
+  const tb = b ? new Date(b).getTime() : 0;
+  const m = Math.max(ta, tb);
+  return m > 0 ? new Date(m).toISOString() : null;
 }
 
 function buildOrgRows(tabathaOrg, scope) {
@@ -847,6 +968,50 @@ export async function syncToSupabase() {
         }
       }
     }
+
+    // Sidecar round-trip parity: push best-effort focus_events emitted by
+    // focusService.js's logFocusEvent() (start/pause/resume/resolve/extend/
+    // snooze/backburner/unbackburner), watermarked like intent_history above.
+    const { _focusEventLog } = await getStorage('_focusEventLog');
+    if (_focusEventLog?.length > 0) {
+      const { lastFocusEventSync } = await getStorage('lastFocusEventSync');
+      const lastSyncTime = lastFocusEventSync ? new Date(lastFocusEventSync).getTime() : 0;
+      const newEvents = _focusEventLog
+        .filter(e => e?.at && !Number.isNaN(new Date(e.at).getTime()))
+        .filter(e => new Date(e.at).getTime() > lastSyncTime);
+
+      if (newEvents.length > 0) {
+        const eventInserts = newEvents.map(e => ({
+          profile_id: profileId,
+          focus_client_id: e.focusClientId,
+          kind: e.kind,
+          at: new Date(e.at).toISOString(),
+          source: 'extension',
+          meta: e.meta || {}
+        }));
+
+        const ok = await writeRowsResilient({
+          rows: eventInserts,
+          table: 'focus_events',
+          diagnosticKind: 'focus_events_insert_failed',
+          write: (currentRows) => supabase
+            .schema('tabatha')
+            .from('focus_events')
+            .insert(currentRows)
+        });
+
+        if (!ok) {
+          hadError = true;
+        } else {
+          const newest = Math.max(...newEvents.map(e => new Date(e.at).getTime()));
+          await setStorage({ lastFocusEventSync: new Date(newest).toISOString() });
+        }
+      }
+    }
+
+    // Sidecar round-trip parity: push pending user-authored checkpoint notes
+    // and pull cloud-authored ones (e.g. from the phone) into item.checkpoint.
+    if (!(await syncFocusCheckpoints(supabase, scope, engine))) hadError = true;
 
     if (!(await syncOrgRegistry(supabase, scope))) hadError = true;
     if (!(await syncClockHistory(supabase, scope))) hadError = true;
