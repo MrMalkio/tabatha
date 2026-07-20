@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Put Tabatha on your screensaver · Tabatha Docs</title>
+<meta name="description" content="A separate Windows app that turns idle time into a live Context View, automatically.">
+<link rel="stylesheet" href="../show/assets/site.css">
+<link rel="stylesheet" href="assets/docs.css">
+<style>
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+.nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+@media (max-width:900px){ .phead h1{font-size:30px} }
+
+</style>
+
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Help &amp; Guides</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Docs</a>
+  <a href="../show/index.html">Show &amp; Tell</a>
+  <span class="verbadge">v6.7.41</span>
+</nav>
+<header class="phead">
+  <div class="kicker">Getting Started</div>
+  <h1>Put Tabatha on your screensaver</h1>
+  <p>Flux Refocus's screensaver clock is a small, separate Electron app from the rest of the Tabatha family. Turn on its Tabatha mode and your idle screen becomes a live Context View on your primary display — current focus, timer, timeline, phone-away alert — automatically falling back to its own flip clock if Tabatha can't be reached, and running the flip clock on any other displays regardless.</p>
+  <div class="gwhere"><span class="e" aria-hidden="true">📍</span> Windows — a separate app, "Flux Screensaver" (Flux Refocus screensaver clock)</div>
+</header>
+<div class="devnote" style="margin:24px auto 0;max-width:1100px">
+    <span class="e" aria-hidden="true">🚧</span>
+    <span class="tx">This is a separate repo (<code>Flux-Refocus-Screensaver-clock</code>), not part of the Tabatha extension or site, and it has no installer release yet — you build it from source and register it as a Windows screensaver by hand.</span>
+  </div>
+<div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>Build it</h3>
+      <p>Clone <code>MrMalkio/Flux-Refocus-Screensaver-clock</code>, run <code>npm install</code>, then <code>npm run electron:build</code>. That produces <code>release\win-unpacked\Flux Screensaver.exe</code>.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <h3>Install it as your screensaver</h3>
+      <p>Run <code>install.ps1</code> as Administrator from the project folder. It copies the built app to <code>C:\ProgramData\FluxScreensaver</code>, renames it to a <code>.scr</code>, and points Windows' screensaver registry at it with a 5-minute idle timeout.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">3</div>
+    <div class="body">
+      <h3>Open its settings</h3>
+      <p>Windows Settings → Personalization → Lock screen → <b>Screen saver settings</b> → confirm <b>FluxScreensaver</b> is selected → click <b>Settings…</b> to open its own configuration panel.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">4</div>
+    <div class="body">
+      <h3>Turn on Context View</h3>
+      <p>In the panel's <b>Tabatha</b> section, under <b>Context View</b>, toggle <b>"Show Tabatha Context View."</b> On your primary display this replaces the flip clock with the live Context View; other displays keep the flip clock, and it falls back to the flip clock automatically if Tabatha can't be reached.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">5</div>
+    <div class="body">
+      <h3>Sign in</h3>
+      <p>Under <b>Account</b>, click <b>"Sign in to Tabatha…"</b> — a one-time sign-in window. Once you're signed in, the Context View reuses that session automatically from then on.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">6</div>
+    <div class="body">
+      <h3>Preview it</h3>
+      <p>Back in Windows' Screen Saver Settings, click <b>Preview</b> to test it full-screen, or just leave the screen idle for 5 minutes.</p>
+      
+    </div>
+  </div>
+</div>
+
+<div class="related">
+  <h2>Related guides</h2>
+  <div class="grid">
+    <a href="getting-started-context-view.html"><span aria-hidden="true">📺</span> Context View (big screen)</a>
+    <a href="getting-started-companion.html"><span aria-hidden="true">🖥️</span> Desktop Companion</a>
+    <a href="settings-and-customization.html"><span aria-hidden="true">⚙️</span> Settings & customization</a>
+  </div>
+</div>
+<footer>
+  <span>Tabatha docs</span><span class="dot">·</span>
+  <span>task-oriented help across the whole family</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.41</span>
+</footer>
+<script src="assets/docs.js" defer></script>
+
+</body>
+</html>

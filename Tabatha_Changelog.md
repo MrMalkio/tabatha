@@ -4,6 +4,72 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.44] - Sidecar 0.9-0.11 line reconciled - _2026-07-20_
+
+> Merge: invite signups (Demo/Personal/Team), TV code sign-in, Pomodoro mode, device management (naming/remote sign-out/pause), migrations 042-045, Olympus + Smart Deferral design docs (Koda-vetted). No extension code changed.
+
+## [v6.7.43] - Cross-surface round-trip parity - _2026-07-20_
+
+> Extension now emits focus_events (start/pause/resume/resolve/extend/backburner/snooze), syncs checkpoints to/from Cloud Sync, and renders Sidecar sub-intents nested + backburnered items grouped. Fixes backburner flag not clearing on direct switch.
+
+## [v6.7.42] - CWS publishing pipeline merged - _2026-07-20_
+
+> Tooling only: Chrome Web Store publish scripts + docs (feat/cws-activation). No extension code changed.
+
+## [v6.7.41] - Marketing site: /docs — screensaver (Flux Refocus) guide - _2026-07-20_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **`/docs/getting-started-screensaver.html`** — a 6th Getting Started card/guide: "Screensaver (Flux Refocus)," covering the Tabatha Context View mode that shipped 2026-07-19 in the separate `Flux-Refocus-Screensaver-clock` repo (v2.1.0, merge commit `0c36ad4`). Every label verified against that repo's `src/App.tsx` settings panel (`Show Tabatha Context View` toggle, `Sign in to Tabatha…` button) after a fresh `git pull`. Honest framing kept: it's a separate Electron app with no installer release yet, built from source and registered as a Windows screensaver via `install.ps1`.
+- Cross-links added: the Context View getting-started guide gets a 6th step ("Put it on your screensaver (optional)"); the Settings & customization guide's "standing screen" section now covers both Desk View and the screensaver.
+- `docs-search-index.json` regenerated (108 records, was 99).
+=======
+## [v6.7.41] - Chrome Web Store API publishing pipeline reconciled into staging - _2026-07-20_
+
+> Merges `feat/cws-api` (built 2026-07-16 on `6.7.17`) forward onto the current staging line via `feat/cws-activation`.
+
+### Added
+
+- **`scripts/cws-auth.mjs` + `npm run cws:auth`** — one-time OAuth bootstrap for the CWS Items API: auto-locates the downloaded "Tabatha CWS Publisher" `client_secret_*.json` in Downloads, runs a local loopback consent flow (opens the default browser, no code-pasting), and writes `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` into the gitignored `deploy-creds.local`.
+- **`scripts/cws-publish.mjs` + `npm run cws:upload` / `cws:publish` / `cws:status`** — the release pipeline: mints an access token from the stored refresh token, uploads `store-assets/tabatha-store-v<version>.zip` (building it via `build:store` first if missing) to a new (`--new`, writes `CWS_APP_ID`) or existing item, publishes via `publishTarget` (defaults to `trustedTesters` for the staff rollout; `--target default` for the wider unlisted audience), and reports draft `--status`. Surfaces the API's own `itemError` messages verbatim; never logs a token value.
+- **`scripts/lib/deploy-creds.mjs`, `scripts/lib/cws-client.mjs`, `scripts/lib/cws-args.mjs`, `scripts/lib/cws-zip.mjs`** — pure, unit-tested helpers backing both scripts.
+- **`docs/cws-api-release.md`** — the runbook: one-time auth, the per-release loop, `publishTarget` vs. Visibility, review-latency expectations.
+- **`docs/CWS-PUBLISHING.md`** — the one-command flow plus the one-time human setup steps (account registration/fee, OAuth consent, first-listing creation as Private/domain-only, Workspace force-install repoint).
+
+### Fixed
+
+- **Replaced the orphaned, unwired `scripts/cws-auth.mjs`** that had landed on staging via an unrelated mobile-responsiveness merge (`8aa2d0b`, sourced from `feat/showcase-responsive`). That copy used Google's deprecated `urn:ietf:wg:oauth:2.0:oob` out-of-band flow and was never wired into `package.json` or paired with a publish script. This branch's loopback-listener implementation supersedes it.
+=======
+## [v6.7.41] - Extension ↔ Sidecar round-trip parity v1 - _2026-07-20_
+
+> Closes the biggest cross-surface gap flagged on the Feature Matrix: the extension could not see or produce what the Tabby Sidecar (mobile companion) now tracks.
+
+### Added
+
+- **`focus_events` emission**: the extension now writes best-effort `tabatha.focus_events` rows (`source:'extension'`) at every start/pause/resume/resolve/extend/snooze/backburner/unbackburner transition, using the same kinds and meta shapes as the Sidecar (`sidecar/src/data/events.ts`). Events are appended locally (`_focusEventLog`) and batched to the cloud on the existing sync cadence, mirroring the `intent_history` push pattern — a write failure can never block the underlying focus action.
+- **`focus_checkpoints` round-trip**: the sidebar's existing checkpoint composer (`SAVE_CHECKPOINT_NOTE`) now reaches the cloud — user-authored notes are pushed to `tabatha.focus_checkpoints`, and cloud-authored notes (e.g. from the phone) are pulled back into the local checkpoint timeline, both on the regular sync cycle. System-generated auto-checkpoints stay local (now covered distinctly by `focus_events`).
+- **Sidebar sub-intent / backburner rendering**: the sidebar queue now nests sub-intents of the current focus (↳ badge + indent) and moves backburnered items into their own collapsed dock instead of also showing them in the main queue. Reads both the extension's dedicated fields (`parentFocusId`/`backburnered`) and the Sidecar's tag convention (`tags._parent`/`tags._backburner`) so items from either surface render correctly.
+
+### Fixed
+
+- **`switchFocus` never cleared `backburnered`**: switching directly into a backburnered item left it stuck marked as backburnered even while active. Now cleared on activation (mirrors the Sidecar's `switchTo`).
+
+### Changed
+
+- **`buildFocusRows` (sync push)**: now mirrors `item.parentFocusId`/`item.backburnered` into `tags._parent`/`tags._backburner` on every push, so extension-created sub-intents/backburner state render correctly on the Sidecar and Context View.
+- **`serverFocusToLocal` (rehydrate pull)**: now mirrors `tags._parent`/`tags._backburner` into `parentFocusId`/`backburnered` when present, without clobbering local-only values when absent.
+
+## [v6.7.40] - Marketing site: new /docs help section - _2026-07-20_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **`/docs`** — a new task-oriented help section on the public site, alongside the existing `/show` component showcase. Landing page with its own search box (separate `docs-search-index.json` so `/show`'s card count stays untouched) laid out on two axes: **Getting Started** (one guide per surface — Extension, Tabby Sidecar, Context View, Desktop Companion, Tabby Watch) and **How do I…** (9 task categories — Focus & intents; Timers, extensions & backburner; Checkpoints & voice; Tasks & Asana sync; Work shifts & clock; Phone Focus Mode & the red screen; Pairing devices; Settings & customization; Feedback & troubleshooting). 14 guide pages, every step verified against the current `src/`, `sidecar/src/`, `tabatha-watch`, and `tabatha-desktop` source rather than paraphrased from memory. Honest framing kept for beta bits (Tabby Watch is a sideload beta; the Desktop Companion installer is unsigned and triggers SmartScreen).
+- **"Docs" nav link** added to the homepage footer and to every `/show` page's header nav (index, roadmap, and all 10 component-category pages), matching the existing sticky-nav/mobile-drawer mechanics. `/docs` pages cross-link back to the relevant `/show` surface and component pages ("See it: …").
+
 ## [v6.7.39] - Sidecar line reconciled into staging - _2026-07-19_
 
 > Merge commit: brings the entire Tabby Sidecar 0.x line (sidecar/ app v0.8.2, Supabase migrations 030-041 + 5 edge functions, Plan 040/041 specs and docs) into staging. No extension code changed.
@@ -319,6 +385,15 @@ file.
 - The 8 surface frames are unchanged and carry **no site chrome**. They are rendered at an exact 1280×800 as the whole viewport by the capture script, so adding a header or search box to them would corrupt the five Chrome Web Store screenshots. Their purpose copy lives on the hub, where they are presented.
 
 ---
+
+## [v6.7.17] - Chrome Web Store API publishing pipeline - _2026-07-16_
+
+### Added
+
+- **`scripts/cws-auth.mjs` + `npm run cws:auth`** — one-time OAuth bootstrap for the CWS Items API: auto-locates the downloaded "Tabatha CWS Publisher" `client_secret_*.json` in Downloads, runs a local loopback consent flow (opens the default browser, no code-pasting), and writes `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN` into the gitignored `deploy-creds.local`.
+- **`scripts/cws-publish.mjs` + `npm run cws:upload` / `cws:publish` / `cws:status`** — the release pipeline: mints an access token from the stored refresh token, uploads `store-assets/tabatha-store-v<version>.zip` (building it via `build:store` first if missing) to a new (`--new`, writes `CWS_APP_ID`) or existing item, publishes via `publishTarget` (defaults to `trustedTesters` for the staff rollout; `--target default` for the wider unlisted audience), and reports draft `--status`. Surfaces the API's own `itemError` messages verbatim; never logs a token value.
+- **`scripts/lib/deploy-creds.mjs`, `scripts/lib/cws-client.mjs`, `scripts/lib/cws-args.mjs`, `scripts/lib/cws-zip.mjs`** — pure, unit-tested helpers backing both scripts (creds file parse/merge round-trip, client_secret discovery/parsing, argv parsing, store-zip path resolution).
+- **`docs/cws-api-release.md`** — the runbook: one-time auth, the per-release loop (bump → build:store → upload → publish), the `publishTarget` vs. Visibility distinction, and the review-latency expectation for the `identity` + `<all_urls>` permission combination.
 
 ## [v6.7.16] - Showcase expansion: full component inventory + card captures - _2026-07-16_
 

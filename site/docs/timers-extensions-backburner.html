@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timers, extensions & backburner · Tabatha Docs</title>
+<meta name="description" content="Pause with a note, add +5 minutes, or put something aside without losing it.">
+<link rel="stylesheet" href="../show/assets/site.css">
+<link rel="stylesheet" href="assets/docs.css">
+<style>
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+.nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+@media (max-width:900px){ .phead h1{font-size:30px} }
+
+</style>
+
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Help &amp; Guides</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Docs</a>
+  <a href="../show/index.html">Show &amp; Tell</a>
+  <span class="verbadge">v6.7.41</span>
+</nav>
+<header class="phead">
+  <div class="kicker">How do I…</div>
+  <h1>Timers, extensions & backburner</h1>
+  <p>A focus doesn't have to run start-to-finish uninterrupted — pause it, extend it, or set it aside on the backburner while you wait on something else.</p>
+  <div class="gwhere"><span class="e" aria-hidden="true">📍</span> Extension InBar/FocusBar, Tabby Sidecar, Tabby Watch</div>
+</header>
+<div class="gsub">Pause & resume</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>Extension</h3>
+      <p>The InBar's <b>⏸</b> button opens <b>"⏸ Where did you leave off?"</b> — leave a note and press <b>Pause</b>. The page turns into a sticky note (<b>📌 Paused</b>) with <b>✏️ Edit Note</b> and <b>▶ Resume</b> buttons.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <h3>Sidecar</h3>
+      <p><b>⏸ Pause</b> / <b>▶ Resume</b> on the active-focus card.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">3</div>
+    <div class="body">
+      <h3>Watch</h3>
+      <p>The same chip toggles between <b>⏸ Pause</b> and <b>▶ Resume</b>.</p>
+      
+    </div>
+  </div>
+</div>
+<div class="gsub">Extend +5 minutes</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>Any surface</h3>
+      <p><b>+5m</b> on the extension's FocusBar, the Sidecar's active-focus card, or the watch's <b>＋5 min</b> chip all add five minutes to the running timer.</p>
+      
+    </div>
+  </div>
+</div>
+<div class="gsub">When the timer runs out (Extension only)</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>The Focus Timer Expired overlay</h3>
+      <p>Offers <b>⏱️ Snooze</b> (pick your own minutes), <b>🍳 Let Me Cook</b>, <b>🔄 Switch</b>, <b>⏸ Pause</b>, <b>☕ Break</b>, <b>✅ Complete</b>, and <b>📝 Note</b>. There's no equivalent overlay on Sidecar or Watch today — just extend or pause manually there.</p>
+      
+    </div>
+  </div>
+</div>
+<div class="gsub">Backburner + snooze</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>Put something aside (Extension)</h3>
+      <p>InBar's <b>🔥</b> button opens <b>"🔥 Backburner: '{focus}'"</b> — set a <b>Duration</b>, say what you're waiting for, note what you'll work on instead, then <b>Backburner</b>.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <h3>Put something aside (Sidecar)</h3>
+      <p><b>🔥 Backburner</b> button on the active-focus card. The Backburner list shows each item with <b>▶</b> (resume), <b>⏰</b> (snooze 10 minutes), and <b>✕</b> (dismiss).</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">3</div>
+    <div class="body">
+      <h3>Snooze</h3>
+      <p>Sidecar's backburner rows snooze in a fixed 10-minute step. The extension's Focus Timer Expired overlay lets you snooze by any number of minutes you type in.</p>
+      
+    </div>
+  </div>
+</div>
+<div class="seeit">
+  <span class="lbl">See it</span>
+  <a href="../show/components-focus.html">Focus & Time components →</a>
+  <a href="../show/components-overlays.html">Overlays & Content Scripts →</a>
+</div>
+<div class="related">
+  <h2>Related guides</h2>
+  <div class="grid">
+    <a href="focus-and-intents.html"><span aria-hidden="true">🎯</span> Focus & intents</a>
+    <a href="checkpoints-and-voice.html"><span aria-hidden="true">📋</span> Checkpoints & voice</a>
+  </div>
+</div>
+<footer>
+  <span>Tabatha docs</span><span class="dot">·</span>
+  <span>task-oriented help across the whole family</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.41</span>
+</footer>
+<script src="assets/docs.js" defer></script>
+
+</body>
+</html>

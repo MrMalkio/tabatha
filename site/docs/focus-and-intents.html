@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focus & intents · Tabatha Docs</title>
+<meta name="description" content="Start an intent, resolve it, and branch off a sub-intent without losing the parent.">
+<link rel="stylesheet" href="../show/assets/site.css">
+<link rel="stylesheet" href="assets/docs.css">
+<style>
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+.nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+@media (max-width:900px){ .phead h1{font-size:30px} }
+
+</style>
+
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Help &amp; Guides</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Docs</a>
+  <a href="../show/index.html">Show &amp; Tell</a>
+  <span class="verbadge">v6.7.41</span>
+</nav>
+<header class="phead">
+  <div class="kicker">How do I…</div>
+  <h1>Focus & intents</h1>
+  <p>The unit Tabatha runs on is the <b>intent</b> — a short answer to "what am I doing right now," turned into a focus with a clock. Here's how to start one, close it out, and branch a sub-intent off it.</p>
+  <div class="gwhere"><span class="e" aria-hidden="true">📍</span> Extension (Gatekeeper, home dashboard, sidebar) and Tabby Sidecar</div>
+</header>
+<div class="gsub">Start an intent</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>From a new tab (Extension)</h3>
+      <p>The Gatekeeper overlay asks <b>"Why are you here?"</b> Type into <code>What are you working on?</code> and press <b>Continue</b> for a real focus — or pick <b>⚔️ Side Quest</b>, <b>🍬 Sugar Box</b>, <b>🅿️ Park</b>, or <b>🔖 Later</b> for anything less than one.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <h3>From the dashboard or sidebar (Extension)</h3>
+      <p>Type into <code>What are you focusing on?</code> and press <b>Set Focus</b> (dashboard) or <b>▶</b> (sidebar).</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">3</div>
+    <div class="body">
+      <h3>From your phone (Sidecar)</h3>
+      <p>Focus tab → the <b>"🎯 Set focus"</b> card → type into <code>What are you focusing on?</code> (or tap the mic to speak it) → <b>▶ Set focus</b>.</p>
+      
+    </div>
+  </div>
+</div>
+<div class="gsub">Resolve a focus</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>Mark it done</h3>
+      <p>Extension: <b>✓ Resolved</b> on the FocusBar — on the dashboard, the sidebar, or a queue row. Sidecar: <b>✓ Resolve</b> on the active-focus card, or the <b>✓</b> icon on a queue or sub-intent row.</p>
+      
+    </div>
+  </div>
+</div>
+<div class="gsub">Add a sub-intent</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>Branch off the current focus</h3>
+      <p>Extension: <b>📌 Sub-focus</b> on the FocusBar → type a name → <b>+ Add</b>. Sidecar: the <b>📌 Sub-intent</b> toggle on the Focus tab → type into <code>Sub-intent under this focus…</code> → <b>Add sub-intent</b>.</p>
+      
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <h3>Work the list</h3>
+      <p>Sub-intents show under their parent with <b>▶</b> (switch to it) and <b>✓</b> (resolve it) — the parent focus's clock keeps running underneath.</p>
+      
+    </div>
+  </div>
+</div>
+<div class="seeit">
+  <span class="lbl">See it</span>
+  <a href="../show/gatekeeper.html" target="_blank" rel="noopener">The Gatekeeper →</a>
+  <a href="../show/components-focus.html">Focus & Time components →</a>
+  <a href="../show/components-sidecar.html">Tabby Sidecar →</a>
+</div>
+<div class="related">
+  <h2>Related guides</h2>
+  <div class="grid">
+    <a href="timers-extensions-backburner.html"><span aria-hidden="true">⏱️</span> Timers, extensions & backburner</a>
+    <a href="checkpoints-and-voice.html"><span aria-hidden="true">📋</span> Checkpoints & voice</a>
+    <a href="getting-started-extension.html"><span aria-hidden="true">🧩</span> Browser Extension</a>
+  </div>
+</div>
+<footer>
+  <span>Tabatha docs</span><span class="dot">·</span>
+  <span>task-oriented help across the whole family</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.41</span>
+</footer>
+<script src="assets/docs.js" defer></script>
+
+</body>
+</html>

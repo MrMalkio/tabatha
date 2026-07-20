@@ -10,7 +10,9 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { getDeviceId, deviceLabel } from '../lib/device';
+import { getDeviceId, deviceLabel, PAIRED_DEVICE_NAME_KEY } from '../lib/device';
+import { redeemInviteToken, type InviteKind } from '../lib/invites';
+import { sessionIdFromAccessToken } from '../lib/jwt';
 
 export type Profile = {
   id: string;
@@ -25,10 +27,17 @@ type AuthState = {
   profile: Profile | null;
   browserProfileId: string | null;
   loading: boolean;
+  // Invite-signup gate: true once we know the authed user has no Tabatha
+  // profile row yet (see fetchProfile below — we no longer auto-provision
+  // one). False for every existing profiled account (back-compat: zero
+  // behavior change for them) and flips back to false once redeemInvite
+  // succeeds.
+  needsInvite: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  redeemInvite: (code: string) => Promise<{ ok: boolean; error?: string; kind?: InviteKind }>;
   saveSidecarSettings: (patch: Record<string, any>) => Promise<void>;
   saveChaperoneSettings: (patch: Record<string, any>) => Promise<void>;
 };
@@ -96,10 +105,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [browserProfileId, setBrowserProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsInvite, setNeedsInvite] = useState(false);
   const registered = useRef(false);
 
+  // Invite-signup gate. Previously this auto-created a bare profiles row
+  // for ANY authenticated user, which meant sign-in alone was enough to
+  // reach the full app with no invite required. Now: read-only. If no row
+  // exists, surface `needsInvite: true` instead of provisioning one —
+  // existing accounts (row already present) see zero behavior change.
+  // Provisioning now only happens as a direct result of a successful
+  // invite-code redemption (see redeemInvite below), not on every sign-in.
   const fetchProfile = useCallback(async (authUserId: string) => {
-    // Read or auto-provision the Tabatha profile (mirrors the extension).
     const { data: existing, error } = await supabase
       .from('profiles')
       .select('id, auth_user_id, display_name, default_realm, settings')
@@ -110,32 +126,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn('profile read failed', error.message);
     }
 
-    let prof = existing as Profile | null;
+    const prof = existing as Profile | null;
     if (!prof) {
-      const { data: userData } = await supabase.auth.getUser();
-      const u = userData?.user;
-      const displayName =
-        u?.user_metadata?.full_name ||
-        u?.user_metadata?.name ||
-        u?.email?.split('@')[0] ||
-        'Tabatha User';
-      const { data: created, error: insErr } = await supabase
-        .from('profiles')
-        .insert({ auth_user_id: authUserId, display_name: displayName })
-        .select('id, auth_user_id, display_name, default_realm, settings')
-        .single();
-      if (insErr) {
-        console.warn('profile create failed', insErr.message);
-        return null;
-      }
-      prof = created as Profile;
+      setNeedsInvite(true);
+      return null;
     }
+    setNeedsInvite(false);
     setProfile(prof);
     writeCachedProfile(authUserId, prof);
     return prof;
   }, []);
 
   // Register the phone as its own device row (best-effort, non-blocking).
+  //
+  // Device management (migration 045) additions on top of the original
+  // upsert:
+  //   (a) auth_session_id — decoded off the CURRENT session's access token
+  //       (the `session_id` GoTrue claim), so device-signout can revoke
+  //       this exact session later even if this device is offline.
+  //   (b) a name minted on ANOTHER device via PairWatchCard's free-text
+  //       input survives the redeem round-trip in AsyncStorage
+  //       (PAIRED_DEVICE_NAME_KEY, written by CodeSignIn.tsx just before
+  //       setSession fires this whole flow) — read it once, apply it as
+  //       both display_name and profile_name, then clear it so it can't
+  //       leak into a LATER re-register on this same device after a rename
+  //       from elsewhere.
+  //   (c) display_name is otherwise sticky: this runs on every sign-in
+  //       (once per app lifetime via the `registered` guard, but a fresh
+  //       reinstall/relaunch means "every sign-in" in practice), and a
+  //       plain upsert would silently re-blank a user's rename back to
+  //       nothing every time. Fetching the existing row's display_name
+  //       first and omitting the key entirely from the upsert payload when
+  //       there's nothing new to set means Postgres's ON CONFLICT DO
+  //       UPDATE never touches that column — supabase-js only emits
+  //       `SET col = excluded.col` for keys present in the payload object.
   const registerDevice = useCallback(async (prof: Profile) => {
     if (registered.current) return;
     registered.current = true;
@@ -148,18 +172,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // local_id is stable per surface so the user's mobile presence collapses
       // to one row (also satisfying the mobile-surface uniqueness in mig 013).
       const localId = `sidecar-${surface}`;
+
+      const { data: existing } = await supabase
+        .from('browser_profiles')
+        .select('display_name')
+        .eq('profile_id', prof.id)
+        .eq('local_id', localId)
+        .maybeSingle();
+
+      let pairedName: string | null = null;
+      try {
+        pairedName = await AsyncStorage.getItem(PAIRED_DEVICE_NAME_KEY);
+      } catch {
+        /* ignore — falls through to no override */
+      }
+
+      let profileName = deviceLabel();
+      const namePatch: { display_name?: string } = {};
+      if (pairedName) {
+        profileName = pairedName;
+        namePatch.display_name = pairedName;
+        AsyncStorage.removeItem(PAIRED_DEVICE_NAME_KEY).catch(() => {
+          /* best effort */
+        });
+      } else if (!existing?.display_name) {
+        // No prior custom name and nothing new to set — leave the column
+        // out of the payload so INSERT gets NULL (client-side fallback to
+        // profile_name/browser, see DevicesCard's surfaceLabel) and UPDATE
+        // leaves whatever's already there (also NULL in this branch) alone.
+      }
+      // else: existing.display_name is set and there's no new pairedName —
+      // namePatch stays empty, so the upsert below omits display_name
+      // entirely and the existing value survives untouched.
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionId = sessionIdFromAccessToken(sessionData.session?.access_token);
+
       const { data, error } = await supabase
         .from('browser_profiles')
         .upsert(
           {
             profile_id: prof.id,
             browser: surface,
-            profile_name: deviceLabel(),
+            profile_name: profileName,
             classification: 'professional',
             extension_installed: false,
             local_id: localId,
             machine_id: deviceId,
             last_seen_at: new Date().toISOString(),
+            ...(sessionId ? { auth_session_id: sessionId } : {}),
+            ...namePatch,
           },
           { onConflict: 'profile_id,local_id' }
         )
@@ -242,15 +304,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setProfile(null);
     setBrowserProfileId(null);
+    setNeedsInvite(false);
     registered.current = false;
     AsyncStorage.removeItem(CACHED_PROFILE_KEY).catch(() => {
       /* best effort */
     });
   }, []);
 
+  // Also registers the device the first time this resolves a profile — the
+  // initial mount effect only calls registerDevice when fetchProfile found
+  // a row *then*; a needsInvite user's first successful profile only shows
+  // up via redeemInvite's own refreshProfile() call below, so this has to
+  // pick up that case too. registerDevice no-ops after its first call
+  // (registered.current guard), so this is a no-op for already-registered
+  // existing accounts calling refreshProfile for any other reason.
   const refreshProfile = useCallback(async () => {
-    if (session?.user?.id) await fetchProfile(session.user.id);
-  }, [session, fetchProfile]);
+    if (session?.user?.id) {
+      const prof = await fetchProfile(session.user.id);
+      if (prof) registerDevice(prof);
+    }
+  }, [session, fetchProfile, registerDevice]);
+
+  // Invite-signup gate redeem flow.
+  //
+  // tabatha.redeem_invite_token (migrations 003 + 018) looks up the caller's
+  // profile by auth_user_id and REQUIRES that row to already exist — it
+  // attaches org/team membership + stamps profile defaults onto an existing
+  // profile, it does not create one. Since fetchProfile above no longer
+  // auto-provisions a profile on sign-in (that's the entire point of the
+  // gate), redemption has to create a minimal shell profile first so the
+  // RPC has something to find.
+  //
+  // That shell creation is gated behind this explicit, user-initiated
+  // Redeem action — never behind mere sign-in — so an un-invited user can't
+  // get a usable profile row (the gate's own signal) just by loading the
+  // screen. If the code turns out to be invalid/used/expired, the shell is
+  // rolled back (deleted) so needsInvite flips back to true rather than
+  // silently letting a failed attempt still open the gate.
+  const redeemInvite = useCallback(
+    async (rawCode: string): Promise<{ ok: boolean; error?: string; kind?: InviteKind }> => {
+      const uid = session?.user?.id;
+      if (!uid) return { ok: false, error: 'Not signed in.' };
+      const code = rawCode.trim();
+      if (!code) return { ok: false, error: 'Enter your invite code.' };
+
+      // Migration 042 (CeeCee integration ruling): the RPC itself creates the
+      // caller's profile atomically AFTER validating the token — the earlier
+      // client-side shell-insert + compensating-delete had a crash window
+      // that could orphan a profile and bypass the invite gate. One call,
+      // no client-side provisioning.
+      //
+      // Migration 043 adds `kind` ('demo' | 'personal' | 'team', remodeled
+      // from 'demo' | 'team' | 'founder' in migration 044) to the
+      // payload — passed through here so a caller COULD show kind-specific
+      // copy, but InviteGateScreen doesn't today: `needsInvite` flips to
+      // false as soon as this resolves `ok: true`, and app/index.tsx
+      // re-renders straight past this screen into the normal app in the
+      // same tick, so there's no frame in which a success message here
+      // would actually be visible.
+      const result = await redeemInviteToken(code);
+      if (!result.success) {
+        return { ok: false, error: result.error || 'That code isn’t valid or was already used.' };
+      }
+
+      const fresh = await fetchProfile(uid);
+      if (fresh) registerDevice(fresh);
+      return { ok: true, kind: result.kind };
+    },
+    [session, profile, fetchProfile, registerDevice]
+  );
 
   // Epic 9 — both settings writers go through the server-side
   // `update_profile_settings` RPC (migration 038) instead of a client-side
@@ -311,10 +433,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         browserProfileId,
         loading,
+        needsInvite,
         signInWithGoogle,
         signInWithMagicLink,
         signOut,
         refreshProfile,
+        redeemInvite,
         saveSidecarSettings,
         saveChaperoneSettings,
       }}

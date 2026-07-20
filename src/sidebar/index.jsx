@@ -42,6 +42,18 @@ function backdatedMins(origIso, localInput) {
   return Math.max(0, Math.round((orig - next) / 60000));
 }
 
+// Sidecar round-trip parity: an item can be backburnered/sub-intent'd either
+// via the extension's own dedicated fields (item.backburnered / item.
+// parentFocusId) or, if it originated on (or was later touched by) the
+// Sidecar, via tags._backburner / tags._parent. Read both so rendering is
+// correct regardless of which surface created the item.
+function isBackburneredItem(item) {
+  return !!(item?.backburnered || item?.backburneredAt || item?.tags?._backburner);
+}
+function parentIdOf(item) {
+  return item?.parentFocusId || item?.tags?._parent || null;
+}
+
 // ═══════════════════════════════════════
 // GroupsList — compact groups for sidebar
 // ═══════════════════════════════════════
@@ -627,19 +639,33 @@ function Sidebar() {
                 )}
               </GlassCard>
 
-              {/* Queue */}
+              {/* Queue — backburnered items are excluded (they live in their
+                  own dock below, matching the Sidecar's collapsed Backburner
+                  group instead of polluting this list); sub-intents of the
+                  current focus render indented with a ↳ badge, mirroring
+                  sidecar/src/screens/FocusScreen.tsx's nesting. */}
+              {(() => {
+                const nonBB = (allItems || []).filter(i => !isBackburneredItem(i));
+                const childOfActive = activeFocus
+                  ? nonBB.filter(it => parentIdOf(it) === activeFocus.id)
+                  : [];
+                const childIds = new Set(childOfActive.map(it => it.id));
+                const renderOrder = [...childOfActive, ...nonBB.filter(it => !childIds.has(it.id))];
+                return (
               <div style={{ marginBottom:'6px' }}>
-                <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Queue ({(allItems || []).length})</div>
-                {(!allItems || allItems.length === 0) ? (
+                <div style={{ fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--color-text-muted)', fontWeight:600, marginBottom:'4px' }}>Queue ({nonBB.length})</div>
+                {renderOrder.length === 0 ? (
                   <div style={{ fontSize:'10px', color:'var(--color-text-muted)', fontStyle:'italic', padding:'4px 6px' }}>Nothing queued</div>
                 ) : (
-                  allItems.slice(0,5).map(item => {
+                  renderOrder.slice(0,5).map(item => {
                     const f = FUNNEL_STAGES[item.funnelStage] || FUNNEL_STAGES.unsorted;
                     const hasCheckpoints = (item.checkpoint || []).length > 0;
+                    const isChild = childIds.has(item.id);
                     return (
-                      <div key={item.id} style={{ marginBottom:'2px' }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 6px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)' }}>
+                      <div key={item.id} style={{ marginBottom:'2px', marginLeft: isChild ? '10px' : 0 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 6px', background:'var(--color-surface)', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', borderLeft: isChild ? '2px solid var(--color-accent-primary)' : undefined }}>
                         <div style={{ display:'flex', alignItems:'center', gap:'4px', flex:1, minWidth:0 }}>
+                          {isChild && <span title="Sub-intent of current focus" style={{ fontSize:'9px', color:'var(--color-accent-primary)', flexShrink:0 }}>↳</span>}
                           <span style={{ fontSize:'9px', color:f.color }}>{f.icon}</span>
                           <span style={{ fontSize:'11px', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.label}</span>
                           <select
@@ -680,10 +706,12 @@ function Sidebar() {
                   })
                 )}
               </div>
+                );
+              })()}
 
               {/* Backburner Dock */}
               {(() => {
-                const bb = (allItems || []).filter(i => i.backburneredAt);
+                const bb = (allItems || []).filter(isBackburneredItem);
                 if (bb.length === 0) return null;
                 return (
                   <div style={{ marginBottom:'6px' }}>

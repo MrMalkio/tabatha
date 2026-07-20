@@ -3,6 +3,14 @@ import { Platform } from 'react-native';
 
 const DEVICE_KEY = 'tabby.sidecar.deviceId';
 
+// Device management (migration 045) — CodeSignIn.tsx stashes the pairing
+// device's chosen name here (from pair-watch's redeem response) right
+// before AuthContext.registerDevice() runs for the first time on THIS
+// device; registerDevice reads it once to name itself, then clears it so a
+// later rename from another device isn't clobbered by a stale value on
+// reinstall/re-register.
+export const PAIRED_DEVICE_NAME_KEY = 'tabby.sidecar.pairedDeviceName';
+
 function uuid(): string {
   // RFC4122-ish v4 without a native crypto dep (fine for a device tag).
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -15,7 +23,7 @@ function uuid(): string {
 // Kept as a literal (mirrors app.json) rather than pulled in via
 // expo-constants at runtime — same approach the Settings screen's version
 // footer already used before this was extracted. Bump alongside app.json.
-export const SIDECAR_VERSION = '0.8.2';
+export const SIDECAR_VERSION = '0.11.0';
 
 let cached: string | null = null;
 

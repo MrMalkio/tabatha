@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
+import InviteGateScreen from '../screens/InviteGateScreen';
+import DevicePausedScreen from '../screens/DevicePausedScreen';
 import FocusScreen from '../screens/FocusScreen';
 import TasksScreen from '../screens/TasksScreen';
 import ClockScreen from '../screens/ClockScreen';
@@ -19,6 +21,7 @@ import RecentScreen from '../screens/RecentScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ContextView from '../screens/ContextView';
 import SimpleScreen from '../screens/SimpleScreen';
+import { useOwnDeviceStatus } from '../data/deviceStatus';
 import { colors } from '../lib/theme';
 
 // Plan 040 Epic 5 — "Notes-simple" capture mode. AsyncStorage mirrors
@@ -39,8 +42,20 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
 ];
 
 export default function Index() {
-  const { session, loading, profile, saveSidecarSettings } = useAuth();
+  const { session, loading, profile, needsInvite, saveSidecarSettings, browserProfileId, signOut } =
+    useAuth();
   const [tab, setTab] = useState<TabKey>('focus');
+
+  // Device management (migration 045) — honor logic for another device's
+  // pause/sign-out of THIS device (Settings → Devices, DevicesCard.tsx).
+  // Mounted once here at the root; ContextView reads `deviceSettings` back
+  // out via a prop rather than subscribing a second time.
+  const deviceStatus = useOwnDeviceStatus(browserProfileId);
+  useEffect(() => {
+    if (deviceStatus.revoked) {
+      signOut();
+    }
+  }, [deviceStatus.revoked, signOut]);
   const { width, height } = useWindowDimensions();
   // Large landscape viewport (computer / tablet / TV) → view-only Context View.
   const isLarge = width >= 900 && width > height;
@@ -102,8 +117,26 @@ export default function Index() {
 
   if (!session) return <LoginScreen />;
 
+  // Invite-signup gate — no Tabatha profile row yet for this account. Wins
+  // over everything below (Context View, simple mode, main app): none of
+  // those should be reachable before a valid invite code is redeemed.
+  if (needsInvite) return <InviteGateScreen />;
+
+  // Paused-by-another-device wins over everything below, same tier as the
+  // invite gate — nothing in the app (including Context View) should be
+  // reachable from a paused install until it's resumed elsewhere.
+  if (deviceStatus.paused) return <DevicePausedScreen />;
+
   // Large-landscape auto-switch to Context View always wins over simple mode.
-  if (showContext) return <ContextView onExit={() => setOverride('app')} embed={embed} />;
+  if (showContext) {
+    return (
+      <ContextView
+        onExit={() => setOverride('app')}
+        embed={embed}
+        deviceSettings={deviceStatus.deviceSettings}
+      />
+    );
+  }
 
   if (simpleMode) return <SimpleScreen onFullView={() => setSimpleMode(false)} />;
 
