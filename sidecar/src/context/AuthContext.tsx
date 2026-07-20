@@ -287,41 +287,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const code = rawCode.trim();
       if (!code) return { ok: false, error: 'Enter your invite code.' };
 
-      let prof = profile;
-      let createdShell = false;
-      if (!prof) {
-        const { data: userData } = await supabase.auth.getUser();
-        const u = userData?.user;
-        const displayName =
-          u?.user_metadata?.full_name ||
-          u?.user_metadata?.name ||
-          u?.email?.split('@')[0] ||
-          'Tabatha User';
-        const { data: created, error: insErr } = await supabase
-          .from('profiles')
-          .insert({ auth_user_id: uid, display_name: displayName })
-          .select('id, auth_user_id, display_name, default_realm, settings')
-          .single();
-        if (insErr || !created) {
-          return { ok: false, error: insErr?.message || 'Could not start redemption.' };
-        }
-        prof = created as Profile;
-        createdShell = true;
-      }
-
+      // Migration 042 (CeeCee integration ruling): the RPC itself creates the
+      // caller's profile atomically AFTER validating the token — the earlier
+      // client-side shell-insert + compensating-delete had a crash window
+      // that could orphan a profile and bypass the invite gate. One call,
+      // no client-side provisioning.
       const result = await redeemInviteToken(code);
       if (!result.success) {
-        if (createdShell) {
-          // Compensating delete — "Users see own profile" RLS is FOR ALL,
-          // so the just-created row's own author can remove it. Best
-          // effort: if this fails too, a rare orphaned org-less shell
-          // profile can remain (flagged in the delivery report).
-          try {
-            await supabase.from('profiles').delete().eq('id', prof.id);
-          } catch {
-            /* best effort rollback */
-          }
-        }
         return { ok: false, error: result.error || 'That code isn’t valid or was already used.' };
       }
 
