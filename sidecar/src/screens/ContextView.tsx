@@ -266,9 +266,18 @@ export default function ContextView({
           <View style={styles.ringZone} pointerEvents="none">
             {(() => {
               const timerStr = remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed);
-              const timerFont = big * Math.min(1, 5 / Math.max(5, timerStr.length));
+              // Fit-to-ring (Malkio, 2026-07-19): at 5+ characters ("04:30",
+              // "104:30") the text must SHRINK to stay inside the ring — the
+              // ring sits at the viewport's right edge, so any text wider than
+              // the ring clips off-screen. ≤4 chars ("4:30") keeps the huge
+              // look. 0.58em ≈ average digit+colon advance for this weight.
+              const ringSize = Math.min(width * 0.3, big * 2.3);
+              const timerFont =
+                timerStr.length <= 4
+                  ? big
+                  : Math.min(big, (ringSize * 0.9) / (0.58 * timerStr.length));
               return (
-                <ProgressRing size={Math.min(width * 0.3, big * 2.3)} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
+                <ProgressRing size={ringSize} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
                   <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
                   <Text style={[styles.timerBig, { fontSize: timerFont, color: accent }]} numberOfLines={1}>
                     {timerStr}
