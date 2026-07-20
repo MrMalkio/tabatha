@@ -15,6 +15,7 @@ import { useSyncStatus } from '../hooks/useSyncStatus';
 import { formatTime } from '../utils/formatTime';
 import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
+import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -144,6 +145,10 @@ function Sidebar() {
   // A4: compact sync-health chip (shares deriveSyncState with Settings).
   const syncStatus = useSyncStatus();
 
+  // NB-05: gate CLOCK-IN behind the abandoned-stint modal.
+  const [abandonedOpen, setAbandonedOpen] = useState(false);
+  const selfClassification = identity?.classification || 'professional';
+
   const guardedClockToggle = () => {
     if (clockSession?.active) {
       sendMessage('CLOCK_OUT');
@@ -151,14 +156,15 @@ function Sidebar() {
     }
     // Only a genuinely live install of the same classification stacks hours;
     // stale/abandoned or different-classification installs don't warn.
-    const selfClassification = identity?.classification || 'professional';
     const stacking = otherProfiles.filter(p => isLiveConcurrent(p, selfClassification));
     if (stacking.length > 0) {
       const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
       const ok = window.confirm(`You're clocked in on another live install of the same type:\n${lines}\n\nClocking in here too runs concurrent shifts that can double-count hours. Continue?\n\n(Clear abandoned shifts in Work Shifts → Live Stints.)`);
       if (!ok) return;
     }
-    sendMessage('CLOCK_IN');
+    // NB-05: surface the user's OWN abandoned stints before dispatching CLOCK_IN.
+    // The modal re-checks freshness and self-resolves if nothing is abandoned.
+    setAbandonedOpen(true);
   };
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
@@ -176,6 +182,7 @@ function Sidebar() {
   const [editFunnel, setEditFunnel] = useState('unsorted');
   const [editTags, setEditTags] = useState({});
   const [editStart, setEditStart] = useState(''); // B1: backdate start (datetime-local)
+  const [startFeedback, setStartFeedback] = useState(null); // { text, tone: 'error'|'warn'|'info'|'ok' } — bounds/overlap-aware backdate feedback
   // Plan 025: Checkpoint Progress Notes
   const [showCheckpoint, setShowCheckpoint] = useState(false);
   const [cpnText, setCpnText] = useState('');
@@ -216,6 +223,7 @@ function Sidebar() {
     setEditFunnel(activeFocus.funnelStage || 'unsorted');
     setEditTags(activeFocus.tags || {});
     setEditStart(toLocalInput(activeFocus.startedAt));
+    setStartFeedback(null);
     setEditing(true);
   };
 
@@ -231,10 +239,53 @@ function Sidebar() {
       } else { alert(`🚫 ${resp.error}`); return; }
     }
     // B1: backdate start time if it was moved earlier in the edit panel.
+    // The handler may bound the request to [clock-in, now] and reports (never
+    // blocks on) overlap with other focuses — never swallow that silently.
     const origStart = activeFocus.startedAt ? new Date(activeFocus.startedAt).getTime() : null;
     const newStart = editStart ? new Date(editStart).getTime() : null;
     if (newStart != null && Number.isFinite(newStart) && newStart !== origStart) {
-      await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
+      const r = await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
+      if (r?.error) { setStartFeedback({ tone: 'error', text: r.error }); return; }
+      const addedMins = Math.round((r?.addedMs || 0) / 60000);
+      const hhmm = r?.startedAt ? new Date(r.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      const overlaps = (Array.isArray(r?.overlaps) ? r.overlaps : []).filter(o => (o?.overlapMs || 0) >= 60000);
+      const boundName = r?.clampedBy === 'clock-in' ? 'your clock-in time' : 'the current time';
+      if (r?.clamped && !(r?.addedMs > 0)) {
+        // Fully swallowed by the [clock-in, now] bounds — keep the editor open and explain.
+        setStartFeedback({
+          tone: 'error',
+          text: r?.clampedBy === 'clock-in'
+            ? `Couldn't backdate to that time — it's before your clock-in. Earliest available: ${hhmm}.`
+            : `Couldn't move the start there — it's outside the allowed window. Effective: ${hhmm}.`,
+        });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        return;
+      }
+      if (overlaps.length) {
+        // Applied — but the credited span overlaps other focus time. Parallel
+        // focuses are allowed: overlap is informational, both keep their time.
+        const top = overlaps.reduce((a, b) => ((b?.overlapMs || 0) > (a?.overlapMs || 0) ? b : a));
+        const who = top?.label ? `"${top.label}"` : 'another focus';
+        const more = overlaps.length > 1 ? ` (+${overlaps.length - 1} more)` : '';
+        const totalMins = Math.max(1, Math.round(overlaps.reduce((s, o) => s + (o?.overlapMs || 0), 0) / 60000));
+        const limited = r?.clamped ? ` (limited by ${boundName})` : '';
+        setStartFeedback({ tone: 'info', text: `Backdated to ${hhmm}${limited} — overlaps ${who}${more} by ${totalMins}m (both keep their time).` });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 3000);
+        return;
+      }
+      if (r?.clamped) {
+        // Partially bounded — applied, but not as far back as requested.
+        setStartFeedback({ tone: 'warn', text: `Backdated to ${hhmm} (limited by ${boundName}) — +${addedMins}m credited.` });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 2500);
+        return;
+      }
+      if (addedMins > 0) {
+        setStartFeedback({ tone: 'ok', text: `+${addedMins}m credited.` });
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 1200);
+        return;
+      }
     }
     setEditing(false);
   };
@@ -329,9 +380,10 @@ function Sidebar() {
             <Tooltip text={`${tabCount} tabs · ${formatTime(totalTime)} active`}>
               <span style={{ fontSize:'9px', color:'var(--color-text-muted)' }}>{tabCount}t · {formatTime(totalTime)}</span>
             </Tooltip>
-            <Tooltip text={syncStatus.tip}>
+            <Tooltip text={`${syncStatus.tip} — click to open Sync & Account`}>
               <button
-                onClick={() => sendMessage('SYNC_NOW')}
+                onClick={() => chrome?.tabs?.create?.({ url: chrome.runtime.getURL('settings.html#sync') })}
+                title="Open Sync & Account settings"
                 style={{ fontSize:'8px', fontWeight:700, padding:'1px 5px', borderRadius:'6px', border:'none', cursor:'pointer', color:syncStatus.color, background:syncStatus.bg, letterSpacing:'0.02em', lineHeight:1.6 }}
               >
                 {syncStatus.label}
@@ -449,9 +501,8 @@ function Sidebar() {
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                     <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
                     <Tooltip text="Checkpoint note"><button onClick={() => setShowCheckpoint(p => !p)} style={btn(isCheckpointStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isCheckpointStale ? '🟠' : ''}</button></Tooltip>
-                    {(activeFocus.checkpoint || []).length > 0 && (
-                      <Tooltip text="View/edit checkpoint timeline"><button onClick={() => setShowTimeline(p => !p)} style={btn(showTimeline ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
-                    )}
+                    {/* NB-09: always reachable — the panel hosts time editing even with zero checkpoints */}
+                    <Tooltip text="View timeline / edit tracked time"><button onClick={() => setShowTimeline(p => !p)} style={btn(showTimeline ? 'var(--color-accent-primary)' : 'var(--color-text-muted)')}>📊</button></Tooltip>
                     <Tooltip text={activeFocus.offDevice ? 'Off-device ON — idle suppressed' : 'Mark as off-device — idle won\'t pause this focus'}>
                       <button onClick={() => sendMessage('UPDATE_FOCUS', { focusId: activeFocus.id, offDevice: !activeFocus.offDevice })} style={btn(activeFocus.offDevice ? '#ef5350' : 'var(--color-text-muted)')}>{activeFocus.offDevice ? '📴' : '📱'}</button>
                     </Tooltip>
@@ -491,6 +542,11 @@ function Sidebar() {
                             <input type="datetime-local" value={editStart} max={toLocalInput(new Date().toISOString())} onChange={e => setEditStart(e.target.value)} style={{ width:'100%', padding:'3px 6px', fontSize:'11px', borderRadius:'var(--radius-sm)', border:'1px solid var(--color-border)', background:'var(--color-bg-base)', color:'var(--color-text-primary)', outline:'none', boxSizing:'border-box' }} />
                             {backdatedMins(activeFocus.startedAt, editStart) > 0 && (
                               <div style={{ fontSize:'9px', color:'var(--color-accent, #66bb6a)', marginTop:'2px' }}>backdated +{backdatedMins(activeFocus.startedAt, editStart)}m</div>
+                            )}
+                            {startFeedback && (
+                              <div style={{ fontSize:'9px', marginTop:'2px', color: startFeedback.tone === 'error' ? '#ef5350' : startFeedback.tone === 'ok' ? '#66bb6a' : '#ffa726' }}>
+                                {startFeedback.tone === 'ok' ? '✓ ' : startFeedback.tone === 'info' ? 'ℹ ' : '⚠ '}{startFeedback.text}
+                              </div>
                             )}
                           </div>
                           <div>
@@ -749,6 +805,14 @@ function Sidebar() {
 
         </AnimatePresence>
       </div>
+
+      {/* NB-05: abandoned-stint surfacing at clock-in */}
+      <AbandonedStintsModal
+        isOpen={abandonedOpen}
+        selfClassification={selfClassification}
+        onResolved={() => { setAbandonedOpen(false); sendMessage('CLOCK_IN'); }}
+        onClose={() => setAbandonedOpen(false)}
+      />
     </div>
   );
 }

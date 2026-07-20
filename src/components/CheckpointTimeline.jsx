@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════
-// Tabatha — CheckpointTimeline (Plan 037/QA)
+// Tabatha — CheckpointTimeline (Plan 037/QA, NB-09 time-edit overhaul)
 // Shared between home/FocusBar and sidebar.
 // Props: activeFocus, sendMessage, onAddNote (opens CPN form in parent)
 // ════════════════════════════════════════════
@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tooltip } from './ui/Tooltip';
 import { formatElapsed } from '../hooks/useFocusEngine';
+import { parseDuration, formatDurationMs } from '../utils/duration';
 
 const LEVEL_EMOJI = { none: '😐', little: '📈', lot: '🚀', almost_done: '🏁', stuck: '🚧' };
 
@@ -16,32 +17,101 @@ const timeEditBtn = {
   cursor: 'pointer', fontWeight: 600, fontVariantNumeric: 'tabular-nums',
 };
 
+const DUR_MODES = [
+  { key: 'set', label: 'Set total' },
+  { key: 'add', label: 'Add' },
+  { key: 'sub', label: 'Subtract' },
+];
+
 export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
   const [tlEdit, setTlEdit] = useState(false);
   const [editCpn, setEditCpn] = useState(null); // { id, text, progressLevel }
-  const [setExactMin, setSetExactMin] = useState('');
+  const [durInput, setDurInput] = useState('');
+  const [durMode, setDurMode] = useState('set'); // 'set' | 'add' | 'sub'
+  const [feedback, setFeedback] = useState(null); // { text, clamped, error }
+  const [lastActivityAt, setLastActivityAt] = useState(null);
   const [copied, setCopied] = useState(false);
 
   if (!activeFocus) return null;
 
+  // NB-09: the time-edit panel must stay reachable even with ZERO checkpoints
+  // (previously the whole component early-returned, orphaning time editing).
   const cpnTotalCount = (activeFocus.checkpoint || []).length;
-  if (cpnTotalCount === 0) return null;
 
   const hasPause = activeFocus.focusState === 'paused' ||
     (activeFocus.checkpoint || []).some(c => c.triggeredBy === 'system' && /^Paused/i.test(c.text || ''));
 
-  const adjustTime = (deltaMin) =>
-    sendMessage('ADJUST_FOCUS_TIME', { focusId: activeFocus.id, adjustmentMs: deltaMin * 60000, reason: 'manual edit' });
+  // ── NB-09: live clamp-aware preview math (mirrors focusService clamping) ──
+  // The parent re-renders this component every second (useFocusEngine tick),
+  // so a per-render "now" is effectively tick-driven, not unstable.
+  const nowMs = Date.now(); // eslint-disable-line react-hooks/purity
+  const liveMs = activeFocus.liveElapsedMs || 0;
+  const isRunning = (activeFocus.focusState === 'active' || activeFocus.focusState === 'drifted') && activeFocus.lastResumedAt;
+  const activePortionMs = isRunning ? Math.max(0, nowMs - new Date(activeFocus.lastResumedAt).getTime()) : 0;
+  const wallMaxMs = activeFocus.startedAt ? Math.max(0, nowMs - new Date(activeFocus.startedAt).getTime()) : null;
+
+  const parsedMs = parseDuration(durInput);
+  let previewMs = null, previewClamped = false;
+  if (parsedMs != null) {
+    const rawTarget = durMode === 'set' ? parsedMs : durMode === 'add' ? liveMs + parsedMs : liveMs - parsedMs;
+    // Floor: the running portion can't be un-lived; ceiling: wall-clock since start.
+    let target = Math.max(activePortionMs, rawTarget, 0);
+    if (wallMaxMs != null && target > wallMaxMs) target = wallMaxMs;
+    previewClamped = Math.abs(target - rawTarget) > 1500; // ignore sub-second tick skew
+    previewMs = target;
+  }
+
+  const showFeedback = (r, fallbackText) => {
+    if (r?.error) { setFeedback({ text: r.error, error: true }); return; }
+    const applied = r?.appliedMs ?? 0;
+    const total = r?.liveElapsedMs != null ? formatElapsed(r.liveElapsedMs) : formatElapsed(activeFocus.liveElapsedMs);
+    const sign = applied >= 0 ? '+' : '−';
+    setFeedback({
+      text: fallbackText || `Applied ${sign}${formatDurationMs(Math.abs(applied))} — total now ${total}`,
+      clamped: !!r?.clamped,
+      clampedTo: r?.liveElapsedMs,
+    });
+  };
+
+  const adjustTime = async (deltaMin) => {
+    const r = await sendMessage('ADJUST_FOCUS_TIME', { focusId: activeFocus.id, adjustmentMs: deltaMin * 60000, reason: 'manual edit' });
+    showFeedback(r);
+  };
 
   const removeLastPauseAction = () =>
     sendMessage('REMOVE_LAST_PAUSE', { focusId: activeFocus.id });
 
-  const applyExactTime = () => {
-    const m = parseFloat(setExactMin);
-    if (!Number.isNaN(m) && m >= 0) {
-      sendMessage('SET_FOCUS_ELAPSED', { focusId: activeFocus.id, elapsedMs: m * 60000 });
-      setSetExactMin('');
+  const applyDuration = async () => {
+    if (parsedMs == null) return;
+    let r;
+    if (durMode === 'set') {
+      r = await sendMessage('SET_FOCUS_ELAPSED', { focusId: activeFocus.id, elapsedMs: parsedMs });
+    } else {
+      const signed = (durMode === 'sub' ? -1 : 1) * parsedMs;
+      r = await sendMessage('ADJUST_FOCUS_TIME', { focusId: activeFocus.id, adjustmentMs: signed, reason: 'manual edit' });
     }
+    showFeedback(r);
+    setDurInput('');
+  };
+
+  const openEdit = async () => {
+    setTlEdit(true); setEditCpn(null); setFeedback(null); setDurInput('');
+    try {
+      const r = await sendMessage('GET_LAST_ACTIVITY', {});
+      setLastActivityAt(r?.lastActivityAt || null);
+    } catch { setLastActivityAt(null); }
+  };
+
+  // Only offer the trim when we HAVE a timestamp and it's meaningfully behind now.
+  const trimTargetMs = lastActivityAt ? new Date(lastActivityAt).getTime() : null;
+  const canTrim = tlEdit && isRunning && trimTargetMs != null && (nowMs - trimTargetMs) > 60000;
+
+  const trimToLastActivity = async () => {
+    if (!trimTargetMs) return;
+    const deltaMs = trimTargetMs - Date.now(); // negative — removes the away span
+    if (deltaMs >= -1000) return;
+    const r = await sendMessage('ADJUST_FOCUS_TIME', { focusId: activeFocus.id, adjustmentMs: deltaMs, reason: 'trimmed to last activity' });
+    showFeedback(r);
   };
 
   const startEditCpn = (cpn) =>
@@ -89,14 +159,16 @@ export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
           📊 Checkpoint Timeline
         </span>
         <span style={{ display: 'flex', gap: '4px' }}>
-          <Tooltip text="Copy the timeline as clean text">
-            <button onClick={copyTimeline} style={{ ...timeEditBtn, color: copied ? '#66bb6a' : 'var(--color-text-muted)', borderColor: copied ? '#66bb6a' : 'var(--color-border)' }}>
-              {copied ? '✓ Copied' : '📋 Copy'}
-            </button>
-          </Tooltip>
+          {cpnTotalCount > 0 && (
+            <Tooltip text="Copy the timeline as clean text">
+              <button onClick={copyTimeline} style={{ ...timeEditBtn, color: copied ? '#66bb6a' : 'var(--color-text-muted)', borderColor: copied ? '#66bb6a' : 'var(--color-border)' }}>
+                {copied ? '✓ Copied' : '📋 Copy'}
+              </button>
+            </Tooltip>
+          )}
           <Tooltip text={tlEdit ? 'Finish editing' : 'Edit times and notes for this focus'}>
             <button
-              onClick={() => { setTlEdit(!tlEdit); setEditCpn(null); }}
+              onClick={() => { if (tlEdit) { setTlEdit(false); setEditCpn(null); setFeedback(null); } else { openEdit(); } }}
               style={{ ...timeEditBtn, borderColor: tlEdit ? '#66bb6a' : 'var(--color-border)', color: tlEdit ? '#66bb6a' : 'var(--color-text-muted)' }}
             >
               {tlEdit ? '✓ Done' : '✏️ Edit'}
@@ -107,7 +179,7 @@ export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
 
       {!tlEdit && (
         <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
-          Tap <strong>✏️ Edit</strong> to correct tracked time, edit a note, or add/remove entries.
+          Tap <strong>✏️ Edit</strong> to correct tracked time{cpnTotalCount > 0 ? ', edit a note, or add/remove entries' : ' or add a note'}.
         </div>
       )}
 
@@ -123,30 +195,75 @@ export function CheckpointTimeline({ activeFocus, sendMessage, onAddNote }) {
             </span>
           </div>
           <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
-            Nudge with the buttons, or type an exact value. Use this to recover time lost to a false or accidental pause.
+            Nudge with the buttons, or type a duration like <strong>2h</strong>, <strong>8h20m</strong>, <strong>500m</strong>, or plain minutes. Press Enter to apply.
           </div>
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
             <button onClick={() => adjustTime(-5)} style={timeEditBtn}>−5m</button>
             <button onClick={() => adjustTime(-1)} style={timeEditBtn}>−1m</button>
             <button onClick={() => adjustTime(1)} style={timeEditBtn}>+1m</button>
             <button onClick={() => adjustTime(5)} style={timeEditBtn}>+5m</button>
-            <span style={{ width: '1px', height: '18px', background: 'var(--color-border)', margin: '0 2px' }} />
-            <input
-              type="number" min="0" value={setExactMin}
-              onChange={e => setSetExactMin(e.target.value)}
-              placeholder="exact min"
-              style={{ width: '78px', padding: '2px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }}
-            />
-            <button onClick={applyExactTime} disabled={setExactMin === ''} style={{ ...timeEditBtn, opacity: setExactMin === '' ? 0.4 : 1 }}>Set</button>
           </div>
-          {hasPause && (
-            <button
-              onClick={removeLastPauseAction}
-              style={{ ...timeEditBtn, borderColor: '#66bb6a', color: '#66bb6a', marginTop: '6px' }}
-            >
-              ↩ Remove last pause &amp; restore its time
-            </button>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {DUR_MODES.map(m => (
+              <button
+                key={m.key}
+                onClick={() => setDurMode(m.key)}
+                style={{ ...timeEditBtn, padding: '2px 6px', borderColor: durMode === m.key ? 'var(--color-accent-primary)' : 'var(--color-border)', color: durMode === m.key ? 'var(--color-accent-primary)' : 'var(--color-text-muted)' }}
+              >
+                {m.label}
+              </button>
+            ))}
+            <input
+              type="text" value={durInput}
+              onChange={e => setDurInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') applyDuration(); }}
+              placeholder="e.g. 8h20m"
+              style={{ width: '84px', padding: '2px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: `1px solid ${durInput && parsedMs == null ? '#ef5350' : 'var(--color-border)'}`, background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }}
+            />
+            <button onClick={applyDuration} disabled={parsedMs == null} style={{ ...timeEditBtn, opacity: parsedMs == null ? 0.4 : 1 }}>Apply</button>
+          </div>
+          {/* Live preview of the resulting total BEFORE commit (incl. clamping) */}
+          {parsedMs != null && (
+            <div style={{ fontSize: '10px', marginTop: '4px', color: previewClamped ? '#ffa726' : 'var(--color-text-muted)' }}>
+              → total becomes <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatElapsed(previewMs)}</strong>
+              {previewClamped && <> — clamped to {formatDurationMs(previewMs)} (can't exceed time since start{activePortionMs > 0 ? ' or undo the running portion' : ''})</>}
+            </div>
           )}
+          {durInput && parsedMs == null && (
+            <div style={{ fontSize: '10px', marginTop: '4px', color: '#ef5350' }}>
+              Can't read that — try "2h", "8h20m", "500m", or plain minutes.
+            </div>
+          )}
+          {/* Post-apply feedback from the handler's response */}
+          {feedback && (
+            <div style={{ fontSize: '10px', marginTop: '4px', color: feedback.error ? '#ef5350' : feedback.clamped ? '#ffa726' : '#66bb6a' }}>
+              {feedback.error ? '⚠ ' : feedback.clamped ? '⚠ ' : '✓ '}{feedback.text}
+              {feedback.clamped && feedback.clampedTo != null && <> — clamped to {formatElapsed(feedback.clampedTo)}</>}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+            {canTrim && (
+              <Tooltip text={`Remove time tracked since your last browser activity (${new Date(trimTargetMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`}>
+                <button onClick={trimToLastActivity} style={{ ...timeEditBtn, borderColor: '#ffa726', color: '#ffa726' }}>
+                  ✂ Trim to last activity ({formatDurationMs(nowMs - trimTargetMs)} ago)
+                </button>
+              </Tooltip>
+            )}
+            {hasPause && (
+              <button
+                onClick={removeLastPauseAction}
+                style={{ ...timeEditBtn, borderColor: '#66bb6a', color: '#66bb6a' }}
+              >
+                ↩ Remove last pause &amp; restore its time
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {cpnTotalCount === 0 && (
+        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '2px 0' }}>
+          No checkpoint entries yet.
         </div>
       )}
 

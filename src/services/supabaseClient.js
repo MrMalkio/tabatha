@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeOutbox, enqueue } from '../utils/cloudOutbox.js';
 
 const supabaseUrl = 'https://mtdgoahskcibjbhfvofx.supabase.co';
 const supabaseKey = 'sb_publishable_lPmWAzfBqbHkyGslkhohQA_8QgdBCu_';
+
+// Page-side durable-fallback keys — MUST mirror cloudWriteService's constants.
+// Used only when the SW can't be reached to enqueue a cloud write (see
+// updateProfileName's catch below); the write is persisted straight into the
+// same outbox the background flushes on its next wake.
+const CLOUD_OUTBOX_STORAGE_KEY = '_cloudOutbox';
+const CLOUD_OUTBOX_ALARM = 'cloud-outbox-flush';
 
 // Disable supabase-js's Web Locks coordination. The default lock uses
 // navigator.locks to serialize auth-token access across browser tabs — fine
@@ -58,6 +66,61 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     lock: noopLock,
   },
 });
+
+// ── Page-context data client (deadlock-proof reads + realtime) ──────────
+// In an MV3 extension PAGE, the auth client above can self-deadlock: its
+// auth-js init lock is held while `onAuthStateChange` subscribers run, and any
+// nested Supabase call (getSession → PostgREST) re-enters that lock and hangs
+// forever. The background service worker is the single auth owner whose client
+// never wedges (it registers no onAuthStateChange), so page reads should not
+// run their own auth machinery at all.
+//
+// `dataClient` is configured with the `accessToken` async callback: supabase-js
+// then NEVER touches auth-js's getSession()/lock — it just calls this callback
+// for the current JWT, which we fetch from the background. This makes every
+// PostgREST read and Realtime subscription immune to the page-context deadlock.
+// (Setting `accessToken` disables `dataClient.auth.*` by design; use the auth
+// client `supabase` for sign-in/out flows.)
+let _tokenCache = { token: null, expiresAt: 0 };
+
+async function fetchAccessTokenFromBackground() {
+  try {
+    if (!chrome?.runtime?.sendMessage) return null;
+    const res = await chrome.runtime.sendMessage({ type: 'GET_ACCESS_TOKEN' });
+    if (res && res.token) {
+      // expiresAt from Supabase is unix seconds; keep a 60s safety margin.
+      _tokenCache = { token: res.token, expiresAt: (res.expiresAt ? res.expiresAt * 1000 : Date.now() + 60000) };
+      return res.token;
+    }
+  } catch { /* SW asleep / not signed in — fall through to anon */ }
+  _tokenCache = { token: null, expiresAt: 0 };
+  return null;
+}
+
+async function getRoutedAccessToken() {
+  // The background service worker (no `window`) is the auth owner and never uses
+  // dataClient — short-circuit so it never messages itself at construction time.
+  if (typeof window === 'undefined') return null;
+  const now = Date.now();
+  if (_tokenCache.token && now < _tokenCache.expiresAt - 60000) return _tokenCache.token;
+  return fetchAccessTokenFromBackground();
+}
+
+export const dataClient = createClient(supabaseUrl, supabaseKey, {
+  accessToken: getRoutedAccessToken,
+});
+
+// Small helper for the page-context mutation wrappers below: send a typed
+// message to the background service worker and unwrap its { ok, data, error }
+// envelope, throwing on transport/exception failures (RPC-level {success:false}
+// results are returned as-is for the caller to handle).
+async function callBackground(type, payload = {}) {
+  const res = await chrome.runtime.sendMessage({ type, ...payload });
+  if (!res || res.ok === false) {
+    throw new Error(res?.error || `${type} failed`);
+  }
+  return res;
+}
 
 /**
  * Authenticate or get the current user session.
@@ -218,61 +281,103 @@ export async function signOut() {
   if (error) throw error;
 }
 
+// ── Mutations — routed through the background service worker ─────────────
+// These previously ran in page context and hung (the auth-js deadlock). They
+// now execute against the background client (the single, never-wedged auth
+// owner). The page-facing signatures + return shapes are unchanged: each
+// returns the underlying RPC result object ({ success, org_id, token, … }).
+
 /**
- * Redeem an Invite Token
+ * Redeem an Invite Token. Runs the SECURITY DEFINER RPC tabatha.redeem_invite_token
+ * in the background; the background also applies org/team defaults as a
+ * client-side belt-and-braces (mirrors migration 018).
  */
 export async function redeemInviteToken(token) {
-  const session = await getSession();
-  if (!session) throw new Error("Must be logged in to redeem a token.");
-
-  // Call the Supabase Postgres function to securely redeem the token.
-  // Must be schema-qualified — the RPC lives in the `tabatha` schema, not
-  // `public`; without this PostgREST returns PGRST202 and invite-join breaks.
-  const { data, error } = await supabase
-    .schema('tabatha')
-    .rpc('redeem_invite_token', {
-      p_token: token
-    });
-  if (error) throw error;
-  return data;
+  const res = await callBackground('REDEEM_INVITE_TOKEN', { token });
+  return res.data;
 }
 
 /**
- * Create a new Organization (and become its owner).
- *
- * Calls the SECURITY DEFINER RPC tabatha.create_organization which, in one
- * transaction, creates the org, an owner membership for the caller, and stamps
- * the caller's profile default_org_id/default_team_id. Idempotent server-side.
- * Must be schema-qualified — the RPC lives in the `tabatha` schema.
+ * Create a new Organization (and become its owner). Runs the SECURITY DEFINER
+ * RPC tabatha.create_organization in the background (org + owner membership +
+ * profile defaults, one transaction, idempotent server-side).
  */
 export async function createOrganization(name) {
-  const session = await getSession();
-  if (!session) throw new Error("Must be logged in to create an organization.");
-  const { data, error } = await supabase
-    .schema('tabatha')
-    .rpc('create_organization', {
-      p_name: name
-    });
-  if (error) throw error;
-  return data;
+  const res = await callBackground('CREATE_ORGANIZATION', { name });
+  return res.data;
 }
 
 /**
- * Mint a new Invite Token (org owners + team managers only — server-side
- * gated by SECURITY DEFINER RPC tabatha.create_invite_token; see
- * supabase/migrations/012_manager_scoping_and_invite_mint.sql).
+ * Mint a new Invite Token (org owners + team managers only — server-side gated
+ * by SECURITY DEFINER RPC tabatha.create_invite_token). Routed to background.
  */
 export async function createInviteToken({ orgId, teamId = null, role = 'user', expiresInHours = 168 }) {
-  const session = await getSession();
-  if (!session) throw new Error("Must be logged in to mint a token.");
-  const { data, error } = await supabase
-    .schema('tabatha')
-    .rpc('create_invite_token', {
-      p_org_id: orgId,
-      p_team_id: teamId,
-      p_role: role,
-      p_expires_in_hours: expiresInHours
-    });
-  if (error) throw error;
-  return data;
+  const res = await callBackground('CREATE_INVITE_TOKEN', { orgId, teamId, role, expiresInHours });
+  return res.data;
+}
+
+/**
+ * Revoke (delete) a pending invite token. Routed to background.
+ */
+export async function deleteInviteToken(id) {
+  await callBackground('DELETE_INVITE_TOKEN', { id });
+  return { success: true };
+}
+
+/**
+ * Page-side durable fallback for a display-name write. Used only when the
+ * service worker can't be reached to enqueue (asleep / torn down mid-message —
+ * a routine MV3 race). Persists the op straight into the same `_cloudOutbox`
+ * storage the background flushes on its next wake (boot flush / periodic alarm /
+ * next sign-in), and arms the retry alarm so a sleeping SW is woken to flush it.
+ * Latest-wins dedupe by `key` means this can't double-apply if the message
+ * actually did reach the background before the channel dropped.
+ */
+async function enqueueProfileNameLocally({ displayName, profileId = null, authUserId = null }) {
+  const key = `cloud_profile_name:${profileId || authUserId}`;
+  const { [CLOUD_OUTBOX_STORAGE_KEY]: raw } = await chrome.storage.local.get(CLOUD_OUTBOX_STORAGE_KEY);
+  const { outbox } = enqueue(normalizeOutbox(raw), {
+    type: 'cloud_profile_name',
+    key,
+    payload: { displayName, profileId, authUserId },
+    now: Date.now(),
+  });
+  await chrome.storage.local.set({ [CLOUD_OUTBOX_STORAGE_KEY]: outbox });
+  // Wake a sleeping SW within ~1 min to flush the queued write.
+  try { chrome.alarms?.create(CLOUD_OUTBOX_ALARM, { periodInMinutes: 1 }); } catch { /* alarms unavailable */ }
+}
+
+/**
+ * Queue a display-name update. The background enqueues it to the durable cloud
+ * outbox and returns an immediate optimistic ack — no UI timeout race. The
+ * write flushes with exponential backoff and survives SW restarts.
+ *
+ * If the SW can't be reached to enqueue, we do NOT fabricate a success: we fall
+ * back to persisting the write directly into the durable outbox (see
+ * enqueueProfileNameLocally). Only if even that local persist fails does the
+ * error propagate to the caller.
+ */
+export async function updateProfileName({ displayName, profileId = null, authUserId = null }) {
+  try {
+    return await callBackground('UPDATE_PROFILE_NAME', { displayName, profileId, authUserId });
+  } catch (err) {
+    await enqueueProfileNameLocally({ displayName, profileId, authUserId });
+    return { ok: true, success: true, queued: true, deferred: true };
+  }
+}
+
+/**
+ * Epic 9 — patch one or more top-level `profiles.settings` keys via the
+ * SECURITY DEFINER RPC `tabatha.update_profile_settings` (migration 038),
+ * routed through the background (the single never-wedged auth owner, same
+ * pattern as createOrganization/redeemInviteToken above). `patch` is an
+ * object keyed by the allow-listed top-level settings key, e.g.
+ * `{ contextView: { showTimeline: false } }`. Returns the RPC's result
+ * object `{ success, settings }` on success (unwrapped from the background's
+ * `{ ok, data }` envelope) so callers can trust the server-merged value
+ * rather than re-deriving it client-side.
+ */
+export async function updateProfileSettings({ profileId, patch }) {
+  const res = await callBackground('UPDATE_PROFILE_SETTINGS', { profileId, patch });
+  return res.data;
 }

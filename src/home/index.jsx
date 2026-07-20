@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
@@ -26,6 +26,7 @@ import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { useKeyboardShortcuts, ShortcutsHelp } from '../components/ui/KeyboardShortcuts';
 import { VoiceInput } from '../components/ui/VoiceInput';
 import { WhatsNewModal } from '../components/ui/WhatsNewModal';
+import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 import { useWhatsNew } from '../hooks/useWhatsNew';
 import { useOrgData } from '../hooks/useOrgData';
 
@@ -84,6 +85,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
   const [editFunnel, setEditFunnel] = useState('unsorted');
   const [editTags, setEditTags] = useState({});
   const [editStart, setEditStart] = useState(''); // B1: backdate start (datetime-local)
+  const [startFeedback, setStartFeedback] = useState(null); // { text, tone: 'error'|'warn'|'info'|'ok' } — bounds/overlap-aware backdate feedback
   // Plan 025: Checkpoint Progress Notes
   const [showCPN, setShowCPN] = useState(false);
   const [cpnText, setCpnText] = useState('');
@@ -127,6 +129,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
     setEditFunnel(activeFocus.funnelStage || 'unsorted');
     setEditTags(activeFocus.tags || {});
     setEditStart(toLocalInput(activeFocus.startedAt));
+    setStartFeedback(null);
     setEditing(true);
   };
 
@@ -150,10 +153,53 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       }
     }
     // B1: backdate start time if it was moved earlier in the edit panel.
+    // The handler may bound the request to [clock-in, now] and reports (never
+    // blocks on) overlap with other focuses — never swallow that silently.
     const origStart = activeFocus.startedAt ? new Date(activeFocus.startedAt).getTime() : null;
     const newStart = editStart ? new Date(editStart).getTime() : null;
     if (newStart != null && Number.isFinite(newStart) && newStart !== origStart) {
-      await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
+      const r = await sendMessage('SET_FOCUS_START_TIME', { focusId: activeFocus.id, startedAt: new Date(newStart).toISOString() });
+      if (r?.error) { setStartFeedback({ tone: 'error', text: r.error }); return; }
+      const addedMins = Math.round((r?.addedMs || 0) / 60000);
+      const hhmm = r?.startedAt ? new Date(r.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      const overlaps = (Array.isArray(r?.overlaps) ? r.overlaps : []).filter(o => (o?.overlapMs || 0) >= 60000);
+      const boundName = r?.clampedBy === 'clock-in' ? 'your clock-in time' : 'the current time';
+      if (r?.clamped && !(r?.addedMs > 0)) {
+        // Fully swallowed by the [clock-in, now] bounds — keep the editor open and explain.
+        setStartFeedback({
+          tone: 'error',
+          text: r?.clampedBy === 'clock-in'
+            ? `Couldn't backdate to that time — it's before your clock-in. Earliest available: ${hhmm}.`
+            : `Couldn't move the start there — it's outside the allowed window. Effective: ${hhmm}.`,
+        });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        return;
+      }
+      if (overlaps.length) {
+        // Applied — but the credited span overlaps other focus time. Parallel
+        // focuses are allowed: overlap is informational, both keep their time.
+        const top = overlaps.reduce((a, b) => ((b?.overlapMs || 0) > (a?.overlapMs || 0) ? b : a));
+        const who = top?.label ? `"${top.label}"` : 'another focus';
+        const more = overlaps.length > 1 ? ` (+${overlaps.length - 1} more)` : '';
+        const totalMins = Math.max(1, Math.round(overlaps.reduce((s, o) => s + (o?.overlapMs || 0), 0) / 60000));
+        const limited = r?.clamped ? ` (limited by ${boundName})` : '';
+        setStartFeedback({ tone: 'info', text: `Backdated to ${hhmm}${limited} — overlaps ${who}${more} by ${totalMins}m (both keep their time).` });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 3000);
+        return;
+      }
+      if (r?.clamped) {
+        // Partially bounded — applied, but not as far back as requested.
+        setStartFeedback({ tone: 'warn', text: `Backdated to ${hhmm} (limited by ${boundName}) — +${addedMins}m credited.` });
+        setEditStart(toLocalInput(r?.startedAt || activeFocus.startedAt));
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 2500);
+        return;
+      }
+      if (addedMins > 0) {
+        setStartFeedback({ tone: 'ok', text: `+${addedMins}m credited.` });
+        setTimeout(() => { setStartFeedback(null); setEditing(false); }, 1200);
+        return;
+      }
     }
     setEditing(false);
   };
@@ -247,11 +293,10 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
         <Tooltip text={`Checkpoint note${isStale ? ' (overdue!)' : ''}`}>
           <button onClick={() => setShowCPN(!showCPN)} style={btnStyle(isStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isStale ? '🟠' : ''}{cpnCount > 0 ? ` (${cpnCount})` : ''}</button>
         </Tooltip>
-        {cpnTotalCount > 0 && (
-          <Tooltip text="View checkpoint timeline">
-            <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
-          </Tooltip>
-        )}
+        {/* NB-09: always reachable — the panel hosts time editing even with zero checkpoints */}
+        <Tooltip text="View timeline / edit tracked time">
+          <button onClick={() => setShowTimeline(!showTimeline)} style={btnStyle('var(--color-text-muted)')}>📊</button>
+        </Tooltip>
       </div>
       {/* Inline edit panel */}
       <AnimatePresence>
@@ -279,6 +324,11 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
                 <input type="datetime-local" value={editStart} max={toLocalInput(new Date().toISOString())} onChange={e => setEditStart(e.target.value)} style={{ width: '100%', padding: '4px 8px', fontSize: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', outline: 'none' }} />
                 {backdatedMins(activeFocus.startedAt, editStart) > 0 && (
                   <div style={{ fontSize: '10px', color: 'var(--color-accent-primary)', marginTop: '2px' }}>backdated +{backdatedMins(activeFocus.startedAt, editStart)}m</div>
+                )}
+                {startFeedback && (
+                  <div style={{ fontSize: '10px', marginTop: '2px', color: startFeedback.tone === 'error' ? '#ef5350' : startFeedback.tone === 'ok' ? '#66bb6a' : '#ffa726' }}>
+                    {startFeedback.tone === 'ok' ? '✓ ' : startFeedback.tone === 'info' ? 'ℹ ' : '⚠ '}{startFeedback.text}
+                  </div>
                 )}
               </div>
               <button onClick={saveEdit} style={btnStyle('#66bb6a')}>💾 Save</button>
@@ -339,7 +389,7 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
       </AnimatePresence>
       {/* Plan 025/037: Checkpoint Timeline — shared component */}
       <AnimatePresence>
-        {showTimeline && cpnTotalCount > 0 && (
+        {showTimeline && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
             <CheckpointTimeline
               activeFocus={activeFocus}
@@ -1454,6 +1504,120 @@ function IntentsPanel({ intentHistory, allItems, tabs, timeTracking, actions, on
 }
 
 // ════════════════════════════════════════════
+// Cortex C9 — Voice Note button (Plan 042 T5, Hotkey-3 groundwork)
+// In-page 🎙️ button: webspeech dictation → RECORD_VOICE_OBSERVATION so the
+// transcript lands as a partition-aware C4 observation (kind:'voice'). This is
+// a button, not a global hotkey — chrome.commands additions are a manifest
+// change, which is out of scope for this slice. Renders nothing unless voice
+// is enabled in settings AND the browser supports SpeechRecognition.
+// ════════════════════════════════════════════
+// C11a — Agent-driven session chip. Visible ONLY while a machine/window-scoped
+// controller span is open anywhere in this install; clicking it ends the span.
+// Self-contained (mirrors VoiceNoteButton) — reads via LIST_AGENT_SESSIONS and
+// re-reads whenever the agentSessions storage key changes.
+function AgentSessionChip() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const r = await sendMessage('LIST_AGENT_SESSIONS', {});
+        const open = (r?.open || []).filter((s) => s.scope === 'machine' || s.scope === 'window');
+        if (mounted) setSession(open.length ? open[open.length - 1] : null);
+      } catch { /* service unavailable */ }
+    };
+    load();
+    const listener = (changes) => { if (changes.agentSessions) load(); };
+    chrome.storage.local.onChanged.addListener(listener);
+    return () => { mounted = false; chrome.storage.local.onChanged.removeListener(listener); };
+  }, []);
+
+  if (!session) return null;
+
+  const end = async () => {
+    try { await sendMessage('END_AGENT_SESSION', { id: session.id }); setSession(null); } catch { /* noop */ }
+  };
+
+  return (
+    <Tooltip text="An agent is marked as driving this session — click to end it">
+      <button
+        onClick={end}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '5px',
+          background: '#7c4dff1f', border: '1px solid #7c4dff66', borderRadius: 'var(--radius-md)',
+          color: '#b388ff', padding: '3px 9px', fontSize: '11px', fontWeight: 600,
+          cursor: 'pointer', backdropFilter: 'var(--surface-blur)', whiteSpace: 'nowrap'
+        }}
+      >
+        🤖 Agent session · end
+      </button>
+    </Tooltip>
+  );
+}
+
+function VoiceNoteButton({ enabled }) {
+  const [listening, setListening] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const recognitionRef = useRef(null);
+  const transcriptRef = useRef('');
+
+  const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!enabled || !SR) return null;
+
+  const flash = (msg) => { setConfirm(msg); setTimeout(() => setConfirm(''), 2600); };
+
+  const stop = () => { try { recognitionRef.current?.stop(); } catch { /* noop */ } };
+
+  const start = () => {
+    if (listening) { stop(); return; }
+    let rec;
+    try { rec = new SR(); } catch { flash('Mic unavailable'); return; }
+    transcriptRef.current = '';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onstart = () => setListening(true);
+    rec.onresult = (event) => {
+      let finalText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+      }
+      if (finalText) transcriptRef.current += (transcriptRef.current ? ' ' : '') + finalText.trim();
+    };
+    rec.onerror = (e) => { setListening(false); flash(e?.error === 'not-allowed' ? 'Mic denied' : 'Voice error'); };
+    rec.onend = async () => {
+      setListening(false);
+      const transcript = transcriptRef.current.trim();
+      if (!transcript) { flash('No speech heard'); return; }
+      const res = await sendMessage('RECORD_VOICE_OBSERVATION', { transcript, kind: 'voice-note' });
+      flash(res?.ok ? '✓ Voice note saved' : 'Save failed');
+    };
+    recognitionRef.current = rec;
+    try { rec.start(); } catch { flash('Could not start'); }
+  };
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      <Tooltip text={listening ? 'Stop & save voice note' : 'Voice note (dictate → ledger)'}>
+        <button
+          onClick={start}
+          style={{
+            background: listening ? '#ef535022' : 'var(--color-surface)',
+            border: `1px solid ${listening ? '#ef5350' : 'var(--color-border)'}`,
+            borderRadius: 'var(--radius-md)', color: listening ? '#ef5350' : 'var(--color-text-primary)',
+            padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)'
+          }}
+        >
+          {listening ? '⏹' : '🎙️'}
+        </button>
+      </Tooltip>
+      {confirm && <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{confirm}</span>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════
 // Main Home Component
 // ════════════════════════════════════════════
 function Home() {
@@ -1601,22 +1765,32 @@ function Home() {
 
   // Clock-in/out helpers — fire the message; useChromeStorage reactively updates the UI
   const [clockDebug, setClockDebug] = useState('(no action yet)');
+  // NB-05: gate CLOCK-IN behind the abandoned-stint modal.
+  const [abandonedOpen, setAbandonedOpen] = useState(false);
+  const selfClassification = identity?.classification || 'professional';
+
+  const dispatchClockIn = useCallback(async () => {
+    setClockDebug('Sending CLOCK_IN...');
+    const res = await sendMessage('CLOCK_IN');
+    setClockDebug('CLOCK_IN → ' + JSON.stringify(res));
+    if (res?.error) logger.error('CLOCK', 'Clock-in failed', res);
+  }, []);
+
   const handleClockIn = async () => {
     // Stacking warning: only a *genuinely live* install of the SAME
     // classification stacks hours. Stale/abandoned installs and installs of a
     // different classification (personal, another business) are legitimate
     // and don't warn — that conflation was the old false-alarm bug.
-    const selfClassification = identity?.classification || 'professional';
     const stacking = otherProfiles.filter(p => isLiveConcurrent(p, selfClassification));
     if (stacking.length > 0) {
       const lines = stacking.map(p => `  • ${p.profile_name || 'unnamed install'} (${p.classification || 'unknown'}) — ${p.clock_state === 'on_break' ? 'on break' : 'clocked in'}`).join('\n');
       const ok = window.confirm(`You're clocked in on another live install of the same type:\n${lines}\n\nClocking in here too runs concurrent shifts that can double-count hours. Continue?\n\n(To clear abandoned shifts, use Work Shifts → Live Stints.)`);
       if (!ok) return;
     }
-    setClockDebug('Sending CLOCK_IN...');
-    const res = await sendMessage('CLOCK_IN');
-    setClockDebug('CLOCK_IN → ' + JSON.stringify(res));
-    if (res?.error) logger.error('CLOCK', 'Clock-in failed', res);
+    // NB-05: surface the user's OWN abandoned stints (between the live-concurrent
+    // warning and the CLOCK_IN dispatch). The modal re-checks freshness and, if
+    // nothing is abandoned, resolves immediately → clock-in proceeds.
+    setAbandonedOpen(true);
   };
   const handleClockOut = async () => {
     setClockDebug('Sending CLOCK_OUT...');
@@ -1717,7 +1891,9 @@ function Home() {
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🅿️ {parkedTabs.length}</button>
               </Tooltip>
             )}
+            <AgentSessionChip />
             <CompanionStatus compact />
+            <VoiceNoteButton enabled={!!settings.voice?.enabled} />
             <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--color-accent-primary)', letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span>
             <Tooltip text={`Theme: ${theme} — click to cycle`}>
               <button onClick={cycleTheme} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: '13px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>
@@ -1828,6 +2004,12 @@ function Home() {
 
         {/* ═══ Collapsible: Focus Engine ═══ */}
         <CollapsibleSection id="focus" title="Focus Engine" icon="🔍" collapsedSections={collapsedSections} toggleSection={toggleSection}>
+          {/* FocusBar when something is active/paused; otherwise the input to
+              pick the next intent. The queue/backburner/history below render
+              REGARDLESS — with autoStartNextOnResolve off you can now sit in a
+              "nothing active" state, and you still need to see and act on the
+              queue (previously it vanished with no active focus — the sidebar
+              already showed it, the home page didn't). */}
           {activeFocus ? (
             <>
               <FocusBar activeFocus={activeFocus} actions={actions} onAddAnother={(label) => actions.addFocus(label)} clients={knownClients} projects={knownProjects}
@@ -1843,13 +2025,13 @@ function Home() {
               {activeFocus.focusState === 'paused' && (
                 <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
               )}
-              <FocusQueue items={allItems} actions={actions} />
-              <BackburnerDock items={allItems} actions={actions} />
-              <FocusHistory history={history} />
             </>
           ) : (
             <FocusInput onStart={(label, timer, tags) => actions.startFocus(label, timer, tags)} orgData={orgData} clients={knownClients} projects={knownProjects} />
           )}
+          <FocusQueue items={allItems} actions={actions} />
+          <BackburnerDock items={allItems} actions={actions} />
+          <FocusHistory history={history} />
         </CollapsibleSection>
 
         {/* ═══ Activity Heatmap ═══ */}
@@ -2245,6 +2427,14 @@ function Home() {
         version={whatsNew.version}
         releases={whatsNew.releases}
         onClose={whatsNew.dismiss}
+      />
+
+      {/* NB-05: abandoned-stint surfacing at clock-in */}
+      <AbandonedStintsModal
+        isOpen={abandonedOpen}
+        selfClassification={selfClassification}
+        onResolved={() => { setAbandonedOpen(false); dispatchClockIn(); }}
+        onClose={() => setAbandonedOpen(false)}
       />
     </div>
   );

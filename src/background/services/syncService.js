@@ -217,17 +217,87 @@ function makeClientId(prefix, ...parts) {
   return [prefix, ...parts.filter(Boolean)].join(':').slice(0, 500);
 }
 
+// ── Schema-skew resilience (sync ticket: focus_items.priority / PGRST204) ──
+// If the client is newer than the DB (a migration hasn't been applied yet),
+// PostgREST rejects the whole upsert with PGRST204:
+//   "Could not find the '<column>' column of '<table>' in the schema cache"
+// Instead of failing the block (and the whole sync, permanently, until the
+// migration lands), we strip the offending column from every row and retry.
+// The degraded sync still completes; a distinct diagnostic names the missing
+// column so it's obvious a migration is missing (deploy-ordering rule).
+
+const MISSING_COLUMN_RE = /Could not find the '([^']+)' column/;
+
+// Max distinct columns we'll strip per block per run. More than this smells
+// like something worse than one lagging migration — fail loudly instead.
+const MAX_STRIPPED_COLUMNS_PER_BLOCK = 2;
+
+// Returns the missing column name when `error` is a PostgREST
+// missing-column-in-schema-cache error (PGRST204), else null.
+export function missingColumnFromError(error) {
+  if (!error) return null;
+  const message = typeof error.message === 'string' ? error.message : '';
+  if (error.code !== 'PGRST204' && !MISSING_COLUMN_RE.test(message)) return null;
+  const match = MISSING_COLUMN_RE.exec(message);
+  return match ? match[1] : null;
+}
+
+function stripColumnFromRows(rows, column) {
+  return rows.map(row => {
+    if (!row || typeof row !== 'object' || !(column in row)) return row;
+    const next = { ...row };
+    delete next[column];
+    return next;
+  });
+}
+
+// Generic resilient writer used by every sync block. `write(rows)` performs
+// the actual supabase call and resolves to a { error } envelope. On a
+// missing-column error the block retries with that column stripped (capped at
+// MAX_STRIPPED_COLUMNS_PER_BLOCK distinct columns); any other error — or
+// exceeding the cap — falls through to the existing failure path.
+async function writeRowsResilient({ rows, table, diagnosticKind, write }) {
+  let currentRows = rows;
+  const strippedColumns = [];
+
+  for (;;) {
+    const { error } = await write(currentRows);
+    if (!error) {
+      // Degraded-but-successful: name every stripped column so we KNOW a
+      // migration is missing, without flagging the sync as failed.
+      for (const column of strippedColumns) {
+        await recordDiagnostic(
+          `${table}_degraded_missing_column`,
+          `Column '${column}' is missing from tabatha.${table} in the DB schema cache (PGRST204). ` +
+          `Synced ${currentRows.length} row(s) WITHOUT '${column}' — apply the pending DB migration so this data stops being dropped.`
+        );
+      }
+      return true;
+    }
+
+    const column = strippedColumns.length < MAX_STRIPPED_COLUMNS_PER_BLOCK
+      ? missingColumnFromError(error)
+      : null;
+    if (!column || strippedColumns.includes(column)) {
+      await recordDiagnostic(diagnosticKind, error);
+      return false;
+    }
+    strippedColumns.push(column);
+    currentRows = stripColumnFromRows(currentRows, column);
+  }
+}
+
 async function upsertRows(supabase, table, rows, onConflict, diagnosticKind) {
   if (!rows.length) return true;
-  const { error } = await supabase
-    .schema('tabatha')
-    .from(table)
-    .upsert(rows, { onConflict });
-  if (error) {
-    await recordDiagnostic(diagnosticKind, error);
-    return false;
-  }
-  return true;
+  return writeRowsResilient({
+    rows,
+    table,
+    diagnosticKind,
+    write: (currentRows) => supabase
+      .schema('tabatha')
+      .from(table)
+      .upsert(currentRows, { onConflict })
+  });
 }
 
 function buildFocusRows(engine, scope) {
@@ -759,13 +829,17 @@ export async function syncToSupabase() {
           timestamp: new Date(intent.timestamp).toISOString()
         }));
 
-        const { error } = await supabase
-          .schema('tabatha')
-          .from('intent_history')
-          .insert(intentInserts);
+        const ok = await writeRowsResilient({
+          rows: intentInserts,
+          table: 'intent_history',
+          diagnosticKind: 'intent_history_insert_failed',
+          write: (currentRows) => supabase
+            .schema('tabatha')
+            .from('intent_history')
+            .insert(currentRows)
+        });
 
-        if (error) {
-          await recordDiagnostic('intent_history_insert_failed', error);
+        if (!ok) {
           hadError = true;
         } else {
           const newest = Math.max(...newIntents.map(i => new Date(i.timestamp).getTime()));

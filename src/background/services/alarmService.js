@@ -15,9 +15,27 @@ import {
 } from './focusService.js';
 import { handleContextTimerExpired } from './tabService.js';
 import { handlePomodoroComplete } from './notificationService.js';
-import { handleIdleAutoBreak } from './clockService.js';
+import { handleIdleAutoBreak, handleAliveHeartbeat, ALIVE_HEARTBEAT_ALARM } from './clockService.js';
 import { handleDriftCheck } from './autoFocusService.js';
 import { saveSessionSnapshot, exportMarkdown } from './sessionService.js';
+import {
+  handleDwellTick,
+  runNightlyExport,
+  DWELL_ALARM,
+  NIGHTLY_EXPORT_ALARM
+} from './captureService.js';
+import {
+  runNightlySelfCorrection,
+  SELF_CORRECTION_ALARM
+} from './selfCorrectionService.js';
+import {
+  runIntradayCadence,
+  INTRADAY_OPTIMIZE_ALARM
+} from './cortexService.js';
+import {
+  runOutboxFlushAlarm,
+  CLOUD_OUTBOX_ALARM
+} from './cloudWriteService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
 // local constant avoids the circular import.
@@ -78,8 +96,25 @@ async function handleAlarm(alarm) {
         return handleUnfocusedNudge();
       case 'idle-auto-break':
         return handleIdleAutoBreak();
+      // NB-09: alive heartbeat — persists _lastAliveAt + detects offline gaps.
+      case ALIVE_HEARTBEAT_ALARM:
+        return handleAliveHeartbeat();
       case 'auto-focus-drift':
         return handleDriftCheck();
+      // Cortex Plan 040 T4: dwell heartbeat + nightly ledger export
+      case DWELL_ALARM:
+        return handleDwellTick();
+      case NIGHTLY_EXPORT_ALARM:
+        return runNightlyExport();
+      // Cortex Plan 042 T7: C10 passive self-correction nightly pass
+      case SELF_CORRECTION_ALARM:
+        return runNightlySelfCorrection();
+      // Cortex Plan 043 T3: C6 LOW/intraday optimization cadence (opt-in)
+      case INTRADAY_OPTIMIZE_ALARM:
+        return runIntradayCadence();
+      // Cloud outbox retry — flushes queued cloud writes with backoff.
+      case CLOUD_OUTBOX_ALARM:
+        return runOutboxFlushAlarm();
       default:
         return;
     }

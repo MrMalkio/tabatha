@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Data &amp; Analytics</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase — category page kit.
+   Chrome uses the logo palette (#0F1115 / #00D2FF); component
+   stages render the live app tokens (Pop-Art theme: bg #050505,
+   accent #00F0FF, secondary #FF0055, gold #FFD700). Radius scale
+   is the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Self-contained:
+   inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --purple:#ab47bc;--agent:#b388ff;--backburner:#ff9800;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+/* state variant strip */
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+
+/* shared app-surface tokens */
+.app{--acc:#00F0FF}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;display:flex;align-items:center;gap:7px}
+.mono{font-family:var(--mono)}
+.glass{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;backdrop-filter:blur(16px)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Component CSS: every bar, cell and track below is hand-rolled
+   to mirror the shipped components. The extension bundles no chart
+   library; these rules restate the inline styles found in
+   src/home/AnalyticsDashboard.jsx, src/home/ActivityHeatmap.jsx,
+   src/home/LogsPanel.jsx and src/workshifts/index.jsx.
+   ============================================================ */
+
+/* live app tokens as they resolve in the default (Pop-Art) theme */
+.app{--surface:rgba(20,20,25,.4);--cborder:rgba(255,255,255,.1);--bgbase:#050505;--tmuted:#868E96}
+
+/* section titles: sectionTitle / statCard label conventions */
+.stitle{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tmuted);margin-bottom:10px}
+.empty{font-size:12px;color:var(--tmuted);text-align:center;padding:8px}
+
+/* stat cards (AnalyticsDashboard statCard + workshifts StatCard) */
+.statrow{display:flex;gap:8px;flex-wrap:wrap;width:100%;max-width:660px}
+.sc{padding:12px;text-align:center;flex:1 1 100px;min-width:100px}
+.sc .i{font-size:18px;margin-bottom:4px}
+.sc .v{font-size:20px;font-weight:700;color:var(--appcyan);line-height:1.2}
+.sc .k{font-size:10px;color:var(--tmuted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.sc .s{font-size:9px;color:var(--tmuted);margin-top:2px}
+.statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%;max-width:660px}
+
+/* horizontal ranked bars (top focuses / categories / per-focus) */
+.panel{padding:14px;width:100%;max-width:460px}
+.panel.w{max-width:620px}
+.blist{display:flex;flex-direction:column;gap:5px}
+.brow{display:flex;align-items:center;gap:8px}
+.brow .rank{font-size:10px;color:var(--tmuted);width:16px;text-align:right}
+.brow .track{flex:1;position:relative;height:18px;background:var(--surface);border-radius:3px;overflow:hidden}
+.brow .fill{height:100%;border-radius:3px;opacity:.7}
+.brow .inlab{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:500;
+  color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 40px)}
+.brow .val{font-size:10px;font-weight:600;color:var(--appcyan);min-width:20px;text-align:right}
+.brow .val.m{color:var(--tmuted);min-width:40px}
+
+/* context distribution */
+.ctxrow{display:flex;gap:12px;justify-content:center}
+.ctx{text-align:center;flex:1}
+.ctx .i{font-size:16px}
+.ctx .p{font-size:18px;font-weight:700}
+.ctx .l{font-size:9px;color:var(--tmuted)}
+
+/* ActivityHeatmap */
+.hm{width:100%;max-width:760px}
+.hm .tabs{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.hm .tabs .g{display:flex;gap:4px}
+.hm .tab{border-radius:var(--r-sm);padding:2px 8px;font-size:10px;font-weight:600;
+  border:1px solid var(--cborder);background:transparent;color:var(--tmuted);cursor:pointer}
+.hm .tabs .cap{font-size:9px;color:var(--tmuted)}
+.hm .body{display:flex;gap:0;overflow:hidden}
+.hm .daylabs{display:flex;flex-direction:column;gap:2px;margin-right:4px;padding-top:16px}
+.hm .daylabs div{height:11px;font-size:9px;color:var(--tmuted);line-height:11px;text-align:right;width:20px}
+.hm .grid-wrap{position:relative;flex:1;overflow:hidden}
+.hm .months{height:14px;position:relative;margin-bottom:2px}
+.hm .months span{position:absolute;font-size:9px;color:var(--tmuted)}
+.hm-grid{display:grid;grid-template-rows:repeat(7,11px);grid-auto-flow:column;grid-auto-columns:11px;gap:2px}
+.hm-c{width:11px;height:11px;border-radius:2px;border:1px solid transparent}
+/* Level 0 = --color-surface. Levels 1-3 reference rgba(var(--accent-rgb, 59,130,246), …)
+   and --accent-rgb is never defined anywhere in the codebase, so the fallback always
+   wins: the mid-levels are blue in every theme. Only level 4 reads the real accent. */
+.l0{background:rgba(20,20,25,.55);border:1px solid var(--cborder)}
+.l1{background:rgba(59,130,246,.2)}
+.l2{background:rgba(59,130,246,.4)}
+.l3{background:rgba(59,130,246,.65)}
+.l4{background:var(--appcyan)}
+.hm .pad{width:11px;height:11px}
+.hm .leg{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:4px}
+.hm .leg span{font-size:9px;color:var(--tmuted)}
+.hm .leg i{width:10px;height:10px;border-radius:2px;border:1px solid transparent;display:block}
+
+/* DailyHoursChart: vertical stacked bars */
+.dh{width:100%;max-width:520px}
+.dh .plot{display:flex;align-items:flex-end;gap:2px;height:120px}
+.dh .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.dh .brk{background:var(--amber);border-radius:2px 2px 0 0;opacity:.65}
+.dh .wrk{background:var(--appcyan);border-radius:0 0 2px 2px;opacity:.75}
+.dh .zero{height:2px;background:var(--surface);border-radius:2px}
+.dh .labs{display:flex;gap:2px;margin-top:4px}
+.dh .labs div{flex:1;text-align:center;font-size:8px;color:var(--tmuted);overflow:hidden;white-space:nowrap}
+.dh .leg{display:flex;gap:12px;margin-top:8px;font-size:9px;color:var(--tmuted)}
+.dh .leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+
+/* HourBars: 24 hour-of-day mini bars */
+.hb{width:100%;max-width:460px}
+.hb .plot{display:flex;align-items:flex-end;gap:2px;height:64px}
+.hb .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.hb .bar{border-radius:2px;opacity:.75}
+.hb .bar.z{height:2px;background:var(--surface);opacity:1}
+.hb .labs{display:flex;gap:2px;margin-top:4px}
+.hb .labs div{flex:1;text-align:center;font-size:8px;color:var(--tmuted)}
+.hb .sum{display:flex;gap:18px;margin-bottom:12px;font-size:11px}
+
+/* weekly comparison */
+.wk{display:flex;align-items:center;gap:8px}
+.wk .lab{font-size:10px;color:var(--tmuted);width:72px;flex-shrink:0}
+.wk .track{flex:1;position:relative;height:18px;background:var(--surface);border-radius:3px;overflow:hidden}
+.wk .fill{height:100%;background:var(--appcyan);border-radius:3px;opacity:.7}
+.wk .v{font-size:10px;font-weight:600;color:var(--appcyan);min-width:52px;text-align:right}
+.wk .s{font-size:9px;color:var(--tmuted);min-width:46px;text-align:right}
+
+/* stub markers (STUB_STYLE / STUB_BADGE) */
+.stub{margin-top:12px;padding:8px 12px;background:var(--bgbase);border-radius:var(--r-sm);border:1px dashed var(--cborder)}
+.stub .t{color:#ffab40;font-style:italic;opacity:.7;font-size:11px}
+.badge{font-size:8px;padding:1px 5px;border-radius:3px;background:#ffab4022;color:#ffab40;
+  font-weight:700;margin-left:6px;letter-spacing:.05em}
+
+/* reporting */
+.rep{display:flex;gap:8px;flex-wrap:wrap}
+.rep button{border-radius:var(--r-sm);padding:6px 12px;font-size:11px;font-family:var(--sans)}
+.rep .csv{background:var(--appcyan);color:#000;border:1px solid var(--cborder);font-weight:600;cursor:pointer}
+.rep .stubbtn{background:var(--surface);color:var(--tmuted);border:1px dashed var(--cborder);
+  cursor:not-allowed;opacity:.6;display:flex;align-items:center}
+.repcap{font-size:9px;color:var(--tmuted);margin-top:8px}
+
+/* range selector */
+.range{display:flex;gap:6px;align-items:center}
+.range .rl{font-size:10px;color:var(--tmuted);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.range button{border:1px solid var(--cborder);border-radius:var(--r-sm);padding:3px 10px;
+  font-size:11px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text);font-family:var(--sans)}
+.range button.on{background:var(--appcyan);color:#000}
+
+/* LogsPanel: chips */
+.chips{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;max-width:460px}
+.chip{border-radius:10px;padding:2px 8px;font-size:10px;font-weight:600;border:1px solid;
+  display:flex;align-items:center;gap:3px;cursor:pointer;background:transparent}
+.chip .n{font-size:9px;opacity:.7;font-weight:400}
+.chip.off{opacity:.4;border-color:var(--cborder);color:var(--tmuted);background:transparent;font-weight:400}
+
+/* LogsPanel: table */
+.lg{width:100%;max-width:860px}
+.lgfilt{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.lgfilt .fbtn{background:rgba(0,240,255,.13);border:1px solid var(--appcyan);border-radius:var(--r-md);
+  padding:3px 8px;font-size:12px;color:var(--appcyan);cursor:pointer}
+.lgfilt .cnt{font-size:10px;color:var(--tmuted)}
+.lgfilt .clr{background:transparent;border:none;color:var(--red);font-size:10px;cursor:pointer;padding:0}
+.lgin{display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px;background:var(--surface);
+  border-radius:var(--r-sm);border:1px solid var(--cborder);margin-bottom:8px}
+.lgin input,.lgin select{padding:3px 6px;font-size:11px;border-radius:3px;border:1px solid var(--cborder);
+  background:var(--surface);color:var(--text);outline:none;font-family:var(--sans)}
+.lgtable{padding:0;overflow:hidden}
+.lgscroll{max-height:400px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:11px;text-align:left}
+thead{position:sticky;top:0;background:#15151a;z-index:1;box-shadow:0 1px 0 var(--cborder)}
+th{padding:6px 10px;font-weight:600;color:var(--tmuted);font-size:10px}
+th.ico{width:24px}
+th.r{text-align:right}
+tbody tr{border-bottom:1px solid var(--cborder)}
+td{padding:5px 10px}
+td.ico{padding:5px 6px 5px 10px;text-align:center;font-size:12px}
+td.date{white-space:nowrap;font-size:10px}
+td.type{white-space:nowrap}
+td.det{font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.det .dom{font-size:9px;color:var(--tmuted);margin-left:4px}
+td.time{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:var(--appcyan);font-size:10px}
+td.time .al{color:var(--tmuted);font-weight:400}
+.tpill{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.ipill{padding:1px 4px;border-radius:3px;font-size:9px;font-weight:600}
+.loadmore{text-align:center;margin-top:8px}
+.loadmore button{background:var(--surface);border:1px solid var(--cborder);border-radius:var(--r-md);
+  padding:4px 16px;font-size:11px;cursor:pointer;color:var(--tmuted);font-family:var(--sans)}
+.noLogs{padding:24px;text-align:center;color:var(--tmuted)}
+
+/* analytics empty state */
+.aempty{padding:40px;text-align:center;max-width:420px}
+.aempty .i{font-size:24px;margin-bottom:8px}
+.aempty .t{color:var(--tmuted);font-size:13px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="#components">Components</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.18</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Data &amp; Analytics</h1>
+  <p>Every chart on this page is hand-rolled: the extension ships no chart library, so each bar, cell and track is a plain div with a CSS width or height. That constraint is the whole aesthetic here, from the 365-day activity heatmap down to the 24 hour-of-day slivers in Peak Productivity Hours.</p>
+</header>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Analytics surfaces</h2>
+    <span class="meta">15 components · dashboard, heatmap, work shifts, logs</span>
+  </div>
+  <p class="sec-purpose">What the tracking is for. If Tabatha only ever showed you a running clock it would be a stopwatch; these components turn stints into something you can act on - which hours are actually productive, where the day fragments, what a context really costs. The reporting bias is toward <b>patterns over totals</b>, because a weekly total tells you nothing you can change. Worth noting: every chart here is hand-rolled CSS. The extension ships no charting library at all, which keeps the bundle small and the rendering identical across all twelve themes.</p>
+  <div class="lib app">
+
+    <!-- 1 ─ Analytics stat cards -->
+    <div class="libcard wide" id="stat-cards">
+      <div class="stage" style="min-height:170px">
+        <div class="statrow">
+          <div class="glass sc"><div class="i">🎯</div><div class="v">4</div><div class="k">Focuses Today</div></div>
+          <div class="glass sc"><div class="i">⏱</div><div class="v">2h 51m</div><div class="k">Focus Time</div></div>
+          <div class="glass sc"><div class="i">✅</div><div class="v">82%</div><div class="k">Completion (7d)</div><div class="s">9/11</div></div>
+          <div class="glass sc"><div class="i">🔥</div><div class="v">6d</div><div class="k">Streak</div></div>
+          <div class="glass sc"><div class="i">📋</div><div class="v">5</div><div class="k">Open Tasks</div><div class="s">of 12</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📇</span><div><div class="t">Analytics stat cards</div><div class="d">The dashboard's top row: today's focus count and time, a 7-day completion rate, the consecutive-day streak, and open tasks against the total. Each is a glass card with one accent number.</div><div class="src">src/home/AnalyticsDashboard.jsx · statCard()</div></div></div>
+    </div>
+
+    <!-- 2 ─ Top Focuses -->
+    <div class="libcard" id="top-focuses">
+      <div class="stage top" style="flex-direction:column;gap:16px">
+        <div class="glass panel">
+          <div class="stitle">🔝 Top Focuses</div>
+          <div class="blist">
+            <div class="brow"><span class="rank">1.</span><span class="track"><span class="fill" style="width:100%;background:var(--appcyan)"></span><span class="inlab">Q1 Report</span></span><span class="val">9</span></div>
+            <div class="brow"><span class="rank">2.</span><span class="track"><span class="fill" style="width:46%;background:var(--appcyan)"></span><span class="inlab">Learning React</span></span><span class="val">4</span></div>
+            <div class="brow"><span class="rank">3.</span><span class="track"><span class="fill" style="width:22%;background:var(--appcyan)"></span><span class="inlab">Email triage</span></span><span class="val">2</span></div>
+            <div class="brow"><span class="rank">4.</span><span class="track"><span class="fill" style="width:12%;background:var(--appcyan)"></span><span class="inlab">Vacation Planning</span></span><span class="val">1</span></div>
+          </div>
+        </div>
+        <div class="variants">
+          <div class="vlabel">Empty state</div>
+          <div class="vcol">
+            <div class="glass panel" style="max-width:300px">
+              <div class="stitle">🔝 Top Focuses</div>
+              <div class="empty">No focus data yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔝</span><div><div class="t">Top Focuses bar chart</div><div class="d">The five most frequent focus labels, ranked. The label sits inside the track and the count rides outside it, so a long label truncates instead of pushing the bar around.</div><div class="src">src/home/AnalyticsDashboard.jsx · Top focuses bar chart</div></div></div>
+    </div>
+
+    <!-- 3 ─ Time by Category -->
+    <div class="libcard" id="time-by-category">
+      <div class="stage">
+        <div class="glass panel">
+          <div class="stitle">⏱ Time by Category</div>
+          <div class="blist">
+            <div class="brow"><span class="track"><span class="fill" style="width:100%;background:var(--magenta)"></span><span class="inlab">💼 work</span></span><span class="val m">1h 36m</span></div>
+            <div class="brow"><span class="track"><span class="fill" style="width:35%;background:var(--magenta)"></span><span class="inlab">📚 reference</span></span><span class="val m">34m</span></div>
+            <div class="brow"><span class="track"><span class="fill" style="width:22%;background:var(--magenta)"></span><span class="inlab">💬 messaging</span></span><span class="val m">21m</span></div>
+            <div class="brow"><span class="track"><span class="fill" style="width:13%;background:var(--magenta)"></span><span class="inlab">📧 email</span></span><span class="val m">12m</span></div>
+            <div class="brow"><span class="track"><span class="fill" style="width:8%;background:var(--magenta)"></span><span class="inlab">🎓 learning</span></span><span class="val m">8m</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⏱</span><div><div class="t">Time by Category</div><div class="d">The same bar primitive as Top Focuses, switched to the secondary accent and sorted by tracked milliseconds. The five categories here sum to the 2h 51m on the stat card above.</div><div class="src">src/home/AnalyticsDashboard.jsx · Category time breakdown</div></div></div>
+    </div>
+
+    <!-- 4 ─ Context Distribution -->
+    <div class="libcard" id="context-distribution">
+      <div class="stage">
+        <div class="glass panel">
+          <div class="stitle">📊 Context Distribution</div>
+          <div class="ctxrow">
+            <div class="ctx"><div class="i">💼</div><div class="p" style="color:#4A90D9">62%</div><div class="l">Business (21)</div></div>
+            <div class="ctx"><div class="i">🏠</div><div class="p" style="color:#66bb6a">29%</div><div class="l">Personal (10)</div></div>
+            <div class="ctx"><div class="i">❓</div><div class="p" style="color:#888">9%</div><div class="l">Unset (3)</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📊</span><div><div class="t">Context Distribution</div><div class="d">The Business / Personal / Unset split across every focus item. Unset is deliberately given a dull grey: it is the number the product wants you to drive down.</div><div class="src">src/home/AnalyticsDashboard.jsx · Context Distribution</div></div></div>
+    </div>
+
+    <!-- 5 ─ ActivityHeatmap -->
+    <div class="libcard wide" id="activity-heatmap">
+      <div class="stage tall">
+        <div class="hm">
+          <div class="tabs">
+            <div class="g">
+              <button class="tab" style="background:#64b5f622;border-color:#64b5f6;color:#64b5f6">🌐 Browser</button>
+              <button class="tab">📊 Overall</button>
+              <button class="tab">✅ Follow-Through</button>
+            </div>
+            <span class="cap">Last 365 days</span>
+          </div>
+          <div class="body">
+            <div class="daylabs">
+              <div></div><div>Mon</div><div></div><div>Wed</div><div></div><div>Fri</div><div></div>
+            </div>
+            <div class="grid-wrap">
+              <div class="months">
+                <span style="left:0px">Jan</span>
+                <span style="left:52px">Feb</span>
+                <span style="left:117px">Mar</span>
+                <span style="left:169px">Apr</span>
+                <span style="left:234px">May</span>
+                <span style="left:286px">Jun</span>
+                <span style="left:351px">Jul</span>
+                <span style="left:403px">Aug</span>
+                <span style="left:455px">Sep</span>
+                <span style="left:520px">Oct</span>
+                <span style="left:572px">Nov</span>
+                <span style="left:637px">Dec</span>
+              </div>
+              <div class="hm-grid">
+                <div class="pad"></div>
+                <div class="pad"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l0"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l2"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l3"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l1"></div>
+                <div class="hm-c l4"></div>
+                <div class="hm-c l3"></div>
+                <div class="pad"></div>
+                <div class="pad"></div>
+                <div class="pad"></div>
+                <div class="pad"></div>
+              </div>
+            </div>
+          </div>
+          <div class="leg">
+            <span>Less</span>
+            <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔥</span><div><div class="t">ActivityHeatmap</div><div class="d">365 days as 11px cells, seven rows deep, switchable between browser time, browser plus desktop, and follow-through actions. One real quirk is reproduced faithfully: levels 1 to 3 read rgba(var(--accent-rgb, 59,130,246), …) but --accent-rgb is never defined anywhere in the codebase, so the fallback always wins and the mid-levels render blue in every theme. Only the top level picks up the real cyan accent.</div><div class="src">src/home/ActivityHeatmap.jsx · getColors() / getLevel()</div></div></div>
+    </div>
+
+    <!-- 6 ─ Daily Hours -->
+    <div class="libcard" id="daily-hours">
+      <div class="stage">
+        <div class="glass panel w" style="padding:20px">
+          <div class="stitle">📈 Daily Hours</div>
+          <div class="dh">
+            <div class="plot">
+              <div class="col"><div class="zero"></div></div>
+              <div class="col"><div class="zero"></div></div>
+              <div class="col"><div class="brk" style="height:8.6%"></div><div class="wrk" style="height:82.6%"></div></div>
+              <div class="col"><div class="brk" style="height:5.7%"></div><div class="wrk" style="height:74.3%"></div></div>
+              <div class="col"><div class="zero"></div></div>
+              <div class="col"><div class="brk" style="height:8.6%"></div><div class="wrk" style="height:91.4%"></div></div>
+              <div class="col"><div class="zero"></div></div>
+              <div class="col"><div class="zero"></div></div>
+              <div class="col"><div class="brk" style="height:5.7%"></div><div class="wrk" style="height:78.2%"></div></div>
+              <div class="col"><div class="zero"></div></div>
+              <div class="col"><div class="brk" style="height:5.7%"></div><div class="wrk" style="height:68.6%"></div></div>
+              <div class="col"><div class="zero"></div></div>
+              <div class="col"><div class="brk" style="height:5.7%"></div><div class="wrk" style="height:91.2%"></div></div>
+              <div class="col"><div class="zero"></div></div>
+            </div>
+            <div class="labs">
+              <div>03</div><div></div><div></div><div></div><div></div>
+              <div>08</div><div></div><div></div><div></div><div></div>
+              <div>13</div><div></div><div></div><div></div>
+            </div>
+            <div class="leg">
+              <span><i style="background:var(--appcyan);opacity:.75"></i>Work</span>
+              <span><i style="background:var(--amber);opacity:.65"></i>Break</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📈</span><div><div class="t">Daily Hours chart</div><div class="d">Fourteen days as vertical stacked bars, break time riding on top of work time. Past ten days the chart tightens its gaps and thins the axis to every fifth label. The six active days here total the 31h 12m in the summary below.</div><div class="src">src/workshifts/index.jsx · DailyHoursChart</div></div></div>
+    </div>
+
+    <!-- 7 ─ Peak Productivity Hours -->
+    <div class="libcard" id="peak-hours">
+      <div class="stage top" style="flex-direction:column;gap:18px">
+        <div class="glass panel" style="padding:20px">
+          <div class="stitle">⏰ Peak Productivity Hours</div>
+          <div class="hb">
+            <div class="plot">
+              <div class="col"><div class="bar z"></div></div>
+              <div class="col"><div class="bar z"></div></div>
+              <div class="col"><div class="bar z"></div></div>
+              <div class="col"><div class="bar z"></div></div>
+              <div class="col"><div class="bar z"></div></div>
+              <div class="col"><div class="bar z"></div></div>
+              <div class="col"><div class="bar z"></div></div>
+              <div class="col"><div class="bar" style="height:5.6%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:44.4%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:87.9%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:95.8%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:82.2%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:39.3%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:56.5%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:92.1%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:100%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:85.5%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:66.4%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:44.9%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:31.8%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:19.2%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:13.1%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar" style="height:4.2%;background:var(--appcyan)"></div></div>
+              <div class="col"><div class="bar z"></div></div>
+            </div>
+            <div class="labs">
+              <div>0</div><div></div><div></div><div></div><div></div><div></div>
+              <div>6</div><div></div><div></div><div></div><div></div><div></div>
+              <div>12</div><div></div><div></div><div></div><div></div><div></div>
+              <div>18</div><div></div><div></div><div></div><div></div><div></div>
+            </div>
+          </div>
+        </div>
+        <div class="variants">
+          <div class="vlabel">Same bars, break patterns</div>
+          <div class="vcol" style="width:100%">
+            <div class="glass panel" style="padding:20px">
+              <div class="stitle">☕ Break Patterns</div>
+              <div class="hb">
+                <div class="sum">
+                  <span><b style="color:#ffa726">14</b> breaks</span>
+                  <span><b style="color:#ffa726">11m</b> avg duration</span>
+                  <span><b style="color:#ffa726">2h 34m</b> total</span>
+                </div>
+                <div class="plot">
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar" style="height:50%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar" style="height:25%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar" style="height:100%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar" style="height:50%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar" style="height:25%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar" style="height:50%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar" style="height:25%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar" style="height:25%;background:var(--amber)"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                  <div class="col"><div class="bar z"></div></div>
+                </div>
+                <div class="labs">
+                  <div>0</div><div></div><div></div><div></div><div></div><div></div>
+                  <div>6</div><div></div><div></div><div></div><div></div><div></div>
+                  <div>12</div><div></div><div></div><div></div><div></div><div></div>
+                  <div>18</div><div></div><div></div><div></div><div></div><div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⏰</span><div><div class="t">Peak Productivity Hours + Break Patterns</div><div class="d">One 24-bar primitive, two readings. Peak hours plots minutes worked per hour of day; break patterns reuses it with a break count and the amber palette. Axis labels print only every sixth hour.</div><div class="src">src/workshifts/index.jsx · HourBars</div></div></div>
+    </div>
+
+    <!-- 8 ─ Weekly comparison -->
+    <div class="libcard" id="weekly-comparison">
+      <div class="stage">
+        <div class="glass panel w" style="padding:20px">
+          <div class="stitle">📊 Weekly Comparison (last 6 weeks)</div>
+          <div class="blist">
+            <div class="wk"><span class="lab">Wk 06-01</span><span class="track"><span class="fill" style="width:74.6%"></span></span><span class="v">28h 40m</span><span class="s">5 shifts</span></div>
+            <div class="wk"><span class="lab">Wk 06-08</span><span class="track"><span class="fill" style="width:88.9%"></span></span><span class="v">34h 10m</span><span class="s">6 shifts</span></div>
+            <div class="wk"><span class="lab">Wk 06-15</span><span class="track"><span class="fill" style="width:57.5%"></span></span><span class="v">22h 5m</span><span class="s">4 shifts</span></div>
+            <div class="wk"><span class="lab">Wk 06-22</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">38h 25m</span><span class="s">7 shifts</span></div>
+            <div class="wk"><span class="lab">Wk 06-29</span><span class="track"><span class="fill" style="width:80.3%"></span></span><span class="v">30h 50m</span><span class="s">5 shifts</span></div>
+            <div class="wk"><span class="lab">Wk 07-06</span><span class="track"><span class="fill" style="width:81.2%"></span></span><span class="v">31h 12m</span><span class="s">7 shifts</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📊</span><div><div class="t">Weekly comparison</div><div class="d">Six weeks of clocked hours, each bar scaled against the busiest week rather than a fixed ceiling. The week label is just the month-day slice of the week key.</div><div class="src">src/workshifts/index.jsx · AnalyticsView (weekly)</div></div></div>
+    </div>
+
+    <!-- 9 ─ Work analytics summary -->
+    <div class="libcard" id="work-stats">
+      <div class="stage" style="min-height:170px">
+        <div class="statgrid">
+          <div class="glass sc"><div class="v">31h 12m</div><div class="k">Work (range)</div><div class="s">7 shifts</div></div>
+          <div class="glass sc"><div class="v">5h 12m</div><div class="k">Avg / Active Day</div><div class="s">6 active days</div></div>
+          <div class="glass sc"><div class="v">14</div><div class="k">Breaks</div><div class="s">avg 11m</div></div>
+          <div class="glass sc"><div class="v">63</div><div class="k">Ctx Switches</div><div class="s">2.0/h · 9.0/shift</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🧮</span><div><div class="t">Work analytics summary</div><div class="d">The four numbers that head the Work Shifts analytics view. Context switches carry two derived rates, because 63 switches means nothing until you know it happened across 31 hours and 7 shifts.</div><div class="src">src/workshifts/index.jsx · AnalyticsView (StatCard row)</div></div></div>
+    </div>
+
+    <!-- 10 ─ Time per Focus + stub -->
+    <div class="libcard" id="time-per-focus">
+      <div class="stage">
+        <div class="glass panel w" style="padding:20px">
+          <div class="stitle">🎯 Time per Focus (during shifts)</div>
+          <div class="blist">
+            <div class="brow"><span class="rank">1.</span><span class="track"><span class="fill" style="width:100%;background:var(--appcyan)"></span><span class="inlab">Q1 Report</span></span><span class="val" style="min-width:48px">14h 20m</span></div>
+            <div class="brow"><span class="rank">2.</span><span class="track"><span class="fill" style="width:45.9%;background:var(--appcyan)"></span><span class="inlab">Learning React</span></span><span class="val" style="min-width:48px">6h 35m</span></div>
+            <div class="brow"><span class="rank">3.</span><span class="track"><span class="fill" style="width:22.1%;background:var(--appcyan)"></span><span class="inlab">Email triage</span></span><span class="val" style="min-width:48px">3h 10m</span></div>
+            <div class="brow"><span class="rank">4.</span><span class="track"><span class="fill" style="width:12.2%;background:var(--appcyan)"></span><span class="inlab">Vacation Planning</span></span><span class="val" style="min-width:48px">1h 45m</span></div>
+          </div>
+          <div class="stub">
+            <span class="t">Distraction time vs productive time</span><span class="badge">COMING SOON</span>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎯</span><div><div class="t">Time per Focus + scaffolded stub</div><div class="d">Focus time intersected with clocked shifts, ranked. Below it, the product's stub convention: anything scaffolded but not yet wired gets a dashed border, italic amber text and a COMING SOON badge, so the roadmap is visible in the UI instead of hidden in a backlog.</div><div class="src">src/workshifts/index.jsx · AnalyticsView (perFocus) · STUB_STYLE</div></div></div>
+    </div>
+
+    <!-- 11 ─ Reporting -->
+    <div class="libcard" id="reporting">
+      <div class="stage">
+        <div class="glass panel w" style="padding:20px">
+          <div class="stitle">📤 Reporting</div>
+          <div class="rep">
+            <button class="csv">⬇ Export CSV</button>
+            <button class="stubbtn" disabled>Export PDF Timesheet <span class="badge">SOON</span></button>
+            <button class="stubbtn" disabled>Sync to Cloud <span class="badge">SOON</span></button>
+          </div>
+          <div class="repcap">CSV covers the selected range: daily hours, weekly comparison, peak hours, breaks, time per focus, and context switching.</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📤</span><div><div class="t">Reporting row</div><div class="d">CSV export is real and runs entirely client-side off the computed analytics. The two dashed buttons are honest about not existing yet.</div><div class="src">src/workshifts/index.jsx · AnalyticsView (Reporting)</div></div></div>
+    </div>
+
+    <!-- 12 ─ LogsPanel filter chips -->
+    <div class="libcard" id="logs-chips">
+      <div class="stage">
+        <div class="chips">
+          <button class="chip" style="border-color:#42a5f5;color:#42a5f5;background:#42a5f522">📄 Tab Activity <span class="n">(42)</span></button>
+          <button class="chip" style="border-color:#ab47bc;color:#ab47bc;background:#ab47bc22">🎯 Intent Change <span class="n">(23)</span></button>
+          <button class="chip" style="border-color:#ff9800;color:#ff9800;background:#ff980022">🔍 Focus Session <span class="n">(17)</span></button>
+          <button class="chip" style="border-color:#66bb6a;color:#66bb6a;background:#66bb6a22">⏱️ Clock Stint <span class="n">(12)</span></button>
+          <button class="chip" style="border-color:#ffa726;color:#ffa726;background:#ffa72622">☕ Break <span class="n">(14)</span></button>
+          <button class="chip" style="border-color:#26a69a;color:#26a69a;background:#26a69a22">🏷️ Context Set <span class="n">(11)</span></button>
+          <button class="chip" style="border-color:#ef5350;color:#ef5350;background:#ef535022">🚫 Blocked Site <span class="n">(5)</span></button>
+          <button class="chip" style="border-color:#4caf50;color:#4caf50;background:#4caf5022">✅ Task Update <span class="n">(4)</span></button>
+          <button class="chip off">📝 Audit Trail</button>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏷️</span><div><div class="t">LogsPanel filter chips</div><div class="d">Nine log types, each with its own glyph and colour, toggling its slice of the table. A type with nothing in it drops to 40% opacity and hides its count, as Audit Trail does here.</div><div class="src">src/home/LogsPanel.jsx · LOG_TYPES</div></div></div>
+    </div>
+
+    <!-- 13 ─ LogsPanel table -->
+    <div class="libcard wide" id="logs-table">
+      <div class="stage top">
+        <div class="lg">
+          <div class="lgfilt">
+            <button class="fbtn">🔍 (2)</button>
+            <span class="cnt">128 logs</span>
+            <button class="clr">✕ Clear</button>
+          </div>
+          <div class="lgin">
+            <input type="date" value="2026-07-16" style="width:120px">
+            <input type="text" placeholder="Intent..." style="width:100px">
+            <select style="width:110px"><option>All cats</option></select>
+            <input type="number" placeholder="Min m" style="width:60px">
+          </div>
+          <div class="glass lgtable">
+            <div class="lgscroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="ico"></th><th>Date</th><th>Type</th><th>Details</th><th>Intent</th><th class="r">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="ico">📄</td><td class="date">Jul 16 09:14:22</td>
+                    <td class="type"><span class="tpill" style="color:#42a5f5;background:#42a5f518">Tab Activity</span></td>
+                    <td class="det">Q1 Revenue Model - Sheets <span class="dom">(docs.google.com)</span></td>
+                    <td><span class="ipill" style="background:#42a5f522;color:#42a5f5">Q1 Report</span></td>
+                    <td class="time">22:04</td>
+                  </tr>
+                  <tr>
+                    <td class="ico">🎯</td><td class="date">Jul 16 09:02:10</td>
+                    <td class="type"><span class="tpill" style="color:#ab47bc;background:#ab47bc18">Intent Change</span></td>
+                    <td class="det">Q1 Report</td>
+                    <td><span class="ipill" style="background:#ab47bc22;color:#ab47bc">Q1 Report</span></td>
+                    <td class="time">—</td>
+                  </tr>
+                  <tr>
+                    <td class="ico">⏱️</td><td class="date">Jul 16 08:58:03</td>
+                    <td class="type"><span class="tpill" style="color:#66bb6a;background:#66bb6a18">Clock Stint</span></td>
+                    <td class="det">Clocked in</td>
+                    <td></td>
+                    <td class="time">5:12:00</td>
+                  </tr>
+                  <tr>
+                    <td class="ico">☕</td><td class="date">Jul 16 11:30:41</td>
+                    <td class="type"><span class="tpill" style="color:#ffa726;background:#ffa72618">Break</span></td>
+                    <td class="det">Coffee</td>
+                    <td></td>
+                    <td class="time">11:24</td>
+                  </tr>
+                  <tr>
+                    <td class="ico">🚫</td><td class="date">Jul 16 13:41:57</td>
+                    <td class="type"><span class="tpill" style="color:#ef5350;background:#ef535018">Blocked Site</span></td>
+                    <td class="det">Proceeded, 15m box <span class="dom">(reddit.com)</span></td>
+                    <td><span class="ipill" style="background:#ef535022;color:#ef5350">Q1 Report</span></td>
+                    <td class="time">6:12</td>
+                  </tr>
+                  <tr>
+                    <td class="ico">🔍</td><td class="date">Jul 16 14:20:08</td>
+                    <td class="type"><span class="tpill" style="color:#ff9800;background:#ff980018">Focus Session</span></td>
+                    <td class="det">Learning React</td>
+                    <td><span class="ipill" style="background:#ff980022;color:#ff9800">Learning React</span></td>
+                    <td class="time">21:38 <span class="al">/ 25:00</span></td>
+                  </tr>
+                  <tr>
+                    <td class="ico">✅</td><td class="date">Jul 16 15:02:33</td>
+                    <td class="type"><span class="tpill" style="color:#4caf50;background:#4caf5018">Task Update</span></td>
+                    <td class="det">Q1 revenue charts → completed</td>
+                    <td><span class="ipill" style="background:#4caf5022;color:#4caf50">Q1 Report</span></td>
+                    <td class="time">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="loadmore"><button>Load more (78 remaining)</button></div>
+
+          <div class="variants" style="margin-top:22px">
+            <div class="vlabel">Empty state</div>
+            <div class="vcol" style="width:100%">
+              <div class="glass lgtable">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="ico"></th><th>Date</th><th>Type</th><th>Details</th><th>Intent</th><th class="r">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td class="noLogs" colspan="6">No logs found.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📋</span><div><div class="t">LogsPanel table</div><div class="d">Every tracked event in one table, merged from tabs, intents, focuses, clock stints, breaks, contexts, blocks, tasks and the audit trail. The header sticks, focus rows show used against allotted time, and the list pages in rather than rendering thousands of rows at once.</div><div class="src">src/home/LogsPanel.jsx</div></div></div>
+    </div>
+
+    <!-- 14 ─ Analytics empty state -->
+    <div class="libcard" id="analytics-empty">
+      <div class="stage">
+        <div class="glass aempty">
+          <div class="i">📊</div>
+          <div class="t">No shift data yet. Clock in from the Dashboard and analytics will build themselves.</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🫙</span><div><div class="t">Analytics empty state</div><div class="d">What the Work Shifts analytics view shows before you have ever clocked in. It points at the one action that fills it, and promises nothing else.</div><div class="src">src/workshifts/index.jsx · AnalyticsView (empty)</div></div></div>
+    </div>
+
+    <!-- 15 ─ Range selector -->
+    <div class="libcard" id="range-selector">
+      <div class="stage">
+        <div class="range">
+          <span class="rl">Range</span>
+          <button class="on">This week</button>
+          <button>Last 7 days</button>
+          <button>Last 30 days</button>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🗓</span><div><div class="t">Range selector</div><div class="d">Three ranges drive every number on the analytics view, including what the CSV export contains. The active range inverts to a solid accent fill with black text.</div><div class="src">src/workshifts/index.jsx · RANGE_OPTIONS</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.18</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

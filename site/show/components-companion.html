@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Desktop Companion</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase - Desktop Companion category page.
+   Site chrome uses the logo palette (#0F1115 / #00D2FF), exactly
+   as the other category pages. The component stages, however,
+   render the COMPANION's own tokens (src/styles/index.css in
+   tabatha-desktop: bg #0d0f12, card #1a1e25, accent #4a9eff,
+   green #10ac84, orange #ff9f43) - a different app, so a
+   different surface palette. Its radius scale is 8/4, not the
+   extension's halved 2/4/8. Reproduced as shipped.
+   Self-contained: inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+/* state variant strip */
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+.mono{font-family:var(--mono)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Companion surface tokens - tabatha-desktop/src/styles/index.css
+   ============================================================ */
+.dsk{
+  --d-bg:#0d0f12;--d-bg2:#14171c;--d-card:#1a1e25;--d-hover:#232830;--d-border:#2a303a;
+  --d-text:#e8eaf0;--d-sec:#8b93a1;--d-muted:#5a6270;
+  --d-accent:#4a9eff;--d-green:#10ac84;--d-orange:#ff9f43;--d-red:#ee5a52;--d-purple:#a855f7;
+  --d-r:8px;--d-rs:4px;
+  font-family:var(--sans);color:var(--d-text);font-size:13px;
+}
+.dcard{background:var(--d-card);border:1px solid var(--d-border);border-radius:var(--d-r);padding:10px 12px}
+.dsec{font-size:10px;font-weight:600;color:var(--d-sec);display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.dbadge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:500}
+.dbadge.on{background:rgba(16,172,132,.15);color:var(--d-green);border:1px solid rgba(16,172,132,.3)}
+.dbadge.off{background:rgba(255,159,67,.15);color:var(--d-orange);border:1px solid rgba(255,159,67,.3)}
+.dbtn{background:var(--d-hover);border:1px solid var(--d-border);color:var(--d-text);border-radius:var(--d-rs);
+  padding:5px 10px;font:500 11px var(--sans);cursor:pointer}
+.dbtn.pri{background:var(--d-green);border-color:var(--d-green);color:#04231b;font-weight:600}
+.dbtn.warn{background:rgba(255,159,67,.15);border-color:rgba(255,159,67,.35);color:var(--d-orange)}
+
+/* --- Tray menu --- */
+.tray{width:250px;background:var(--d-bg2);border:1px solid var(--d-border);border-radius:var(--d-rs);
+  padding:4px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.tray .row{display:flex;align-items:center;gap:8px;padding:5px 9px;font-size:11.5px;color:var(--d-text);border-radius:3px}
+.tray .row:hover{background:var(--d-hover)}
+.tray .sep{height:1px;background:var(--d-border);margin:4px 2px}
+.tray .row .k{margin-left:auto;font:400 9.5px var(--mono);color:var(--d-muted)}
+.tray .row.dim{color:var(--d-sec)}
+
+/* --- Tray icon + tooltip --- */
+.trayicon{display:flex;align-items:center;gap:9px}
+.trayicon .dot{width:16px;height:16px;border-radius:50%;flex:none}
+.tip{background:#20242c;border:1px solid var(--d-border);border-radius:3px;padding:4px 8px;
+  font-size:10.5px;color:var(--d-text);white-space:nowrap}
+
+/* --- Desk panel --- */
+.panel{width:300px;background:var(--d-bg);border:1px solid var(--d-border);border-radius:var(--d-r);
+  padding:9px;display:flex;flex-direction:column;gap:8px}
+.panel .hd{display:flex;align-items:center;justify-content:space-between;background:var(--d-card);
+  border:1px solid var(--d-border);border-radius:var(--d-r);padding:7px 10px}
+.panel .hd h1{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.panel .hd .ver{font-size:9.5px;color:var(--d-muted);font-weight:400}
+.panel .ft{font-size:9px;color:var(--d-muted);text-align:center;font-family:var(--mono)}
+
+/* --- Install guide --- */
+.ig{width:290px}
+.ig.ok{border-color:rgba(16,172,132,.3);background:rgba(16,172,132,.07)}
+.ig.warn{border-color:rgba(255,159,67,.3);background:rgba(255,159,67,.07)}
+.ig .igt{font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+.ig .igd{font-size:10.5px;color:var(--d-sec);margin-top:5px;line-height:1.5}
+.ig .step{display:flex;gap:7px;font-size:10px;color:var(--d-sec);margin-top:6px}
+.ig .step .n{color:var(--d-accent);font-weight:700;font-family:var(--mono);flex:none}
+.ig .path{font:400 9.5px var(--mono);background:var(--d-bg);border:1px solid var(--d-border);
+  border-radius:3px;padding:4px 6px;color:var(--d-sec);margin-top:6px;word-break:break-all}
+
+/* --- Active window --- */
+.aw{width:270px}
+.aw .app{font-size:13px;font-weight:600}
+.aw .ttl{font-size:10.5px;color:var(--d-sec);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:600;
+  border-radius:10px;padding:2px 8px;margin-top:7px}
+
+/* --- Clock --- */
+.clk{width:230px;text-align:center}
+.clk .big{font:700 24px var(--mono);color:var(--d-green);letter-spacing:-.02em}
+.clk .big.out{color:var(--d-muted)}
+.clk .big.brk{color:var(--d-orange)}
+.clk .sub{font-size:9.5px;color:var(--d-muted);margin-top:3px}
+.clk .acts{display:flex;gap:5px;margin-top:10px;justify-content:center}
+
+/* --- Today --- */
+.today{width:300px}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.tile{background:var(--d-bg2);border:1px solid var(--d-border);border-radius:var(--d-rs);padding:7px 9px}
+.tile .v{font:700 15px var(--mono);color:var(--d-accent)}
+.tile .l{font-size:8.5px;color:var(--d-muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.topapps{margin-top:9px}
+.ta{display:flex;align-items:center;gap:7px;font-size:10.5px;padding:3px 0}
+.ta .bar{flex:1;height:4px;background:var(--d-bg2);border-radius:2px;overflow:hidden}
+.ta .bar i{display:block;height:100%;background:var(--d-accent);border-radius:2px}
+.ta .tm{font:400 9.5px var(--mono);color:var(--d-sec);flex:none}
+
+/* --- Recent activity --- */
+.recent{width:300px}
+.ses{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--d-border);font-size:10.5px}
+.ses:last-child{border-bottom:0}
+.ses .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ses .tm{font:400 9.5px var(--mono);color:var(--d-muted);flex:none}
+
+/* --- Categorizer --- */
+.cats2{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;width:330px}
+.crow{display:flex;align-items:center;gap:7px;background:var(--d-card);border:1px solid var(--d-border);
+  border-radius:var(--d-rs);padding:5px 8px;font-size:10.5px}
+.crow .n{margin-left:auto;font:400 9px var(--mono);color:var(--d-muted)}
+
+/* --- WS bridge --- */
+.ws{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:620px}
+.wscol .hd2{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--d-sec);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.msgs{display:flex;flex-wrap:wrap;gap:4px}
+.msg{font:500 9px var(--mono);border-radius:3px;padding:3px 6px}
+.msg.out{background:rgba(74,158,255,.12);color:var(--d-accent);border:1px solid rgba(74,158,255,.25)}
+.msg.in{background:rgba(168,85,247,.12);color:var(--d-purple);border:1px solid rgba(168,85,247,.25)}
+.wsbar{width:100%;max-width:620px;display:flex;align-items:center;gap:9px;background:var(--d-card);
+  border:1px solid var(--d-border);border-radius:var(--d-rs);padding:7px 10px;margin-bottom:14px}
+.wsbar .u{font:500 10.5px var(--mono);color:var(--d-green)}
+.wsbar .note{margin-left:auto;font-size:9.5px;color:var(--d-muted)}
+
+/* --- DB / schema --- */
+.db{width:320px}
+.tbl{background:var(--d-bg2);border:1px solid var(--d-border);border-radius:var(--d-rs);padding:7px 9px;margin-bottom:6px}
+.tbl .tn{font:600 10.5px var(--mono);color:var(--d-accent)}
+.tbl .cols{font-size:9.5px;color:var(--d-muted);margin-top:3px;line-height:1.5}
+
+/* --- Capture --- */
+.cap2{width:100%;max-width:600px}
+.pathline{font:400 10px var(--mono);background:var(--d-bg);border:1px solid var(--d-border);
+  border-radius:var(--d-rs);padding:8px 10px;color:var(--d-sec);word-break:break-all}
+.gates{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.gate{font-size:9.5px;border-radius:10px;padding:3px 9px;background:rgba(238,90,82,.1);
+  color:#ff8f88;border:1px solid rgba(238,90,82,.25)}
+
+/* --- Updater --- */
+.upd{width:300px}
+.inv{display:flex;gap:7px;font-size:10px;color:var(--d-sec);padding:3px 0;align-items:flex-start}
+.inv .c{color:var(--d-green);flex:none;font-weight:700}
+
+/* --- Autostart --- */
+.reg{width:300px}
+.regline{font:400 9.5px var(--mono);color:var(--d-sec);background:var(--d-bg2);border:1px solid var(--d-border);
+  border-radius:3px;padding:5px 7px;margin-top:5px;word-break:break-all}
+
+/* --- Activity report --- */
+.rep{font:400 9.5px var(--mono);color:var(--d-sec);background:var(--d-bg);border:1px solid var(--d-border);
+  border-radius:var(--d-rs);padding:12px;white-space:pre;line-height:1.6;overflow-x:auto;max-width:100%}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="#components">Components</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.18</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Desktop Companion <span class="statusflag live">Built · v0.3.1</span></h1>
+  <p>The browser can only see the browser. The companion is a small Windows tray app that watches
+    the rest of the desktop and tells the extension what it finds, so a stint spent in Figma, Excel or a
+    call is time your day actually accounts for instead of a five-hour hole labelled "idle". It is a
+    separate product with its own release line, its own palette, and its own database. Every component
+    below is built and running today, and it is now something you can download for Windows. Pairing it
+    with the extension is now hardened: a one-tap token exchange from a new card in Settings authenticates
+    the local bridge, replacing the open socket earlier builds shipped.</p>
+</header>
+
+<!-- Download panel. Real state as of the desktop-v0.3.1 release:
+     the NSIS installer below is a live GitHub release asset. The
+     amber soft-state that lived here (a "request access" button and
+     a blocked-on list) is in git history; it was correct while there
+     was no artifact to link. -->
+<div class="dl" id="get">
+  <div class="dl-box">
+    <div class="dl-main">
+      <span class="e" aria-hidden="true">🖥️</span>
+      <div class="dl-body">
+        <div class="dl-title">
+          <h2>Get the companion</h2>
+          <span class="statusflag live">Windows download</span>
+        </div>
+        <div class="dl-meta">
+          <span>Windows 10/11 · <b>x64</b></span>
+          <span>Version <b>0.3.1</b></span>
+          <span><b>4.70 MB</b> installer</span>
+          <span>Tauri · Rust</span>
+        </div>
+        <p class="dl-desc">The companion watches which application and window is in front, sorts that into
+          categories, keeps it in a local SQLite database, and pushes what it sees to the extension over a
+          loopback WebSocket, so a stint spent in Figma, Excel or a call is time your day accounts for.
+          <b>Windows only</b>, and not by oversight: the window monitor is bound to Win32 and the capture
+          engine draws through GDI, so macOS and Linux are a port, not a build flag.</p>
+        <p class="dl-desc">This build ships the <b>hardened device pairing</b>: the local bridge now requires
+          a one-tap pairing token exchange before it will talk to a browser, closing the open-socket
+          limitation earlier builds carried.</p>
+        <p class="dl-desc">It can <b>also capture the screen</b> while the browser is not in front — but that
+          is <b>off by default</b>, redacted with a fail-closed pass when on, written only to your own machine
+          and <b>never uploaded</b>, and auto-deleted after 30 days (90 while clocked in for an org). A fresh
+          install captures nothing until you turn it on.</p>
+        <div class="dl-actions">
+          <a class="dl-cta ready"
+             href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.3.1/Tabatha.Desktop_0.3.1_x64-setup.exe"
+             download>⬇️ Download for Windows</a>
+          <span class="dl-note">NSIS installer · 4.70 MB · from the <code>desktop-v0.3.1</code> GitHub release.</span>
+        </div>
+        <div class="dl-facts">
+          <div class="dl-fact"><span class="k">Version</span><span class="v">0.3.1 · Windows x64</span></div>
+          <div class="dl-fact"><span class="k">Size</span><span class="v">4,927,360 bytes (4.70 MB)</span></div>
+          <div class="dl-fact"><span class="k">SHA-256</span><span class="v">99828808694b6ff8606975c1a52354f61b18d66f78e82f1b70f1378e617fc6a7</span></div>
+          <div class="dl-fact"><span class="k">SHA-256 (.msi)</span><span class="v">9969d5dc255294ade3ef1e42db8abd18763eec50c7fb30be422032231a6b384a</span></div>
+          <div class="dl-fact"><span class="k">Also</span><span class="v"><a href="https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.3.1/Tabatha.Desktop_0.3.1_x64_en-US.msi">.msi build</a> (8,175,616 bytes) · <a href="https://github.com/MrMalkio/tabatha/releases/tag/desktop-v0.3.1">release page &amp; checksums</a></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="dl-missing">
+      <div class="h">Before you install</div>
+      <ul>
+        <li><b>It is unsigned.</b> No code-signing certificate is configured yet, so Windows SmartScreen
+          will warn on first run — "More info → Run anyway". Verify the SHA-256 above against the file you
+          downloaded if you want certainty about what you're running.</li>
+        <li><b>The local interface is paired, as of this build.</b> The companion opens a WebSocket on
+          <code>127.0.0.1:9147</code> for the extension bridge; 0.3.1 requires a one-tap
+          pairing token, exchanged from the extension's Settings pairing card or the tray's "Pair Extension"
+          action, before it will accept a connection. Still loopback-only and never reachable from your network.</li>
+        <li><b>Updates are manual.</b> The companion has no auto-update channel of its own yet, so a future
+          fix means downloading a new installer from the release page rather than an in-app update.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Component library</h2>
+    <span class="meta">15 surfaces &amp; subsystems · rendered from live companion tokens</span>
+  </div>
+  <p class="sec-purpose">The companion has almost no UI on purpose. It is a tray icon, one optional 480×640
+    window, and a great deal of machinery underneath - because the thing it is trying to be is
+    <b>invisible</b>: if you have to interact with it, it has already failed at its job. So most of what
+    follows is not a screen but a subsystem, shown as the surface through which you would ever actually meet
+    it. The stages here render the companion's own tokens (accent <b>#4a9eff</b>, green <b>#10ac84</b>) and
+    its 8/4 radius scale - it is a different app from the extension, and it does not pretend otherwise.</p>
+  <div class="lib dsk">
+
+    <!-- 1. Tray menu -->
+    <div class="libcard" id="tray-menu">
+      <div class="stage top" style="padding-top:24px">
+        <div class="tray">
+          <div class="row">⏸ Pause Tabbing</div>
+          <div class="row">🕐 Clock Out</div>
+          <div class="row">📸 Capture <span class="k">✓</span></div>
+          <div class="sep"></div>
+          <div class="row">📊 Activity Log</div>
+          <div class="row">🛠 Desk Panel</div>
+          <div class="row">⬆ Check for Updates</div>
+          <div class="sep"></div>
+          <div class="row">✅ Start on Login</div>
+          <div class="row">🔄 Restart</div>
+          <div class="sep"></div>
+          <div class="row dim">❌ Exit Completely</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📋</span><div><div class="t">Tray menu <span class="statusflag live">Live</span></div>
+        <div class="d">The companion's only permanent surface - there is no main window at all. Eleven items across three groups: what it is doing now, where to look, and how it starts. The first two relabel themselves against live state (Pause ⇄ Resume, Clock In ⇄ Clock Out), and Capture is a real checkbox that persists to settings.json rather than a dialog.</div>
+        <div class="src">src-tauri/src/main.rs</div></div></div>
+    </div>
+
+    <!-- 2. Tray icon -->
+    <div class="libcard" id="tray-icon">
+      <div class="stage">
+        <div class="variants" style="gap:26px">
+          <div class="vcol">
+            <div class="vlabel">tracking</div>
+            <div class="trayicon"><span class="dot" style="background:#10ac84"></span>
+              <span class="tip">Tabby Desk v0.3.1 (release) - Tabbing</span></div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">paused</div>
+            <div class="trayicon"><span class="dot" style="background:#ff9f43"></span>
+              <span class="tip">Tabby Desk v0.3.1 (release) - Paused</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🟢</span><div><div class="t">Tray icon &amp; tooltip <span class="statusflag live">Live</span></div>
+        <div class="d">Ships no icon file: the 16×16 circle is rasterized in Rust at runtime, so the colour is state rather than a swapped asset. Green means it is watching, amber means you paused it. The tooltip is the only place the running build number is ever stated, and it says <span class="mono">(release)</span> or <span class="mono">(debug)</span> so a stray dev build cannot masquerade as the real one.</div>
+        <div class="src">src-tauri/src/main.rs · make_tray_icon()</div></div></div>
+    </div>
+
+    <!-- 3. Desk panel -->
+    <div class="libcard wide" id="desk-panel">
+      <div class="stage top tall" style="padding-top:26px">
+        <div class="panel">
+          <div class="hd"><h1>⚡ Tabby Desk <span class="ver">v0.3.1</span></h1><span class="dbadge on">● Tabbing</span></div>
+          <div class="dcard">
+            <div class="dsec">👁 Active Window</div>
+            <div class="aw" style="width:auto">
+              <div class="app">Visual Studio Code</div>
+              <div class="ttl">TagPicker.jsx - tabatha</div>
+              <span class="chip" style="background:rgba(74,158,255,.15);color:#4a9eff">💻 development</span>
+            </div>
+          </div>
+          <div class="dcard">
+            <div class="dsec">⏰ Time Clock</div>
+            <div class="clk" style="width:auto"><div class="big">04:12:38</div>
+              <div class="sub">since 09:02 · 18m break</div></div>
+          </div>
+          <div class="dcard">
+            <div class="dsec">📊 Today</div>
+            <div class="tgrid">
+              <div class="tile"><div class="v">4h 12m</div><div class="l">Active time</div></div>
+              <div class="tile"><div class="v">63</div><div class="l">App switches</div></div>
+            </div>
+          </div>
+          <div class="ft">WebSocket server on ws://localhost:9147</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🛠</span><div><div class="t">Desk Panel <span class="statusflag live">Live</span></div>
+        <div class="d">A 480×640 webview you open from the tray and close again - never shown at launch, because the companion is meant to be forgotten. Six stacked cards polling the Rust side once a second. Its version string is read at runtime rather than hardcoded, which is the fix for a build that spent a release claiming to be v0.1.0.</div>
+        <div class="src">src/App.jsx</div></div></div>
+    </div>
+
+    <!-- 4. Install guide -->
+    <div class="libcard wide" id="install-guide">
+      <div class="stage top" style="padding-top:26px">
+        <div class="variants" style="gap:16px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">connected</div>
+            <div class="dcard ig ok">
+              <div class="igt" style="color:#10ac84">✓ Extension connected</div>
+              <div class="igd">Tabatha is talking to your browser. <span class="mono">v6.7.18</span></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">disconnected</div>
+            <div class="dcard ig warn">
+              <div class="igt" style="color:#ff9f43">⚠ Extension stopped responding</div>
+              <div class="igd">Last seen 14:07:22. Open <span class="mono">chrome://extensions</span> and check Tabatha is still enabled.</div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">never installed</div>
+            <div class="dcard ig">
+              <div class="igt">🧩 Install the browser extension</div>
+              <div class="igd">The companion ships with it. Load it once and they find each other.</div>
+              <div class="path">%APPDATA%\Tabatha Desktop\extension</div>
+              <div class="step"><span class="n">1</span><span>Copy the path above</span></div>
+              <div class="step"><span class="n">2</span><span>Open chrome://extensions</span></div>
+              <div class="step"><span class="n">3</span><span>Enable Developer mode → Load unpacked</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🧩</span><div><div class="t">InstallGuide <span class="statusflag live">Live</span></div>
+        <div class="d">Three states, not two: <b>never installed</b> gets the full walkthrough, but <b>disconnected</b> is deliberately a separate, amber case - "it broke" and "you never set it up" want opposite advice, and collapsing them sends people to re-install something they already have. Chrome refuses programmatic navigation to <span class="mono">chrome://</span> URLs, so the open button copies the URL and says so instead of silently doing nothing.</div>
+        <div class="src">src/components/InstallGuide.jsx</div></div></div>
+    </div>
+
+    <!-- 5. Active window -->
+    <div class="libcard" id="active-window">
+      <div class="stage">
+        <div class="variants" style="gap:12px">
+          <div class="vcol">
+            <div class="vlabel">tracking</div>
+            <div class="dcard aw">
+              <div class="dsec">👁 Active Window</div>
+              <div class="app">Figma</div>
+              <div class="ttl">Tabatha - Gatekeeper explorations</div>
+              <span class="chip" style="background:rgba(168,85,247,.15);color:#a855f7">🎨 design</span>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">idle · 5 min threshold</div>
+            <div class="dcard aw">
+              <div class="dsec">👁 Active Window</div>
+              <div class="app" style="color:#5a6270">Idle</div>
+              <div class="ttl">No input for 5m 22s</div>
+              <span class="chip" style="background:rgba(255,159,67,.15);color:#ff9f43">⏸ not counted</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">👁</span><div><div class="t">Window monitor <span class="statusflag live">Live</span></div>
+        <div class="d">Polls the foreground window once a second through the Win32 API and cuts a new session whenever the app <b>or the window title</b> changes - title-level, so two hours in one editor still resolves into the files you were actually in. Idle after five minutes of no input. The whole loop runs inside a panic guard: a crash in one tick is logged and retried on the next rather than taking the tray down with it.</div>
+        <div class="src">src-tauri/src/window_monitor.rs</div></div></div>
+    </div>
+
+    <!-- 6. Clock -->
+    <div class="libcard" id="companion-clock">
+      <div class="stage">
+        <div class="variants" style="gap:12px">
+          <div class="vcol">
+            <div class="vlabel">clocked out</div>
+            <div class="dcard clk"><div class="dsec">⏰ Time Clock</div>
+              <div class="big out">00:00:00</div><div class="sub">not clocked in</div>
+              <div class="acts"><button class="dbtn pri">Clock In</button></div></div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">clocked in</div>
+            <div class="dcard clk"><div class="dsec">⏰ Time Clock</div>
+              <div class="big">04:12:38</div><div class="sub">since 09:02 · 18m break</div>
+              <div class="acts"><button class="dbtn">Break</button><button class="dbtn">Clock Out</button></div></div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">on break</div>
+            <div class="dcard clk"><div class="dsec">⏰ Time Clock</div>
+              <div class="big brk">04:12:38</div><div class="sub">on break since 13:41</div>
+              <div class="acts"><button class="dbtn warn">End Break</button><button class="dbtn">Clock Out</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⏰</span><div><div class="t">Time Clock <span class="statusflag live">Live</span></div>
+        <div class="d">The same shift the extension sees, driven from either end. Clocking in is <b>idempotent</b> and clocking out closes <i>every</i> open session rather than the newest - both are v0.2.0 fixes for a real bug: the tray, the extension and the auto-clock could each open a shift, and one stale row left the companion insisting you had been working for eleven days.</div>
+        <div class="src">src-tauri/src/activity_log.rs</div></div></div>
+    </div>
+
+    <!-- 7. Today -->
+    <div class="libcard" id="companion-today">
+      <div class="stage">
+        <div class="dcard today">
+          <div class="dsec">📊 Today</div>
+          <div class="tgrid">
+            <div class="tile"><div class="v">4h 12m</div><div class="l">Active time</div></div>
+            <div class="tile"><div class="v">63</div><div class="l">App switches</div></div>
+            <div class="tile"><div class="v">18m</div><div class="l">Break time</div></div>
+            <div class="tile"><div class="v">6</div><div class="l">Categories</div></div>
+          </div>
+          <div class="topapps">
+            <div class="dsec" style="margin-top:4px">Top apps</div>
+            <div class="ta"><span>💻</span><span style="flex:none;width:74px">Code</span><span class="bar"><i style="width:82%"></i></span><span class="tm">1h 54m</span></div>
+            <div class="ta"><span>🎨</span><span style="flex:none;width:74px">Figma</span><span class="bar"><i style="width:47%"></i></span><span class="tm">1h 06m</span></div>
+            <div class="ta"><span>💬</span><span style="flex:none;width:74px">Slack</span><span class="bar"><i style="width:23%"></i></span><span class="tm">32m</span></div>
+            <div class="ta"><span>📊</span><span style="flex:none;width:74px">Excel</span><span class="bar"><i style="width:15%"></i></span><span class="tm">21m</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📊</span><div><div class="t">Today summary <span class="statusflag live">Live</span></div>
+        <div class="d">Four tiles and the top five apps. The still-open session is counted live rather than at its next boundary, so the number is right mid-morning instead of only after you switch away. Days roll at <b>UTC</b>, which is a real quirk worth knowing: near midnight in a distant timezone this card and the tray's report disagree, because the report prints local time.</div>
+        <div class="src">src-tauri/src/activity_log.rs · get_daily_summary()</div></div></div>
+    </div>
+
+    <!-- 8. Recent activity -->
+    <div class="libcard" id="companion-activity">
+      <div class="stage">
+        <div class="dcard recent">
+          <div class="dsec">🕐 Recent Activity</div>
+          <div class="ses"><span>💻</span><span class="nm">Code - TagPicker.jsx</span><span class="tm">22m</span></div>
+          <div class="ses"><span>🌐</span><span class="nm">Chrome - (handed to extension)</span><span class="tm">14m</span></div>
+          <div class="ses"><span>🎨</span><span class="nm">Figma - Gatekeeper explorations</span><span class="tm">38m</span></div>
+          <div class="ses"><span>💬</span><span class="nm">Slack - #flux-dev</span><span class="tm">6m</span></div>
+          <div class="ses"><span>📊</span><span class="nm">Excel - Q1 charts.xlsx</span><span class="tm">21m</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🕐</span><div><div class="t">Recent Activity <span class="statusflag live">Live</span></div>
+        <div class="d">The last twenty sessions, newest first, each as app · window title · duration. Browser rows are the seam in the whole architecture: the companion sees Chrome is focused but hands the <i>content</i> question to the extension, which knows the tab, its Context and its intent. Two trackers, one timeline, no double-count.</div>
+        <div class="src">src/App.jsx · get_today_sessions</div></div></div>
+    </div>
+
+    <!-- 9. Categorizer -->
+    <div class="libcard" id="companion-categorizer">
+      <div class="stage">
+        <div class="cats2">
+          <div class="crow"><span>💻</span><span>development</span><span class="n">~30</span></div>
+          <div class="crow"><span>💬</span><span>communication</span><span class="n">~12</span></div>
+          <div class="crow"><span>🎨</span><span>design</span><span class="n">~28</span></div>
+          <div class="crow"><span>📋</span><span>productivity</span><span class="n">~10</span></div>
+          <div class="crow"><span>📧</span><span>email</span><span class="n">~5</span></div>
+          <div class="crow"><span>🎵</span><span>media</span><span class="n">~8</span></div>
+          <div class="crow"><span>🎮</span><span>entertainment</span><span class="n">~6</span></div>
+          <div class="crow"><span>🌐</span><span>browser</span><span class="n">~4</span></div>
+          <div class="crow"><span>⚙️</span><span>system</span><span class="n">~7</span></div>
+          <div class="crow" style="opacity:.6"><span>❓</span><span>unknown</span><span class="n">fallback</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏷</span><div><div class="t">Categorizer <span class="statusflag live">Live</span></div>
+        <div class="d">Nine categories plus an honest <b>unknown</b> fallback, over roughly a hundred executable names - matched on exact filename, case-insensitively, so a renamed binary lands in unknown rather than being guessed at. Design is the biggest bucket after development, mostly because the Adobe suite is large. The extension's own category engine was ported from this file, which is why a day reads the same on both sides.</div>
+        <div class="src">src-tauri/src/categorizer.rs</div></div></div>
+    </div>
+
+    <!-- 10. WS bridge -->
+    <div class="libcard wide" id="ws-bridge">
+      <div class="stage top" style="padding-top:26px;flex-direction:column">
+        <div class="wsbar">
+          <span class="dbadge on">● Connected</span>
+          <span class="u">ws://localhost:9147/tabatha</span>
+          <span class="note">loopback only · 1 client</span>
+        </div>
+        <div class="ws">
+          <div class="wscol">
+            <div class="hd2"><span style="color:#4a9eff">↑</span> Companion → extension</div>
+            <div class="msgs">
+              <span class="msg out">APP_SWITCH</span><span class="msg out">APP_SESSION_END</span>
+              <span class="msg out">COMPANION_STATUS</span><span class="msg out">CLOCK_STATE</span>
+              <span class="msg out">DAILY_SUMMARY</span><span class="msg out">IDLE_STATE</span>
+              <span class="msg out">UPDATE_READY</span><span class="msg out">CAPTURE_TAKEN</span>
+              <span class="msg out">CAPTURE_STATE</span><span class="msg out">FILE_WRITTEN</span>
+            </div>
+          </div>
+          <div class="wscol">
+            <div class="hd2"><span style="color:#a855f7">↓</span> Extension → companion</div>
+            <div class="msgs">
+              <span class="msg in">FOCUS_UPDATE</span><span class="msg in">CLOCK_IN</span>
+              <span class="msg in">CLOCK_OUT</span><span class="msg in">TOGGLE_BREAK</span>
+              <span class="msg in">GET_CLOCK_STATE</span><span class="msg in">REQUEST_SUMMARY</span>
+              <span class="msg in">CATEGORY_RULES</span><span class="msg in">PING</span>
+              <span class="msg in">CAPTURE_CONFIG</span><span class="msg in">GET_CAPTURE_STATE</span>
+              <span class="msg in">CAPTURE_FRAME</span><span class="msg in">WRITE_EXPORT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔌</span><div><div class="t">WebSocket bridge <span class="statusflag live">Live</span></div>
+        <div class="d">The whole contract between the two products, on <b>127.0.0.1 only</b> - never <span class="mono">0.0.0.0</span>, so nothing on your network can listen in. Ten message types out, twelve in. If the port is taken the companion logs it and carries on tray-only rather than refusing to start. <b>FOCUS_UPDATE</b> is the interesting one: it splits your focus label into keywords and tags any desktop window whose title matches, so "Q1 charts" in the browser silently claims the Excel file too.</div>
+        <div class="src">src-tauri/src/ws_server.rs</div></div></div>
+    </div>
+
+    <!-- 11. Activity log DB -->
+    <div class="libcard" id="activity-db">
+      <div class="stage top" style="padding-top:26px">
+        <div class="db">
+          <div class="tbl"><div class="tn">app_sessions</div>
+            <div class="cols">id · app_name · app_display_name · window_title · category · started_at · ended_at · duration_ms · matched_focus_id · matched_context</div></div>
+          <div class="tbl"><div class="tn">clock_sessions</div>
+            <div class="cols">id · clocked_in_at · clocked_out_at · total_break_ms · label · source</div></div>
+          <div class="tbl"><div class="tn">clock_breaks</div>
+            <div class="cols">id · clock_session_id → · started_at · ended_at · duration_ms · note</div></div>
+          <div class="pathline" style="margin-top:8px">tabatha_activity.db · local SQLite · never leaves the machine unless you sync</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🗄</span><div><div class="t">Activity log <span class="statusflag live">Live</span></div>
+        <div class="d">Three tables and three indexes of local SQLite. The part worth knowing is what happens after a crash or a flat battery: on every start it <b>reconciles orphans</b> - an app session left open is closed at the moment the next one began, not at "now", so a laptop that slept over the weekend does not wake up crediting you sixty hours in a text editor.</div>
+        <div class="src">src-tauri/src/activity_log.rs</div></div></div>
+    </div>
+
+    <!-- 12. Capture -->
+    <div class="libcard wide" id="os-capture">
+      <div class="stage top" style="padding-top:26px;flex-direction:column;gap:12px">
+        <div class="cap2">
+          <div class="dsec">📸 Capture · <span style="color:#ff9f43">off by default</span></div>
+          <div class="pathline">%APPDATA%\Tabatha Desktop\captures\<span style="color:#4a9eff">&lt;partition&gt;</span>\<span style="color:#4a9eff">&lt;YYYY-MM&gt;</span>\<span style="color:#a855f7">2026-07-16T03-12-45-123Z</span>_os_personal_report-xlsx-excel.jpg</div>
+          <div class="gates">
+            <span class="gate">skipped while idle</span>
+            <span class="gate">skipped when a browser is in front</span>
+            <span class="gate">suppressed by rule</span>
+            <span class="gate">redaction fails closed</span>
+            <span class="gate">min-gap throttle</span>
+          </div>
+          <div class="dsec" style="margin-top:12px;color:#5a6270">Partition follows the clock: <span style="color:#10ac84">org</span> while clocked in, otherwise <span style="color:#a855f7">personal</span> - retained 90 and 30 days.</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📸</span><div><div class="t">Screen capture <span class="statusflag live">Live · opt-in</span></div>
+        <div class="d">The OS half of a browser-plus-desktop pair: the extension captures tabs, this captures everything else, and it stands down the moment a browser is in front so the two never race. <b>Disabled until you turn it on.</b> Sensitive-window rules can suppress or redact a region, and redaction <b>fails closed</b> - a rule that resolves to zero pixels suppresses the frame rather than writing an unredacted one. Note this contradicts the companion's own README, which still carries a "no screenshots, ever" line from v0.1.0; the code is the authority and the README is stale.</div>
+        <div class="src">src-tauri/src/screen_capture.rs</div></div></div>
+    </div>
+
+    <!-- 13. Updater -->
+    <div class="libcard" id="companion-updater">
+      <div class="stage top" style="padding-top:26px">
+        <div class="dcard upd">
+          <div class="dsec">⬆ Update the extension</div>
+          <div class="inv"><span class="c">✓</span><span>New version is strictly greater than the installed one</span></div>
+          <div class="inv"><span class="c">✓</span><span>Zip SHA-256 matches the published manifest</span></div>
+          <div class="inv"><span class="c">✓</span><span>Payload really contains manifest.json + background.js</span></div>
+          <div class="inv"><span class="c">✓</span><span>Extension key is identical - or refuse</span></div>
+          <div class="inv"><span class="c">✓</span><span>Staging dirs can never touch the database file</span></div>
+          <div class="inv"><span class="c">✓</span><span>Swap is atomic, with rollback</span></div>
+          <div class="pathline" style="margin-top:9px;color:#5a6270">Tray: "Tabby Desk - Checking for updates…"</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⬆</span><div><div class="t">Extension updater <span class="statusflag live">Live</span></div>
+        <div class="d">Updates the <b>browser extension</b>, not itself - the companion is how Tabatha self-distributes outside the Web Store. Six invariants, each individually tested, and the identity check is the one that matters: a changed extension key means a changed extension ID, which would silently orphan all your stored data, so a key mismatch refuses the update outright. Every outcome is reported through the tray tooltip, because a windowless app has no console to print to.</div>
+        <div class="src">src-tauri/src/updater.rs</div></div></div>
+    </div>
+
+    <!-- 14. Autostart -->
+    <div class="libcard" id="autostart">
+      <div class="stage top" style="padding-top:26px">
+        <div class="dcard reg">
+          <div class="dsec">✅ Start on Login</div>
+          <div class="regline">HKCU\…\CurrentVersion\Run → TabathaDesktop</div>
+          <div class="dsec" style="margin-top:12px">🔗 Protocol handler</div>
+          <div class="regline">HKCU\Software\Classes\<span style="color:#4a9eff">tabatha://</span></div>
+          <div class="igd" style="font-size:10.5px;color:#5a6270;margin-top:10px;line-height:1.5">
+            Enabled once, on first run only. After that the tray toggle is the only thing that decides.</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔁</span><div><div class="t">Autostart &amp; protocol <span class="statusflag live">Live</span></div>
+        <div class="d">Two plain registry writes rather than a plugin. It turns itself on the first time it ever runs and then <b>never touches the setting again</b> - guarded by a sentinel file, so no update can quietly re-enable an autostart you deliberately switched off. The <span class="mono">tabatha://</span> handler is registered every start (it is idempotent) and lets the extension relaunch the companion if it finds it gone.</div>
+        <div class="src">src-tauri/src/main.rs · mod startup</div></div></div>
+    </div>
+
+    <!-- 15. Activity report -->
+    <div class="libcard wide" id="activity-report">
+      <div class="stage top" style="padding-top:26px">
+<div class="rep">┌────────────────────────────────────────────┐
+│  TABBY DESK - ACTIVITY REPORT              │
+│  Thursday, 16 July 2026                    │
+├────────────────────────────────────────────┤
+│  Active time      4h 12m                   │
+│  Break time         18m                    │
+│  App switches        63                    │
+├────────────────────────────────────────────┤
+│  💻 development            1h 54m    45%   │
+│  🎨 design                 1h 06m    26%   │
+│  💬 communication             32m    13%   │
+│  📋 productivity              21m     8%   │
+│  ⚙️  system                   12m     5%   │
+│  ❓ unknown                    7m     3%   │
+└────────────────────────────────────────────┘</div>
+      </div>
+      <div class="libcap"><span class="e">📄</span><div><div class="t">Activity report <span class="statusflag live">Live</span></div>
+        <div class="d">"📊 Activity Log" in the tray writes this to a text file and hands it to whatever opens .txt. Box-drawing characters and a monospace grid, deliberately: it is meant to be readable in Notepad, pasteable into a message, and legible in ten years without Tabatha installed to open it. This is the report that prints <b>local</b> time while the panel above counts UTC days.</div>
+        <div class="src">src-tauri/src/main.rs · show_log</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>desktop companion v0.3.1 · Windows</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the app ships</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

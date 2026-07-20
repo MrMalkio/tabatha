@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Mobile App</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase - Mobile category page.
+   Site chrome uses the logo palette (#0F1115 / #00D2FF), as every
+   other category page. The phone stages render the MOBILE app's
+   declared design language (background #0F1117, primary #6C63FF,
+   secondary #00D9A6, warning #FFB020) and its 8/12/16/999 radius
+   scale - a third product, a third palette.
+
+   EVERY card on this page is tagged "In development": nothing here
+   is installable. Cards additionally carry an honest sub-status of
+   built-in-app vs planned, taken from the canonical repo's
+   FEATURES.md checkboxes, verified against src/.
+   Self-contained: inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+.mono{font-family:var(--mono)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Mobile surface tokens - the app's declared design language
+   ============================================================ */
+.mob{
+  --m-bg:#0F1117;--m-surf:#1A1D27;--m-elev:#242836;--m-border:#2A2E3F;
+  --m-pri:#6C63FF;--m-pri2:#8B83FF;--m-sec:#00D9A6;--m-warn:#FFB020;--m-err:#FF4D6A;
+  --m-t1:#F0F0F5;--m-t2:#8B8FA3;--m-t3:#4A4E64;
+  font-family:var(--sans);
+}
+/* phone frame - a plain bezel, not a photographic mockup */
+.ph{width:216px;background:var(--m-bg);border:1px solid var(--m-border);border-radius:16px;
+  overflow:hidden;display:flex;flex-direction:column;color:var(--m-t1)}
+.ph.sm{width:196px}
+.ph .sbar{display:flex;align-items:center;justify-content:space-between;padding:5px 11px;
+  font-size:8.5px;color:var(--m-t2);font-family:var(--mono)}
+.ph .body{padding:10px 11px;display:flex;flex-direction:column;gap:8px;flex:1}
+.ph .tabs{display:flex;border-top:1px solid var(--m-border);background:var(--m-bg)}
+.ph .tabs .tb{flex:1;text-align:center;padding:7px 0;font-size:8.5px;color:var(--m-t3)}
+.ph .tabs .tb.on{color:var(--m-pri2)}
+.ph .tabs .tb .i{font-size:13px;display:block;margin-bottom:2px}
+
+.msurf{background:var(--m-surf);border:1px solid var(--m-border);border-radius:12px;padding:9px 10px}
+.mlabel{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-t3);font-weight:700}
+.mtitle{font-size:12px;font-weight:600}
+.mmuted{font-size:9.5px;color:var(--m-t2);line-height:1.45}
+.mbtn{border-radius:999px;padding:7px 12px;font:600 10px var(--sans);border:0;cursor:pointer;text-align:center}
+.mbtn.pri{background:var(--m-pri);color:#fff}
+.mbtn.sec{background:var(--m-sec);color:#04241c}
+.mbtn.warn{background:rgba(255,176,32,.16);color:var(--m-warn);border:1px solid rgba(255,176,32,.35)}
+.mbtn.ghost{background:transparent;color:var(--m-t2);border:1px solid var(--m-border)}
+.mchip{display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:600;
+  border-radius:999px;padding:2px 7px}
+.mtimer{font:700 22px var(--mono);letter-spacing:-.02em;color:var(--m-sec)}
+.mtimer.off{color:var(--m-t3)}
+.mtimer.brk{color:var(--m-warn)}
+.mrow{display:flex;align-items:center;gap:7px}
+.mgrow{flex:1}
+
+/* category colours - the app's own map */
+.cdot{width:7px;height:7px;border-radius:2px;flex:none}
+
+/* notification */
+.notif{width:250px;background:#1b1e26;border:1px solid var(--m-border);border-radius:12px;padding:9px 10px;color:var(--m-t1)}
+.notif .nh{display:flex;align-items:center;gap:6px;font-size:8px;color:var(--m-t2)}
+.notif .acts{display:flex;gap:4px;margin-top:8px;border-top:1px solid var(--m-border);padding-top:7px}
+.notif .acts button{flex:1;background:none;border:0;color:var(--m-pri2);font:600 9px var(--sans);
+  padding:3px 0;cursor:pointer}
+
+/* planned / wireframe treatment */
+.wire{border-style:dashed;border-color:rgba(255,176,32,.32)}
+.wblock{background:rgba(255,255,255,.03);border:1px dashed rgba(255,176,32,.26);border-radius:8px;
+  padding:8px 9px;color:var(--m-t2);font-size:9.5px}
+
+/* stack / service diagram */
+.stack{width:100%;max-width:430px;display:flex;flex-direction:column;gap:6px}
+.slayer{display:flex;align-items:center;gap:8px;background:var(--m-surf);border:1px solid var(--m-border);
+  border-radius:8px;padding:7px 10px;font-size:10px;color:var(--m-t1)}
+.slayer .tagx{margin-left:auto;font:500 8.5px var(--mono);color:var(--m-t3)}
+.sarrow{text-align:center;color:var(--m-t3);font-size:9px;line-height:1}
+
+/* timeline (planned) */
+.tl{width:150px;display:flex;flex-direction:column;gap:3px}
+.tlb{border-radius:4px;padding:4px 7px;font-size:8.5px;color:#fff;font-weight:600}
+.tlgap{border:1px dashed var(--m-t3);border-radius:4px;padding:4px 7px;font-size:8px;color:var(--m-t3);
+  background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(255,255,255,.04) 4px,rgba(255,255,255,.04) 8px)}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">← Gallery</a>
+  <a href="#components">Components</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.18</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Native Mobile App <span class="statusflag dev">In development</span></h1>
+  <p>Your attention does not stop at the laptop lid. The phone already has a Tabatha surface today -
+    <b>Tabby Sidecar</b>, a mobile web companion that is live now: sign in, see your queue and active focus,
+    start an intent, run the clock, and get push notifications, installable as a PWA. This page is the
+    <i>next</i> step: a native Android build that additionally tracks where your phone time goes, carries the
+    same shift with you, and settles it against the same day the browser and the desktop are writing to.</p>
+</header>
+
+<div class="devnote">
+  <span class="e">🚧</span>
+  <span class="tx"><b>Nothing on this page is installable.</b> This is the <b>native</b> app, in active
+    development, with no public release yet - the shipped mobile companion today is
+    <a href="https://tabatha.pondocean.co/sidecar" style="color:var(--cyan)">Tabby Sidecar on the web</a>. Cards are marked <b>Built in app</b> where the screen or service exists and runs
+    in the current Android build, and <b>Planned</b> where it is specified but not yet written. The phone
+    frames render the app's declared design language, which the shipped build has not fully adopted yet -
+    it currently draws an older ad-hoc palette. Treat every frame as intent, not as a screenshot.</span>
+</div>
+
+<section id="components">
+  <div class="sec-head">
+    <h2>Component library</h2>
+    <span class="meta">15 screens &amp; services · 7 built · 8 planned</span>
+  </div>
+  <p class="sec-purpose">The mobile app inverts the extension's problem. In the browser Tabatha has to ask
+    what you are doing, because a tab cannot tell it; on a phone the OS already knows, and the hard part is
+    <b>deciding what that means</b> - forty minutes in a messaging app is either work or it is not, and only
+    the shift you are on can say which. So the built half is almost entirely machinery: a native usage
+    monitor, the categorizer ported from the desktop, and an offline-first sync stack that prefers your own
+    network over the internet. The planned half is where the product actually becomes Tabatha rather than a
+    screen-time report - above all the Focus Hub, which is the whole point and is not written yet.</p>
+  <div class="lib mob">
+
+    <!-- 1. Dashboard -->
+    <div class="libcard" id="m-dashboard">
+      <div class="stage top" style="padding-top:24px">
+        <div class="variants" style="gap:14px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">clocked out</div>
+            <div class="ph sm">
+              <div class="sbar"><span>9:41</span><span>▮▮▮ 82%</span></div>
+              <div class="body">
+                <div><div class="mlabel">Thursday</div><div class="mtitle" style="margin-top:2px">Good morning</div></div>
+                <div class="msurf" style="text-align:center">
+                  <div class="mtimer off">00:00:00</div>
+                  <div class="mmuted" style="margin-top:3px">Not clocked in</div>
+                  <button class="mbtn sec" style="width:100%;margin-top:9px">Clock In</button>
+                </div>
+                <div class="msurf">
+                  <div class="mlabel">Today</div>
+                  <div class="mrow" style="margin-top:5px"><span class="mmuted mgrow">Top app</span><span class="mmuted">—</span></div>
+                </div>
+              </div>
+              <div class="tabs"><div class="tb on"><span class="i">🏠</span>Dashboard</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">clocked in</div>
+            <div class="ph sm">
+              <div class="sbar"><span>13:22</span><span>▮▮▮ 61%</span></div>
+              <div class="body">
+                <div><div class="mlabel">Thursday</div><div class="mtitle" style="margin-top:2px">Good afternoon</div></div>
+                <div class="msurf" style="text-align:center">
+                  <div class="mtimer">04:12:38</div>
+                  <div class="mmuted" style="margin-top:3px">Since 09:02</div>
+                  <div class="mrow" style="gap:5px;margin-top:9px">
+                    <button class="mbtn warn mgrow">Break</button>
+                    <button class="mbtn ghost mgrow">Clock Out</button>
+                  </div>
+                </div>
+                <div class="msurf">
+                  <div class="mlabel">Today</div>
+                  <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#3B82F6"></span>
+                    <span class="mmuted mgrow">Messages</span><span class="mmuted mono">38m</span></div>
+                </div>
+              </div>
+              <div class="tabs"><div class="tb on"><span class="i">🏠</span>Dashboard</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏠</span><div><div class="t">Dashboard <span class="statusflag dev">In development</span></div>
+        <div class="d">The app's landing screen: a greeting that reads the clock, the shift timer ticking live, and the day's headline numbers. The button set is the state - Clock In alone when you are out, Break and Clock Out once you are in.</div>
+        <div class="substatus built">● Built in app · runs today</div>
+        <div class="src">tabatha-mobile · src/screens/Dashboard/DashboardScreen.tsx</div></div></div>
+    </div>
+
+    <!-- 2. Settings -->
+    <div class="libcard" id="m-settings">
+      <div class="stage top" style="padding-top:24px">
+        <div class="ph sm">
+          <div class="sbar"><span>13:24</span><span>▮▮▮ 61%</span></div>
+          <div class="body">
+            <div class="mtitle">Settings</div>
+            <div class="msurf">
+              <div class="mlabel">Account</div>
+              <div class="mrow" style="margin-top:5px"><span class="mmuted mgrow">Signed in with Flux</span>
+                <span class="mchip" style="background:rgba(0,217,166,.15);color:#00D9A6">✓</span></div>
+            </div>
+            <div class="msurf">
+              <div class="mlabel">Permissions</div>
+              <div class="mrow" style="margin-top:5px"><span class="mmuted mgrow">Usage access</span>
+                <span class="mchip" style="background:rgba(0,217,166,.15);color:#00D9A6">Granted</span></div>
+            </div>
+            <div class="msurf">
+              <div class="mlabel">Notification</div>
+              <div class="mrow" style="margin-top:5px"><span class="mmuted mgrow">Detailed style</span>
+                <span style="width:24px;height:13px;border-radius:999px;background:#6C63FF;position:relative">
+                  <span style="position:absolute;right:2px;top:2px;width:9px;height:9px;border-radius:50%;background:#fff"></span></span></div>
+            </div>
+          </div>
+          <div class="tabs"><div class="tb"><span class="i">🏠</span>Dashboard</div><div class="tb on"><span class="i">⚙️</span>Settings</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⚙️</span><div><div class="t">Settings <span class="statusflag dev">In development</span></div>
+        <div class="d">Four groups: account, sync, permissions, and notification style. Usage access is the one that matters - without it the app is inert, so its state is surfaced as a granted/missing chip with a direct route to the system screen rather than buried in a help page.</div>
+        <div class="substatus built">● Built in app · runs today</div>
+        <div class="src">tabatha-mobile · src/screens/Settings/SettingsScreen.tsx</div></div></div>
+    </div>
+
+    <!-- 3. Navigation -->
+    <div class="libcard" id="m-nav">
+      <div class="stage">
+        <div class="ph sm" style="height:auto">
+          <div class="body" style="padding:16px 11px;text-align:center">
+            <div class="mmuted">The app is two tabs today.<br>Everything below this card is<br>why that is not enough.</div>
+          </div>
+          <div class="tabs"><div class="tb on"><span class="i">🏠</span>Dashboard</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🧭</span><div><div class="t">Bottom tab navigation <span class="statusflag dev">In development</span></div>
+        <div class="d">Two tabs, dark chrome, indigo active tint. Worth showing precisely because it is small: it is the honest shape of the app as it stands, and it is what the Focus, Activity and Analytics screens have to earn their way into.</div>
+        <div class="substatus built">● Built in app · runs today</div>
+        <div class="src">tabatha-mobile · src/navigation/AppNavigator.tsx</div></div></div>
+    </div>
+
+    <!-- 4. Notification -->
+    <div class="libcard" id="m-notification">
+      <div class="stage">
+        <div class="notif">
+          <div class="nh"><span>⚡</span><span>Tabatha</span><span style="margin-left:auto">now</span></div>
+          <div class="mrow" style="margin-top:5px">
+            <div class="mgrow"><div class="mtitle" style="font-size:11px">Clocked in · 4h 12m</div>
+              <div class="mmuted" style="font-size:9px">Messages · 38m today</div></div>
+            <div class="mtimer" style="font-size:14px">4:12</div>
+          </div>
+          <div class="acts"><button>Break</button><button>Clock Out</button></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔔</span><div><div class="t">Persistent notification <span class="statusflag dev">In development</span></div>
+        <div class="d">A foreground-service notification that survives a swipe-away, with working Clock In / Out / Break / End Break actions - so the common case never needs the app opened at all. Starting and stopping a <i>focus</i> from here, and the minimal-vs-detailed style switch, are specified but not built.</div>
+        <div class="substatus partial">◐ Partly built · clock actions work, focus actions planned</div>
+        <div class="src">tabatha-mobile · modules/tabatha-usage-monitor · NotificationActionReceiver.kt</div></div></div>
+    </div>
+
+    <!-- 5. Usage monitor -->
+    <div class="libcard" id="m-usage-monitor">
+      <div class="stage top" style="padding-top:26px">
+        <div class="stack">
+          <div class="slayer"><span>📱</span><span>UsageStatsManager</span><span class="tagx">Android OS</span></div>
+          <div class="sarrow">↓</div>
+          <div class="slayer"><span>⚙️</span><span>UsageMonitorService - foreground, survives swipe</span><span class="tagx">Kotlin</span></div>
+          <div class="sarrow">↓</div>
+          <div class="slayer"><span>🔗</span><span>TabathaUsageMonitorModule → event bus</span><span class="tagx">Expo module</span></div>
+          <div class="sarrow">↓</div>
+          <div class="slayer"><span>🏷</span><span>Categorizer → local SQLite</span><span class="tagx">TypeScript</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📱</span><div><div class="t">Usage monitor <span class="statusflag dev">In development</span></div>
+        <div class="d">A custom native module, because no off-the-shelf one does this: a foreground service reading Android's usage stats, surviving swipe-away, and pushing app sessions up into the JS side through an event bus. This is the mobile equivalent of the desktop's window monitor, and it is the reason the app needs the permission it asks for.</div>
+        <div class="substatus built">● Built in app · runs today</div>
+        <div class="src">tabatha-mobile · modules/tabatha-usage-monitor/</div></div></div>
+    </div>
+
+    <!-- 6. Categorizer -->
+    <div class="libcard" id="m-categorizer">
+      <div class="stage">
+        <div class="msurf" style="width:210px">
+          <div class="mlabel">Category</div>
+          <div class="mrow" style="margin-top:7px"><span class="cdot" style="background:#6C63FF"></span><span class="mmuted mgrow">coding</span></div>
+          <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#3B82F6"></span><span class="mmuted mgrow">communication</span></div>
+          <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#F59E0B"></span><span class="mmuted mgrow">browsing</span></div>
+          <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#EF4444"></span><span class="mmuted mgrow">media</span></div>
+          <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#10B981"></span><span class="mmuted mgrow">productivity</span></div>
+          <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#EC4899"></span><span class="mmuted mgrow">social</span></div>
+          <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#8B5CF6"></span><span class="mmuted mgrow">gaming</span></div>
+          <div class="mrow" style="margin-top:5px"><span class="cdot" style="background:#6B7280"></span><span class="mmuted mgrow">system</span></div>
+          <div class="mrow" style="margin-top:5px;opacity:.6"><span class="cdot" style="background:#374151"></span><span class="mmuted mgrow">unknown</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🏷</span><div><div class="t">Categorizer <span class="statusflag dev">In development</span></div>
+        <div class="d">Around eighty rules mapping an Android package name to a category, ported from the desktop companion's Rust engine so a day reads the same whichever device produced it. Two category palettes currently exist in the mobile specs and they disagree; this card renders the one the design language declares.</div>
+        <div class="substatus built">● Built in app · runs today</div>
+        <div class="src">tabatha-mobile · src/services/categorizer/defaultRules.ts</div></div></div>
+    </div>
+
+    <!-- 7. Sync -->
+    <div class="libcard wide" id="m-sync">
+      <div class="stage top" style="padding-top:26px">
+        <div class="stack" style="max-width:520px">
+          <div class="slayer"><span>💾</span><span>Local SQLite - the source of truth, always written first</span><span class="tagx">offline-first</span></div>
+          <div class="sarrow">↓ &nbsp;&nbsp; try nearest first</div>
+          <div class="slayer" style="border-color:rgba(0,217,166,.35)"><span>📶</span>
+            <span>LAN bridge - finds your desktop over mDNS, syncs direct</span><span class="tagx" style="color:#00D9A6">preferred</span></div>
+          <div class="sarrow">↓ &nbsp;&nbsp; no desktop on this network</div>
+          <div class="slayer"><span>☁️</span><span>Cloud relay - realtime fallback</span><span class="tagx">fallback</span></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🔄</span><div><div class="t">Hybrid sync <span class="statusflag dev">In development</span></div>
+        <div class="d">The most opinionated thing in the mobile build. Writes land in local SQLite first and always, so the app is fully usable on a plane. When it reconciles it looks for your own desktop on your own network over mDNS and talks to it <b>directly</b> - the cloud is the fallback, not the default. Your day does not need to leave the building to add itself up.</div>
+        <div class="substatus built">● Built in app · runs today</div>
+        <div class="src">tabatha-mobile · src/services/{HybridSyncBridge,LANBridge,CloudRelay}.ts</div></div></div>
+    </div>
+
+    <!-- 8. Focus Hub -->
+    <div class="libcard wide" id="m-focus-hub">
+      <div class="stage top" style="padding-top:24px">
+        <div class="variants" style="gap:14px;align-items:flex-start">
+          <div class="vcol">
+            <div class="vlabel">active focus</div>
+            <div class="ph sm wire">
+              <div class="sbar"><span>13:22</span><span>▮▮▮ 61%</span></div>
+              <div class="body">
+                <div class="mtitle">Focus</div>
+                <div class="msurf wire" style="text-align:center">
+                  <div class="mlabel">Now</div>
+                  <div class="mtitle" style="margin-top:3px">Q1 Report</div>
+                  <div class="mtimer" style="font-size:18px;margin-top:5px">18:42</div>
+                  <div class="mrow" style="gap:5px;margin-top:8px">
+                    <button class="mbtn warn mgrow">Pause</button><button class="mbtn ghost mgrow">Done</button></div>
+                </div>
+                <div class="wblock">🎯 Focus · 25 min preset</div>
+              </div>
+              <div class="tabs"><div class="tb"><span class="i">🏠</span>Dashboard</div><div class="tb on"><span class="i">🎯</span>Focus</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+            </div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">queue · funnel stages</div>
+            <div class="ph sm wire">
+              <div class="sbar"><span>13:25</span><span>▮▮▮ 60%</span></div>
+              <div class="body">
+                <div class="mtitle">Queue</div>
+                <div class="wblock" style="border-color:rgba(255,152,0,.4)">🎯 Focus · Q1 Report <span style="color:#FF4D6A">P1</span></div>
+                <div class="wblock" style="border-color:rgba(100,181,246,.4)">📋 Todo · Learning React</div>
+                <div class="wblock" style="border-color:rgba(171,71,188,.4)">⚡ Addressing · Email triage</div>
+                <div class="wblock" style="border-color:rgba(136,136,136,.4)">📥 Unsorted · Vacation planning</div>
+              </div>
+              <div class="tabs"><div class="tb"><span class="i">🏠</span>Dashboard</div><div class="tb on"><span class="i">🎯</span>Focus</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🎯</span><div><div class="t">Focus Hub <span class="statusflag dev">In development</span></div>
+        <div class="d">The screen that would make this Tabatha rather than a screen-time report: an active focus with its timer, a queue carrying the same six funnel stages the extension uses, priority, and duration presets. It is specified in detail and identified in the app's own docs as the single most important missing piece. <b>None of it is written yet</b> - this frame is drawn from the spec, deliberately as a wireframe rather than a finished screen.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile-2 · DESIGN_ADDENDUM.md (spec)</div></div></div>
+    </div>
+
+    <!-- 9. Timeline -->
+    <div class="libcard" id="m-timeline">
+      <div class="stage top" style="padding-top:24px">
+        <div class="ph sm wire">
+          <div class="sbar"><span>18:04</span><span>▮▮▮ 44%</span></div>
+          <div class="body">
+            <div class="mrow"><span class="mtitle mgrow">Activity</span><span class="mmuted">Today ▾</span></div>
+            <div class="tl" style="width:auto">
+              <div class="tlb" style="background:#6C63FF;height:26px">09:02 · coding</div>
+              <div class="tlgap">idle · 14m</div>
+              <div class="tlb" style="background:#3B82F6;height:18px">10:40 · communication</div>
+              <div class="tlb" style="background:#F59E0B;height:14px">11:15 · browsing</div>
+              <div class="tlgap">break · 18m</div>
+              <div class="tlb" style="background:#10B981;height:22px">13:41 · productivity</div>
+            </div>
+          </div>
+          <div class="tabs"><div class="tb"><span class="i">🏠</span>Dashboard</div><div class="tb on"><span class="i">📊</span>Activity</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📊</span><div><div class="t">Activity timeline <span class="statusflag dev">In development</span></div>
+        <div class="d">A vertical day where block height is real duration, gaps are drawn as gaps rather than quietly closed up, and a toggle swaps the timeline for a category breakdown. Specified; no implementation.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile-2 · AI_STUDIO_INSTRUCTIONS.md (spec)</div></div></div>
+    </div>
+
+    <!-- 10. Analytics -->
+    <div class="libcard" id="m-analytics">
+      <div class="stage top" style="padding-top:24px">
+        <div class="ph sm wire">
+          <div class="sbar"><span>18:06</span><span>▮▮▮ 44%</span></div>
+          <div class="body">
+            <div class="mtitle">Analytics</div>
+            <div class="mrow" style="gap:6px">
+              <div class="msurf wire mgrow" style="padding:7px"><div class="mtimer" style="font-size:13px;color:#6C63FF">31h</div><div class="mlabel">This week</div></div>
+              <div class="msurf wire mgrow" style="padding:7px"><div class="mtimer" style="font-size:13px;color:#00D9A6">6</div><div class="mlabel">Day streak</div></div>
+            </div>
+            <div class="wblock" style="display:flex;align-items:flex-end;gap:3px;height:52px">
+              <span style="flex:1;height:60%;background:#6C63FF;border-radius:2px"></span>
+              <span style="flex:1;height:85%;background:#6C63FF;border-radius:2px"></span>
+              <span style="flex:1;height:45%;background:#6C63FF;border-radius:2px"></span>
+              <span style="flex:1;height:70%;background:#6C63FF;border-radius:2px"></span>
+              <span style="flex:1;height:95%;background:#8B83FF;border-radius:2px"></span>
+              <span style="flex:1;height:30%;background:#2A2E3F;border-radius:2px"></span>
+              <span style="flex:1;height:20%;background:#2A2E3F;border-radius:2px"></span>
+            </div>
+          </div>
+          <div class="tabs"><div class="tb"><span class="i">🏠</span>Dashboard</div><div class="tb on"><span class="i">📈</span>Analytics</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📈</span><div><div class="t">Analytics <span class="statusflag dev">In development</span></div>
+        <div class="d">Stat cards, weekly bars, and streaks - the phone-sized cut of what Work Shifts does in the browser. Specified; no implementation.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile-2 · DESIGN_ADDENDUM.md (spec)</div></div></div>
+    </div>
+
+    <!-- 11. Tasks -->
+    <div class="libcard" id="m-tasks">
+      <div class="stage top" style="padding-top:24px">
+        <div class="ph sm wire">
+          <div class="sbar"><span>18:09</span><span>▮▮▮ 43%</span></div>
+          <div class="body">
+            <div class="mrow"><span class="mtitle mgrow">Tasks</span><span class="mchip" style="background:rgba(108,99,255,.18);color:#8B83FF">+ New</span></div>
+            <div class="wblock">✏️ Q1 charts <span style="color:#FF4D6A;float:right">P1</span></div>
+            <div class="wblock">✏️ Rewrite onboarding copy <span style="color:#FFB020;float:right">P3</span></div>
+            <div class="wblock" style="opacity:.55">✅ Ship updater fix</div>
+            <div class="mmuted" style="text-align:center;font-size:8.5px">swipe a row to stage or defer</div>
+          </div>
+          <div class="tabs"><div class="tb"><span class="i">🏠</span>Dashboard</div><div class="tb on"><span class="i">📋</span>Tasks</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">📋</span><div><div class="t">Tasks &amp; projects <span class="statusflag dev">In development</span></div>
+        <div class="d">Swipe actions, a bottom-sheet composer, funnel chips, and a link out to the task's Asana record. Specified; no implementation.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile-2 · DESIGN_ADDENDUM.md (spec)</div></div></div>
+    </div>
+
+    <!-- 12. Shift controls -->
+    <div class="libcard" id="m-shift-controls">
+      <div class="stage top" style="padding-top:24px">
+        <div class="ph sm wire">
+          <div class="sbar"><span>13:22</span><span>▮▮▮ 61%</span></div>
+          <div class="body">
+            <div class="wblock" style="border-color:rgba(255,77,106,.4);color:#FF4D6A">⚠ Also clocked in on Desktop</div>
+            <div class="msurf wire" style="text-align:center;padding:16px 10px">
+              <div class="mtimer" style="font-size:26px">04:12:38</div>
+              <div class="mmuted" style="margin-top:4px">Since 09:02 · 18m break</div>
+              <div class="mrow" style="gap:5px;margin-top:12px">
+                <button class="mbtn warn mgrow">Break</button><button class="mbtn ghost mgrow">Clock Out</button></div>
+            </div>
+            <div class="wblock">🕐 Recent stints</div>
+          </div>
+          <div class="tabs"><div class="tb"><span class="i">🏠</span>Dashboard</div><div class="tb on"><span class="i">⏱</span>Shift</div><div class="tb"><span class="i">⚙️</span>Settings</div></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">⏱</span><div><div class="t">Shift controls <span class="statusflag dev">In development</span></div>
+        <div class="d">A full-screen clock with recent stints and - the part that earns the screen - a banner when another device already has you clocked in, which is exactly the ghost-stint problem the browser side had to solve. Specified; no implementation.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile-2 · DESIGN_ADDENDUM.md (spec)</div></div></div>
+    </div>
+
+    <!-- 13. InBar -->
+    <div class="libcard" id="m-inbar">
+      <div class="stage">
+        <div class="variants" style="gap:24px">
+          <div class="vcol">
+            <div class="vlabel">collapsed bubble</div>
+            <div style="width:42px;height:42px;border-radius:999px;background:#6C63FF;display:flex;
+              align-items:center;justify-content:center;font-size:17px;border:1px dashed rgba(255,176,32,.5)">🎯</div>
+          </div>
+          <div class="vcol">
+            <div class="vlabel">expanded card</div>
+            <div class="msurf wire" style="width:168px">
+              <div class="mlabel">Now</div>
+              <div class="mtitle" style="margin-top:2px;font-size:11px">Q1 Report</div>
+              <div class="mrow" style="margin-top:6px"><span class="mtimer" style="font-size:13px">18:42</span>
+                <span class="mgrow"></span><span class="mchip" style="background:rgba(255,176,32,.16);color:#FFB020">Pause</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🫧</span><div><div class="t">InBar floating widget <span class="statusflag dev">In development</span></div>
+        <div class="d">The InBar's Android answer: a system overlay bubble that floats above every app, collapsing to a circle and expanding to show the current focus and its timer. Needs the overlay permission. Specified; no implementation.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile-2 · DESIGN_ADDENDUM.md (spec)</div></div></div>
+    </div>
+
+    <!-- 14. Onboarding -->
+    <div class="libcard" id="m-onboarding">
+      <div class="stage top" style="padding-top:24px">
+        <div class="ph sm wire">
+          <div class="sbar"><span>9:38</span><span>▮▮▮ 84%</span></div>
+          <div class="body" style="justify-content:center;text-align:center;gap:12px">
+            <div style="font-size:26px">📱</div>
+            <div class="mtitle">Let Tabatha see your app usage</div>
+            <div class="mmuted">Android keeps this behind a system screen. Without it the app cannot track anything.</div>
+            <button class="mbtn pri" style="width:100%">Open system settings</button>
+            <div class="mmuted" style="font-size:8.5px">Welcome › <b style="color:#8B83FF">Usage access</b> › Notifications › Sign in › Ready</div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">👋</span><div><div class="t">Onboarding <span class="statusflag dev">In development</span></div>
+        <div class="d">Five steps, of which one is load-bearing: usage access lives behind a system screen Android will not let an app grant for you, so the flow has to explain why before it sends you there. Signing in is skippable - the app works offline. Specified; no implementation.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile · FEATURES.md (unchecked)</div></div></div>
+    </div>
+
+    <!-- 15. Morning kickstart -->
+    <div class="libcard" id="m-kickstart">
+      <div class="stage top" style="padding-top:24px">
+        <div class="ph sm wire">
+          <div class="sbar"><span>8:14</span><span>▮▮▮ 97%</span></div>
+          <div class="body">
+            <div><div class="mlabel">Thursday, 16 July</div><div class="mtitle" style="margin-top:2px">Good morning</div></div>
+            <div class="wblock"><b style="color:#F0F0F5">Top 3 today</b><br>1 · Q1 Report<br>2 · Email triage<br>3 · Learning React</div>
+            <div class="wblock">📅 09:30 standup · 14:00 review</div>
+            <div class="wblock">Yesterday · 6h 04m · 4 focuses</div>
+            <button class="mbtn sec" style="width:100%">Clock In &amp; Start</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">🌅</span><div><div class="t">Morning Kickstart <span class="statusflag dev">In development</span></div>
+        <div class="d">A first-unlock-of-the-day sheet: three priorities, what the calendar holds, how yesterday went, and one button that starts the shift and the first focus together. The Gatekeeper's idea moved to the moment a phone actually has - the first unlock. Specified; no implementation.</div>
+        <div class="substatus planned">○ Planned · not yet built</div>
+        <div class="src">tabatha-mobile-2 · DESIGN_ADDENDUM.md (spec)</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>mobile app · in development, not released</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the app ships</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

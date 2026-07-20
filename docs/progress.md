@@ -3,6 +3,13 @@
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
 
+## Session - 2026-07-16 (Overlock contribution signing)
+
+Tabatha's configurable webhook output now signs the exact JSON request body with HMAC-SHA256.
+Caspera can accept privacy-bounded activity events through the Overlock connector without trusting
+a reversible token. Targets configured without a secret remain backward compatible. Test suite:
+623 passing.
+
 ---
 
 ## Session - 2026-05-29 (Plan 036 Intelligent Focus Lifecycle — v6.0.0) — CHECKPOINT
@@ -872,3 +879,229 @@ Perform a deep review of the workspace, audit all existing worktrees, and clean 
 - No central feature registry exists; docs/features/*.md is the canonical list.
 
 **Next steps:** Reconcile #214 with the Asana skill matrix definition; slot #210/#213/#214 into Phase 3/4 prioritization; define the AI-counterpart boundary for #211 (which phases ship without AI).
+
+---
+
+## 2026-07-09/10 — Cortex Overnight (Fable): Program Expansion + Phase 1 T4–T6
+
+**Goal:** Autonomous overnight session for the Tabatha Cortex program (Plans 039/040): finish the program spec expansion, continue Phase 1 with TDD discipline, mirror docs to Drive, keep Asana current.
+
+**Done:**
+- **Docs/spec:** All 15 feature files (C1–C15) expanded stub → full spec via 6 parallel subagents; reconciled against the verbatim braindumps and closed 3 spec gaps (universal audio-input replacement, tabatha-mobile repos in the reuse map, multi-screen/per-window capture nuance). Plans 041–044 (Phases 2–5) authored + registered; registry next number = 045. DATA-MAP.md populated (27 signals, real retention/redaction/access values); workspace-map current. Drive mirror: features/prompts/plans subfolders + Google-Doc link headers on all locals. HANDOFF.md written for Malkio.
+- **Phase 1 T4 (capture I/O):** captureVisibleTab (window-targeted) → canvas redaction (blackout/blur BEFORE persist, fail-closed) → partitioned frame writes via chrome.downloads under Downloads/Tabatha/Cortex/captures/<personal|org>/YYYY-MM/; suppressed frames record context-only observations; tab/window/focus listeners; 30s dwell heartbeat; 03:30 nightly ledger export; per-partition age retention. New TDD utils: captureArtifacts.js, ledgerExport.js.
+- **Phase 1 T5 (cron-in-harness + dashboard):** harnessCron.js (claude-code + codex bundle builder, cortex-recommendations.v1 contract), master prompt economize-workflow.v1 (docs/cortex/prompts + embedded mirror), cortexService (list/import/approve/dismiss), CortexPanel dashboard in Settings → Privacy & Capture.
+- **Quality loop:** Opus reviewer audited the T4/T5 diff — 6 findings, all fixed: incognito capture fail-closed, serialized ledger/state mutations, capture pinned to guarded window, setEnabled routed via settingsService, redaction fails closed on invalid rules, single download-erase listener.
+- **Asana:** 15 C-cluster subtasks under program task 1216437560480330; progress comments on program + Phase 1 tasks; gating comments on .pem + companion-deploy board items; green project status update.
+
+**Key findings:** MV3 can't write arbitrary filesystem paths (captureStoragePath is Downloads-relative until the companion handoff, Plan 041); chrome.alarms floor makes dwell resolution ≥30s; C9 voice has a settings-schema collision with feature #211 (blocker for Plan 042); tabatha-mobile is scaffold-only (a feature doc over-claimed it — DATA-MAP corrected); pruning removes ledger rows but not orphaned frame files (open question).
+
+**Tests/build:** 256/256 node --test green; npm run build green. Commits d228dc1, 85d8100 (+ final wrap-up commit) on claude/tabatha-ai-integration-layer-91903b. Nothing pushed.
+
+**Next steps:** Malkio manual regression of Phase 1 (see HANDOFF.md smoke-test) → v7.0.0 bump; re-sync program-spec Google Doc (2 local additions); decide migration 022 apply; companion deploy gates Plan 041; reconcile C9↔#211 before voice work.
+
+---
+
+## 2026-07-10 (continuation) — Cortex: regression cleared + Phases 2–5 advanced
+
+**Goal:** Verify Malkio's smoke-test failures, then continue autonomously through the remaining Cortex phases.
+
+**Regression verdict:** Real-browser regression (Playwright + Chrome 150, fresh profile; Chrome 137+ requires CDP Extensions.loadUnpacked) — 11/11 PASS on the current dist including the exact reported failures (clock-out, unpause, "Setting…"). Root cause: stale MV3 service worker after overnight dist rebuilds; reload rule codified in AGENTS.md (Build→Load #5). Hardening: RESUME_FOCUS id-fallback.
+
+**Shipped (extension, commits c98e459→wrap-up; 332/332 tests, build green):**
+- Phase 2: morning digest + approved-actions export (cortex-actions.v1) + C15 config surface v1 (routing/proactivity); cortex-proxy edge fn code (tier-②, deploy pending secret); routing-ladder resolver; companion handoff wiring (CAPTURE_TAKEN → ledger, config mirroring, host-only rules never travel).
+- Phase 3: T0 voice-schema decision (C9↔#211, Drive-mirrored); voice v0 — Tabby speaks instead of FTE/drift overlays (tone → hold-off mic window → varied generated line → modal fallback; no new permissions), home voice-note button → ledger; C10 self-correction v1 (detectors + confidence-laddered apply/revert via activityAudit, nightly 04:00, opt-in).
+- Phase 4: proactivity gate, overnight EXECUTE bundle builder (review-first hard rules), migration 023 org_capture_policy (not applied).
+- Phase 5: controller-attribution decision core.
+
+**Shipped (companion, tabatha-desktop feat/cortex-capture @ 006c3aa; 68/68 cargo tests):** screen_capture.rs + settings.rs — GDI window/per-monitor-same-timestamp/virtual capture, browser-focused handoff rule, guard parity (fail-closed redaction), age+bytes retention, CAPTURE_CONFIG/GET_CAPTURE_STATE/CAPTURE_TAKEN WS contract, tray toggle.
+
+**Quality loop:** Opus review over the Phase 2/3 diff → 1 confirmed finding fixed (self-correction storage race narrowed to single-round-trip targeted mutations); InBar voice interception verified safe (modal can never be swallowed; voice-off path byte-identical; no ESM leak into the content script).
+
+**Next steps:** Malkio: extension reload + re-smoke-test → v7.0.0; merge/deploy companion branch (closes the deploy gate); deploy cortex-proxy (set secret); later: migrations 022/023, gateway/ElevenLabs keys, .pem before manifest-permission phases. Remaining phase work: routed STT/TTS + realtime voice + dictation engine (042), multi-cadence + SOP mode + Headbox placement (043), signals/analytics/camera/mobile/Mac (044).
+
+---
+
+## 2026-07-10 (afternoon) — Live-fix session: capture UX, clock, companion v0.2.0, DB push + repair
+
+**Goal:** Address Malkio's live-testing reports (Save-As dialogs, capture not following activity, clock desync, desk panel dead, sync stale) under the new delegation rules (Fable orchestrates; Opus agents own terminal/browser; Sonnet agents launch/synthesize; Supabase+Asana via CLI).
+
+**Done:**
+- Migrations **018–024 pushed to live Flux** via CLI with Malkio's new token (remote was at 017 — registry record corrected). Sync's schema drift closed.
+- Extension `2f171b5` (361 tests): silent capture writes (companion WS CAPTURE_FRAME / OPFS fallback — Save-As dialog eliminated), C1 focus-gate (tab capture only while Chrome focused), tab-title slug in filenames, clock-state request on connect, pendingCortexExports buffering.
+- Companion `b94f7d0` @ feat/cortex-capture (79 tests): desk panel fixed (custom-protocol default → embedded UI), **v0.2.0** shown in title/tray, clock_in idempotency fix (root cause of clock desync), CAPTURE_FRAME/WRITE_EXPORT/FILE_WRITTEN handlers (path-safe), OS-frame title slugs; verified desktop capture was already writing (62+45 frames) — visibility artifact, not a capture failure.
+- Companion **v0.2.0 swapped in + relaunched** (Sonnet operator); then its SQLite activity DB (pre-existing corruption, likely from dual-instance writes + force-kills) **rebuilt via raw b-tree page salvage — 372 app_sessions + 1 clock_session recovered**, integrity ok, clean startup.
+- Persistence root-caused (Chrome GC on crashed exit + ghost pre-key entry + build race) → atomic dist swap shipped, constraint rules updated, Asana board comment posted via CLI.
+- ElevenLabs scoped key minted → env store (K10 ✅). C10a + Agent Control Layer scoped (doc + Asana task each; control layer BACK BURNER post-Cortex). C11a attribution v1 shipped.
+- WHAT-REMAINS.md maintained as the living status page.
+
+**Next steps (Malkio):** Supabase re-sign-in (sole sync blocker) · remove ghost extension card · verify v0.2.0 (panel/clock/silent capture) · merge/deploy feat/cortex-capture · Phase 1 regression → v7.0.0 · deploy cortex-proxy.
+
+---
+
+## 2026-07-10 (evening) — Delegated push: deploy closed, Phases 2/3/4 advanced, proxy live
+
+**Done (all via delegated agents per Malkio's tiering — Opus in-flight work finished, new dispatches Sonnet):**
+- **Companion deployed**: feat/cortex-capture merged → master @ dbf8cd7, tagged v0.2.0, master-built exe swapped + relaunched clean (Plan 041 T1 CLOSED, Asana board item updated). Companion SQLite DB rebuilt earlier via raw b-tree salvage after corruption.
+- **cortex-proxy live** (tier-② routing; 401-protected; OpenAI secret server-side) — Plan 041 T3 done.
+- **Migration 025 applied** (surface CHECK incl. voice/desktop/mobile — discovered 022 never had the constraint the docs assumed).
+- **C10a Context Reconciliation v1 shipped** (b8a1fb7): Reconcile-now panel, 4 proposal kinds incl. retroactive time edits, confirm/skip + context box; C11a-stamped, audited, reversible.
+- **Plan 043 T3 multi-cadence shipped**: cadence decision table, intraday slice exports + economize-intraday.v1, dual-cadence harness bundle, opt-in flags.
+- **Plan 045 registered** — Agent Control Layer formalized as Cortex Phase 6 (back-burnered post-Cortex).
+- Ghost extension entry confirmed on disk (dph… still in Secure Preferences) w/ removal steps; CortexPanel live-status fix (b9a1965); dist verified to carry the silent-capture fix (15/16 in-browser PASS).
+- Suite: **408/408 node tests**, builds green both repos.
+
+**Next steps:** Malkio — reload extension, Supabase re-sign-in, ghost card removal, Phase 1 regression → v7.0.0. Engineering — 041 archive adapters; 042 voice (routed STT/TTS via live proxy, .pem-gated hotkeys); 043 T5 SOP + T6 Headbox placement; 044 wired later with 041 per Malkio.
+
+---
+
+## 2026-07-10 (night) — "Removed features" investigation → staging merge restoration (v6.6.0)
+
+**Report:** Malkio noticed the advanced intent time editor was gone. Three Sonnet analysts ran parallel audits:
+1. In-branch sweep: all 32 cortex commits verified — ZERO regressions/overwrites; every on-branch feature intact at HEAD.
+2. Time-editor hunt: the advanced editor = NB-09 (c429db5, authored by Malkio on staging Jul 5) — AFTER the cortex branch forked from main@6.5.0 (Jul 1). Never on this branch; never deleted.
+3. Fork-gap: staging = v6.6.0 with 17 commits we lacked (NB-03 roles, NB-04 analytics, NB-05 abandoned stints, NB-08 settings search, NB-09 time editing + gap detector, storage guard, PGRST204 sync resilience). Previous dist was built from that line.
+
+**Fix (Opus merge):** staging merged into the cortex branch @ 12f6147 — both feature sets verified coexisting (resumeFocus fallback re-preserved), version → 6.6.0, staging's colliding migration 022 renumbered → 026 and applied to Flux (local==remote @ 026). Tests 408 → **536 green**; build green; content scripts clean. Lesson reinforced: the pinned dist path serves whichever line the main dir is on — the build/load constraint's worktree warning was the mechanism.
+
+**Next:** Malkio reloads → verifies time editor back; NB-01/02 schedule profiles remain on their branch (explicitly gated) — bring over on request.
+## 2026-07-17 — Tabby Sidecar v0.0.1 (Plan 039)
+
+**Goal:** Ship the extension sidebar as a mobile web companion at
+`tabatha.pondocean.co/sidecar`, synced to the user's Tabatha account, built in
+React Native so a real mobile app is an incremental step later.
+
+**Done (LIVE):**
+- New Expo + React Native Web app in `sidecar/` (SPA web export, `baseUrl:/sidecar`).
+  Auth-gated single shell + custom bottom tab bar: Focus, Tasks, Clock, Recent, Settings.
+- Direct Supabase data layer (schema `tabatha`, publishable key, owner-RLS): reads
+  `focus_items` (active + full queue + history), `tasks_registry`, `clock_sessions`,
+  `intent_history`; writes off-device intents (`tags._src='sidecar'`, `_off=true`),
+  a phone clock (own open session → `browser_profile_status` + closed `clock_sessions`),
+  and registers the phone as its own `browser_profiles` mobile surface.
+- Auth: Google OAuth + magic link (web flows, no chrome.identity). Redirect allowlist
+  patched via Management API to add `/sidecar` URLs (existing entries preserved).
+- Web Push: SW at `/sidecar/sw.js`, subscription capture → `push_subscriptions`
+  (migration 030), edge fn `send-focus-push` (deployed + smoke-tested HTTP 200,
+  `npm:web-push` + VAPID), pg_cron every-minute trigger (migration 031, key in Vault).
+- Deploy: Cloudflare Worker `tabby-sidecar` on route `tabatha.pondocean.co/sidecar*`
+  (Pages root site untouched — verified 200 on both). App renders login UI live.
+
+**Key findings / decisions:**
+- This worktree branched at v6.5.0; remote Supabase is at migration 029 (unmerged
+  branches). Used placeholder-then-repair to push only 030/031 without phantom drift.
+- Sync is push+pull-on-signin, not realtime → v0.0.1 is account-synced ("appears on
+  the extension's next pull"); instant desktop round-trip deferred (user-chosen).
+- `focus_items` is a synced subset (no live startedAt) → live countdown only for
+  sidecar-created focuses (carry `_startedAt`).
+
+**Next steps:** User to verify end-to-end on a phone (sign in → create intent → see it
+sync → 1-min-timer push). Then v0.0.2: instant desktop realtime ingest, native
+iOS/Android (Expo run), checkpoint-staleness pushes, richer stash/awareness.
+
+**Autonomous verification + fix (same session):** minted a real user session for
+mr@duckandshark.com (admin `generateLink` + `verifyOtp`) and ran the app's exact
+RLS-scoped queries — **14/14 pass**. Caught + fixed a real bug: `browser_profiles`
+upsert used `onConflict (profile_id,browser)` (a partial index ON CONFLICT can't
+target) → device registration silently failed; switched to the full
+`(profile_id,local_id)` index (the extension's own target) and redeployed. Push
+pipeline confirmed: an expired sidecar focus was scanned by `send-focus-push` and
+delivered to a **real registered device** (existing FCM subscription on the account).
+**PR #23 → staging.** Asana Flux Development project update posted.
+
+## 2026-07-17 (cont.) — Tabby Sidecar v0.1.0
+
+Merged v0.0.1 PR #23 to staging (kept in the main repo — shares Supabase
+schema/migrations). Built + deployed v0.1.0:
+- **Full Focus parity:** edit (label/timer/stage/client/project/backdate),
+  checkpoint notes + timeline (new `focus_checkpoints` table, migration 032),
+  sub-intents (tags._parent), backburner dock (tags._backburner + snooze),
+  on/off-computer toggle. **Pause now pins the current focus** at the top
+  (AsyncStorage currentFocusId) instead of demoting to queue.
+- **Clock:** "Your shift" (was "this phone's shift"); surfaces other devices on
+  the clock. **off-device → off-computer** rename; create CTA dropped "(off-device)".
+- **PWA:** manifest + icons + Apple meta injected post-export (scripts/build-web.mjs)
+  → installable to Home Screen (unlocks iOS push). **Phone Focus Mode** via Page
+  Visibility (leave-detection → nudge).
+- **Push parity:** send-focus-push now covers timer + drift + checkpoint-staleness.
+- **Fix:** browser_profiles upsert → (profile_id,local_id) full index.
+Re-verified 4/4 new RLS paths (checkpoints + tag ops) with a minted session;
+`tsc` clean on all new code. Deployed Worker (v0.1.0), edge fn redeployed.
+
+**Sync-limit note:** checkpoints/sub-intents/backburner are Sidecar-side until the
+extension syncs those fields — full desktop round-trip is the next extension slice.
+
+## 2026-07-17 (cont.) — Tabby Sidecar v0.2.0 + showcase-update skill
+
+- **Fixed** the pause→resume timer restart (freeze elapsed, shift start).
+- **Shipped the landscape Context View** into `/sidecar` (real data via
+  useFocus/useClock; auto-switch on large landscape; brand BL / day-countdown TR
+  / time BM; giant focus + timer + up-next; view-only w/ toggle). Added a
+  `dayResetHour` setting for the 1440 countdown.
+- **Realtime** (migration 033): focus_items + browser_profile_status in the
+  realtime publication; useFocus subscribes. Verified query OK + subscribe
+  SUBSCRIBED via a minted session. tsc clean. Deployed v0.2.0.
+- **Marketing site** (via background agent, verified live): homepage Sign-in
+  button → /sidecar, /show reflagged "Tabby Sidecar · Shipped", roadmap cards
+  added; branch pushed.
+- **New skill** `.claude/skills/showcase-site-update` — checklist-driven updates
+  to the existing showcase site (tiles/roadmap/search-index/version/deploy/verify)
+  so "Update the */show with…" lands everywhere and ships safely.
+
+## 2026-07-18 — Tabby Sidecar v0.2.1 (phone-away accountability)
+
+Phone Focus Mode now broadcasts a `focusAway` signal to
+`browser_profile_status.metadata` on navigate-away; the Context View (realtime)
+turns red ("Put the phone down") with a slow fade-in (~7s), or immediate via a
+new Settings toggle `focusAwayImmediate`. Cross-device path verified 2/2 under
+RLS with a minted session; tsc clean; deployed v0.2.1. Mockup updated with a
+"📵 Phone away" preview.
+
+## 2026-07-18 — Persona ops: System Map + Feature Matrix + Plan 040 vet (CeeCee orchestrating)
+
+Operating model live: CeeCee (CC1) orchestrates; named players on real Asana tasks.
+- **Argus** → docs/system-map/SYSTEM-MAP.md (Asana 1216678592681467; posted own
+  comments via `asana-cli --as argus`). Top risks: dist/ landmine (6.8.2 unreviewed
+  Koda build on the Chrome load-unpacked path while user believes 6.7.22), two
+  divergent staging lines (local 6.7.8 vs origin 6.6.0; extension run never pushed),
+  prod stuck behind update channel (swap-step bug; fix on fix/updater-swap 6.7.24),
+  6.8.x version tangle, 11 prunable branches + 2 stale worktrees. 8-step GitHub
+  restoration plan PROPOSED (not executed). Daily update: scheduled cloud agent rec.
+- **Cirra** → docs/FEATURE-MATRIX.md (Asana 1216678675876448; comments relayed).
+  124 rows / 8 domains × 6 surfaces + update-in-same-commit protocol. Top gaps:
+  checkpoints don't round-trip, per-task time is widget-only, Sidecar tasks bare,
+  voice missing on Sidecar, team/org extension-only.
+- **Koda** → Plan 040 vet (Asana 1216678720421332; comment relayed). 8/13 proceed,
+  5 revise (B1 pause-ownership, E2/E4 Sidecar-only time label, E3 relation table +
+  conflict strategy, E8 dedup v2, E9 settings write-race). Delegation lanes decided
+  (addendum 5): sequential ContextView lane, parallel 1/5/7(+10), design gates 3/9,
+  design-first 8. Deeper collaboration: YES.
+
+## 2026-07-18 (cont.) — Wave 1 shipped: Sidecar v0.3.0 + repo restoration
+
+Fleet outcomes (all verified by CeeCee before ship):
+- Merged Rook (4f0b4fa), Cirra (13d79bc), Cindra (2c24803/68e66cf/4597744);
+  resolved SettingsScreen + ContextView conflicts; tsc clean; bumped 0.3.0;
+  deployed Worker 4d72371c. Edge fns: send-focus-push (focus_away pass, Cindra's
+  per-episode dedup) + feedback-to-asana (CORS widened to sidecar origin,
+  ASANA_PAT/ASANA_PROJECT_GID secrets set) both deployed; preflight verified.
+- Kael: PRs #27-#31 → origin/staging 6.7.27 (verified), dist 6.7.24 (verified),
+  main untouched (verified). Blocker queued: feat/companion-update-manifest +
+  feat/site-sidecar-promo are stacked on Koda's widget commits — needs Koda
+  carve-out or cherry-pick (follow-up task for Koda).
+- Aegis (Haiku) board monitor cycling every 30m; Argus/Hermes updater in flight.
+
+## 2026-07-18 (PM) — CeeCee: Plan 040 execution wave (Sidecar 0.4.2→0.7.0, ext 6.7.32→6.7.34, companion 0.3.1)
+- **Goal:** continuous Plan 040 execution with the persona fleet; Malkio directives folded in live (extension tracking, extension deploy, watch app, voice check-ins).
+- **Shipped Sidecar:** 0.4.2 (useRef hotfix), 0.4.3 (extend/snooze as focus_events + ⏳ CV timeline nodes, mig 039), 0.5.0 (Epic 9 RPC writers + CV prefs, Epic 8 nudges card), 0.6.0 (Epic 3 U5 Tasks view + Asana connect; CrashGuard; PWA stale-bundle auto-reload; surfaced write errors), 0.6.1 (CV title-col clip fix from Rook visual QA), 0.6.2 (build --clear guard), 0.7.0 (proactive voice check-ins v1, Addendum 7).
+- **Migrations applied:** 035 (task sync foundation), 036/037 (push_log + nudge cron), 038 (update_profile_settings RPC), 039 (extend/snooze kinds). Edge fns deployed: send-focus-push (batched), send-schedule-nudges, connect-asana, asana-webhook, sync-asana-tasks.
+- **Extension:** staging 6.7.31→6.7.34 (Epic 9 CV customization card 6.7.32; companion HELLO pairing client 6.7.33; changelog 6.7.34). Chrome dist at 6.7.34; both update channels published + hash-verified (Koda).
+- **Companion:** PR #1 (WS Stage-2 handshake auth, Cindra) security-reviewed line-by-line by CeeCee, merged → 0.3.1, 105/105 tests. Distribution hold lifts once 0.3.1 installers built.
+- **Incidents:** (1) "stuck Sidecar" — stale PWA running broken v0.4.1 bundle; fixed via CrashGuard + freshness auto-reload; (2) routeless skeleton deploy — shared Metro cache (node_modules/.cache via junctions) poisoned by concurrent dev-server; fixed via --clear in build script + mandatory local bundle preflight before deploy.
+- **In flight:** Soren (Opus) — Tabby Watch (Plan 041, Galaxy Watch 6 / Wear OS, own repo tabatha-watch); Argus — /show milestone update.
+- **Next:** integrate Soren's watch deliverable; extension-side voice/checkpoint sync epics; Epic 3 v1.1 (due_on mapping, workspace name); flip STAGE1_COMPAT_WINDOW=false in companion 0.3.2 after HELLO rollout.
+
+## 2026-07-19 (early AM) — CeeCee: feedback-batch closeout (Sidecar 0.8.1, ext 6.7.37, companion 0.3.2, watch 0.2.0, screensaver 2.1.0)
+- **Malkio feedback batch, all shipped:** CV overtime-timer clip fix (0.7.2); backburner in/out as focus_events + 🔥/▲ timeline nodes + checkpoint-stream interleave (mig 041, 0.8.0); cold-load lag fixed via hydrate-then-revalidate profile cache + parallelized fetches, 68% waterfall cut (0.8.1, Rook); `?view=context`/`?embed=desk` embed mode with neutral TABATHA branding (0.8.0); companion **Desk View** tray window at the embed URL + always-on-top (0.3.2, merged); Flux Refocus screensaver **Tabatha Context View mode** (2.1.0, merged — hardened webview, offline flip-clock fallback, one-time sign-in partition); /show full Sidecar page (12 cards) + Tabby Watch page (8 cards, sideload-beta framing) at 6.7.36; companion download panel → public-mirrored, hash-verified 0.3.1 installers at 6.7.37 (Argus caught the private-repo 404 trap).
+- **Watch:** pairing-gap incident — v0.1.x had redeemPairingCode with NO UI caller (Malkio caught on-device). v0.2.0 ships the Pair screen (first-item affordance, number pad, live-mode swap, 27/27 tests incl. routing pair + live endpoint 4xx test); CeeCee independently verified wiring in source. New permanent fleet rule recorded in memory: reachability proof (artifact grep + entry-point evidence) required before accepting any user-facing "done". Also v0.1.3 targetSdk 35 = Watch 6/7/8 forward-compat.
+- **Companion 0.3.1 released** (NSIS+MSI, hash-verified, updater artifacts disabled pending signing key) — distribution security hold LIFTED; public mirror release desktop-v0.3.1 on MrMalkio/tabatha.
+- **Pending Malkio:** sideload watch v0.2.0 + pair; optional 0.3.2 companion build for his machine; signing-key decision.

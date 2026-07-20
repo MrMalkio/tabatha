@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Quick Switch</title>
+<style>
+/* ============================================================
+   Tabatha showcase — faithful reproduction of the live extension.
+   Design tokens pulled from src/styles/global.css (Pop-Art theme):
+   bg #050505, accent-primary #00F0FF, accent-secondary #FF0055,
+   accent-tertiary #FFD700, radius scale 2/4/8 (halved), Inter body,
+   JetBrains Mono for timers. Icons are emoji (the app has no icon lib).
+   The popup is a fixed 400x500 surface (src/popup/index.jsx), shown
+   here anchored under the Chrome toolbar as the user actually sees it.
+   ============================================================ */
+:root{
+  --bg:#050505;--surface:rgba(20,20,25,.55);--surface-solid:#141414;
+  --border:rgba(255,255,255,.1);--text:#FAFAFA;--muted:#868E96;
+  --cyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a}
+body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;color:var(--text)}
+.shot{width:1280px;height:800px;overflow:hidden;position:relative;background:var(--bg)}
+
+/* ---- browser chrome backdrop (the popup anchors to the toolbar) ---- */
+.backdrop{position:absolute;inset:0;pointer-events:none}
+.bd-chrome{height:46px;background:#1c1e22;display:flex;align-items:center;gap:9px;padding:0 16px;
+  border-bottom:1px solid #101216}
+.bd-dot{width:11px;height:11px;border-radius:50%}
+.bd-omni{flex:1;max-width:620px;height:27px;background:#2a2d33;border-radius:999px;margin:0 14px}
+.bd-ext{display:flex;align-items:center;gap:10px;margin-left:auto}
+.bd-ico{width:22px;height:22px;border-radius:5px;background:#2a2d33;display:grid;place-items:center;font-size:11px;opacity:.5}
+.bd-ico.on{background:rgba(0,240,255,.14);border:1px solid rgba(0,240,255,.45);opacity:1}
+.bd-body{padding:52px 120px;display:flex;flex-direction:column;gap:20px;
+  background:linear-gradient(180deg,#16181c,#101216);filter:blur(9px) brightness(.8);transform:scale(1.03)}
+.bd-h{height:32px;width:54%;background:#2f333b;border-radius:6px}
+.bd-line{height:14px;background:#23262c;border-radius:4px}
+.bd-cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:8px}
+.bd-card{height:150px;background:#1a1d22;border-radius:10px}
+.scrim{position:absolute;inset:0;top:46px;background:rgba(0,0,0,.55)}
+
+/* ---- the popup: fixed 400x500 per src/popup/index.jsx ---- */
+.popup{position:absolute;top:56px;right:26px;width:400px;height:500px;display:flex;flex-direction:column;
+  background:var(--bg);color:var(--text);overflow:hidden;border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 24px 70px rgba(0,0,0,.7),0 0 0 1px rgba(0,240,255,.05)}
+
+.p-head{padding:12px;border-bottom:1px solid var(--border);background:var(--surface);backdrop-filter:blur(16px)}
+.p-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.p-title{font-size:14px;font-weight:700;letter-spacing:.02em}
+.p-count{font-size:10px;color:var(--muted)}
+.p-search{width:100%;background:transparent;border:1px solid var(--border);border-radius:2px;
+  padding:8px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--sans)}
+.p-search::placeholder{color:var(--muted)}
+.p-search.focused{border-color:var(--cyan)}
+
+.p-list{flex:1;overflow:hidden;padding:6px}
+.p-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:2px;margin-bottom:2px}
+.p-row.hover{background:rgba(40,40,50,.6)}
+.p-ico{font-size:14px;flex-shrink:0}
+.p-meta{flex:1;min-width:0}
+.p-t{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-s{font-size:10px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-time{font-size:10px;font-weight:600;flex-shrink:0;font-variant-numeric:tabular-nums;color:var(--cyan)}
+.p-time.zero{color:var(--muted)}
+
+/* feedback footer */
+.p-foot{border-top:1px solid var(--border);background:var(--surface);padding:8px 12px}
+.p-foot .collapsed{background:transparent;border:none;color:var(--muted);font-size:11px;padding:0;
+  font-family:var(--sans);cursor:pointer}
+
+/* callouts */
+.callout{position:absolute;font-size:11.5px;color:#9aa5b1;line-height:1.5;max-width:250px}
+.callout b{color:var(--cyan);font-weight:600}
+.callout .rule{height:1px;background:linear-gradient(90deg,rgba(0,240,255,.5),transparent);margin-bottom:9px}
+.co-1{top:132px;left:74px}
+.co-2{top:300px;left:74px}
+.co-3{top:470px;left:74px}
+.badge{position:absolute;top:74px;left:74px;font-size:10px;font-weight:700;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--cyan)}
+.hint{position:absolute;bottom:44px;left:74px;font-size:12px;color:#5b6570}
+.hint kbd{font-family:var(--mono);font-size:10.5px;color:var(--cyan);background:var(--surface);
+  border:1px solid var(--border);border-radius:3px;padding:2px 7px;font-weight:600}
+
+/* ── small-viewport fit ──────────────────────────────────────
+   This page IS the asset: `.shot` is a pinned 1280x800 render and
+   scripts/capture-screenshots.mjs screenshots it at a 1280x800
+   window to produce the Chrome Web Store listing images. So the
+   frame's own layout is untouchable — no reflow, no stacking, no
+   fluid widths. Anything that changed it would silently reshoot
+   the store listing.
+
+   Everything below is therefore gated at max-width:1279px and can
+   never fire at the 1280 capture width. It scales the whole frame
+   as one picture instead of reflowing it:
+
+     base      — body becomes the scroll container. `.shot` keeps
+                 its exact 1280x800 and the user pans it, while
+                 `html` stays hidden so the PAGE never scrolls
+                 sideways.
+     enhanced  — where `zoom` accepts a calculated ratio (Chrome,
+                 the only browser this site's product runs in),
+                 body is zoomed to exactly fit the viewport. zoom
+                 affects layout, unlike transform, so the shrunken
+                 frame reserves the right space and nothing
+                 overflows. `.shot` still computes at 1280x800 —
+                 only the paint is scaled.
+   ──────────────────────────────────────────────────────────── */
+@media (max-width:1279px){
+  html{overflow-x:hidden}
+  body{display:block;min-height:0;overflow-x:auto;overscroll-behavior-x:contain}
+  body>.shot{margin:0 auto}
+}
+@supports (zoom:calc(100vw / 1280px)){
+  @media (max-width:1279px){
+    body{width:1280px;overflow-x:visible;zoom:calc(100vw / 1280px)}
+  }
+}
+</style>
+</head>
+<body>
+<div class="shot">
+  <!-- Browser chrome; the popup hangs off the toolbar icon -->
+  <div class="backdrop" aria-hidden="true">
+    <div class="bd-chrome">
+      <span class="bd-dot" style="background:#ff5f57"></span>
+      <span class="bd-dot" style="background:#febc2e"></span>
+      <span class="bd-dot" style="background:#28c840"></span>
+      <div class="bd-omni"></div>
+      <div class="bd-ext">
+        <span class="bd-ico">◍</span>
+        <span class="bd-ico">◍</span>
+        <span class="bd-ico on">◉</span>
+      </div>
+    </div>
+    <div class="bd-body">
+      <div class="bd-h"></div>
+      <div class="bd-line" style="width:92%"></div>
+      <div class="bd-line" style="width:87%"></div>
+      <div class="bd-line" style="width:94%"></div>
+      <div class="bd-line" style="width:66%"></div>
+      <div class="bd-cols"><div class="bd-card"></div><div class="bd-card"></div></div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+
+  <div class="badge">Quick Switch</div>
+  <div class="callout co-1">
+    <div class="rule"></div>
+    <b>One keystroke to anywhere.</b> Ctrl+Space opens the popup with the search box already focused, so you can jump without touching the mouse.
+  </div>
+  <div class="callout co-2">
+    <div class="rule"></div>
+    <b>Context, not just titles.</b> Each row's second line is the tab's assigned Context, falling back to its hostname. You search what a tab is <i>for</i>, not what it happens to be called.
+  </div>
+  <div class="callout co-3">
+    <div class="rule"></div>
+    <b>Time is always visible.</b> Tabs you have actually spent time in show it in cyan, ranked by last active.
+  </div>
+
+  <!-- The popup — 400x500, per src/popup/index.jsx -->
+  <div class="popup">
+    <div class="p-head">
+      <div class="p-title-row">
+        <span class="p-title">⚡ Quick Switch</span>
+        <span class="p-count">14 tabs</span>
+      </div>
+      <input class="p-search focused" type="text" placeholder="Search tabs... (Ctrl+Space)" readonly>
+    </div>
+
+    <div class="p-list">
+      <div class="p-row hover">
+        <span class="p-ico">💼</span>
+        <div class="p-meta">
+          <div class="p-t">Q1 Revenue Model - Sheets</div>
+          <div class="p-s">Q1 Report</div>
+        </div>
+        <span class="p-time">22m</span>
+      </div>
+      <div class="p-row">
+        <span class="p-ico">💬</span>
+        <div class="p-meta">
+          <div class="p-t">#finance-team - Slack</div>
+          <div class="p-s">Q1 Report</div>
+        </div>
+        <span class="p-time">6m</span>
+      </div>
+      <div class="p-row">
+        <span class="p-ico">📚</span>
+        <div class="p-meta">
+          <div class="p-t">Revenue recognition - internal wiki</div>
+          <div class="p-s">Q1 Report</div>
+        </div>
+        <span class="p-time">4m</span>
+      </div>
+      <div class="p-row">
+        <span class="p-ico">🎓</span>
+        <div class="p-meta">
+          <div class="p-t">useEffect cleanup - React docs</div>
+          <div class="p-s">Learning React</div>
+        </div>
+        <span class="p-time">4m</span>
+      </div>
+      <div class="p-row">
+        <span class="p-ico">📧</span>
+        <div class="p-meta">
+          <div class="p-t">Inbox (3) - Gmail</div>
+          <div class="p-s">Email triage</div>
+        </div>
+        <span class="p-time">2m</span>
+      </div>
+      <div class="p-row">
+        <span class="p-ico">📹</span>
+        <div class="p-meta">
+          <div class="p-t">Weekly sync - Google Meet</div>
+          <div class="p-s">meet.google.com</div>
+        </div>
+        <span class="p-time zero">0m</span>
+      </div>
+      <div class="p-row">
+        <span class="p-ico">📄</span>
+        <div class="p-meta">
+          <div class="p-t">Vacation Planning - Docs</div>
+          <div class="p-s">Vacation Planning</div>
+        </div>
+        <span class="p-time zero">0m</span>
+      </div>
+      <div class="p-row">
+        <span class="p-ico">🎓</span>
+        <div class="p-meta">
+          <div class="p-t">Rules of Hooks - React docs</div>
+          <div class="p-s">Learning React</div>
+        </div>
+        <span class="p-time zero">0m</span>
+      </div>
+    </div>
+
+    <div class="p-foot">
+      <button class="collapsed">💬 Send feedback</button>
+    </div>
+  </div>
+
+  <div class="hint">Sorted by last active, capped at 15 &nbsp;·&nbsp; <kbd>↵</kbd> jumps to the tab and closes the popup</div>
+</div>
+</body>
+</html>

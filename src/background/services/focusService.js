@@ -165,6 +165,9 @@ async function _handleMessage(type, message) {
       return setFocusElapsed(message.focusId, message.elapsedMs);
     case 'REMOVE_LAST_PAUSE':
       return removeLastPause(message.focusId);
+    // NB-09: last user-activity timestamp for the "trim to last activity" UI.
+    case 'GET_LAST_ACTIVITY':
+      return getLastActivity();
     // Workstream B1: backdate a focus's start time.
     case 'SET_FOCUS_START_TIME':
       return setFocusStartTime(message.focusId, message.startedAt, message.reason);
@@ -480,7 +483,13 @@ export async function completeFocus(focusId) {
 
   if (engine.activeFocusId === id) {
     engine.activeFocusId = null;
-    const nextPaused = Object.values(engine.items)
+    // Resolving is the only path that empties the slot (pauseItem keeps the
+    // intent as activeFocusId), so this toggle is what makes "nothing active"
+    // reachable at all. When off, the queue stays paused — nothing pops into
+    // the freed slot.
+    const settings = await getSettings();
+    const autoStartNext = settings?.autoStartNextOnResolve ?? DEFAULT_SETTINGS.autoStartNextOnResolve;
+    const nextPaused = !autoStartNext ? null : Object.values(engine.items)
       .filter(i => i.focusState === 'paused')
       .sort((a, b) => new Date(b.pausedAt || b.createdAt) - new Date(a.pausedAt || a.createdAt))[0];
     if (nextPaused) {
@@ -803,7 +812,17 @@ async function pauseFocus(focusId) {
 
 async function resumeFocus(focusId) {
   const engine = await getFocusEngine();
-  const item = focusId ? engine.items[focusId] : null;
+  // Symmetry with pauseFocus: no id → fall back to the active focus (or, if
+  // nothing is active, the most recently paused one) instead of erroring.
+  let item = focusId ? engine.items[focusId] : null;
+  if (!item && !focusId) {
+    item = engine.items[engine.activeFocusId]
+      || Object.values(engine.items)
+        .filter((i) => i.focusState === 'paused' && i.pausedAt)
+        .sort((a, b) => new Date(b.pausedAt) - new Date(a.pausedAt))[0]
+      || null;
+    focusId = item?.id;
+  }
   if (!item) return { error: 'Focus not found', focusEngine: engine };
 
   if (engine.activeFocusId && engine.activeFocusId !== focusId) {
@@ -836,20 +855,59 @@ async function idlePromptResponse(message) {
   const id = message.focusId || engine.activeFocusId;
 
   // Clear the pending marker so the idle-auto-break fallback won't double-act.
+  // NB-09: capture the pending prompt first — gap-sourced prompts need the
+  // marker's metadata to decide whether "on task" should credit time back.
+  let pending = null;
   try {
     const { _idlePrompt } = await getStorage('_idlePrompt');
     if (_idlePrompt) {
+      pending = _idlePrompt;
       await setStorage({ _idlePrompt: null });
       broadcastAll({ type: 'IDLE_PROMPT_RESOLVED', id: _idlePrompt.id, resolution: response });
     }
   } catch { /* non-critical */ }
 
   if (response === 'on_task') {
+    // NB-09: for offline-gap prompts the focus was already retro-paused at the
+    // gap start. "On task" means the user kept working through the gap —
+    // credit the paused span back (bounded by wall-clock) and reactivate.
+    if (pending?.source === 'gap') {
+      const item = id ? engine.items[id] : null;
+      if (item && item.focusState === 'paused' && item.pausedReason === 'offline_gap' && item.pausedAt) {
+        const pausedFor = Math.max(0, Date.now() - new Date(item.pausedAt).getTime());
+        item.elapsedMs = Math.min((item.elapsedMs || 0) + pausedFor, wallClockMax(item));
+
+        // Pause whatever else is active so we never double-track.
+        if (engine.activeFocusId && engine.activeFocusId !== id) {
+          const cur = engine.items[engine.activeFocusId];
+          if (cur?.focusState === 'active') pauseItem(cur, undefined, engine);
+        }
+        item.focusState = 'active';
+        item.lastResumedAt = new Date().toISOString();
+        item.pausedAt = null;
+        item.pausedReason = null;
+        engine.activeFocusId = id;
+        autoCheckpoint(item, `🛠 Offline gap credited (+${Math.round(pausedFor / 60000)}m)`);
+
+        await setFocusEngine(engine);
+        broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+        return { focusEngine: engine, resolution: 'on_task', creditedMs: pausedFor };
+      }
+    }
     return { focusEngine: engine, resolution: 'on_task' };
   }
   if (response === 'diverged') {
     const r = await markFocusDrifted(id);
     return { focusEngine: r.engine, resolution: 'diverged' };
+  }
+  // NB-09: a gap-retro-paused focus is ALREADY paused at the backdated gap
+  // start — re-pausing would overwrite pausedAt with "now" and destroy the
+  // user's ability to credit the gap later via Remove-last-pause.
+  {
+    const item = id ? engine.items[id] : null;
+    if (pending?.source === 'gap' && item?.focusState === 'paused' && item.pausedReason === 'offline_gap') {
+      return { focusEngine: engine, resolution: 'pause' };
+    }
   }
   const paused = await pauseFocus(id);
   return { ...paused, resolution: 'pause' };
@@ -873,7 +931,10 @@ function wallClockMax(item) {
 }
 
 // Apply a signed delta (ms) to the stored elapsed time. Clamped so the live
-// total stays within [0, wall-clock].
+// total stays within [0, wall-clock]. NB-09: never touches lastResumedAt —
+// only the stored portion moves; the live active portion keeps ticking.
+// Returns rich metadata mirroring setFocusStartTime's { addedMs, clamped }
+// shape so callers can render honest feedback.
 async function adjustFocusTime(focusId, adjustmentMs, reason) {
   const engine = await getFocusEngine();
   const item = focusId ? engine.items[focusId] : null;
@@ -884,29 +945,62 @@ async function adjustFocusTime(focusId, adjustmentMs, reason) {
   const storedCeiling = Math.max(0, wallClockMax(item) - activePortion);
   const next = Math.max(0, Math.min((item.elapsedMs || 0) + delta, storedCeiling));
   const applied = next - (item.elapsedMs || 0);
+  const clamped = applied !== delta;
+  // Mutate the stored portion BEFORE snapshotting the checkpoint: autoCheckpoint
+  // computes elapsedAtMs = stored + live-active-portion, so with this ordering
+  // the logged entry reflects the final live total exactly once (the active
+  // portion is neither dropped nor double-counted).
   item.elapsedMs = next;
 
   const mins = Math.round(applied / 60000);
   autoCheckpoint(item, `🛠 Time ${applied >= 0 ? '+' : ''}${mins}m${reason ? ' — ' + reason : ''}`);
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-  return { focusEngine: engine, appliedMs: applied };
+  return { focusEngine: engine, appliedMs: applied, clamped, liveElapsedMs: liveElapsed(item) };
 }
 
-// Set the displayed elapsed to an absolute value (ms).
+// Set the displayed elapsed to an absolute value (ms). The target is the LIVE
+// total: stored elapsed becomes max(0, target − activePortion) so the running
+// portion keeps ticking from the requested total. NB-09: returns rich metadata
+// (appliedMs = stored delta, clamped, liveElapsedMs = resulting live total).
 async function setFocusElapsed(focusId, elapsedMs) {
   const engine = await getFocusEngine();
   const item = focusId ? engine.items[focusId] : null;
   if (!item) return { error: 'Focus not found', focusEngine: engine };
 
-  const target = Math.max(0, Math.min(Number(elapsedMs) || 0, wallClockMax(item)));
+  const requested = Number(elapsedMs) || 0;
+  const target = Math.max(0, Math.min(requested, wallClockMax(item)));
   const activePortion = item.lastResumedAt ? Date.now() - new Date(item.lastResumedAt).getTime() : 0;
+  const prevStored = item.elapsedMs || 0;
+  // Stored floor is 0: when the requested total is smaller than the live
+  // active portion, the live total floors at the active portion (clamped).
   item.elapsedMs = Math.max(0, target - activePortion);
+  const appliedMs = item.elapsedMs - prevStored;
+  const clamped = requested !== target || target < activePortion;
 
-  autoCheckpoint(item, `🛠 Time set to ${Math.round(target / 60000)}m`);
+  // Checkpoint AFTER the stored mutation (see adjustFocusTime ordering note) —
+  // log the resulting live total, not the possibly-clamped raw request.
+  const finalLive = liveElapsed(item);
+  autoCheckpoint(item, `🛠 Time set to ${Math.round(finalLive / 60000)}m`);
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-  return { focusEngine: engine };
+  return { focusEngine: engine, appliedMs, clamped, liveElapsedMs: finalLive };
+}
+
+// NB-09: newest user-activity timestamp across tracked tabs, for the UI's
+// "trim to last activity" action. Returns { lastActivityAt: ISO|null }.
+async function getLastActivity() {
+  let latest = 0;
+  try {
+    const tabs = injectedDeps.getTabData
+      ? await injectedDeps.getTabData()
+      : (await getStorage('tabs')).tabs || {};
+    for (const t of Object.values(tabs || {})) {
+      const ts = t?.lastActive ? new Date(t.lastActive).getTime() : 0;
+      if (Number.isFinite(ts) && ts > latest) latest = ts;
+    }
+  } catch { /* no tab data — no trim affordance */ }
+  return { lastActivityAt: latest > 0 ? new Date(latest).toISOString() : null };
 }
 
 // Remove the most recent pause: credit the time spent paused back into the
@@ -958,8 +1052,8 @@ async function removeLastPause(focusId) {
 // created this focus"). Moves item.startedAt earlier (validated/clamped) and
 // credits the newly-exposed gap into elapsedMs, bounded by the wall-clock
 // ceiling so elapsed can never exceed (now - newStart). Validation clamps the
-// proposed start to [clock-in, now] and away from other focuses' active
-// intervals (anti-double-count).
+// proposed start to [clock-in, now] ONLY; overlap with other focuses' active
+// intervals is reported (`overlaps`), never silently applied.
 async function setFocusStartTime(focusId, startedAt, reason) {
   const engine = await getFocusEngine();
   const item = focusId ? engine.items[focusId] : null;
@@ -991,7 +1085,7 @@ async function setFocusStartTime(focusId, startedAt, reason) {
     else if (other.pausedAt) oEnd = new Date(other.pausedAt).getTime();
     else if (other.endedAt) oEnd = new Date(other.endedAt).getTime();
     else continue;
-    if (Number.isFinite(oEnd) && oEnd > oStart) otherIntervals.push({ startMs: oStart, endMs: oEnd });
+    if (Number.isFinite(oEnd) && oEnd > oStart) otherIntervals.push({ startMs: oStart, endMs: oEnd, label: other.label || null });
   }
 
   const v = validateStartTime({ proposedStartMs, currentStartMs, now, clockInMs, otherIntervals });
@@ -1013,10 +1107,21 @@ async function setFocusStartTime(focusId, startedAt, reason) {
   item.elapsedMs = Math.max(0, Math.min((item.elapsedMs || 0) + addedMs, storedCeiling));
 
   const mins = Math.round(addedMs / 60000);
-  autoCheckpoint(item, `🛠 Start backdated +${mins}m${reason ? ' — ' + reason : ''}`);
+  // Overlap with other focuses' time is REPORTED, not silently resolved — the
+  // start the user picked always stands. Note it on the timeline so the credited
+  // span is honest; a future UI lets the user trim it / move it to backburner.
+  const overlaps = Array.isArray(v.overlaps) ? v.overlaps : [];
+  const overlapMs = overlaps.reduce((sum, o) => sum + (o.overlapMs || 0), 0);
+  const overlapNote = overlapMs >= 60000 ? ` (⚠️ overlaps ${Math.round(overlapMs / 60000)}m of other focus time)` : '';
+  autoCheckpoint(item, `🛠 Start backdated +${mins}m${reason ? ' — ' + reason : ''}${overlapNote}`);
   await setFocusEngine(engine);
   broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
-  return { focusEngine: engine, startedAt: item.startedAt, addedMs, clamped: v.clamped };
+  // Response carries everything the UI needs to be HONEST about the edit:
+  // the effective start, the credited ms, whether the [clock-in, now] bounds
+  // moved it (`clamped` + which bound via `clampedBy`), and any other-focus
+  // intervals the credited span overlaps (`overlaps`, informational — both
+  // focuses keep their time). Additive fields only.
+  return { focusEngine: engine, startedAt: item.startedAt, addedMs, clamped: v.clamped, clampedBy: v.clampedBy || null, overlaps };
 }
 
 // Edit an existing checkpoint entry's text and/or progress level.

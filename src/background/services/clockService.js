@@ -10,13 +10,24 @@
 
 import { getStorage, setStorage } from './storageService.js';
 import { broadcastToExtension, broadcastAll } from './notificationService.js';
+import { getOwnAbandonedStints } from './awarenessService.js';
 import { createClockService } from '../clock.js';
 import * as timeTracker from '../../services/timeTracking.js';
+import { detectGap } from '../../utils/gapDetection.js';
+import { shortfallsToPrompt, shortfallKey, fmtMinutes } from '../../utils/scheduleModel.js';
+
+// ── NB-09: offline-gap detector constants ──
+export const ALIVE_HEARTBEAT_ALARM = 'alive-heartbeat';
+const DEFAULT_GAP_THRESHOLD_MINUTES = 10;
+// A pending _idlePrompt older than this is considered abandoned and may be
+// replaced — prevents a never-answered prompt from deadlocking the machinery.
+const IDLE_PROMPT_STALE_MS = 30 * 60000;
 
 // ── Injected dependencies (set via configureClockService) ──
 let deps = {};
 let idleListenerRegistered = false;
 let userIdleSince = null;
+let gapCheckInFlight = false;
 
 /**
  * Wire up cross-service deps that can't be imported directly
@@ -40,7 +51,145 @@ export function registerClockServiceListeners() {
     if (area === 'local' && changes.settings) applyIdleDetectionInterval();
   });
   // Plan 036: auto clock-in when Chrome (re)launches, if configured.
-  chrome.runtime.onStartup.addListener(() => { maybeAutoClockIn('chrome_open'); });
+  chrome.runtime.onStartup.addListener(() => {
+    maybeAutoClockIn('chrome_open');
+    // NB-09: browser relaunch is the classic offline-gap wake event.
+    checkOfflineGap('startup').catch(() => {});
+  });
+
+  // NB-09: 1-minute alive heartbeat. The alarm tick both persists
+  // `_lastAliveAt` and — because Chrome delivers missed alarms on wake —
+  // doubles as the wake-event gap check after sleep/SW death.
+  chrome.alarms.create(ALIVE_HEARTBEAT_ALARM, { periodInMinutes: 1 });
+  // SW module init is itself a wake event (MV3 workers restart constantly):
+  // check the gap immediately rather than waiting up to a minute.
+  checkOfflineGap('sw_init').catch(() => {});
+}
+
+// NB-09: alive-heartbeat alarm handler (routed from alarmService).
+export async function handleAliveHeartbeat() {
+  return checkOfflineGap('heartbeat');
+}
+
+/**
+ * NB-09 — Offline-gap detector.
+ * Compares the persisted `_lastAliveAt` heartbeat against now. If the service
+ * worker was dead longer than the configured threshold while a focus was
+ * ACTIVELY accruing time (focusState 'active' + lastResumedAt set), the focus
+ * is retro-paused AT THE GAP START (time is credited only up to the last
+ * heartbeat) and the user is prompted through the EXISTING _idlePrompt /
+ * Welcome-Back machinery (payload extended with source:'gap' + the gap span).
+ *
+ * Companion consultation: if the desktop companion shows the user was active
+ * off-Chrome, we do NOT auto-trim — the prompt still surfaces as info with a
+ * credit option, but the focus keeps running.
+ *
+ * Single-flight: reuses the _idlePrompt pending marker as the guard (sleep /
+ * wake commonly also fires Chrome's native idle event — the two paths must
+ * not stack prompts), plus an in-module flag against concurrent checks.
+ */
+export async function checkOfflineGap(trigger = 'wake') {
+  if (gapCheckInFlight) return null;
+  gapCheckInFlight = true;
+  try {
+    const now = Date.now();
+    const { _lastAliveAt } = await getStorage('_lastAliveAt');
+    // Refresh the heartbeat FIRST so a crash below never re-detects this gap.
+    await setStorage({ _lastAliveAt: now });
+
+    const settings = await getSettings();
+    const thresholdMs = Math.max(1, Number(settings.offlineGapThresholdMinutes) || DEFAULT_GAP_THRESHOLD_MINUTES) * 60000;
+
+    const engine = await deps.getFocusEngine?.();
+    const activeId = engine?.activeFocusId;
+    const active = activeId ? engine.items[activeId] : null;
+
+    const verdict = detectGap(_lastAliveAt ?? null, now, thresholdMs, active?.focusState || null);
+    if (!verdict.shouldPrompt) return null;
+    if (!active?.lastResumedAt) return null; // no live portion accruing — nothing to retro-trim
+    if (active.offDevice) return null;       // user flagged this work as intentionally off-Chrome
+
+    // Single-flight _idlePrompt guard — never stack a second prompt.
+    const { _idlePrompt } = await getStorage('_idlePrompt');
+    if (_idlePrompt && (now - (_idlePrompt.ts || 0)) < IDLE_PROMPT_STALE_MS) return null;
+
+    // Companion / meeting / other-profile suppressors: active off-Chrome
+    // during the gap means the accrued time is probably legitimate.
+    let suppressors = [];
+    try { suppressors = await collectIdleSuppressors(); } catch { /* fail-open: no suppressors */ }
+    const activeElsewhere = suppressors.length > 0;
+
+    const resumedMs = new Date(active.lastResumedAt).getTime();
+    // The focus may have been resumed AFTER the last heartbeat (up to ~59s of
+    // skew) — never pause before it was resumed.
+    const pauseAtMs = Math.max(verdict.pauseAt, Number.isFinite(resumedMs) ? resumedMs : verdict.pauseAt);
+    let trimmed = false;
+    let trimmedMs = 0;
+
+    if (!activeElsewhere) {
+      // Retro-pause at the gap start: credit elapsed only up to _lastAliveAt.
+      const credit = Math.max(0, pauseAtMs - resumedMs);
+      active.elapsedMs = (active.elapsedMs || 0) + credit;
+      active.lastResumedAt = null;
+      active.focusState = 'paused';
+      active.pausedAt = new Date(pauseAtMs).toISOString();
+      active.pausedReason = 'offline_gap';
+      if (active.funnelStage === 'addressing') active.funnelStage = 'focus';
+      trimmedMs = Math.max(0, now - pauseAtMs);
+      trimmed = true;
+
+      // System checkpoint. Text starts with "Paused" on purpose: the UI's
+      // remove-last-pause splice and hasPause detection both match /^Paused/.
+      if (!active.checkpoint) active.checkpoint = [];
+      active.checkpoint.push({
+        id: `sys_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        text: `Paused (offline gap ~${Math.round(verdict.gapMs / 60000)}m)`,
+        progressLevel: 'none',
+        progressValue: 0,
+        createdAt: new Date().toISOString(),
+        focusId: active.id,
+        elapsedAtMs: active.elapsedMs,
+        triggeredBy: 'system'
+      });
+
+      await deps.setFocusEngine?.(engine);
+      broadcastAll({ type: 'FOCUS_ENGINE_UPDATED' });
+    }
+
+    // Route through the EXISTING idle-prompt state machine — no parallel path.
+    const sinceIso = new Date(pauseAtMs).toISOString();
+    const promptId = `gap_${activeId}_${now}`;
+    await setStorage({
+      _idlePrompt: {
+        id: promptId, focusId: activeId, focusLabel: active.label,
+        since: sinceIso, ts: now,
+        source: 'gap', gapMs: verdict.gapMs, trimmed, trimmedMs
+      }
+    });
+    broadcastAll({
+      type: 'IDLE_PROMPT',
+      id: promptId,
+      focusId: activeId,
+      focusLabel: active.label,
+      since: sinceIso,
+      source: 'gap',
+      gapMs: verdict.gapMs,
+      trimmed,
+      trimmedMs,
+      suppressors
+    });
+
+    try {
+      const { tabathaLogs } = await getStorage('tabathaLogs');
+      const logs = tabathaLogs || [];
+      logs.push({ type: 'offline_gap', trigger, gapMs: verdict.gapMs, trimmed, suppressors, ts: new Date().toISOString() });
+      await setStorage({ tabathaLogs: logs.slice(-500) });
+    } catch { /* non-critical */ }
+
+    return { gapMs: verdict.gapMs, trimmed, trimmedMs };
+  } finally {
+    gapCheckInFlight = false;
+  }
 }
 
 // QA fix: the "Idle threshold (minutes)" setting now actually drives Chrome's
@@ -72,6 +221,26 @@ export async function maybeAutoClockIn(trigger) {
 
     const { clockSession } = await getStorage('clockSession');
     if (clockSession?.active) return; // already clocked in
+
+    // NB-05: never SILENTLY auto-clock-in over an unresolved abandoned shift.
+    // The visible clock-in paths surface the AbandonedStintsModal, but this
+    // headless trigger bypasses the UI — so if any of the user's OWN same-class
+    // stints are abandoned, suppress the silent clock-in and notify instead, so
+    // they resolve it on their next visible interaction.
+    const abandoned = await getOwnAbandonedStints();
+    if (abandoned.length > 0) {
+      try {
+        chrome.notifications.create('abandoned-stint-blocked-autoclockin', {
+          type: 'basic',
+          iconUrl: 'icons/icon128.png',
+          title: 'Tabatha — unfinished shift',
+          message: `Auto clock-in paused: ${abandoned.length} abandoned shift${abandoned.length === 1 ? '' : 's'} need${abandoned.length === 1 ? 's' : ''} resolving. Open Tabatha to fix the end time or discard, then clock in.`,
+          requireInteraction: true
+        });
+      } catch { /* notifications best-effort */ }
+      broadcastToExtension({ type: 'AUTO_CLOCK_IN_SUPPRESSED', reason: 'abandoned_stints', count: abandoned.length });
+      return;
+    }
 
     const result = await clock.clockIn();
     if (deps.companionBridge?.isConnected) deps.companionBridge.sendClockIn();
@@ -391,6 +560,15 @@ export async function handleIdleStateChanged(newState) {
       // Prompt instead of hard-pausing. Persist a pending marker so (a) the
       // InBar/popup can render the prompt and (b) the idle-auto-break alarm can
       // fall back to a hard pause if the user never responds.
+      // NB-09 single-flight: sleep/wake can fire both the offline-gap detector
+      // and this native idle event — never stack a second prompt over a fresh
+      // pending one (stale abandoned markers may be replaced).
+      const { _idlePrompt: pendingPrompt } = await getStorage('_idlePrompt');
+      if (pendingPrompt && (Date.now() - (pendingPrompt.ts || 0)) < 30 * 60000) {
+        broadcastToExtension({ type: 'USER_IDLE', since: userIdleSince });
+        chrome.alarms.create('idle-auto-break', { delayInMinutes: 5 });
+        return;
+      }
       const promptId = `idle_${activeId}_${Date.now()}`;
       await setStorage({
         _idlePrompt: { id: promptId, focusId: activeId, focusLabel: active.label, since: userIdleSince, ts: Date.now() }
@@ -416,10 +594,13 @@ export async function handleIdleStateChanged(newState) {
 
   // Plan 036: returning to Chrome means this profile is active again. Clear
   // any pending idle prompt — the Welcome-Back flow below owns the return UX.
+  // NB-09: EXCEPT gap-sourced prompts — those are created AT the return (the
+  // wake) and ARE the return UX; clearing them here is the exact race the
+  // single-flight guard exists to prevent.
   deps.setAwarenessIdleState?.('active');
   try {
     const { _idlePrompt } = await getStorage('_idlePrompt');
-    if (_idlePrompt) {
+    if (_idlePrompt && _idlePrompt.source !== 'gap') {
       await setStorage({ _idlePrompt: null });
       broadcastAll({ type: 'IDLE_PROMPT_RESOLVED', id: _idlePrompt.id, resolution: 'returned' });
     }
@@ -544,6 +725,114 @@ export async function handleIdleStateChanged(newState) {
   userIdleSince = null;
 }
 
+// ════════════════════════════════════════════
+// NB-01/NB-02 — Required-hours shortfall detection.
+//
+// Evaluated at clock-out (the moment a cadence window's tally can change).
+// Pure math lives in src/utils/scheduleModel.js: for each of the member's
+// active required-hours floors (daily/weekly/monthly are INDEPENDENT — the
+// anti-back-loading rule), the just-closed window is checked for a final
+// miss, and the current window for a miss that is already mathematically
+// certain. Detected shortfalls are:
+//   1. written to tabatha.shortfall_ledger (resolution 'unresolved') via the
+//      injected scheduleApi wrapper — idempotent per member/cadence/period;
+//   2. surfaced with a SHORTFALL_PROMPT broadcast + a Chrome notification so
+//      the user can account for the time (make-up / shift / reason) from the
+//      Work Shifts → Schedule view.
+// Deliberately NOT a hard block on clock-in/out (Koda): this is the minimal
+// detection + prompt + ledger slice; the full adherence engine phases later.
+// Fail-open: signed-out / offline / no-requirements users are unaffected.
+// ════════════════════════════════════════════
+export async function checkShortfallAtClockOut(now = Date.now()) {
+  try {
+    const api = deps.scheduleApi;
+    const supabase = deps.supabase;
+    if (!api || !supabase) return null;
+
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    if (!session?.user?.id) return null;
+
+    const { data: prof } = await supabase
+      .schema('tabatha')
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', session.user.id)
+      .maybeSingle();
+    if (!prof?.id) return null;
+
+    // Open floors across all of the member's orgs (RLS returns own rows).
+    const requirements = await api.getWorkRequirements({ profileId: prof.id });
+    if (!requirements?.length) return null;
+
+    const { clockHistory } = await getStorage('clockHistory');
+    const sessions = clockHistory || [];
+
+    // Group per org — floors and ledgers are org-scoped.
+    const byOrg = new Map();
+    for (const r of requirements) {
+      if (!byOrg.has(r.org_id)) byOrg.set(r.org_id, []);
+      byOrg.get(r.org_id).push(r);
+    }
+
+    // Prompt dedupe (persisted): one prompt per member/org/cadence/period.
+    const { _shortfallPrompted } = await getStorage('_shortfallPrompted');
+    const prompted = _shortfallPrompted || {};
+    const results = [];
+
+    for (const [orgId, reqs] of byOrg) {
+      const detected = shortfallsToPrompt(reqs, sessions, now);
+      const fresh = detected.filter(s => !prompted[`${orgId}:${shortfallKey(s)}`]);
+      if (fresh.length === 0) continue;
+
+      // Ledger rows are created ON PROMPT (never pre-materialized); the
+      // unique index makes re-runs harmless.
+      try {
+        await api.logShortfalls({ orgId, profileId: prof.id, shortfalls: fresh });
+      } catch { /* ledger write is best-effort; the prompt still shows */ }
+
+      for (const s of fresh) {
+        prompted[`${orgId}:${shortfallKey(s)}`] = now;
+        results.push({ ...s, orgId });
+      }
+    }
+
+    if (results.length === 0) return null;
+
+    // Cap the dedupe map so it can't grow unbounded.
+    const keys = Object.keys(prompted);
+    if (keys.length > 200) {
+      keys.sort((a, b) => prompted[a] - prompted[b]);
+      for (const k of keys.slice(0, keys.length - 200)) delete prompted[k];
+    }
+    await setStorage({ _shortfallPrompted: prompted });
+
+    broadcastToExtension({ type: 'SHORTFALL_PROMPT', shortfalls: results });
+    try {
+      const first = results[0];
+      chrome.notifications.create(`shortfall-${now}`, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Tabatha — required hours',
+        message: results.length === 1
+          ? `You're ${fmtMinutes(first.missingMinutes)} short of your ${first.cadence} minimum${first.final ? '' : ' (current period can no longer be met)'}. Open Work Shifts → Schedule to make it up, shift it, or log a reason.`
+          : `${results.length} required-hours shortfalls need accounting. Open Work Shifts → Schedule to resolve them.`,
+        requireInteraction: true,
+      });
+    } catch { /* notifications best-effort */ }
+
+    try {
+      const { tabathaLogs } = await getStorage('tabathaLogs');
+      const logs = tabathaLogs || [];
+      logs.push({ type: 'shortfall_detected', shortfalls: results, ts: new Date().toISOString() });
+      await setStorage({ tabathaLogs: logs.slice(-500) });
+    } catch { /* non-critical */ }
+
+    return results;
+  } catch {
+    return null; // shortfall detection is always fail-open
+  }
+}
+
 async function getTabData() {
   if (deps.getTabData) return deps.getTabData();
   const { tabs } = await getStorage('tabs');
@@ -576,12 +865,21 @@ export async function handleMessage(type, message, _sender) {
         deps.companionBridge.sendClockOut();
       }
       if (deps.fireWebhook) deps.fireWebhook('clock_out', {});
-      if (!result.error) deps.triggerSync?.();
+      if (!result.error) {
+        deps.triggerSync?.();
+        // NB-01/NB-02: fire-and-forget required-hours check — never delays
+        // or blocks the clock-out itself (Koda: no hard blocks by profile type).
+        checkShortfallAtClockOut().catch(() => {});
+      }
       deps.notifyAwarenessStateChange?.();
       return result;
     }
 
     case 'GET_CLOCK_STATUS':
+      // NB-09: cheap wake-event hook — popup/home opening after a sleep is
+      // often the first sign of life; piggyback a gap check (in-flight guarded,
+      // fire-and-forget so the status response is never delayed).
+      checkOfflineGap('message').catch(() => {});
       return await clock.getClockStatus();
 
     case 'TOGGLE_BREAK': {

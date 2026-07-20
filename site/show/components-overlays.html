@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Overlays &amp; Content Scripts</title>
+<link rel="stylesheet" href="assets/site.css">
+<style>
+/* ============================================================
+   Tabatha Component Showcase — category page kit.
+   Chrome uses the logo palette (#0F1115 / #00D2FF); component
+   stages render the live app tokens (Pop-Art theme: bg #050505,
+   accent #00F0FF, secondary #FF0055, gold #FFD700). Radius scale
+   is the product's halved scale (2/4/8). Icons are emoji, matching
+   the extension (which ships no icon library). Self-contained:
+   inline CSS, no network deps.
+   ============================================================ */
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --purple:#ab47bc;--agent:#b388ff;--backburner:#ff9800;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+
+/* page head */
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+
+section{max-width:1180px;margin:0 auto;padding:30px 40px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-head h2{font-size:20px;letter-spacing:-.01em}
+.sec-head .meta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+/* component grid */
+.lib{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.libcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:80px}
+.libcard.wide{grid-column:span 2}
+.stage{background:radial-gradient(circle at 50% 30%,#0a0c0f,#050505);padding:26px 24px;display:flex;
+  align-items:center;justify-content:center;min-height:200px;position:relative;overflow:hidden}
+.stage.tall{min-height:300px}
+.stage.top{align-items:flex-start}
+.libcap{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-top:1px solid var(--border)}
+.libcap .e{font-size:18px;flex:none}
+.libcap .t{font-weight:600;font-size:14px}
+.libcap .d{font-size:12px;color:var(--muted);margin-top:2px}
+.libcap .src{font-family:var(--mono);font-size:10px;color:#5b6570;margin-top:5px}
+/* state variant strip */
+.variants{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:center}
+.vlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5b6570;font-weight:700;
+  width:100%;text-align:center;margin-bottom:2px}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+
+/* shared app-surface tokens */
+.app{--acc:#00F0FF}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#868E96;font-weight:700;display:flex;align-items:center;gap:7px}
+.mono{font-family:var(--mono)}
+.glass{background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);border-radius:8px;backdrop-filter:blur(16px)}
+
+footer{max-width:1180px;margin:0 auto;padding:34px 40px 70px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer .dot{opacity:.4}
+
+@media (max-width:900px){
+  .lib{grid-template-columns:1fr}.libcard.wide{grid-column:span 1}
+  .phead h1{font-size:30px}
+}
+
+/* ============================================================
+   Component-specific CSS. Values below are lifted from the real
+   content scripts (src/content/inbar.js, gatekeeper.js,
+   blockgate.js) so the reproduction matches what ships.
+   ============================================================ */
+
+/* ---- InBar (src/content/inbar.js: BAR_HEIGHT 26, NUB_SIZE 22) ---- */
+.inbar{width:100%;max-width:560px;height:26px;background:#0d0d0d;
+  border-top:1px solid rgba(255,255,255,.08);border-radius:4px;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;
+  box-shadow:0 8px 30px rgba(0,0,0,.5);font-size:11px}
+.inbar.paused{background:linear-gradient(90deg,#1a1400 0%,#0d0d0d 40%);border-color:rgba(255,193,7,.15)}
+.inbar.agent-mode{border-color:rgba(124,77,255,.4);box-shadow:inset 0 0 0 1px rgba(124,77,255,.14),0 8px 30px rgba(0,0,0,.5)}
+.inbar .left,.inbar .right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.inbar .center{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
+.inbar .timer{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:10px;font-weight:600;letter-spacing:.3px}
+.inbar .timer-up{color:#00e5ff}
+.inbar .timer-task{color:#66bb6a}
+.inbar .divider{width:1px;height:10px;background:rgba(255,255,255,.12);flex-shrink:0}
+.inbar .badge{font-size:7px;padding:1px 4px;border-radius:3px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.inbar .badge-focus{background:#00e5ff18;color:#00e5ff;border:1px solid #00e5ff33}
+.inbar .badge-no-intent{background:#ff6b6b12;color:#ff6b6b;border:1px solid #ff6b6b33;padding:2px 8px;font-size:9px}
+.inbar .badge-agent{background:#7c4dff1f;color:#b388ff;border:1px solid #7c4dff55;padding:2px 8px;font-size:9px}
+.inbar .focus-label-left{font-size:10px;font-weight:600;color:#00e5ff;white-space:nowrap}
+.inbar .intent-label{font-weight:500;color:#eee;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inbar .link-icon{font-size:10px;margin-right:3px}
+.inbar .none{font-size:10px;color:#555}
+.inbar .bar-btn{background:none;border:none;color:#555;font-size:11px;padding:2px 4px;line-height:1;border-radius:3px}
+.inbar .bar-btn.is-agent{color:#b388ff}
+.inbar .bar-btn.is-paused{color:#66bb6a}
+.inbar .cook{font-size:12px;margin-right:6px}
+.inbar .pause-label{font-size:10px;color:#ffc107;font-weight:600;display:flex;align-items:center;gap:4px;min-width:0}
+.inbar .note-preview{color:#bbb;font-weight:400;font-style:italic;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbar .resume-btn-inline{background:#66bb6a22;color:#66bb6a;border:1px solid #66bb6a44;border-radius:4px;
+  padding:2px 8px;font-size:10px;font-weight:600;font-family:var(--sans)}
+.inbar .pause-glyph{font-size:10px;color:#ffc107}
+
+/* nub */
+.nub-demo{width:22px;height:22px;border-radius:50%;background:#1a1a1a;border:1px solid rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:#00e5ff;
+  box-shadow:0 1px 6px rgba(0,0,0,.5)}
+.nub-demo.is-paused{color:#ffc107;border-color:#ffc10744}
+
+/* ---- Sticky note overlay (inbar.js .sticky-note) ---- */
+.sticky-note{position:relative;width:440px;max-width:100%;padding:28px 32px 20px;
+  background:linear-gradient(135deg,#fff9c4 0%,#fff59d 30%,#ffee58 100%);border-radius:3px;
+  box-shadow:2px 4px 24px rgba(0,0,0,.25),0 1px 4px rgba(0,0,0,.15),inset 0 -2px 6px rgba(0,0,0,.04);
+  color:#3e2723;font-family:'Segoe Script','Comic Sans MS','Patrick Hand',cursive;transform:rotate(-1.5deg)}
+.sticky-note::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);
+  width:60px;height:16px;background:rgba(200,200,200,.6);border-radius:0 0 3px 3px}
+.sticky-tape{position:absolute;top:-10px;left:50%;transform:translateX(-50%) rotate(-1deg);
+  width:70px;height:20px;background:rgba(255,255,255,.5);border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.sticky-header{font-size:11px;color:#795548;font-family:'Segoe UI',system-ui,sans-serif;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.sticky-time{font-size:10px;color:#8d6e63;font-family:'Segoe UI',system-ui,sans-serif;font-weight:400}
+.sticky-intent{font-size:12px;color:#5d4037;font-family:'Segoe UI',system-ui,sans-serif;margin-bottom:10px;opacity:.8}
+.sticky-body{font-size:18px;line-height:1.5;color:#3e2723;min-height:40px;margin:8px 0 16px}
+.sticky-actions{display:flex;gap:8px;justify-content:center}
+.sticky-resume{background:#43a047;color:#fff;border:none;padding:8px 24px;border-radius:6px;font-size:13px;
+  font-weight:700;font-family:'Segoe UI',system-ui,sans-serif;box-shadow:0 2px 8px rgba(67,160,71,.3)}
+.sticky-edit{background:transparent;color:#795548;border:1px solid #bcaaa4;padding:6px 14px;border-radius:6px;
+  font-size:11px;font-family:'Segoe UI',system-ui,sans-serif}
+
+/* ---- InBar edit dropdown ---- */
+.edit-dd{width:320px;background:#141414;border:1px solid rgba(255,255,255,.12);border-radius:8px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.5);padding:10px 12px;text-align:left}
+.edit-title{font-size:10px;font-weight:700;color:#00e5ff;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.edit-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.edit-input{flex:1;width:100%;background:#0d0d0d;border:1px solid rgba(255,255,255,.1);border-radius:4px;
+  color:#eee;font-family:var(--sans);font-size:11px;padding:5px 8px}
+.edit-save{background:#00e5ff22;color:#00e5ff;border:1px solid #00e5ff44;border-radius:4px;padding:4px 10px;
+  font-size:10px;font-weight:600;font-family:var(--sans);flex:none}
+.edit-desc{min-height:36px;resize:vertical;margin-bottom:6px;font-size:10px}
+.edit-section{font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 4px}
+.focus-item{padding:4px 8px;border-radius:4px;font-size:11px;color:#ccc;display:flex;justify-content:space-between;align-items:center}
+.focus-item.active{background:#00e5ff12;border-left:2px solid #00e5ff}
+.focus-state{font-size:8px;padding:1px 4px;border-radius:3px;text-transform:uppercase;font-weight:600}
+.focus-state.active{background:#66bb6a22;color:#66bb6a}
+.focus-state.paused{background:#ffa72622;color:#ffa726}
+.focus-state.queued{background:#64b5f622;color:#64b5f6}
+.new-focus-btn{width:100%;background:none;border:1px dashed rgba(255,255,255,.15);border-radius:4px;
+  color:#888;padding:5px;font-size:10px;font-family:var(--sans);margin-top:4px}
+
+/* ---- Backburner prompt ---- */
+.bb{width:320px;background:#1a0a0d;border:1px solid rgba(255,82,82,.25);border-radius:8px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.6);padding:12px 14px;display:flex;flex-direction:column;gap:8px;text-align:left}
+.bb-title{font-size:10px;font-weight:700;color:#ff5252;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.bb-sub{font-size:9px;color:#888;margin-bottom:2px}
+.bb-dur{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.bb-dur span{font-size:10px;color:#aaa}
+.bb-dur input{width:50px;background:#0f0507;border:1px solid rgba(255,82,82,.2);border-radius:4px;color:#eee;
+  font-size:11px;padding:3px 6px;text-align:center;font-family:var(--sans)}
+.bb-input{width:100%;background:#0f0507;border:1px solid rgba(255,82,82,.2);border-radius:4px;color:#eee;
+  font-family:var(--sans);font-size:11px;padding:6px 8px;resize:none;height:38px;line-height:1.4}
+.bb-rule{height:1px;background:rgba(255,82,82,.15);margin:4px 0}
+.bb-instead{font-size:9px;color:#ff5252aa;font-weight:600;text-transform:uppercase;margin-bottom:2px}
+.bb-select{width:100%;background:#0f0507;border:1px solid rgba(255,82,82,.2);border-radius:4px;color:#eee;
+  font-family:var(--sans);font-size:11px;padding:5px 8px}
+.bb-or{font-size:9px;color:#666;text-align:center;margin:4px 0}
+.bb-new{height:28px}
+.bb-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:4px}
+.bb-btn{padding:4px 12px;border-radius:4px;font-size:10px;font-weight:600;border:none;font-family:var(--sans)}
+.bb-confirm{background:#ff5252;color:#fff}
+.bb-cancel{background:#333;color:#aaa}
+
+/* ---- Checkpoint (CPN) card ---- */
+.cpn{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:24px;width:400px;max-width:100%;
+  color:#eee;text-align:center;box-shadow:0 16px 40px rgba(0,0,0,.4)}
+.cpn .ico{font-size:24px;margin-bottom:6px}
+.cpn .h{font-size:15px;font-weight:600;margin-bottom:4px}
+.cpn .meta{font-size:12px;color:#aaa;margin-bottom:4px}
+.cpn .num{font-size:11px;color:#666;margin-bottom:10px}
+.cpn textarea{width:100%;height:56px;background:#111;border:1px solid #444;border-radius:4px;color:#eee;
+  font-size:12px;font-family:var(--sans);padding:8px;resize:none;margin-bottom:10px}
+.cpn .lvl-lab{font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em}
+.cpn .lvls{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px}
+.cpn .foot{display:flex;gap:8px;justify-content:center}
+.cpn-btn{border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;white-space:nowrap;font-family:var(--sans)}
+
+/* ---- Notes panel ---- */
+.notes{width:320px;background:#141414;border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.4);padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.notes-header{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;
+  color:#888;text-transform:uppercase;letter-spacing:.5px}
+.notes-header span{color:#ffc107}
+.notes-header button{background:none;border:none;color:#555;font-size:10px}
+.notes textarea{height:76px;background:#0a0a0a;border:1px solid rgba(255,255,255,.08);border-radius:4px;
+  color:#ddd;font-family:var(--sans);font-size:11px;padding:6px 8px;resize:none;line-height:1.4}
+.notes .saved{font-size:9px;color:#66bb6a;text-align:right}
+
+/* ---- Gatekeeper card (gatekeeper.js: hardcoded 16px radius) ---- */
+.gate{width:400px;background:#1a1a1a;border:1px solid #333;border-radius:16px;padding:24px 26px;
+  text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(0,240,255,.06)}
+.gate h1{font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+.mode-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:3px;font-weight:600}
+.mode-strict{background:#ff6b6b22;color:#ff6b6b}
+.mode-relaxed{background:#66bb6a22;color:#66bb6a}
+.gate .subtitle{font-size:12px;color:#888;margin-top:6px}
+.inherit-hint{font-size:10px;color:#888;margin-bottom:6px;text-align:left;margin-top:14px}
+.who-working{display:flex;gap:4px;margin:14px 0 12px;background:#222;border:1px solid #333;border-radius:8px;padding:3px}
+.who-opt{flex:1;padding:7px 8px;border-radius:6px;font-size:11px;font-weight:600;text-align:center;
+  color:#888;background:transparent;border:1px solid transparent;font-family:var(--sans)}
+.who-opt.human.selected{background:#00e5ff18;color:#00e5ff;border-color:#00e5ff44}
+.who-opt.agent.selected{background:#7c4dff22;color:#b388ff;border-color:#7c4dff66}
+.gate input{width:100%;padding:9px 12px;margin-bottom:10px;background:#333;border:1px solid #444;
+  border-radius:6px;color:#fff;font:500 13px var(--sans)}
+.gate .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.gate .actions button{border:0;border-radius:6px;padding:10px;font:600 12px var(--sans);color:#fff}
+.gate .b-cont{grid-column:1/3;background:#fff;color:#111;font-weight:700}
+.gate .b-sq{background:#2b2b2b;border:1px solid #3a3a3a;color:#eee}
+.gate .b-sugar{background:#ef535022;color:#ff8a80;border:1px solid #ef535044}
+.gate-scale{transform:scale(.8);transform-origin:top center}
+
+/* ---- BlockGate (verbatim from index.html) ---- */
+.bg-wrap{width:300px;background:#1a1a1a;border:1px solid #5c2b2b;border-radius:6px;padding:18px;text-align:center;
+  box-shadow:0 0 0 6px rgba(180,20,20,.18),0 20px 50px rgba(0,0,0,.5)}
+.bg-wrap h3{color:#ff6b6b;font-size:16px;font-weight:700}
+.bg-wrap .sub{font-size:11px;color:#999;margin-top:4px}
+.bg-wrap .host{color:#ff8a80;font-weight:600;font-size:12px;margin:8px 0}
+.bg-wrap .lab{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#888;text-align:left;margin:10px 0 5px}
+.bg-wrap textarea{width:100%;height:44px;background:#111;border:1px solid #333;border-radius:4px;color:#ddd;font:400 11px var(--sans);padding:7px;resize:none}
+.bg-wrap .cc{font-size:10px;color:#66bb6a;text-align:right;margin-top:3px}
+.bg-wrap select{width:100%;background:#111;border:1px solid #333;border-radius:4px;color:#ddd;font:400 11px var(--sans);padding:6px}
+.bg-wrap .btns{display:flex;gap:8px;margin-top:12px}
+.bg-wrap .btns button{flex:1;border-radius:4px;padding:8px;font:700 11px var(--sans);cursor:pointer;border:0}
+.bg-proceed{background:#3a1e1e;color:#c98;border:1px solid #5c2b2b}
+.bg-leave{background:transparent;color:#8bd48f;border:1px solid #66bb6a55}
+
+/* ---- Welcome Back flash ---- */
+.wb{background:rgba(20,20,25,.55);border:1px solid var(--appcyan);border-radius:8px;padding:20px 40px;
+  backdrop-filter:blur(16px);text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.wb .e{font-size:24px;margin-bottom:6px}
+.wb .m{font-size:16px;font-weight:700;color:var(--appcyan)}
+
+/* ---- What's New modal ---- */
+.wn{width:420px;max-width:100%;background:rgba(20,20,25,.55);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;backdrop-filter:blur(16px);overflow:hidden;text-align:left}
+.wn .top{display:flex;justify-content:space-between;align-items:center;padding:18px 20px 10px}
+.wn .kick{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--appcyan);font-weight:600}
+.wn h2{margin:2px 0 0;font-size:17px;font-weight:700}
+.wn .x{background:transparent;border:none;color:#868E96;font-size:16px}
+.wn .body{padding:0 20px 6px}
+.wn .rel{font-family:var(--mono);font-size:12px;color:var(--appcyan);font-weight:700}
+.wn .grp{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#66bb6a;font-weight:700;margin:8px 0 4px}
+.wn ul{margin:0 0 4px 16px;font-size:12px;color:#b8c2cc}
+.wn li{margin-bottom:3px}
+.wn .foot{display:flex;justify-content:flex-end;padding:12px 20px 16px;border-top:1px solid rgba(255,255,255,.1);margin-top:8px}
+.wn .got{padding:8px 18px;background:var(--appcyan);border:none;color:#000;border-radius:4px;font-size:12px;font-weight:600;font-family:var(--sans)}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Context &amp; Focus Manager</span>
+  <span class="grow"></span>
+  <a href="index.html" class="back">&larr; Gallery</a>
+  <a href="#inbar">InBar</a>
+  <a href="#overlays">Overlays</a>
+  <a href="roadmap.html">Roadmap</a>
+  <span class="verbadge">v6.7.18</span>
+</nav>
+
+<header class="phead">
+  <div class="kicker">Component Showcase</div>
+  <h1>Overlays &amp; Content Scripts</h1>
+  <p>These are the surfaces Tabatha injects into every page you visit: the InBar strip, the Gatekeeper, the BlockGate, and the pause sticky note. Each one is reproduced here from the shipped content-script source, down to the hardcoded colors, radii, and button labels.</p>
+</header>
+
+<section id="inbar">
+  <div class="sec-head">
+    <h2>InBar states</h2>
+    <span class="meta">one 26px strip, five states &middot; src/content/inbar.js</span>
+  </div>
+  <p class="sec-purpose">The InBar is the one piece of Tabatha that is always on screen, so it is the one that had to be smallest. It sits on the page you are actually reading and states what you said this tab was for. That is the whole job: <b>a tab with a declared purpose is hard to drift away from without noticing</b>, and noticing is the point. The states below are the interesting part - what it looks like when a focus is paused, when a tab has no intent at all, when an agent is driving, and when you have collapsed it down to a nub because you need the pixels back.</p>
+  <div class="lib app">
+
+    <div class="libcard" id="inbar-active">
+      <div class="stage">
+        <div class="inbar">
+          <div class="left">
+            <span class="timer timer-up">12:48</span>
+            <span class="divider"></span>
+            <span class="timer timer-task">04:11</span>
+            <span class="divider"></span>
+            <span class="badge badge-focus">&#127919;</span>
+            <span class="focus-label-left">Q1 Report</span>
+          </div>
+          <div class="center">
+            <span class="link-icon">&#128279;</span>
+            <span class="intent-label">Finalize Q1 revenue charts</span>
+          </div>
+          <div class="right">
+            <button class="bar-btn">&#129302;</button>
+            <button class="bar-btn">&#9999;&#65039;</button>
+            <button class="bar-btn">&#128203;</button>
+            <button class="bar-btn">&#128260;</button>
+            <button class="bar-btn">&#128293;</button>
+            <button class="bar-btn">&#9208;</button>
+            <button class="bar-btn">&#128221;</button>
+            <button class="bar-btn">&#9662;</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128202;</span><div>
+        <div class="t">InBar &mdash; active</div>
+        <div class="d">The default state. Left: intent timer (cyan) and total task timer (green) flanking the active focus. Center: the tab's intent, with the link glyph showing it is bound to that focus. Right: the full action row.</div>
+        <div class="src">src/content/inbar.js &middot; buildBarHTML()</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="inbar-paused">
+      <div class="stage">
+        <div class="inbar paused">
+          <div class="left"><span class="pause-glyph">&#9208;</span></div>
+          <div class="center">
+            <span class="pause-label">&#9208; PAUSED <span class="note-preview">&mdash; "Was debugging line 234, check the race c&hellip;"</span></span>
+            <button class="resume-btn-inline">&#9654; Resume</button>
+          </div>
+          <div class="right">
+            <button class="bar-btn is-paused">&#9654;</button>
+            <button class="bar-btn">&#128221;</button>
+            <button class="bar-btn">&#9662;</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#9208;</span><div>
+        <div class="t">InBar &mdash; paused</div>
+        <div class="d">Pausing collapses the bar to an amber strip carrying the first 40 characters of your pause note, so you can see where you left off without expanding anything. The action row drops to resume, note, and collapse.</div>
+        <div class="src">src/content/inbar.js &middot; buildBarHTML() paused branch</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="inbar-nointent">
+      <div class="stage">
+        <div class="inbar">
+          <div class="left"><span class="none">&mdash;</span></div>
+          <div class="center"><span class="badge badge-no-intent">No intent set</span></div>
+          <div class="right">
+            <button class="bar-btn">&#129302;</button>
+            <button class="bar-btn">&#9999;&#65039;</button>
+            <button class="bar-btn">&#128203;</button>
+            <button class="bar-btn">&#128260;</button>
+            <button class="bar-btn">&#128293;</button>
+            <button class="bar-btn">&#9208;</button>
+            <button class="bar-btn">&#128221;</button>
+            <button class="bar-btn">&#9662;</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#10067;</span><div>
+        <div class="t">InBar &mdash; no intent set</div>
+        <div class="d">With no context and no focus, the timers give way to a single dash and the center becomes a red call to action. Clicking the badge opens the popup so the tab can be given a purpose.</div>
+        <div class="src">src/content/inbar.js &middot; .badge-no-intent</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="inbar-agent">
+      <div class="stage">
+        <div class="inbar agent-mode">
+          <div class="left">
+            <span class="timer timer-up">12:48</span>
+            <span class="divider"></span>
+            <span class="timer timer-task">04:11</span>
+            <span class="divider"></span>
+            <span class="badge badge-focus">&#127919;</span>
+            <span class="focus-label-left">Q1 Report</span>
+          </div>
+          <div class="center">
+            <span class="badge badge-agent">&#129302; AGENT</span>
+            <span class="link-icon">&#128279;</span>
+            <span class="intent-label">Finalize Q1 revenue charts</span>
+          </div>
+          <div class="right">
+            <span class="cook">&#127859;</span>
+            <button class="bar-btn agent-btn is-agent">&#129302;</button>
+            <button class="bar-btn">&#9999;&#65039;</button>
+            <button class="bar-btn">&#128203;</button>
+            <button class="bar-btn">&#128260;</button>
+            <button class="bar-btn">&#128293;</button>
+            <button class="bar-btn">&#9208;</button>
+            <button class="bar-btn">&#128221;</button>
+            <button class="bar-btn">&#9662;</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#129302;</span><div>
+        <div class="t">InBar &mdash; agent mode</div>
+        <div class="d">When an AI agent is driving the tab, the bar takes a violet cast and the time is attributed as agent-driven rather than yours. The pan glyph appears alongside it when Let Me Cook mode is on.</div>
+        <div class="src">src/content/inbar.js &middot; .badge-agent / .bar.agent-mode</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="inbar-nub">
+      <div class="stage">
+        <div class="variants">
+          <div class="vcol">
+            <span class="vlabel">Default</span>
+            <div class="nub-demo">&#9673;</div>
+          </div>
+          <div class="vcol">
+            <span class="vlabel">Paused</span>
+            <div class="nub-demo is-paused">&#9208;</div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#9673;</span><div>
+        <div class="t">InBar &mdash; nub (collapsed)</div>
+        <div class="d">Collapsing the bar leaves a 22px nub pinned to the corner. It keeps its state color, so a paused session still reads as amber from across the screen and one click brings the bar back.</div>
+        <div class="src">src/content/inbar.js &middot; .nub / .nub.is-paused</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="notes-panel">
+      <div class="stage">
+        <div class="notes">
+          <div class="notes-header">
+            <span>&#128221; Quick Note</span>
+            <button>&#10005;</button>
+          </div>
+          <textarea readonly>Charts render fine at 1080p but clip on the narrow layout. Revisit the axis labels before sharing.</textarea>
+          <div class="saved">&#10003; Saved</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128221;</span><div>
+        <div class="t">Notes panel</div>
+        <div class="d">A scratchpad that slides out of the bar and autosaves against the current focus, task, or intent. The note glyph turns amber whenever a note exists, so the bar itself tells you there is something written down.</div>
+        <div class="src">src/content/inbar.js &middot; .notes-panel</div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<section id="overlays">
+  <div class="sec-head">
+    <h2>Overlays &amp; prompts</h2>
+    <span class="meta">full-page interrupts and bar-anchored panels</span>
+  </div>
+  <p class="sec-purpose">Everything Tabatha injects that interrupts rather than informs. The <b>Gatekeeper</b> is the load-bearing one: open a new tab with no link behind it and it asks "Why are you here?" before the page resolves. Strict mode wants an answer, Relaxed mode takes a shrug. This is deliberate friction, applied at the one moment it is cheap - before you have started - rather than in a report you read afterwards. The rest hold lines you drew earlier: BlockGate on sites you blocked, Welcome Back after time away, the Backburner prompt when you park something you are blocked on.</p>
+  <div class="lib app">
+
+    <div class="libcard wide" id="sticky-note">
+      <div class="stage tall">
+        <div class="sticky-note">
+          <div class="sticky-tape"></div>
+          <div class="sticky-header">
+            <span>&#128204; Paused</span>
+            <span class="sticky-time">10:42 AM</span>
+          </div>
+          <div class="sticky-intent">Q1 Report</div>
+          <div class="sticky-body">Was debugging line 234 &mdash; the race condition only fires when two installs sync at once. Check syncService watermark.</div>
+          <div class="sticky-actions">
+            <button class="sticky-edit">&#9999;&#65039; Edit Note</button>
+            <button class="sticky-resume">&#9654; Resume</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128204;</span><div>
+        <div class="t">Sticky note overlay</div>
+        <div class="d">Come back to a paused tab and this is what greets you: the note you wrote to yourself, on paper, over the page. The tilt is randomized per note and the whole thing is deliberately analog, because a system dialog is too easy to dismiss without reading.</div>
+        <div class="src">src/content/inbar.js &middot; buildStickyHTML() / .sticky-note</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="inbar-edit">
+      <div class="stage">
+        <div class="edit-dd">
+          <div class="edit-title">&#9999;&#65039; Edit Intent</div>
+          <div class="edit-row">
+            <input class="edit-input" value="Finalize Q1 revenue charts" readonly>
+            <button class="edit-save">Save</button>
+          </div>
+          <textarea class="edit-input edit-desc" placeholder="Description (optional)..."></textarea>
+          <div class="edit-section">Assign to Focus</div>
+          <div>
+            <div class="focus-item active"><span>&#127919; Q1 Report</span><span class="focus-state active">active</span></div>
+            <div class="focus-item"><span>&#9208; Learning React</span><span class="focus-state paused">paused</span></div>
+            <div class="focus-item"><span>&#128203; Vacation Planning</span><span class="focus-state queued">queued</span></div>
+          </div>
+          <button class="new-focus-btn">+ Create new focus from this tab</button>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#9999;&#65039;</span><div>
+        <div class="t">InBar edit dropdown</div>
+        <div class="d">Rewrite the tab's intent or reassign it to another focus without leaving the page. Completed and resolved items are filtered out, and the list sorts active first, then paused, so the likely target is always at the top.</div>
+        <div class="src">src/content/inbar.js &middot; .edit-dropdown</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="backburner-prompt">
+      <div class="stage">
+        <div class="bb">
+          <div class="bb-title">&#128293; Backburner: "Q1 Report"</div>
+          <div class="bb-sub">Put this aside while waiting. We'll remind you to return.</div>
+          <div class="bb-dur">
+            <span>Duration:</span>
+            <input type="text" value="15" readonly>
+            <span>mins</span>
+          </div>
+          <textarea class="bb-input" readonly placeholder="What are you waiting for? (e.g. test suite to pass)">Waiting on CI to finish the migration run</textarea>
+          <div class="bb-rule"></div>
+          <div class="bb-instead">What will you work on instead?</div>
+          <select class="bb-select"><option>-- Switch to existing Focus --</option></select>
+          <div class="bb-or">&mdash; OR CREATE NEW &mdash;</div>
+          <input type="text" class="bb-input bb-new" placeholder="Create a new temporary focus...">
+          <div class="bb-actions">
+            <button class="bb-btn bb-cancel">Cancel</button>
+            <button class="bb-btn bb-confirm">Backburner</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128293;</span><div>
+        <div class="t">Backburner prompt</div>
+        <div class="d">For work that is blocked rather than finished. Name what you are waiting on, set a timer, and pick what you will do instead. Tabatha reopens the loop when the timer expires so the blocked item is never silently dropped.</div>
+        <div class="src">src/content/inbar.js &middot; .backburner-prompt</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="checkpoint-card">
+      <div class="stage tall">
+        <div class="cpn">
+          <div class="ico">&#128203;</div>
+          <div class="h">Progress Check</div>
+          <div class="meta">"Q1 Report" &middot; Elapsed: 48:12 &middot; Timer: 60:00</div>
+          <div class="num">Checkpoint #3</div>
+          <textarea readonly placeholder="What have you accomplished since your last checkpoint?">Revenue tables are final and the first two charts are done. Axis formatting left, then a read-through.</textarea>
+          <div class="lvl-lab">Submit with progress level:</div>
+          <div class="lvls">
+            <button class="cpn-btn" style="background:#9e9e9e22;color:#9e9e9e;border:1px solid #9e9e9e44">&#128528; None</button>
+            <button class="cpn-btn" style="background:#29b6f622;color:#29b6f6;border:1px solid #29b6f644">&#128200; Little</button>
+            <button class="cpn-btn" style="background:#66bb6a22;color:#66bb6a;border:1px solid #66bb6a44">&#128640; A Lot</button>
+            <button class="cpn-btn" style="background:#ffd54f22;color:#ffd54f;border:1px solid #ffd54f44">&#127937; Almost Done</button>
+            <button class="cpn-btn" style="background:#ef535022;color:#ef5350;border:1px solid #ef535044">&#128679; Stuck</button>
+          </div>
+          <div class="foot">
+            <button class="cpn-btn" style="background:#78909c22;color:#78909c;border:1px solid #78909c44;font-size:11px">&#9200; Snooze 5 min</button>
+            <button class="cpn-btn" style="background:#55555522;color:#555;border:1px solid #55555544;font-size:11px">Skip this time</button>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128203;</span><div>
+        <div class="t">Checkpoint card</div>
+        <div class="d">The periodic progress check. Answering costs one sentence and a single button, and the progress level is what feeds the follow-through data: five honest options including Stuck, because pretending is worse than admitting.</div>
+        <div class="src">src/content/inbar.js &middot; _showCPNOverlay()</div>
+      </div></div>
+    </div>
+
+    <div class="libcard wide" id="gatekeeper-modes">
+      <div class="stage tall top">
+        <div class="variants" style="gap:24px">
+          <div class="vcol" style="flex:1;min-width:300px">
+            <span class="vlabel">Strict mode</span>
+            <div class="gate-scale">
+              <div class="gate">
+                <h1>Why are you here? <span class="mode-badge mode-strict">Strict</span></h1>
+                <div class="subtitle">Define your intent to proceed.</div>
+                <div class="who-working">
+                  <button class="who-opt human selected">&#129489; I'm working</button>
+                  <button class="who-opt agent">&#129302; Agent</button>
+                </div>
+                <input type="text" placeholder="What are you working on?">
+                <div class="actions">
+                  <button class="b-cont">Continue</button>
+                  <button class="b-sq">&#9876;&#65039; Side Quest</button>
+                  <button class="b-sugar">&#127852; Sugar Box</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="vcol" style="flex:1;min-width:300px">
+            <span class="vlabel">Relaxed mode</span>
+            <div class="gate-scale">
+              <div class="gate">
+                <h1>Why are you here? <span class="mode-badge mode-relaxed">Relaxed</span></h1>
+                <div class="subtitle">Define your intent to proceed.</div>
+                <div class="who-working">
+                  <button class="who-opt human selected">&#129489; I'm working</button>
+                  <button class="who-opt agent">&#129302; Agent</button>
+                </div>
+                <input type="text" placeholder="What are you working on?">
+                <div class="actions">
+                  <button class="b-cont">Continue</button>
+                  <button class="b-sq">&#9876;&#65039; Side Quest</button>
+                  <button class="b-sugar">&#127852; Sugar Box</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128682;</span><div>
+        <div class="t">Gatekeeper &mdash; Strict vs Relaxed</div>
+        <div class="d">The same question in two temperaments. Strict requires an intent before the page loads; Relaxed adds a dismiss path that lets you browse untracked. The badge is the only thing that tells you which contract you are under.</div>
+        <div class="src">src/content/gatekeeper.js &middot; .mode-strict / .mode-relaxed</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="gatekeeper-inherited">
+      <div class="stage tall">
+        <div class="gate-scale">
+          <div class="gate">
+            <h1>Why are you here? <span class="mode-badge mode-strict">Strict</span></h1>
+            <div class="subtitle">Define your intent to proceed.</div>
+            <div class="inherit-hint">Inherited from parent tab &mdash; confirm or change:</div>
+            <div class="who-working">
+              <button class="who-opt human selected">&#129489; I'm working</button>
+              <button class="who-opt agent">&#129302; Agent</button>
+            </div>
+            <input type="text" value="Q1 Report" readonly>
+            <div class="actions">
+              <button class="b-cont">Continue</button>
+              <button class="b-sq">&#9876;&#65039; Side Quest</button>
+              <button class="b-sugar">&#127852; Sugar Box</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#129418;</span><div>
+        <div class="t">Gatekeeper &mdash; inherited context</div>
+        <div class="d">Open a link from a tab that already has a context and the child inherits it, pre-filled. The hint above the control makes the inheritance visible so it can be corrected rather than accepted by inertia.</div>
+        <div class="src">src/content/gatekeeper.js &middot; contextSource === 'inherited'</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="gatekeeper-agent">
+      <div class="stage tall">
+        <div class="gate-scale">
+          <div class="gate">
+            <h1>Why are you here? <span class="mode-badge mode-strict">Strict</span></h1>
+            <div class="subtitle">Define your intent to proceed.</div>
+            <div class="who-working">
+              <button class="who-opt human">&#129489; I'm working</button>
+              <button class="who-opt agent selected">&#129302; Agent</button>
+            </div>
+            <input type="text" placeholder="What are you working on?">
+            <div class="actions">
+              <button class="b-cont">Continue</button>
+              <button class="b-sq">&#9876;&#65039; Side Quest</button>
+              <button class="b-sugar">&#127852; Sugar Box</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#129302;</span><div>
+        <div class="t">Gatekeeper &mdash; agent selected</div>
+        <div class="d">The "Who's working?" control defaults to human. Choosing Agent opens a tab-scoped controller span, so the whole intent's time is attributed as agent-driven instead of quietly inflating your own hours.</div>
+        <div class="src">src/content/gatekeeper.js &middot; .who-opt.agent.selected</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="blockgate">
+      <div class="stage tall" style="background:radial-gradient(circle at 50% 30%,rgba(180,20,20,.28),#050505)">
+        <div class="bg-wrap">
+          <h3>&#128683; Blocked Site</h3>
+          <div class="sub">This site has been blocked by Tabatha.</div>
+          <div class="host">reddit.com</div>
+          <div class="lab">Why do you need to visit? (min 50 characters)</div>
+          <textarea readonly>Need one figure from last year's thread for the Q1 model, then leaving.</textarea>
+          <div class="cc">71 / 50</div>
+          <div class="lab">How long do you need?</div>
+          <select><option>15 minutes (default)</option></select>
+          <div class="btns"><button class="bg-proceed">Proceed</button><button class="bg-leave">&#9989; Leave (focus win!)</button></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128683;</span><div>
+        <div class="t">BlockGate</div>
+        <div class="d">A friction wall on blocked sites. Fifty characters of justification and an explicit time box, or take the exit and bank a focus win. The leave button is styled to be the attractive one on purpose.</div>
+        <div class="src">src/content/blockgate.js</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="welcome-back">
+      <div class="stage">
+        <div class="wb">
+          <div class="e">&#128075;</div>
+          <div class="m">Welcome back! You were away for 12m</div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#128075;</span><div>
+        <div class="t">Welcome Back overlay</div>
+        <div class="d">A three-second flash when you return from an idle gap over a minute. It reports the gap and gets out of the way, because the point is to account for the missing time, not to interrogate you about it.</div>
+        <div class="src">src/home/index.jsx &middot; WELCOME_BACK broadcast</div>
+      </div></div>
+    </div>
+
+    <div class="libcard" id="whats-new">
+      <div class="stage tall">
+        <div class="wn">
+          <div class="top">
+            <div>
+              <div class="kick">&#127881; What's New</div>
+              <h2>Tabatha updated to v6.7.16</h2>
+            </div>
+            <button class="x">&#10005;</button>
+          </div>
+          <div class="body">
+            <div class="rel">v6.7.18</div>
+            <div class="grp">Added</div>
+            <ul>
+              <li>Component showcase pages covering the in-page overlays and content scripts.</li>
+              <li>Capture folder and last-frame timestamp surfaced on the Cortex panel.</li>
+            </ul>
+          </div>
+          <div class="foot"><button class="got">Got it</button></div>
+        </div>
+      </div>
+      <div class="libcap"><span class="e">&#127881;</span><div>
+        <div class="t">What's New modal</div>
+        <div class="d">Fires once per version bump on the new tab page, reading from the parsed changelog. It shows up to three releases so a user who skipped a few still sees everything that changed, and Esc or a click outside dismisses it.</div>
+        <div class="src">src/components/ui/WhatsNewModal.jsx</div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha component showcase</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.18</span><span class="dot">·</span>
+  <span>self-contained, no network dependencies</span><span class="dot">·</span>
+  <span>icons are emoji, exactly as the extension ships</span>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

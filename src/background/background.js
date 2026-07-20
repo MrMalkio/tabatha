@@ -3,6 +3,8 @@
 // dispatch runtime messages through the service chain.
 
 import { supabase } from '../services/supabaseClient';
+// NB-01/NB-02: required-hours shortfall detection at clock-out.
+import { getWorkRequirements, logShortfalls } from '../services/scheduleApi.js';
 import {
   setStorage,
   getTabData
@@ -70,6 +72,20 @@ import {
 } from './services/autoFocusService.js';
 import * as domainHistoryService from './services/domainHistoryService.js';
 import { recordDomainVisit } from './services/domainHistoryService.js';
+import * as captureService from './services/captureService.js';
+import {
+  registerCaptureListeners,
+  registerCompanionCaptureBridge
+} from './services/captureService.js';
+import * as cortexService from './services/cortexService.js';
+import * as agentSessionService from './services/agentSessionService.js';
+import * as selfCorrectionService from './services/selfCorrectionService.js';
+import * as contextReconcileService from './services/contextReconcileService.js';
+import * as cloudWriteService from './services/cloudWriteService.js';
+import {
+  configureCloudWriteService,
+  flushCloudOutbox
+} from './services/cloudWriteService.js';
 import * as feedbackService from './services/feedbackService.js'; // B2: in-app feedback → Asana
 import * as awarenessService from './services/awarenessService.js';
 import {
@@ -100,6 +116,9 @@ configureAwarenessService({
   requestClockOut: () => clockService.handleMessage('CLOCK_OUT', {}, null)
 });
 configureCompanionInstallService({ supabase, companionBridge });
+// Cloud writes (profile name via outbox; org/invite via direct RPC). The SW is
+// the single auth owner — page contexts route every mutation here.
+configureCloudWriteService({ supabase, triggerSync });
 
 configureNotificationService({
   getTabData,
@@ -134,7 +153,10 @@ configureClockService({
   getTabData,
   triggerSync,
   notifyAwarenessStateChange,
-  setAwarenessIdleState
+  setAwarenessIdleState,
+  // NB-01/NB-02: required-hours shortfall detection (fail-open when signed out).
+  supabase,
+  scheduleApi: { getWorkRequirements, logShortfalls }
 });
 
 configureFocusService({
@@ -187,7 +209,13 @@ const services = [
   awarenessService,
   autoFocusService,
   domainHistoryService,
-  feedbackService
+  feedbackService,
+  captureService,
+  cortexService,
+  agentSessionService,
+  selfCorrectionService,
+  contextReconcileService,
+  cloudWriteService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -229,6 +257,18 @@ registerAutoFocusListeners();
 registerSyncServiceAlarms();
 registerSyncStorageListener();
 registerAlarmServiceListener();
+// Cortex Plan 040 T4: adaptive-capture event listeners + dwell/export alarms.
+// All handlers gate on the opt-in screenshotCapture master toggle internally.
+registerCaptureListeners();
+// Cortex Plan 041 T1: companion OS-capture handoff — fold CAPTURE_TAKEN into
+// the ledger; mirror capture config (enable/rules/retention) over the bridge.
+registerCompanionCaptureBridge(companionBridge);
+// Cortex Plan 042 T7: C10 passive self-correction daily 04:00 pass. Gates on
+// the opt-in selfCorrectionEnabled setting internally.
+selfCorrectionService.registerSelfCorrectionAlarm();
+// Cortex Plan 043 T3: C6 LOW/intraday optimization cadence alarm. Gates on the
+// opt-in cortexIntradayEnabled setting internally (created only when enabled).
+cortexService.registerCortexCadenceAlarm?.();
 registerBootstrap();
 
 // FIX-12: persistently configure the toolbar-icon click behavior (side panel
@@ -260,3 +300,8 @@ startAwareness();
 // + heartbeat its status. Bails gracefully if the companion isn't running
 // or the user isn't signed in.
 startCompanionInstallService();
+
+// Flush any cloud writes queued before the SW last stopped (e.g. a display-name
+// change made offline / while signed out). No-ops when the outbox is empty or
+// the user isn't signed in yet — sign-in re-triggers it via AUTH_STATE_CHANGED.
+flushCloudOutbox().catch(() => {});

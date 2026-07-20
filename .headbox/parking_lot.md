@@ -467,3 +467,131 @@
   3. **DB pre-create of Reggie & Po** (po@ / reggie@duckandshark.com) — pending (P0.7).
   4. **Physical rollout** to testers — pending (P0.8).
 - **Why it matters:** Records the production milestone against the loose-thread items already in this lot so they don't get re-raised, and surfaces the remaining pre-team-live gates in one place.
+
+## 2026-07-06 — Unbounded chrome.storage growth (post quota outage)
+- **Noticed while:** Root-causing the live pause/resume outage (storage pinned at the 10MB QUOTA_BYTES cap; fixed with `unlimitedStorage` on `fix/pause-resume-regression`).
+- **What:** Several storage keys grow without bound and drove the install to the cap: `_archive_*` rolling month-buckets (archiveService.writeLocalArchive never prunes), focusEngine items/checkpoints accumulate indefinitely (history is capped but `items` is not), domain history, and per-action audit/log writes. `unlimitedStorage` removes the hard failure but the underlying growth remains (slower UI payloads, bigger syncs, slower storage.get on hot paths).
+- **Why it matters:** GET_FOCUS_ENGINE ships the whole engine to every page on every FOCUS_ENGINE_UPDATED; multi-MB engines make every click sluggish and every Supabase sync heavier. A second install (PS machine) will hit the same wall if it ever runs an older manifest.
+- **Options:**
+  1. Cap `_archive_*` to N months + surface a Settings → Storage panel with per-key byte usage and a "clear archives" action
+  2. Move archives/audit to IndexedDB (already hinted in archiveService comment) and keep chrome.storage for hot state only
+  3. Prune completed focusEngine items older than the retention window into the archive during the existing retention alarm ← **suggested (pairs with 1)**
+
+## 2026-07-09 — Extension `.pem` may break persistence across restarts
+- **Noticed while:** Scoping the Cortex AI layer — user flagged it as an unrelated but pressing issue.
+- **What:** A `.pem` was recently added for the extension. User suspects it's why the unpacked extension disappears on every machine restart, forcing a manual "Load unpacked" reinstall. Need a build that installs indefinitely (until Chrome Web Store deploy) **without losing history tied to the extension ID**. Chrome Web Store keys data to the extension ID; a brand-new unrelated ID would orphan the existing data — UNLESS our Supabase sync already rehydrates everything on login (needs verification).
+- **Why it matters:** Daily friction for the only active user (Malkio); risks data loss if the ID changes; blocks a stable dogfood loop.
+- **Options:**
+  1. Verify sync fully rehydrates on login (→ ID change becomes safe), then ship a stable no-`.pem` unpacked build with a pinned `key` in manifest so the ID stays constant ← **suggested**
+  2. Keep the current `.pem`/`key` but fix the actual restart-disable cause (Chrome dev-mode extension disabling on restart) via a persistence workaround
+  3. Fast-track the Chrome Web Store unlisted listing so auto-update + stable ID come for free (ties to Plan 019 distribution)
+
+## 2026-07-09 — Desktop Companion: latest changes not yet deployed + Headbox integration in flight
+- **Noticed while:** Scoping the Cortex AI layer — user noted "a lot going on at once" and is losing sight of it.
+- **What:** The desktop companion (`C:\Users\mrmal\Le Dev\tabatha-desktop`, separate repo) has unshipped changes; the packaged/deployed binary lags the latest work. Separately, Tabatha↔Headbox integration work is in progress and entangled with this. Cortex Phase 1 (C1 OS-capture handoff) depends on a current companion.
+- **Why it matters:** Cortex's browser⇄OS capture handoff and cross-signal work assume an up-to-date companion; shipping Cortex on a stale companion would fragment behavior. Also a general "get the train back on the rails" item.
+- **Options:**
+  1. Before Cortex Phase 1 build starts, cut a companion release that folds in all pending changes + the Headbox integration, then baseline from there ← **suggested**
+  2. Freeze companion at current deployed version; do Cortex Phase 1 browser-only (defer C1 OS-capture to Phase 2)
+  3. Inventory all in-flight companion/Headbox threads first (single status doc) before deciding sequencing
+
+## 2026-07-10 — Agent Control Layer (Tabatha CLI/MCP) — BACK BURNER until Cortex complete
+- **Noticed while:** Cortex continuation session — Malkio explicitly parked it.
+- **What:** Agents need to read/write/coordinate THROUGH Tabatha (set intents, focuses, clock, context notes; use Tabatha as agent working-memory during computer/browser use) via an MCP server + CLI. The efferent sibling of Cortex (which only observes). Boundary + phasing scoped.
+- **Why it matters:** Closes the loop Cortex opens; required for honest attribution (C11a shipped as the prereq) and multi-agent coordination on the machine.
+- **Options:**
+  1. MCP-first via desktop companion WS bridge (harness-native) ← **suggested**
+  2. CLI-first thin wrapper for scripting/cron
+  3. Extension native-messaging host (no companion dependency)
+- **Artifacts:** docs/cortex/PROGRAM-agent-control-layer.md · Asana task 1216454646338939
+
+## 2026-07-15 — Backdate overlap: trim / backburner conflict chooser
+- **Noticed while:** fixing "backdating intent start time not working" (fix/backdate-overlap-clamp).
+- **What:** `SET_FOCUS_START_TIME` now sets the start the user picked (bounded by clock-in/now) and RETURNS `overlaps` — the other-focus intervals the new credited span [start, now] intersects — instead of silently clamping the start forward. Right now overlaps are only surfaced as a timeline note; nothing lets the user resolve the double-counted time.
+- **Why it matters:** Malkio's intent: when a backdated window overlaps time already tracked on another focus, the user should choose to (a) trim that overlap from the other focus, or (b) move the overlapped span to backburner time — not have it auto-resolved. Current time-counting "considers all of the time in an odd way."
+- **Options:**
+  1. Post-backdate modal in home/sidebar: list each overlapping focus + overlapMs, with "Trim from that focus" / "Send to backburner" / "Leave as-is" per row (uses the returned `overlaps`). ← **suggested**
+  2. Background auto-trim with an undo toast.
+  3. Analytics-only: leave elapsed as-is, just flag double-counted spans in reports.
+
+## 2026-07-16 — StagePicker "unsorted" active chip renders an invalid 5-digit hex
+- **Noticed while:** Building the expanded component showcase (`showcase/components-focus.html`, `components-primitives.html`).
+- **What:** `src/components/ui/StagePicker.jsx:24` computes the active-chip fill as `stage.color + '33'`. Every `FUNNEL_STAGES` color is a 6-digit hex except `unsorted`, which is `#888` (`src/hooks/useFocusEngine.js:150`). So the selected-unsorted chip resolves to `#88833` — a 5-digit value browsers discard, leaving the chip transparent while every other stage tints correctly.
+- **Why it matters:** Cosmetic but real: the "Unsorted" stage is the only one that gives no selected-state feedback, in every surface that uses StagePicker (IntentsPanel, FocusBar edit, FocusQueue, sidebar, InBar edit dropdown). It looks like a dead control.
+- **Options:**
+  1. Normalise `unsorted` to a 6-digit `#888888` in `FUNNEL_STAGES`. ← **suggested**
+  2. Convert the chip fill to `rgba()` via a small hex-to-rgba helper (fixes the whole class of `+'22'`/`+'33'` alpha-suffix concatenations app-wide).
+  3. Leave as-is; document that Unsorted has no active tint.
+
+## 2026-07-16 — InBar edit-dropdown focus list hardcodes the "queued" state class
+- **Noticed while:** Building the expanded component showcase (`showcase/components-overlays.html`).
+- **What:** `src/content/inbar.js:578` emits `<span class="focus-state queued">${stage}</span>` for every row in `buildFocusList()`. The class is a literal, so the `.focus-state.active` (green `#66bb6a`) and `.focus-state.paused` (amber `#ffa726`) styles defined right above it at lines ~437-439 are never applied. The chip also prints the *funnel stage* text inside a class named for the *focus state* — two different taxonomies.
+- **Why it matters:** In the InBar edit dropdown, an active focus and a paused focus are visually identical to a queued one. The three-color affordance is defined in CSS and shipped, but dead. The `.focus-item.active` left-border still works, so the bug is easy to miss.
+- **Options:**
+  1. Interpolate the real state: `class="focus-state ${f.focusState || 'queued'}"` and keep the stage text. ← **suggested**
+  2. Render two chips (state + stage) to keep the taxonomies separate.
+  3. Drop the unused `.focus-state.active` / `.paused` CSS if the queued-only look is intended.
+
+## 2026-07-16 — `04-settings.png` capture is nondeterministic
+- **Noticed while:** Verifying the CWS shots survived the showcase responsive pass (`feat/showcase-responsive`).
+- **What:** Two consecutive `npm run capture:shots` runs against a byte-identical `showcase/settings.html` produce different PNGs (73,664 vs 73,675 bytes). The other 7 shot frames reproduce byte-for-byte. Dimensions stay a correct 1280x800, so `capture-screenshots.mjs` reports OK either way; only the pixels drift. `settings.html` carries `transition`/animation declarations, and `--virtual-time-budget=1500` appears to land mid-transition.
+- **Why it matters:** `04-settings.png` is one of the five CONTRACTUAL Chrome Web Store screenshots. Right now every capture run produces a spurious diff on it, so `git status` cannot tell "the settings surface actually changed" from "the capture ran again". That is exactly the signal you want when a shot page is edited, and it is currently broken for 1 of the 5 store assets.
+- **Options:**
+  1. Add `* { animation: none !important; transition: none !important; }` behind a capture-only flag (e.g. `?capture=1` or a `--headless` media hint) so the frame always settles. ← **suggested**
+  2. Raise `--virtual-time-budget` until the transition provably completes, and assert reproducibility in the script by capturing twice and comparing.
+  3. Accept the drift and stop treating shot PNGs as diffable artifacts.
+
+## 2026-07-16 — Showcase `.verbadge` version is hand-maintained and already drifting
+- **Noticed while:** Bumping to v6.7.19 on `feat/showcase-responsive`.
+- **What:** All 10 site pages hardcode the version in `<span class="verbadge">v6.7.18</span>`, except `showcase/roadmap.html`, which still says **v6.7.17**. `scripts/sync-version.mjs` syncs `package.json`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and `.gemini/agent.md` from `public/manifest.json`, but does not know about `showcase/**`, so nothing catches this.
+- **Why it matters:** The badge is the version the public site claims to be documenting. It is wrong on the roadmap today, and it silently goes stale on all 10 pages at every release. Left alone the whole site will keep claiming 6.7.18 forever.
+- **Options:**
+  1. Teach `sync-version.mjs` the `verbadge` pattern across `showcase/*.html` and wire it into the existing `version:check` drift guard. ← **suggested**
+  2. Render the badge from `search-index.json` (or a tiny `version.json`) at runtime in `site.js`, so there is one source.
+  3. Drop the badge from the site and leave versioning to the changelog page.
+
+## 2026-07-16 — PRIVACY.md "no screenshots" claim vs Cortex capture
+- **Noticed while:** building the teaser homepage, linking PRIVACY.md from the new /privacy page.
+- **What:** `PRIVACY.md` states, under "What Tabatha explicitly does NOT collect": "**No screenshots** of your pages" and "never *what you did on the page*". The Cortex program (C1, Phase 1) ships `captureVisibleTab` screen capture with a redaction canvas, writing frames to disk. The 2026-07-10 session log records "Captures confirmed working (745 frames/day)".
+- **Why it matters:** The two statements cannot both be true once Cortex ships. A privacy policy that under-describes collection is the highest-consequence doc in the repo to get wrong, and it is currently linked from a public page. Capture appears to be local-only, opt-in and focus-gated, which is a *defensible* story — but it is a different story than "no screenshots", and the policy is what users are entitled to rely on.
+- **Note:** Out of scope for the teaser work, and deliberately NOT silently edited: rewriting the extension's privacy claims needs Malkio's intent, not an agent's inference. The teaser only added a waitlist section covering the email collection it introduces.
+- **Options:**
+  1. Leave as-is until Cortex is user-facing, then update the policy in the same release.
+  2. Update PRIVACY.md now to describe capture accurately (local-only, opt-in, focus-gated, redacted, retention window) so the doc never lags the shipped binary.
+  3. Update now AND gate the wording on the capture setting's default-off state, so the policy is accurate for both the default and opted-in user. ← **suggested**
+
+## 2026-07-18 — Concurrent agent collision in shared sidecar worktree (URGENT — active unresolved merge conflict)
+- **Noticed while:** Argus (AG1) registering the Hermes daily SYSTEM-MAP.md updater job (Asana task 1216678582907047).
+- **What:** While I was dry-run-verifying `update-map.py` (a script that rewrites `docs/system-map/SYSTEM-MAP.md`'s working-tree content in `.claude/worktrees/tabby-sidecar-mobile-46c612`, never running any git command beyond a plain read/write), another agent ("Cirra", Asana task 1216678678059535) ran a `git merge` ("merge: Epic 1 voice capture + Epic 10 chaperone v0") **in that same physical worktree directory at the same time**. That merge committed my uncommitted SYSTEM-MAP.md test edits as a side effect (commit `a60dda8`), and left the worktree **mid-merge with an unresolved conflict**: `git status` shows `both modified: sidecar/src/screens/ContextView.tsx` under "Unmerged paths", plus staged changes to `PhoneFocusMode.tsx`, `focus.ts`, `FocusScreen.tsx`, `SettingsScreen.tsx`, `send-focus-push/index.ts`, and an unstaged, unexplained modification to `supabase/functions/feedback-to-asana/index.ts`.
+- **Why it matters:** (1) Two agents writing to the same worktree checkout concurrently is a correctness hazard — my content ended up inside someone else's merge commit without either of us intending that, and a conflicted merge is currently blocking that worktree (`sidecar-mobile-46c612`) from clean commits until a human/agent resolves `ContextView.tsx`. (2) The new Hermes daily cron job (`system-map-daily-update`, registered under Hermes profile `argus`, runs ~07:30 ET) will keep rewriting `SYSTEM-MAP.md`'s working copy in this same busy worktree every morning — if another agent is mid-merge/mid-rebase there when it fires, the same collision could recur, or the automation could read a conflict-marked file.
+- **Options:**
+  1. Resolve the current `ContextView.tsx` conflict and finish/abort Cirra's merge first (human or Cirra), independent of my task.
+  2. Give SYSTEM-MAP.md its own dedicated worktree/checkout that only the daily automation touches, decoupling it from active feature-branch worktrees. ← **suggested**
+  3. Establish a lightweight "worktree lock" convention (e.g., a `.worktree-busy` marker file agents check before merging) so concurrent multi-agent worktree use stops silently absorbing each other's uncommitted changes.
+=======
+## 2026-07-18 — Portfolio audit (cross-project)
+- **Noticed while:** cleaning up the Sidecar feature requests (Plan 040 brainstorm)
+- **What:** Owner brain-dumped the whole ecosystem (Headbox, Caspera + Abulia/Arbor/Collab/Overlock/Anasa, SteadyStars/SS-Avengers, Flux/Tabatha/screensaver, Agent Vault, Heimdall/Bifrost, Bond) and asked for a full "what's actually close to v1 + dependency map" audit. Captured in `docs/portfolio-track.md`.
+- **Why it matters:** it's the owner's top-level prioritization problem (thought→action friction), but it spans repos + machines (needs Heimdall + old machine) — its own dedicated effort, not a Sidecar-session task.
+- **Options:**
+  1. Keep parked; run as a dedicated audit later with multi-machine access ← **suggested**
+  2. Start it now (pauses Sidecar work)
+  3. Fold only the Anasa-vs-Asana review into Plan 040 Epic 3 (already planned)
+
+## 2026-07-18 — Body doubling plugin (#215)
+- **Noticed while:** Plan 040 feature intake (voice transcript)
+- **What:** Queue + one-click pairing of live Tabatha users for co-working (BYO Meet/Twitch/Kick/YT-Live links; Tabatha = pairing/presence/frame). Spec: docs/features/215-body-doubling.md
+- **Why it matters:** human-powered accountability sibling of #182; potential community/network feature
+- **Options:**
+  1. Keep parked until the Plan 040 epic stack lands ← **suggested (owner's call)**
+  2. Research-only task now (science of body doubling), build later
+  3. MVP presence-queue inside the org layer sooner
+
+## 2026-07-18 — Agentic assistant engine (Hermes/OpenClaw) for Chaperone/Flux
+- **Noticed while:** same intake
+- **What:** Full agentic personality assistant ("click to engage", caller-aware, Flux/second-brain context) to run on Hermes first (lighter), OpenClaw if needed — both installed. v0 pre-recorded slice is in Plan 040 Epic 10; the engine work is Flux-track.
+- **Why it matters:** the target state of #182; overlaps the parked portfolio track (Flux as assistant)
+- **Options:**
+  1. Park with the portfolio track; revisit at Flux planning ← **suggested**
+  2. Prototype Hermes TTS pipeline early behind a flag
+  3. Fold into the native-app milestone (call/SMS awareness anyway needs native)

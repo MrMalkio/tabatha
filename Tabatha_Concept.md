@@ -84,7 +84,8 @@ Replaces the "New Tab" page with a dashboard.
 ### 6. Agent-Ready Data (Markdown Export)
 
 Tabatha maintains a live `context.md` file. This allows AI agents to read your
-current state:
+current state — so they can stop guessing at what you are doing and start helping
+you do better work with surgical accuracy:
 
 > _"User is currently focused on 'Q3 Planning' (High Priority). They have 5 tabs
 > open related to 'Financials'. They have been active for 45 minutes."_
@@ -119,3 +120,13 @@ Tabatha aims to bridge the gap between "Browsing" and "Doing".
   prevent doom-scrolling.
 - **AI Power Users**: Who want their agents to have full context of their
   digital workspace.
+
+## Design Principle: Progressive Simplicity (added 2026-07-18)
+
+Tabatha grows **more capable and simpler at the same time**. Controls, modals,
+and configuration keep expanding under the hood (extension, Sidecar, Flux), but
+the *upfront* surface trends toward fewer buttons and fewer prompts: the user
+should be able to **just do and just say** — and the system (fed by everything
+Tabatha/Flux already knows) supplies the support, defaults, and follow-through
+toward the user's understood goals. Every new feature should ask: what does this
+*remove* from the user's upfront attention, not just what does it add.

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha - Sidebar Command Center</title>
+<style>
+:root{
+  --bg:#050505;--surface:rgba(20,20,25,.55);--surface-solid:#141414;
+  --border:rgba(255,255,255,.1);--text:#FAFAFA;--muted:#868E96;
+  --cyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a}
+body{font-family:var(--sans);display:grid;place-items:center;min-height:100vh;color:var(--text)}
+.shot{width:1280px;height:800px;overflow:hidden;position:relative;display:flex;background:#101216}
+
+/* dim host page on the left */
+.host{flex:1;filter:brightness(.5) saturate(.7);display:flex;flex-direction:column}
+.host-chrome{height:44px;background:#1c1e22;display:flex;align-items:center;gap:8px;padding:0 16px}
+.hd{width:11px;height:11px;border-radius:50%}
+.host-omni{flex:1;max-width:520px;height:26px;background:#2a2d33;border-radius:999px;margin:0 auto}
+.host-body{padding:52px 72px;display:flex;flex-direction:column;gap:20px}
+.host-h{height:32px;width:52%;background:#2f333b;border-radius:6px}
+.host-line{height:13px;background:#22252b;border-radius:4px}
+.host-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:14px}
+.host-card{height:160px;background:#1a1d22;border-radius:10px}
+
+/* Tabatha side panel */
+.panel{width:376px;background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;font-size:12px;
+  box-shadow:-24px 0 60px rgba(0,0,0,.5)}
+.p-head{display:flex;align-items:center;gap:8px;padding:11px 12px;border-bottom:1px solid var(--border)}
+.brand{font-weight:700;font-size:13px;letter-spacing:-.01em}
+.brand b{color:var(--cyan)}
+.pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--cyan);color:#000;letter-spacing:.02em}
+.p-head .spacer{flex:1}
+.stat{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.sync{font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;color:#34A853;background:rgba(52,168,83,.15)}
+.ico{font-size:13px;opacity:.85;cursor:pointer}
+.clock{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border)}
+.clock .el{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.02em}
+.clock .cbtn{margin-left:auto;font-size:12px;opacity:.8}
+.clock .cbtn+.cbtn{margin-left:8px}
+.nav{display:flex;border-bottom:1px solid var(--border)}
+.nav div{flex:1;text-align:center;padding:9px 0;font-size:15px;opacity:.5;border-bottom:2px solid transparent;cursor:pointer}
+.nav div.on{opacity:1;border-bottom-color:var(--cyan)}
+.body{padding:12px;display:flex;flex-direction:column;gap:11px;overflow:hidden}
+
+.now{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border-left:3px solid var(--cyan);border-radius:4px}
+.now .lab{font-size:8px;letter-spacing:.16em;color:var(--muted);font-weight:700}
+.pbadge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:auto}
+.p-hi{color:var(--red);background:#ff6b6b22}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;backdrop-filter:blur(16px)}
+.eyebrow{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:7px}
+.stage{font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:999px;color:#ff9800;background:#ff980022}
+.f-top{display:flex;justify-content:space-between;align-items:flex-start;margin-top:8px}
+.f-label{font-size:13px;font-weight:600}
+.f-meta{font-size:10px;color:var(--muted);margin-top:3px}
+.f-timer{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan);line-height:1}
+.f-timer .rem{display:block;font-size:8px;color:var(--muted);text-align:right;letter-spacing:.1em;margin-top:3px}
+.f-btns{display:flex;flex-wrap:wrap;gap:5px;margin-top:11px}
+.ob{background:transparent;border-radius:2px;padding:4px 9px;font:600 10.5px var(--sans);cursor:pointer}
+.ob.green{border:1px solid #66bb6a55;color:#8bd48f}
+.ob.amber{border:1px solid #ffa72655;color:#ffbe6b}
+.ob.cyan{border:1px solid rgba(0,240,255,.35);color:var(--cyan)}
+.ob.gray{border:1px solid var(--border);color:#c7c7c7}
+
+.tabs-head{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.tabs-head .lab{font-size:8px;letter-spacing:.16em;color:var(--muted);font-weight:700}
+.trow{display:flex;align-items:center;gap:9px;padding:8px 9px;background:var(--surface);border:1px solid var(--border);border-radius:4px}
+.trow:hover{background:rgba(40,40,50,.6)}
+.tprio{width:3px;align-self:stretch;border-radius:2px}
+.tico{font-size:14px}
+.tmain{flex:1;min-width:0}
+.ttitle{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tctx{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttime{font-family:var(--mono);font-size:10px;font-variant-numeric:tabular-nums}
+.ttime.on{color:var(--cyan)}
+.ttime.off{color:var(--muted)}
+
+/* ── small-viewport fit ──────────────────────────────────────
+   This page IS the asset: `.shot` is a pinned 1280x800 render and
+   scripts/capture-screenshots.mjs screenshots it at a 1280x800
+   window to produce the Chrome Web Store listing images. So the
+   frame's own layout is untouchable — no reflow, no stacking, no
+   fluid widths. Anything that changed it would silently reshoot
+   the store listing.
+
+   Everything below is therefore gated at max-width:1279px and can
+   never fire at the 1280 capture width. It scales the whole frame
+   as one picture instead of reflowing it:
+
+     base      — body becomes the scroll container. `.shot` keeps
+                 its exact 1280x800 and the user pans it, while
+                 `html` stays hidden so the PAGE never scrolls
+                 sideways.
+     enhanced  — where `zoom` accepts a calculated ratio (Chrome,
+                 the only browser this site's product runs in),
+                 body is zoomed to exactly fit the viewport. zoom
+                 affects layout, unlike transform, so the shrunken
+                 frame reserves the right space and nothing
+                 overflows. `.shot` still computes at 1280x800 —
+                 only the paint is scaled.
+   ──────────────────────────────────────────────────────────── */
+@media (max-width:1279px){
+  html{overflow-x:hidden}
+  body{display:block;min-height:0;overflow-x:auto;overscroll-behavior-x:contain}
+  body>.shot{margin:0 auto}
+}
+@supports (zoom:calc(100vw / 1280px)){
+  @media (max-width:1279px){
+    body{width:1280px;overflow-x:visible;zoom:calc(100vw / 1280px)}
+  }
+}
+</style>
+</head>
+<body>
+<div class="shot">
+  <div class="host" aria-hidden="true">
+    <div class="host-chrome">
+      <span class="hd" style="background:#ff5f57"></span><span class="hd" style="background:#febc2e"></span><span class="hd" style="background:#28c840"></span>
+      <div class="host-omni"></div>
+    </div>
+    <div class="host-body">
+      <div class="host-h"></div>
+      <div class="host-line" style="width:90%"></div><div class="host-line" style="width:82%"></div>
+      <div class="host-line" style="width:94%"></div><div class="host-line" style="width:66%"></div>
+      <div class="host-grid"><div class="host-card"></div><div class="host-card"></div><div class="host-card"></div></div>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <div class="p-head">
+      <span class="brand">Ta<b>b</b>atha</span>
+      <span class="pill">Deep Work</span>
+      <span class="spacer"></span>
+      <span class="stat">9t · 3h 12m</span>
+      <span class="sync">● Synced</span>
+      <span class="ico">⚙️</span><span class="ico">⏱️</span><span class="ico">🏠</span>
+    </div>
+
+    <div class="clock">
+      <span>🟢</span><span class="el">3:12:47</span>
+      <span class="cbtn">⏹</span><span class="cbtn">☕</span>
+    </div>
+
+    <div class="nav">
+      <div class="on">🎯</div><div>📋</div><div>📑</div><div>📌</div><div>📦</div>
+    </div>
+
+    <div class="body">
+      <div class="now">
+        <span class="lab">NOW</span>
+        <span style="font-weight:600">Finalize Q1 revenue charts</span>
+        <span class="pbadge p-hi">P2</span>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">🎯 FOCUS <span class="stage">Focus</span></div>
+        <div class="f-top">
+          <div>
+            <div class="f-label">Q1 Report</div>
+            <div class="f-meta">5 tabs · 2 wins · 47m elapsed</div>
+          </div>
+          <div class="f-timer">47:12<span class="rem">13m remaining</span></div>
+        </div>
+        <div class="f-btns">
+          <button class="ob green">✓ Resolved</button>
+          <button class="ob amber">⏸ Pause</button>
+          <button class="ob cyan">+5m</button>
+          <button class="ob gray">✏️</button>
+          <button class="ob gray">📋 🟠</button>
+          <button class="ob gray">📊</button>
+          <button class="ob gray">📌 Sub</button>
+        </div>
+      </div>
+
+      <div class="tabs-head"><span class="lab">TRACKED TABS</span><span class="stat">5 tabs</span></div>
+
+      <div class="trow"><div class="tprio" style="background:var(--red)"></div><span class="tico">💼</span>
+        <div class="tmain"><div class="ttitle">Q1 Revenue Model - Sheets</div><div class="tctx">Q1 Report · 22m</div></div>
+        <span class="ttime on">22m</span></div>
+
+      <div class="trow"><div class="tprio" style="background:var(--red)"></div><span class="tico">📚</span>
+        <div class="tmain"><div class="ttitle">Board deck template</div><div class="tctx">Q1 Report · 11m</div></div>
+        <span class="ttime on">11m</span></div>
+
+      <div class="trow"><div class="tprio" style="background:var(--amber)"></div><span class="tico">💬</span>
+        <div class="tmain"><div class="ttitle">#finance-team - Slack</div><div class="tctx">Q1 Report · 6m</div></div>
+        <span class="ttime on">6m</span></div>
+
+      <div class="trow"><div class="tprio" style="background:var(--blue)"></div><span class="tico">🎓</span>
+        <div class="tmain"><div class="ttitle">useEffect cleanup - React docs</div><div class="tctx">Learning React · paused</div></div>
+        <span class="ttime off">4m</span></div>
+
+      <div class="trow"><div class="tprio" style="background:var(--green)"></div><span class="tico">📧</span>
+        <div class="tmain"><div class="ttitle">Inbox (3) - Gmail</div><div class="tctx">Email triage · 2m</div></div>
+        <span class="ttime off">2m</span></div>
+    </div>
+  </aside>
+</div>
+</body>
+</html>

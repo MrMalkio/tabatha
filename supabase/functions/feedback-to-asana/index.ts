@@ -18,18 +18,27 @@
 
 const ASANA_API = "https://app.asana.com/api/1.0/tasks";
 
-// Tighten CORS to the pinned extension origin (A2 key pin) — not "*". Only the
-// real extension may invoke this from a browser context.
-const ALLOWED_ORIGIN =
-  "chrome-extension://hoknmoclnhccpgofpdihmiadmnmejjod";
+// Tighten CORS to the known first-party origins — not "*". The pinned
+// extension (A2 key pin) plus the Tabby Sidecar web origin (Plan 040 Epic 7).
+// The response echoes the matching origin (browsers reject multi-value here).
+const ALLOWED_ORIGINS = new Set([
+  "chrome-extension://hoknmoclnhccpgofpdihmiadmnmejjod",
+  "https://tabatha.pondocean.co",
+]);
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Vary": "Origin",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+function corsHeaders(reqOrigin: string | null): Record<string, string> {
+  const origin =
+    reqOrigin && ALLOWED_ORIGINS.has(reqOrigin)
+      ? reqOrigin
+      : "chrome-extension://hoknmoclnhccpgofpdihmiadmnmejjod";
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Vary": "Origin",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 // Input bounds — mirror feedbackService so the contract is enforced on BOTH
 // ends (the client can be bypassed; the function cannot).
@@ -61,6 +70,9 @@ async function verifyUser(authHeader: string | null): Promise<string | null> {
   }
 }
 
+// Bound to the current request's (allow-listed) origin at handler entry.
+let CORS_HEADERS: Record<string, string> = corsHeaders(null);
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -82,6 +94,7 @@ interface FeedbackPayload {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
+  CORS_HEADERS = corsHeaders(req.headers.get("origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }

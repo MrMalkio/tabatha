@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tabatha-extension (Vite)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "flux-asana-widget (Express)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "flux-asana-widget/index.js"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "sidecar-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8081"
+      ],
+      "cwd": "sidecar",
+      "port": 8081
+    }
+  ]
+}

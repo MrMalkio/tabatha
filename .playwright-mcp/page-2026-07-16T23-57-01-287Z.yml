@@ -1,0 +1,569 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e8]: Tabatha
+    - generic [ref=e9]: Context & Focus Manager
+    - generic [ref=e10]:
+      - link "← Gallery" [ref=e11] [cursor=pointer]:
+        - /url: index.html
+      - link "Components" [ref=e12] [cursor=pointer]:
+        - /url: "#components"
+      - link "Roadmap" [ref=e13] [cursor=pointer]:
+        - /url: roadmap.html
+    - generic [ref=e14]:
+      - button "Search the site" [ref=e15] [cursor=pointer]:
+        - generic [ref=e16]: 🔍
+        - generic [ref=e17]: Search
+        - generic [ref=e18]: /
+      - button "Request a feature" [ref=e19] [cursor=pointer]: ✨Request a feature
+    - generic [ref=e20]: v6.7.18
+  - banner [ref=e21]:
+    - generic [ref=e22]: Component Showcase
+    - heading "Desktop Companion Built · v0.2.0" [level=1] [ref=e23]:
+      - text: Desktop Companion
+      - generic [ref=e24]: Built · v0.2.0
+    - paragraph [ref=e25]: The browser can only see the browser. The companion is a small Windows tray app that watches the rest of the desktop and tells the extension what it finds, so a stint spent in Figma, Excel or a call is time your day actually accounts for instead of a five-hour hole labelled "idle". It is a separate product with its own release line, its own palette, and its own database. Every component below is built and running today, and it is now something you can download for Windows.
+  - generic [ref=e27]:
+    - generic [ref=e28]:
+      - generic [ref=e29]: 🖥️
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - heading "Get the companion" [level=2] [ref=e32]
+          - generic [ref=e33]: Windows download
+        - generic [ref=e34]:
+          - generic [ref=e35]: Windows 10/11 · x64
+          - generic [ref=e36]: Version 0.2.0
+          - generic [ref=e37]: 4.45 MB installer
+          - generic [ref=e38]: Tauri · Rust
+        - paragraph [ref=e39]: "The companion watches which application and window is in front, sorts that into categories, keeps it in a local SQLite database, and pushes what it sees to the extension over a loopback WebSocket, so a stint spent in Figma, Excel or a call is time your day accounts for. Windows only, and not by oversight: the window monitor is bound to Win32 and the capture engine draws through GDI, so macOS and Linux are a port, not a build flag."
+        - paragraph [ref=e40]: It can also capture the screen while the browser is not in front — but that is off by default, redacted with a fail-closed pass when on, written only to your own machine and never uploaded, and auto-deleted after 30 days (90 while clocked in for an org). A fresh install captures nothing until you turn it on.
+        - generic [ref=e41]:
+          - link "⬇️ Download for Windows" [ref=e42] [cursor=pointer]:
+            - /url: https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.2.0/Tabatha-Desktop-0.2.0-x64-setup.exe
+          - generic [ref=e43]:
+            - text: NSIS installer · 4.45 MB · from the
+            - code [ref=e44]: desktop-v0.2.0
+            - text: GitHub release.
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e47]: Version
+            - generic [ref=e48]: 0.2.0 · Windows x64
+          - generic [ref=e49]:
+            - generic [ref=e50]: Size
+            - generic [ref=e51]: 4,666,565 bytes (4.45 MB)
+          - generic [ref=e52]:
+            - generic [ref=e53]: SHA-256
+            - generic [ref=e54]: 674ec83c1410d3d4063898e3f1e53b69df79258dc892a6d85f4f2d74067d8846
+          - generic [ref=e55]:
+            - generic [ref=e56]: Also
+            - generic [ref=e57]:
+              - link ".msi build" [ref=e58] [cursor=pointer]:
+                - /url: https://github.com/MrMalkio/tabatha/releases/download/desktop-v0.2.0/Tabatha-Desktop-0.2.0-x64.msi
+              - text: ·
+              - link "release page & checksums" [ref=e59] [cursor=pointer]:
+                - /url: https://github.com/MrMalkio/tabatha/releases/tag/desktop-v0.2.0
+    - generic [ref=e60]:
+      - generic [ref=e61]: Before you install
+      - list [ref=e62]:
+        - listitem [ref=e63]: ○ It is unsigned. No code-signing certificate is configured yet, so Windows SmartScreen will warn on first run — "More info → Run anyway". Verify the SHA-256 above against the file you downloaded if you want certainty about what you're running.
+        - listitem [ref=e64]:
+          - text: ○ The local interface is not yet authenticated. The companion opens a WebSocket on
+          - code [ref=e65]: 127.0.0.1:9147
+          - text: for the extension bridge. It is loopback-only and never reachable from your network, but it does not yet authenticate local callers — authentication hardening is in progress. Treat this as a trusted single-user-machine build.
+        - listitem [ref=e66]: ○ Updates are manual. The companion has no auto-update channel of its own yet, so a future fix means downloading a new installer from the release page rather than an in-app update.
+  - generic [ref=e67]:
+    - generic [ref=e68]:
+      - heading "Component library" [level=2] [ref=e69]
+      - generic [ref=e70]: 15 surfaces & subsystems · rendered from live companion tokens
+    - paragraph [ref=e71]: "The companion has almost no UI on purpose. It is a tray icon, one optional 480×640 window, and a great deal of machinery underneath - because the thing it is trying to be is invisible: if you have to interact with it, it has already failed at its job. So most of what follows is not a screen but a subsystem, shown as the surface through which you would ever actually meet it. The stages here render the companion's own tokens (accent #4a9eff, green #10ac84) and its 8/4 radius scale - it is a different app from the extension, and it does not pretend otherwise."
+    - generic [ref=e72]:
+      - generic [ref=e73]:
+        - generic [ref=e75]:
+          - generic [ref=e76]: ⏸ Pause Tabbing
+          - generic [ref=e77]: 🕐 Clock Out
+          - generic [ref=e78]:
+            - text: 📸 Capture
+            - generic [ref=e79]: ✓
+          - generic [ref=e81]: 📊 Activity Log
+          - generic [ref=e82]: 🛠 Desk Panel
+          - generic [ref=e83]: ⬆ Check for Updates
+          - generic [ref=e85]: ✅ Start on Login
+          - generic [ref=e86]: 🔄 Restart
+          - generic [ref=e88]: ❌ Exit Completely
+        - generic [ref=e89]:
+          - generic [ref=e90]: 📋
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - text: Tray menu
+              - generic [ref=e93]: Live
+            - generic [ref=e94]: "The companion's only permanent surface - there is no main window at all. Eleven items across three groups: what it is doing now, where to look, and how it starts. The first two relabel themselves against live state (Pause ⇄ Resume, Clock In ⇄ Clock Out), and Capture is a real checkbox that persists to settings.json rather than a dialog."
+            - generic [ref=e95]: src-tauri/src/main.rs
+        - generic [ref=e96]:
+          - button "Report a bug in Tray menu Live" [ref=e97] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Tray menu Live" [ref=e98] [cursor=pointer]: ✨ Request
+      - generic [ref=e99]:
+        - generic [ref=e101]:
+          - generic [ref=e102]:
+            - generic [ref=e103]: tracking
+            - generic [ref=e104]: Tabby Desk v0.2.0 (release) - Tabbing
+          - generic [ref=e107]:
+            - generic [ref=e108]: paused
+            - generic [ref=e109]: Tabby Desk v0.2.0 (release) - Paused
+        - generic [ref=e112]:
+          - generic [ref=e113]: 🟢
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - text: Tray icon & tooltip
+              - generic [ref=e116]: Live
+            - generic [ref=e117]: "Ships no icon file: the 16×16 circle is rasterized in Rust at runtime, so the colour is state rather than a swapped asset. Green means it is watching, amber means you paused it. The tooltip is the only place the running build number is ever stated, and it says (release) or (debug) so a stray dev build cannot masquerade as the real one."
+            - generic [ref=e118]: src-tauri/src/main.rs · make_tray_icon()
+        - generic [ref=e119]:
+          - button "Report a bug in Tray icon & tooltip Live" [ref=e120] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Tray icon & tooltip Live" [ref=e121] [cursor=pointer]: ✨ Request
+      - generic [ref=e122]:
+        - generic [ref=e124]:
+          - generic [ref=e125]:
+            - heading "⚡ Tabby Desk v0.2.0" [level=1] [ref=e126]:
+              - text: ⚡ Tabby Desk
+              - generic [ref=e127]: v0.2.0
+            - generic [ref=e128]: ● Tabbing
+          - generic [ref=e129]:
+            - generic [ref=e130]: 👁 Active Window
+            - generic [ref=e131]:
+              - generic [ref=e132]: Visual Studio Code
+              - generic [ref=e133]: TagPicker.jsx - tabatha
+              - generic [ref=e134]: 💻 development
+          - generic [ref=e135]:
+            - generic [ref=e136]: ⏰ Time Clock
+            - generic [ref=e137]:
+              - generic [ref=e138]: 04:12:38
+              - generic [ref=e139]: since 09:02 · 18m break
+          - generic [ref=e140]:
+            - generic [ref=e141]: 📊 Today
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - generic [ref=e144]: 4h 12m
+                - generic [ref=e145]: Active time
+              - generic [ref=e146]:
+                - generic [ref=e147]: "63"
+                - generic [ref=e148]: App switches
+          - generic [ref=e149]: WebSocket server on ws://localhost:9147
+        - generic [ref=e150]:
+          - generic [ref=e151]: 🛠
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - text: Desk Panel
+              - generic [ref=e154]: Live
+            - generic [ref=e155]: A 480×640 webview you open from the tray and close again - never shown at launch, because the companion is meant to be forgotten. Six stacked cards polling the Rust side once a second. Its version string is read at runtime rather than hardcoded, which is the fix for a build that spent a release claiming to be v0.1.0.
+            - generic [ref=e156]: src/App.jsx
+        - generic [ref=e157]:
+          - button "Report a bug in Desk Panel Live" [ref=e158] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Desk Panel Live" [ref=e159] [cursor=pointer]: ✨ Request
+      - generic [ref=e160]:
+        - generic [ref=e162]:
+          - generic [ref=e163]:
+            - generic [ref=e164]: connected
+            - generic [ref=e165]:
+              - generic [ref=e166]: ✓ Extension connected
+              - generic [ref=e167]: Tabatha is talking to your browser. v6.7.18
+          - generic [ref=e168]:
+            - generic [ref=e169]: disconnected
+            - generic [ref=e170]:
+              - generic [ref=e171]: ⚠ Extension stopped responding
+              - generic [ref=e172]: Last seen 14:07:22. Open chrome://extensions and check Tabatha is still enabled.
+          - generic [ref=e173]:
+            - generic [ref=e174]: never installed
+            - generic [ref=e175]:
+              - generic [ref=e176]: 🧩 Install the browser extension
+              - generic [ref=e177]: The companion ships with it. Load it once and they find each other.
+              - generic [ref=e178]: "%APPDATA%\\Tabatha Desktop\\extension"
+              - generic [ref=e179]:
+                - generic [ref=e180]: "1"
+                - generic [ref=e181]: Copy the path above
+              - generic [ref=e182]:
+                - generic [ref=e183]: "2"
+                - generic [ref=e184]: Open chrome://extensions
+              - generic [ref=e185]:
+                - generic [ref=e186]: "3"
+                - generic [ref=e187]: Enable Developer mode → Load unpacked
+        - generic [ref=e188]:
+          - generic [ref=e189]: 🧩
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - text: InstallGuide
+              - generic [ref=e192]: Live
+            - generic [ref=e193]: "Three states, not two: never installed gets the full walkthrough, but disconnected is deliberately a separate, amber case - \"it broke\" and \"you never set it up\" want opposite advice, and collapsing them sends people to re-install something they already have. Chrome refuses programmatic navigation to chrome:// URLs, so the open button copies the URL and says so instead of silently doing nothing."
+            - generic [ref=e194]: src/components/InstallGuide.jsx
+        - generic [ref=e195]:
+          - button "Report a bug in InstallGuide Live" [ref=e196] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for InstallGuide Live" [ref=e197] [cursor=pointer]: ✨ Request
+      - generic [ref=e198]:
+        - generic [ref=e200]:
+          - generic [ref=e201]:
+            - generic [ref=e202]: tracking
+            - generic [ref=e203]:
+              - generic [ref=e204]: 👁 Active Window
+              - generic [ref=e205]: Figma
+              - generic [ref=e206]: Tabatha - Gatekeeper explorations
+              - generic [ref=e207]: 🎨 design
+          - generic [ref=e208]:
+            - generic [ref=e209]: idle · 5 min threshold
+            - generic [ref=e210]:
+              - generic [ref=e211]: 👁 Active Window
+              - generic [ref=e212]: Idle
+              - generic [ref=e213]: No input for 5m 22s
+              - generic [ref=e214]: ⏸ not counted
+        - generic [ref=e215]:
+          - generic [ref=e216]: 👁
+          - generic [ref=e217]:
+            - generic [ref=e218]:
+              - text: Window monitor
+              - generic [ref=e219]: Live
+            - generic [ref=e220]: "Polls the foreground window once a second through the Win32 API and cuts a new session whenever the app or the window title changes - title-level, so two hours in one editor still resolves into the files you were actually in. Idle after five minutes of no input. The whole loop runs inside a panic guard: a crash in one tick is logged and retried on the next rather than taking the tray down with it."
+            - generic [ref=e221]: src-tauri/src/window_monitor.rs
+        - generic [ref=e222]:
+          - button "Report a bug in Window monitor Live" [ref=e223] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Window monitor Live" [ref=e224] [cursor=pointer]: ✨ Request
+      - generic [ref=e225]:
+        - generic [ref=e227]:
+          - generic [ref=e228]:
+            - generic [ref=e229]: clocked out
+            - generic [ref=e230]:
+              - generic [ref=e231]: ⏰ Time Clock
+              - generic [ref=e232]: 00:00:00
+              - generic [ref=e233]: not clocked in
+              - button "Clock In" [ref=e235] [cursor=pointer]
+          - generic [ref=e236]:
+            - generic [ref=e237]: clocked in
+            - generic [ref=e238]:
+              - generic [ref=e239]: ⏰ Time Clock
+              - generic [ref=e240]: 04:12:38
+              - generic [ref=e241]: since 09:02 · 18m break
+              - generic [ref=e242]:
+                - button "Break" [ref=e243] [cursor=pointer]
+                - button "Clock Out" [ref=e244] [cursor=pointer]
+          - generic [ref=e245]:
+            - generic [ref=e246]: on break
+            - generic [ref=e247]:
+              - generic [ref=e248]: ⏰ Time Clock
+              - generic [ref=e249]: 04:12:38
+              - generic [ref=e250]: on break since 13:41
+              - generic [ref=e251]:
+                - button "End Break" [ref=e252] [cursor=pointer]
+                - button "Clock Out" [ref=e253] [cursor=pointer]
+        - generic [ref=e254]:
+          - generic [ref=e255]: ⏰
+          - generic [ref=e256]:
+            - generic [ref=e257]:
+              - text: Time Clock
+              - generic [ref=e258]: Live
+            - generic [ref=e259]: "The same shift the extension sees, driven from either end. Clocking in is idempotent and clocking out closes every open session rather than the newest - both are v0.2.0 fixes for a real bug: the tray, the extension and the auto-clock could each open a shift, and one stale row left the companion insisting you had been working for eleven days."
+            - generic [ref=e260]: src-tauri/src/activity_log.rs
+        - generic [ref=e261]:
+          - button "Report a bug in Time Clock Live" [ref=e262] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Time Clock Live" [ref=e263] [cursor=pointer]: ✨ Request
+      - generic [ref=e264]:
+        - generic [ref=e266]:
+          - generic [ref=e267]: 📊 Today
+          - generic [ref=e268]:
+            - generic [ref=e269]:
+              - generic [ref=e270]: 4h 12m
+              - generic [ref=e271]: Active time
+            - generic [ref=e272]:
+              - generic [ref=e273]: "63"
+              - generic [ref=e274]: App switches
+            - generic [ref=e275]:
+              - generic [ref=e276]: 18m
+              - generic [ref=e277]: Break time
+            - generic [ref=e278]:
+              - generic [ref=e279]: "6"
+              - generic [ref=e280]: Categories
+          - generic [ref=e281]:
+            - generic [ref=e282]: Top apps
+            - generic [ref=e283]:
+              - generic [ref=e284]: 💻
+              - generic [ref=e285]: Code
+              - generic [ref=e288]: 1h 54m
+            - generic [ref=e289]:
+              - generic [ref=e290]: 🎨
+              - generic [ref=e291]: Figma
+              - generic [ref=e294]: 1h 06m
+            - generic [ref=e295]:
+              - generic [ref=e296]: 💬
+              - generic [ref=e297]: Slack
+              - generic [ref=e300]: 32m
+            - generic [ref=e301]:
+              - generic [ref=e302]: 📊
+              - generic [ref=e303]: Excel
+              - generic [ref=e306]: 21m
+        - generic [ref=e307]:
+          - generic [ref=e308]: 📊
+          - generic [ref=e309]:
+            - generic [ref=e310]:
+              - text: Today summary
+              - generic [ref=e311]: Live
+            - generic [ref=e312]: "Four tiles and the top five apps. The still-open session is counted live rather than at its next boundary, so the number is right mid-morning instead of only after you switch away. Days roll at UTC, which is a real quirk worth knowing: near midnight in a distant timezone this card and the tray's report disagree, because the report prints local time."
+            - generic [ref=e313]: src-tauri/src/activity_log.rs · get_daily_summary()
+        - generic [ref=e314]:
+          - button "Report a bug in Today summary Live" [ref=e315] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Today summary Live" [ref=e316] [cursor=pointer]: ✨ Request
+      - generic [ref=e317]:
+        - generic [ref=e319]:
+          - generic [ref=e320]: 🕐 Recent Activity
+          - generic [ref=e321]:
+            - generic [ref=e322]: 💻
+            - generic [ref=e323]: Code - TagPicker.jsx
+            - generic [ref=e324]: 22m
+          - generic [ref=e325]:
+            - generic [ref=e326]: 🌐
+            - generic [ref=e327]: Chrome - (handed to extension)
+            - generic [ref=e328]: 14m
+          - generic [ref=e329]:
+            - generic [ref=e330]: 🎨
+            - generic [ref=e331]: Figma - Gatekeeper explorations
+            - generic [ref=e332]: 38m
+          - generic [ref=e333]:
+            - generic [ref=e334]: 💬
+            - generic [ref=e335]: "Slack - #flux-dev"
+            - generic [ref=e336]: 6m
+          - generic [ref=e337]:
+            - generic [ref=e338]: 📊
+            - generic [ref=e339]: Excel - Q1 charts.xlsx
+            - generic [ref=e340]: 21m
+        - generic [ref=e341]:
+          - generic [ref=e342]: 🕐
+          - generic [ref=e343]:
+            - generic [ref=e344]:
+              - text: Recent Activity
+              - generic [ref=e345]: Live
+            - generic [ref=e346]: "The last twenty sessions, newest first, each as app · window title · duration. Browser rows are the seam in the whole architecture: the companion sees Chrome is focused but hands the content question to the extension, which knows the tab, its Context and its intent. Two trackers, one timeline, no double-count."
+            - generic [ref=e347]: src/App.jsx · get_today_sessions
+        - generic [ref=e348]:
+          - button "Report a bug in Recent Activity Live" [ref=e349] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Recent Activity Live" [ref=e350] [cursor=pointer]: ✨ Request
+      - generic [ref=e351]:
+        - generic [ref=e353]:
+          - generic [ref=e354]:
+            - generic [ref=e355]: 💻
+            - generic [ref=e356]: development
+            - generic [ref=e357]: ~30
+          - generic [ref=e358]:
+            - generic [ref=e359]: 💬
+            - generic [ref=e360]: communication
+            - generic [ref=e361]: ~12
+          - generic [ref=e362]:
+            - generic [ref=e363]: 🎨
+            - generic [ref=e364]: design
+            - generic [ref=e365]: ~28
+          - generic [ref=e366]:
+            - generic [ref=e367]: 📋
+            - generic [ref=e368]: productivity
+            - generic [ref=e369]: ~10
+          - generic [ref=e370]:
+            - generic [ref=e371]: 📧
+            - generic [ref=e372]: email
+            - generic [ref=e373]: ~5
+          - generic [ref=e374]:
+            - generic [ref=e375]: 🎵
+            - generic [ref=e376]: media
+            - generic [ref=e377]: ~8
+          - generic [ref=e378]:
+            - generic [ref=e379]: 🎮
+            - generic [ref=e380]: entertainment
+            - generic [ref=e381]: ~6
+          - generic [ref=e382]:
+            - generic [ref=e383]: 🌐
+            - generic [ref=e384]: browser
+            - generic [ref=e385]: ~4
+          - generic [ref=e386]:
+            - generic [ref=e387]: ⚙️
+            - generic [ref=e388]: system
+            - generic [ref=e389]: ~7
+          - generic [ref=e390]:
+            - generic [ref=e391]: ❓
+            - generic [ref=e392]: unknown
+            - generic [ref=e393]: fallback
+        - generic [ref=e394]:
+          - generic [ref=e395]: 🏷
+          - generic [ref=e396]:
+            - generic [ref=e397]:
+              - text: Categorizer
+              - generic [ref=e398]: Live
+            - generic [ref=e399]: Nine categories plus an honest unknown fallback, over roughly a hundred executable names - matched on exact filename, case-insensitively, so a renamed binary lands in unknown rather than being guessed at. Design is the biggest bucket after development, mostly because the Adobe suite is large. The extension's own category engine was ported from this file, which is why a day reads the same on both sides.
+            - generic [ref=e400]: src-tauri/src/categorizer.rs
+        - generic [ref=e401]:
+          - button "Report a bug in Categorizer Live" [ref=e402] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Categorizer Live" [ref=e403] [cursor=pointer]: ✨ Request
+      - generic [ref=e404]:
+        - generic [ref=e405]:
+          - generic [ref=e406]:
+            - generic [ref=e407]: ● Connected
+            - generic [ref=e408]: ws://localhost:9147/tabatha
+            - generic [ref=e409]: loopback only · 1 client
+          - generic [ref=e410]:
+            - generic [ref=e411]:
+              - generic [ref=e412]:
+                - generic [ref=e413]: ↑
+                - text: Companion → extension
+              - generic [ref=e414]:
+                - generic [ref=e415]: APP_SWITCH
+                - generic [ref=e416]: APP_SESSION_END
+                - generic [ref=e417]: COMPANION_STATUS
+                - generic [ref=e418]: CLOCK_STATE
+                - generic [ref=e419]: DAILY_SUMMARY
+                - generic [ref=e420]: IDLE_STATE
+                - generic [ref=e421]: UPDATE_READY
+                - generic [ref=e422]: CAPTURE_TAKEN
+                - generic [ref=e423]: CAPTURE_STATE
+                - generic [ref=e424]: FILE_WRITTEN
+            - generic [ref=e425]:
+              - generic [ref=e426]:
+                - generic [ref=e427]: ↓
+                - text: Extension → companion
+              - generic [ref=e428]:
+                - generic [ref=e429]: FOCUS_UPDATE
+                - generic [ref=e430]: CLOCK_IN
+                - generic [ref=e431]: CLOCK_OUT
+                - generic [ref=e432]: TOGGLE_BREAK
+                - generic [ref=e433]: GET_CLOCK_STATE
+                - generic [ref=e434]: REQUEST_SUMMARY
+                - generic [ref=e435]: CATEGORY_RULES
+                - generic [ref=e436]: PING
+                - generic [ref=e437]: CAPTURE_CONFIG
+                - generic [ref=e438]: GET_CAPTURE_STATE
+                - generic [ref=e439]: CAPTURE_FRAME
+                - generic [ref=e440]: WRITE_EXPORT
+        - generic [ref=e441]:
+          - generic [ref=e442]: 🔌
+          - generic [ref=e443]:
+            - generic [ref=e444]:
+              - text: WebSocket bridge
+              - generic [ref=e445]: Live
+            - generic [ref=e446]: "The whole contract between the two products, on 127.0.0.1 only - never 0.0.0.0, so nothing on your network can listen in. Ten message types out, twelve in. If the port is taken the companion logs it and carries on tray-only rather than refusing to start. FOCUS_UPDATE is the interesting one: it splits your focus label into keywords and tags any desktop window whose title matches, so \"Q1 charts\" in the browser silently claims the Excel file too."
+            - generic [ref=e447]: src-tauri/src/ws_server.rs
+        - generic [ref=e448]:
+          - button "Report a bug in WebSocket bridge Live" [ref=e449] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for WebSocket bridge Live" [ref=e450] [cursor=pointer]: ✨ Request
+      - generic [ref=e451]:
+        - generic [ref=e453]:
+          - generic [ref=e454]:
+            - generic [ref=e455]: app_sessions
+            - generic [ref=e456]: id · app_name · app_display_name · window_title · category · started_at · ended_at · duration_ms · matched_focus_id · matched_context
+          - generic [ref=e457]:
+            - generic [ref=e458]: clock_sessions
+            - generic [ref=e459]: id · clocked_in_at · clocked_out_at · total_break_ms · label · source
+          - generic [ref=e460]:
+            - generic [ref=e461]: clock_breaks
+            - generic [ref=e462]: id · clock_session_id → · started_at · ended_at · duration_ms · note
+          - generic [ref=e463]: tabatha_activity.db · local SQLite · never leaves the machine unless you sync
+        - generic [ref=e464]:
+          - generic [ref=e465]: 🗄
+          - generic [ref=e466]:
+            - generic [ref=e467]:
+              - text: Activity log
+              - generic [ref=e468]: Live
+            - generic [ref=e469]: "Three tables and three indexes of local SQLite. The part worth knowing is what happens after a crash or a flat battery: on every start it reconciles orphans - an app session left open is closed at the moment the next one began, not at \"now\", so a laptop that slept over the weekend does not wake up crediting you sixty hours in a text editor."
+            - generic [ref=e470]: src-tauri/src/activity_log.rs
+        - generic [ref=e471]:
+          - button "Report a bug in Activity log Live" [ref=e472] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Activity log Live" [ref=e473] [cursor=pointer]: ✨ Request
+      - generic [ref=e474]:
+        - generic [ref=e476]:
+          - generic [ref=e477]:
+            - text: 📸 Capture ·
+            - generic [ref=e478]: off by default
+          - generic [ref=e479]: "%APPDATA%\\Tabatha Desktop\\captures\\<partition>\\<YYYY-MM>\\2026-07-16T03-12-45-123Z_os_personal_report-xlsx-excel.jpg"
+          - generic [ref=e480]:
+            - generic [ref=e481]: skipped while idle
+            - generic [ref=e482]: skipped when a browser is in front
+            - generic [ref=e483]: suppressed by rule
+            - generic [ref=e484]: redaction fails closed
+            - generic [ref=e485]: min-gap throttle
+          - generic [ref=e486]:
+            - text: "Partition follows the clock:"
+            - generic [ref=e487]: org
+            - text: while clocked in, otherwise
+            - generic [ref=e488]: personal
+            - text: "- retained 90 and 30 days."
+        - generic [ref=e489]:
+          - generic [ref=e490]: 📸
+          - generic [ref=e491]:
+            - generic [ref=e492]:
+              - text: Screen capture
+              - generic [ref=e493]: Live · opt-in
+            - generic [ref=e494]: "The OS half of a browser-plus-desktop pair: the extension captures tabs, this captures everything else, and it stands down the moment a browser is in front so the two never race. Disabled until you turn it on. Sensitive-window rules can suppress or redact a region, and redaction fails closed - a rule that resolves to zero pixels suppresses the frame rather than writing an unredacted one. Note this contradicts the companion's own README, which still carries a \"no screenshots, ever\" line from v0.1.0; the code is the authority and the README is stale."
+            - generic [ref=e495]: src-tauri/src/screen_capture.rs
+        - generic [ref=e496]:
+          - button "Report a bug in Screen capture Live · opt-in" [ref=e497] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Screen capture Live · opt-in" [ref=e498] [cursor=pointer]: ✨ Request
+      - generic [ref=e499]:
+        - generic [ref=e501]:
+          - generic [ref=e502]: ⬆ Update the extension
+          - generic [ref=e503]:
+            - generic [ref=e504]: ✓
+            - generic [ref=e505]: New version is strictly greater than the installed one
+          - generic [ref=e506]:
+            - generic [ref=e507]: ✓
+            - generic [ref=e508]: Zip SHA-256 matches the published manifest
+          - generic [ref=e509]:
+            - generic [ref=e510]: ✓
+            - generic [ref=e511]: Payload really contains manifest.json + background.js
+          - generic [ref=e512]:
+            - generic [ref=e513]: ✓
+            - generic [ref=e514]: Extension key is identical - or refuse
+          - generic [ref=e515]:
+            - generic [ref=e516]: ✓
+            - generic [ref=e517]: Staging dirs can never touch the database file
+          - generic [ref=e518]:
+            - generic [ref=e519]: ✓
+            - generic [ref=e520]: Swap is atomic, with rollback
+          - generic [ref=e521]: "Tray: \"Tabby Desk - Checking for updates…\""
+        - generic [ref=e522]:
+          - generic [ref=e523]: ⬆
+          - generic [ref=e524]:
+            - generic [ref=e525]:
+              - text: Extension updater
+              - generic [ref=e526]: Live
+            - generic [ref=e527]: "Updates the browser extension, not itself - the companion is how Tabatha self-distributes outside the Web Store. Six invariants, each individually tested, and the identity check is the one that matters: a changed extension key means a changed extension ID, which would silently orphan all your stored data, so a key mismatch refuses the update outright. Every outcome is reported through the tray tooltip, because a windowless app has no console to print to."
+            - generic [ref=e528]: src-tauri/src/updater.rs
+        - generic [ref=e529]:
+          - button "Report a bug in Extension updater Live" [ref=e530] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Extension updater Live" [ref=e531] [cursor=pointer]: ✨ Request
+      - generic [ref=e532]:
+        - generic [ref=e534]:
+          - generic [ref=e535]: ✅ Start on Login
+          - generic [ref=e536]: HKCU\…\CurrentVersion\Run → TabathaDesktop
+          - generic [ref=e537]: 🔗 Protocol handler
+          - generic [ref=e538]: HKCU\Software\Classes\tabatha://
+          - generic [ref=e539]: Enabled once, on first run only. After that the tray toggle is the only thing that decides.
+        - generic [ref=e540]:
+          - generic [ref=e541]: 🔁
+          - generic [ref=e542]:
+            - generic [ref=e543]:
+              - text: Autostart & protocol
+              - generic [ref=e544]: Live
+            - generic [ref=e545]: Two plain registry writes rather than a plugin. It turns itself on the first time it ever runs and then never touches the setting again - guarded by a sentinel file, so no update can quietly re-enable an autostart you deliberately switched off. The tabatha:// handler is registered every start (it is idempotent) and lets the extension relaunch the companion if it finds it gone.
+            - generic [ref=e546]: src-tauri/src/main.rs · mod startup
+        - generic [ref=e547]:
+          - button "Report a bug in Autostart & protocol Live" [ref=e548] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Autostart & protocol Live" [ref=e549] [cursor=pointer]: ✨ Request
+      - generic [ref=e550]:
+        - generic [ref=e551]: ┌────────────────────────────────────────────┐ │ TABBY DESK - ACTIVITY REPORT │ │ Thursday, 16 July 2026 │ ├────────────────────────────────────────────┤ │ Active time 4h 12m │ │ Break time 18m │ │ App switches 63 │ ├────────────────────────────────────────────┤ │ 💻 development 1h 54m 45% │ │ 🎨 design 1h 06m 26% │ │ 💬 communication 32m 13% │ │ 📋 productivity 21m 8% │ │ ⚙️ system 12m 5% │ │ ❓ unknown 7m 3% │ └────────────────────────────────────────────┘
+        - generic [ref=e553]:
+          - generic [ref=e554]: 📄
+          - generic [ref=e555]:
+            - generic [ref=e556]:
+              - text: Activity report
+              - generic [ref=e557]: Live
+            - generic [ref=e558]: "\"📊 Activity Log\" in the tray writes this to a text file and hands it to whatever opens .txt. Box-drawing characters and a monospace grid, deliberately: it is meant to be readable in Notepad, pasteable into a message, and legible in ten years without Tabatha installed to open it. This is the report that prints local time while the panel above counts UTC days."
+            - generic [ref=e559]: src-tauri/src/main.rs · show_log
+        - generic [ref=e560]:
+          - button "Report a bug in Activity report Live" [ref=e561] [cursor=pointer]: 🐞 Bug
+          - button "Request a feature for Activity report Live" [ref=e562] [cursor=pointer]: ✨ Request
+  - contentinfo [ref=e563]:
+    - generic [ref=e564]: Tabatha component showcase
+    - generic [ref=e565]: ·
+    - generic [ref=e566]: desktop companion v0.2.0 · Windows
+    - generic [ref=e567]: ·
+    - generic [ref=e568]: self-contained, no network dependencies
+    - generic [ref=e569]: ·
+    - generic [ref=e570]: icons are emoji, exactly as the app ships

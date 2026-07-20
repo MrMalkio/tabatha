@@ -2,6 +2,536 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.39",
+      "title": "Sidecar line reconciled into staging",
+      "date": "2026-07-19",
+      "intro": "> Merge commit: brings the entire Tabby Sidecar 0.x line (sidecar/ app v0.8.2, Supabase migrations 030-041 + 5 edge functions, Plan 040/041 specs and docs) into staging. No extension code changed.",
+      "sections": []
+    },
+    {
+      "version": "6.7.38",
+      "title": "Feature intake: tab grouping, agent browsing, agent history specs",
+      "date": "2026-07-19",
+      "intro": "> Docs-only. No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Feature spec #217 — Intent Tab Grouping Suite** (`docs/features/217-intent-tab-grouping-suite.md`): per-intent tab counts (related/open/closed) on home + sidebar, \"group this intent's tabs\" action, multiple tab groups per intent across windows (multi-monitor use case), multi-select tabs → toolbar icon contextual group/split menu, consolidate-into-N-windows gather action, and foreign-group adoption. Phased 1–3; Phase 3's cross-window live reparenting question is explicitly left open.\n- **Feature spec #218 — Agent Browsing Detection** (`docs/features/218-agent-browsing-detection.md`): classify agent-created tab groups via the C11a agent-session service plus honest heuristics, suppress InPop or show an InPop-Agent variant (no Sugar Box / Side Quest for agents), manual per-group override.\n- **Feature spec #219 — Agent vs Human History** (`docs/features/219-agent-vs-human-history.md`): actor attribution (`human` | `agent:{sessionId}`) on every history-bearing record, LogsPanel filter chips, agent time excluded from analytics by default, per-session agent audit view."
+        },
+        {
+          "label": "Changed",
+          "body": "- **#211 Audio Input & Voice Control**: InBar mic button promoted to a first-class requirement (speak notes, checkpoints, intent changes); `log_checkpoint` / `append_note` / `change_intent` added to the voice action-routing schema; C9 voice v0 groundwork referenced.\n- **features.md matrix**: registered #215–#219 under a new \"Input, Sessions, Grouping & Agent Browsing (Backlog 2026-07-16)\" section (215/216 had specs but were never registered)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.37",
+      "title": "Marketing site: Desktop Companion 0.3.1 download live",
+      "date": "2026-07-19",
+      "intro": "> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Changed",
+          "body": "- **Companion download panel lifted from the deliberate 0.2.0 pin to 0.3.1.** The `/show` companion page's download panel now serves the 0.3.1 installers: NSIS `Tabatha.Desktop_0.3.1_x64-setup.exe` (4,927,360 bytes, SHA-256 `99828808694b6ff8606975c1a52354f61b18d66f78e82f1b70f1378e617fc6a7`) and `.msi` (8,175,616 bytes, SHA-256 `9969d5dc255294ade3ef1e42db8abd18763eec50c7fb30be422032231a6b384a`), with a note that this build ships the hardened one-tap device pairing and the unsigned-binary/SmartScreen caveat kept. Version badges on the companion page (h1, tray-tooltip and Desk Panel mockups, footer) and the `/show` family tile + get-strip updated to 0.3.1.\n- **Release mirrored to the public repo.** The 0.3.1 artifacts were released on the private `tabatha-desktop` repo, which the public cannot download from; following the `desktop-v0.2.0` precedent, both installers were mirrored (hash-verified before upload) to a public `desktop-v0.3.1` release on the main repo, and the panel links point there so every link works anonymously."
+        }
+      ]
+    },
+    {
+      "version": "6.7.36",
+      "title": "Marketing site: Tabby Sidecar & Tabby Watch full-page presence",
+      "date": "2026-07-18",
+      "intro": "> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Tabby Sidecar gets a full detail page.** New `site/show/components-sidecar.html` (12 components, rendered from the app's real tokens — `sidecar/src/lib/theme.ts`, accent `#00E0D6`): sign-in, active focus & queue, voice capture and proactive check-ins, Tasks & Asana sync, Context View (including the phone-away red overlay), Phone Focus Mode, PWA install & self-healing, Web Push, in-app feedback, Notes/simple capture, watch pairing, and Cloud Sync. The `/show` family tile now links to this page instead of straight out to the live app; \"Open Tabby Sidecar\" remains as its own strip. Sidecar reflected at v0.7.2.\n- **Tabby Watch joins the showcase family.** New `site/show/components-watch.html` (8 components, rendered from `tabatha-watch`'s Wear OS Compose theme — green/amber/red focus-ring states): the focus ring, action chips, checkpoint quick-add, shift glance, Tile, complication, password-free 6-digit pairing, and the architecture/fixture-mode card. Framed honestly throughout as a **sideload beta** — no store listing, built and sideloaded from `MrMalkio/tabatha-watch` (v0.1.2). A new family tile and a non-`.ready` get-strip point here; the family section is now \"4 in the family\".\n- **Roadmap.** Replaced the Tabby Watch Todo card with a Resolved card (v0.1.2, sideload beta) and added a new Todo card for the store release that remains outstanding.\n- **Search index & site build.** `scripts/build-search-index.mjs` now indexes both new pages (140 component cards total, up from 120); ran `npm run site:build` to regenerate `search-index.json` and `privacy.html`."
+        }
+      ]
+    },
+    {
+      "version": "6.7.35",
+      "title": "Marketing site: Tabby Sidecar v0.7.0 + Extension 6.7.34 milestone",
+      "date": "2026-07-18",
+      "intro": "> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Tabby Sidecar v0.7.0 reflected on the showcase.** The `/show` family tile and \"Open Tabby Sidecar\" strip now cover the Tasks view with Asana personal-access-token sync (subtasks, blocked badges, tracked time, start-task-into-focus), timer extensions and snoozes as ⏳ nodes on the Context View timeline, proactive voice check-ins (Tabatha asks how it's going out loud, applies your spoken answer with a visible Undo, opt-in and quiet-hours aware), and the self-healing PWA (auto-update + crash recovery screen).\n- **Extension 6.7.34 reflected on the showcase.** The Browser Extension family tile now mentions Context View customization from Settings (day countdown, up-next, timeline, checkpoint preview, phone-away fade, day-reset hour — synced with the phone) and the Desktop Companion pairing card. The Desktop Companion tile and detail page describe the new hardened, one-tap pairing token exchange (Desktop Companion 0.3.1) in place of the earlier open local socket.\n- **Roadmap.** Added Resolved cards for the Sidecar Tasks/Asana sync, timer-extension timeline nodes, self-healing PWA, proactive voice check-ins, extension Context View customization, and hardened companion pairing. Added a Todo card for Tabby Watch (Wear OS)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.34",
+      "title": "Changelog backfill for 6.7.32/6.7.33 - docs only",
+      "date": "2026-07-18",
+      "intro": "> Documentation-only version bump (version-per-commit rule).",
+      "sections": []
+    },
+    {
+      "version": "6.7.33",
+      "title": "Companion pairing: WS Stage-2 HELLO client",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Companion HELLO handshake (client side).** The background's companion bridge now sends `HELLO` (pairing token + surface/profile hint) as its first WebSocket message, matching Desktop Companion 0.3.1's Stage-2 auth. Handles `HELLO_ACK` (post-open sync fires after ack, or after a 2s fallback for 0.3.0 companions) and `HELLO_REJECTED` (60s reconnect backoff + \"pairing required\" banner).\n- **Pairing card** in Settings → Desktop Activity: paste the token from the companion tray's \"Pair Extension\" action (password field; token stored in extension storage only, never logged)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.32",
+      "title": "Context View customization from the extension",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **📺 Context View settings section** (Epic 9): toggles for day countdown, up-next, bottom timeline, checkpoint counter/last-note preview, phone-away fade mode (slow/immediate), and day-reset hour. Writes go through the new atomic `update_profile_settings` Cloud Sync RPC (migration 038), shared with Tabby Sidecar — no more cross-surface settings clobbering."
+        }
+      ]
+    },
+    {
+      "version": "6.7.31",
+      "title": "Marketing site: Tabby Sidecar v0.4.0 milestone",
+      "date": "2026-07-18",
+      "intro": "> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Tabby Sidecar v0.4.0 reflected on the showcase.** The `/show` family tile and \"Open Tabby Sidecar\" strip now cover voice capture (speak an intent or a checkpoint), the Chaperone v0 personality interrupt (\"Don't you dare touch that phone\"), Context View's live bottom timeline (checkpoints, starts, overtime pulse on a reworked layout), and pause-on-leave Phone Focus Mode.\n- **Roadmap.** Moved \"Voice input\" from Todo to Resolved (v0.4.0), and added Resolved cards for the Sidecar Chaperone and the Context View bottom timeline. The native iOS/Android app stays a Todo card."
+        }
+      ]
+    },
+    {
+      "version": "6.7.30",
+      "title": "Widget carve-out: docs only",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **`docs/WIDGET-VERSIONING.md`** — proposal (not executed) for splitting the Asana widget onto its own `0.x` version line, separate from the extension's `6.x` line, per Plan 040 Addendum 4. Written as part of untangling `feat/companion-update-manifest`/`feat/site-sidecar-promo` from `Koda/asana-widget-pre-rebase`; no widget code, version files, or branches were touched."
+        }
+      ]
+    },
+    {
+      "version": "6.7.29",
+      "title": "Marketing site: Tabby Sidecar promotion",
+      "date": "2026-07-18",
+      "intro": "> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Sidecar entry point on the teaser homepage.** A top-right \"Sign in\" control links to the live Tabby Sidecar mobile companion at `/sidecar`, styled in the teaser's own token system.\n- **Tabby Sidecar on the showcase.** The `/show` family section now presents Tabby Sidecar as a shipped mobile web companion (sign in, queue and active focus, create intent, run the clock, Web Push, PWA install), with an \"Open Tabby Sidecar\" strip. The native iOS/Android app is reframed as the next step.\n- **Roadmap.** Added a Resolved card for Tabby Sidecar (mobile web companion) and a Todo card for the native iOS and Android app."
+        }
+      ]
+    },
+    {
+      "version": "6.7.28",
+      "title": "Desktop companion updater manifest",
+      "date": "2026-07-18",
+      "intro": "> Marketing site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Desktop companion self-update manifest.** Serves the Tauri v2 updater manifest at `/desktop/latest.json` so the companion can self-update. Points `windows-x86_64` at the `desktop-v0.2.1` GitHub release NSIS installer with its minisign signature."
+        }
+      ]
+    },
+    {
+      "version": "6.7.27",
+      "title": "Changelog drift gate no longer trips on Windows line endings",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **`build-changelog --check` failed on every fresh Windows checkout** (`core.autocrlf=true` smudges `public/changelog.json` to CRLF while the generator emits LF, so the byte compare always mismatched). The check now normalizes CRLF before comparing — purely content-driven, as intended."
+        }
+      ]
+    },
+    {
+      "version": "6.7.26",
+      "title": "Changelog JSON regenerated after restoration merges",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **`public/changelog.json` was stale vs `Tabatha_Changelog.md`**, tripping the prebuild `build-changelog --check` gate. The GitHub-restoration merges (PRs #28/#29) combined changelog entries from the extension and sidecar lines without regenerating the JSON. Regenerated (65 releases)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.25",
+      "title": "Reach the empty focus slot: no auto-start on resolve + home shows the queue",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **\"Auto-start next intent on resolve\" toggle** (Settings → Focus Lifecycle, default ON — existing behaviour unchanged unless you opt out). Resolving an intent has always pulled the most-recently-paused intent out of the queue and straight into focus. Turn this OFF and resolving leaves **nothing** active: the queue stays paused until you pick the next intent yourself. This also makes an empty focus slot reachable for the first time — pausing never clears `activeFocusId` (it only flips `focusState` to `paused`), so `completeFocus` was the only path that emptied the slot, and it immediately re-filled it."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **The focus queue, backburner, and history no longer vanish from the home page when nothing is active.** They were nested inside the `activeFocus ? … : …` branch, so an empty focus slot rendered only the \"What are you focusing on?\" input — the queued intents were invisible on the home page (the sidebar showed them; home didn't). They now render regardless of active state, pairing with the toggle above."
+        }
+      ]
+    },
+    {
+      "version": "6.7.24",
+      "title": "Staff auto-update swap step fixed",
+      "date": "2026-07-17",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Staff auto-update client silently failed every swap** (`scripts/tabatha-updater.ps1`). Root cause: the script (and `scripts/install-tabatha-staff.ps1`, same pattern) was saved as UTF-8 **without a byte-order mark**, and contains em-dash characters inside executable `Log` string literals. Windows PowerShell 5.1 (`powershell.exe`, the interpreter staff machines actually run) decodes BOM-less `.ps1` files using the system ANSI codepage instead of UTF-8 — the em-dash's multi-byte UTF-8 sequence gets misdecoded, which corrupted the tokenizer's parse of the surrounding statements and silently skipped the `Expand-Archive` extraction call and the `Test-BuildValid` validation gate entirely. Execution fell through straight to reading a version from a directory that was never extracted, producing the empty-version log line and a swap failure (\"Cannot find path '...\\extracted'\"). Fixed by adding a UTF-8 BOM to both scripts (the encoding Windows PowerShell 5.1 requires to correctly read non-ASCII bytes). Also added an explicit post-extraction existence check in the updater so any future extraction failure fails loudly at validation instead of surfacing as a confusing error at swap time. Verified end-to-end against the live channel: stable path went v6.7.19 -> v6.7.23, and a second run correctly no-ops (idempotent, no orphaned staging/old dirs). `mirror-extension.ps1` is plain ASCII and does not share this defect."
+        }
+      ]
+    },
+    {
+      "version": "6.7.23",
+      "title": "Update-channel test + re-sync",
+      "date": "2026-07-17",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Self-hosted update channel had drifted to v6.7.15** — `publish:update` was not run for several releases, so remote staff installs would not have auto-updated past 6.7.15. This release re-publishes the channel and was used to verify the end-to-end auto-update path (publish -> latest.json -> client pull -> stable-path swap) works."
+        }
+      ]
+    },
+    {
+      "version": "6.7.22",
+      "title": "Desktop companion shipped as a real Windows download",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **The desktop companion is now downloadable.** It was built and running at v0.2.0 but\n  existed only as a bare `.exe` on the machine that compiled it — no installer, no host.\n  Ran the Tauri bundler to produce a real **NSIS installer** (`4,666,565` bytes, sha256\n  `674ec83c…d8846`) plus an MSI, and published both as a **GitHub release** on\n  `MrMalkio/tabatha` under the tag **`desktop-v0.2.0`** — deliberately distinct from the\n  extension's `ext-v*` update channel so the two release lines cannot collide. The source\n  repo is separate and unpublished; only the built artifact is hosted.\n- **The showcase companion card now offers the real file.** `site/show/components-companion.html`\n  and the `site/show/index.html` entry strip replace the honest \"request access\" soft state\n  with a genuine download card: version 0.2.0, Windows x64, 4.45 MB, the full SHA-256, a\n  direct release-asset link, and a `.msi` alternative. The CTA is promoted from amber\n  (\"honest, but not yet\") to cyan (\"go\"). Verified responsive with no horizontal overflow\n  at 1280/768/480; the sha256 wraps within bounds on mobile."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Companion README corrected.** `tabatha-desktop/README.md` claimed the companion takes\n  **\"no screenshots, no keyloggers, no content capture\"** and was stamped v0.1.0. A GDI\n  screen-capture engine ships as of v0.2.0 (`screen_capture.rs`, merged to master), so the\n  screenshot claim was false. The README now describes capture honestly under the same\n  terms as the privacy policy — opt-in, off by default, redacted fail-closed, written only\n  to the user's own machine, never uploaded, auto-pruned 30d personal / 90d org-clocked —\n  fixes the stale version references, and documents the local-socket limitation."
+        },
+        {
+          "label": "Security (disclosed, not yet fixed)",
+          "body": "- **Documented the companion's unauthenticated local socket.** The companion's WebSocket on\n  `127.0.0.1:9147` (loopback-only, never network-exposed) does not authenticate local\n  callers. Because WebSocket connections bypass the same-origin policy, **any web page you\n  visit** can connect and — most seriously — silently enable OS screen capture via\n  `CAPTURE_CONFIG`. Full assessment and a staged, non-breaking fix in\n  `docs/security/companion-socket-auth.md`; surfaced publicly on the companion card as\n  \"local-only interface, authentication hardening in progress\" (no exploit recipe). The fix\n  is **not** shipped here — it must land on both the companion and the extension bridge\n  together to avoid breaking the existing connection."
+        }
+      ]
+    },
+    {
+      "version": "6.7.21",
+      "title": "Privacy policy correction + teaser H1 matches shipped Gatekeeper",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **`PRIVACY.md` was making false claims and has been corrected.** The published policy\n  (live at `/privacy`, and the privacy URL the Chrome Web Store listing points at) stated\n  that Tabatha collects **\"No screenshots of your pages\"** and knows \"never *what you did\n  on the page*\". That has been untrue since the Cortex capture engine shipped: the\n  extension runs `chrome.tabs.captureVisibleTab` on a dwell timer, and the desktop\n  companion captures at the OS level. This was a real disclosure defect, not a wording\n  nit — a privacy policy that under-describes collection is the worst document in this\n  repo to get wrong, and a false disclosure checked against declared behavior is a Chrome\n  Web Store rejection risk on top of the trust problem.\n  The policy now states the truth, which is a defensible story rather than a silent one:\n  capture is **opt-in and off by default** (`screenshotCapture: false`,\n  `src/background/constants.js:51`), frames are **redacted with a fail-closed pass**,\n  written **only to the user's own machine** (companion folder, OPFS fallback), **never\n  uploaded** (no upload path exists — frames appear in neither `syncService.js` nor any\n  AI routing tier), and **auto-pruned** at 30 days personal / 90 days org-clocked.\n  A dated **\"What changed\"** section was added to the policy itself so the revision is\n  visible to readers rather than being a quiet edit of a published page.\n- **New policy sections** covering the desktop companion's OS-level capture (same terms),\n  AI features (default tier is `harness` = local file only, sends nothing; `proxy` /\n  `gateway` / `byok` are text-only by design, not currently selectable, and require\n  sign-in or user-supplied provider details), and organization accounts — which state\n  accurately that org capture policy (`org_capture_policy`, migration 023) is **schema\n  with no client consumer**, so no admin can force capture on today.\n- **Downstream copies of the false claim synced** — `docs/CHROME-WEB-STORE-LISTING.md` §7\n  (the text pasted into the store's privacy-practices form, now with an explicit\n  data-usage-form note) and `TEAM-ONBOARDING.md` (which the listing had been quoting as\n  its source). `site/privacy.html` regenerated from `PRIVACY.md` via\n  `scripts/build-privacy.mjs`.\n- **Teaser H1 copy drift closed.** `site/index.html` led with *\"What are you down for?\"*,\n  but the shipped Gatekeeper overlay asks **\"Why are you here?\"** (`src/content/gatekeeper.js:288`).\n  The teaser now asks the real question; the live elapsed-time instrument and its\n  \"Unaccounted for\" caption are unchanged and land harder against it. The same drift is\n  fixed in `docs/CHROME-WEB-STORE-LISTING.md` §3 and its permission justifications, where\n  a description promising a prompt the extension does not show would be flagged on review."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Agent-Ready Data pillar** now closes on what the data is *for*, not just what it is —\n  agents \"help you do better work with surgical accuracy\". Applied in each surface's own\n  voice: `Tabatha_Concept.md` §6, `site/index.html` pillar, `site/show/index.html` pillar\n  (whose old sub-blurb, *\"structured, not screenshots\"*, was itself part of the false\n  claim), and the store listing's AGENT-READY DATA block."
+        }
+      ]
+    },
+    {
+      "version": "6.7.20",
+      "title": "The public site works on a phone",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **The site was not responsive at any width below desktop.** Measured before the fix: **33 of 54** page/width combinations overflowed horizontally. Every one of the 18 pages failed at 390px, and 7 of 10 still failed at 768px. Now 54/54 pass. Breakpoints are **1024 / 768 / 480**, and the rule is that the page body never scrolls sideways: anything intrinsically wide (component stages, the log table, the roadmap rail) scrolls inside its own container instead.\n- **The `.reqbtn` header button alone broke every page.** \"✨ Request a feature\" with `white-space: nowrap` was a flex item that could not shrink, so it set a 427px floor under the nav and therefore under the whole document, on all 10 site pages. Its label now lives in a `<span class=\"lbl\">` and collapses to the glyph below 768px, with the name kept on `aria-label`.\n- **Four surface frames shipped no `<meta name=\"viewport\">`** (`sidebar`, `home`, `settings`, `backdating`), so a phone laid them out against a 980px virtual viewport. Added.\n- **Per-card actions were unreachable on touch.** `.cardfb` and the roadmap's `.rfb` are revealed on `:hover`, which a touch device never fires, so Bug/Request could not be tapped at all. Now permanently visible under `@media (hover: none)`. Desktop capture is unaffected.\n- **Component stages clipped their contents on a phone.** `.stage` is `overflow: hidden` and the demos inside are pinned-width renders of real app UI (the CommandPalette is 540px because the CommandPalette *is* 540px), so a phone silently cut them in half. The stage now scrolls on its own axis below 900px, start-aligned so the overflowing edge is actually reachable."
+        },
+        {
+          "label": "Added",
+          "body": "- **Mobile nav drawer.** `site.js` wraps the header links in `.navlinks` and injects a `.navtoggle`; above 768px the wrapper is `display: contents`, so the desktop nav renders exactly as before. Done in JS rather than in markup because the ten pages carry the same nav with different link sets.\n- **Full-height sheet for the search and feedback overlays** below 768px, with the field pinned at the top and the list taking the remaining height. Inputs are 16px to stop iOS zooming the viewport on focus.\n- **Companion download panel** (`showcase/components-companion.html#get`) plus an entry strip on the hub. It is deliberately a **soft state**: there is no artifact to link. It names the platform (Windows 10/11 x64), the real version (**0.2.0**, from `tauri.conf.json`, not the stale README), what the companion actually does *including that it captures the screen*, and an explicit list of what blocks a release (no git remote, no `tauri build` bundle, no code signing, no companion update channel, stale docs, unauthenticated local socket). The CTA files a request rather than pretending to serve a file."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Hub thumbnails now derive their scale from their own box** (`container-type: inline-size` + `aspect-ratio` + `scale(calc(100cqw / 1280px))`) instead of hard-coded transform/height pairs that only agreed at one viewport. The phone step previously cropped roughly half of every surface.\n- **Roadmap board has three shapes**: six columns at desktop, a snap-scrolling rail from 769-1024px, and stacked below 768px. A 232px column on a 390px screen turns the roadmap into six swipes; stacked, it reads top to bottom.\n- **Surface frames scale rather than reflow.** All 8 stay exactly 1280×800 at the capture width; below 1279px `zoom: calc(100vw / 1280px)` fits the whole frame to the viewport, with body-level scrolling as the fallback where that is unsupported. `.shot`'s own layout is never touched, so the Chrome Web Store screenshots are byte-identical.\n- **Companion status reads \"Built · v0.2.0\", not \"Shipped\".** The page previously claimed \"Everything on this page is shipped and installable today\"; nothing on it is installable, because the binary has never left the machine that compiled it."
+        }
+      ]
+    },
+    {
+      "version": "6.7.19",
+      "title": "Teaser homepage, waitlist, showcase moves to /show",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Teaser homepage** (`site/index.html`) — the site root is now a held moment rather than a component gallery. It asks the Gatekeeper's own question (\"What are you down for?\") and answers it with a live instrument counting the visitor's real elapsed time on the page, captioned \"Unaccounted for.\" One idea, one input, no feature dump. Tokens are lifted verbatim from the showcase's `:root` (2/4/8 radius, `#050505`, `#00F0FF`, the Inter / JetBrains Mono stacks) so the teaser and the product read as one system. Self-contained: no CDN, no external font, no analytics, no beacon.\n- **Waitlist** (`functions/api/waitlist.js` + `supabase/migrations/028_waitlist.sql`) — the page's only CTA and only real action. Email posts to a Pages Function holding the service-role key in an env binding; **no Supabase key is ever shipped to the browser.** Server-side validation, per-isolate rate limiting, and duplicates treated as success via `ON CONFLICT DO NOTHING` so the endpoint can never be used to test whether an address is on the list. Returns 501 when unconfigured and the page says so plainly rather than faking a signup.\n- **Privacy page** (`site/privacy.html`, generated) — `/privacy` is now a real page, rendered from `PRIVACY.md` by `scripts/build-privacy.mjs` so the published policy cannot drift from the repo's. Linked from the teaser footer and from the signup fine print, because the site now collects email addresses.\n- **Waitlist section in `PRIVACY.md`** — covers what the address is used for (one email, once), that it is unlinked to any browsing data, that the list is not publicly readable, and how to be removed. The policy's scope line now names the website as well as the extension."
+        },
+        {
+          "label": "Changed",
+          "body": "- **`showcase/` is now `site/show/`, and `site/` is the deploy root.** Done as pure renames, so every one of the 24 files retains its history. No page content changed: every internal link and both data fetches were already relative, so `/show/` works exactly as `/` did. Deploy is now `wrangler pages deploy site`.\n- **`_headers` moved to the deploy root** (`site/_headers`) and its data/asset rules repathed under `/show/`. Pages only reads `_headers` at the root of the deployed directory, so left in place it would have silently stopped applying: the CSP, the frame rules and the cache policy would all have quietly vanished.\n- **`scripts/serve-showcase.mjs` now serves the whole deploy root**, resolving directory requests and clean URLs the way Pages does, so `/`, `/show/` and `/privacy` behave locally exactly as deployed. `/api/waitlist` is stubbed at 501 alongside `/api/feedback`.\n- **`scripts/build-search-index.mjs` and `scripts/capture-screenshots.mjs`** read from `site/show/`. The five pinned Chrome Web Store screenshots are untouched: same filenames, same `store-assets/screenshots/` destination, same enforced 1280x800."
+        },
+        {
+          "label": "Security",
+          "body": "- **`tabatha.waitlist` is deny-by-default**: RLS enabled and forced, with **zero policies**. A waitlist signup is anonymous by definition, so there is no identity to scope a policy to and none is written; `service_role` bypasses RLS and is the single intended path in. The inherited `anon` / `authenticated` grants from migration 006's `ALTER DEFAULT PRIVILEGES` are explicitly revoked, so both locks must fail before an address could leak."
+        }
+      ]
+    },
+    {
+      "version": "6.7.18",
+      "title": "Public site covers the whole product family",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Desktop Companion category page** (`showcase/components-companion.html`) — 15 cards covering the shipped **v0.2.0** companion: tray menu and its runtime-rasterized icon, Desk Panel, InstallGuide (connected · disconnected · never-installed), window monitor, time clock, today summary, recent activity, categorizer, WebSocket bridge (all 10 outbound + 12 inbound message types), the SQLite activity log, opt-in screen capture, extension updater, autostart + `tabatha://`, and the tray's text activity report. Stages render the companion's **own** tokens (`#4a9eff` / `#10ac84`, 8/4 radius), because it is a different app from the extension.\n- **Mobile App category page** (`showcase/components-mobile.html`) — 15 cards, **every one tagged \"In development\"**: nothing here is installable. 7 are marked *Built in app* (Dashboard, Settings, bottom-tab nav, persistent notification, native usage monitor, categorizer, hybrid LAN-first sync) and 8 *Planned* (Focus Hub, activity timeline, analytics, tasks, shift controls, InBar floating widget, onboarding, Morning Kickstart), taken from the canonical repo's `FEATURES.md` checkboxes and verified against `src/`.\n- **Product status badge system** (`showcase/assets/site.css`) — `.statusflag` (`live` / `dev` / `planned`) reusing the app's own semantic colors, a per-card `.substatus`, and a page-level `.devnote`. Same pill geometry as the hub's existing `.cwsflag`, so it reads as one vocabulary.\n- **\"The family\" hub section** — the three products, what each is for, and why they are separate: an extension sees tabs but not windows, a desktop app sees windows but not what is inside a tab, and neither is in your pocket. One shift at a time, wherever you started it.\n- **\"Why?\" on feature requests** — its own labelled textarea, distinct from the description, asked for once and yielded on rather than hard-blocked. Carried into both the Asana task body (as its own `WHY THIS MATTERS` block above the metadata rule, with an explicit `(not supplied)` when skipped) and the prefilled GitHub-issue fallback (as a `### Why this matters` section). Bug reports keep exactly the fields they had."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **TagPicker was missing its personal-realm states** — the card showed only the business realm. Added *expanded / personal selected* (client auto-filled to **Self**, Project dropped as a business-only field, Task retained) and a *collapsed / personal* breadcrumb, matching `src/components/ui/TagPicker.jsx`.\n- **Search index folded badge text into record names** — `.cwsflag` and the new `.statusflag` sit inside the `.t` caption, so the extractor produced records literally named `\"The Gatekeeper Store shot\"`, and would have produced `\"Dashboard In development\"` for all 25 new cards. Badges are now stripped from the name and folded into `keywords`, where \"in development\" is genuinely worth matching."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Search index: 147 → 185 records** (120 component cards across 8 category pages, 11 pages, 12 sections, 8 surfaces, 34 roadmap items). `scripts/build-search-index.mjs` gained the two new pages, an `EXPECTED_CARDS` constant, and family-card indexing; `scripts/capture-screenshots.mjs` gained the two new card pages. The 5 Chrome Web Store shots are untouched and still validate at exactly 1280×800."
+        }
+      ]
+    },
+    {
+      "version": "6.7.17",
+      "title": "Showcase becomes a public site: purpose copy, search, feedback, roadmap",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Site-wide search** — one box in the header of every real page (hub, all 6 category pages, roadmap), querying a prebuilt static index of **147 records**: all 90 component cards, 9 section descriptions, 8 surfaces, 6 pages, and every roadmap item. Fully keyboard-driven: `/` focuses from anywhere, arrows move, Enter opens, Escape closes. `npm run build:search-index` generates `showcase/search-index.json` by **parsing the real page markup** (`scripts/build-search-index.mjs`), so a card renamed in HTML cannot drift out of sync with what search returns; `npm run check:search-index` fails CI if it is stale.\n- **Section purpose copy** — every section header and category page now states what the group of components *is* and what job it does for the user, derived from the shipped source and the four pillars in `Tabatha_Concept.md`.\n- **Per-card Report bug / Request feature** — every one of the 90 cards carries both actions, bound to that exact component (id + name + page prefilled into the form). Injected at runtime from the card's own `id` and caption, so no per-card markup was needed. The controls are absolutely positioned and transparent until hover/focus, which keeps `.libcard` bounding boxes **byte-identical for the card captures**.\n- **Feedback modal + `POST /api/feedback`** — a Cloudflare Pages Function (`functions/api/feedback.js`) files submissions as Asana tasks, reading its token from the `ASANA_TOKEN` env binding (never hardcoded, never logged). With no token configured it returns a clear **501** and the client falls back to opening a **prefilled GitHub issue**, so the feature works before the backend is wired. Also the fallback on `file://` and on any upstream error: the reporter's words are never lost.\n- **Header \"Request a feature\"** — the same modal from every page, with no component prefilled.\n- **Roadmap page** (`showcase/roadmap.html`) — a kanban board whose columns are the product's **real funnel stages** (`FUNNEL_STAGES` in `src/hooks/useFocusEngine.js`: unsorted, todo, focus, addressing, roadblocked, resolved) with their shipped labels, emoji and colors. Fed by a **curated** `showcase/roadmap.json` (34 entries) — deliberately not wired to the internal board, so no internal task or client names can leak.\n- **Cloudflare Pages deployment** — `showcase/_headers` (CSP, no external origins, `frame-src 'self'` for the embedded surfaces), plus deploy, env-var and roadmap-update docs in `showcase/README.md`. `npm run site:serve` serves `showcase/` over http locally (search and the roadmap need a real origin) and stubs `/api/feedback` at 501 to exercise the fallback."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Showcase search: HTML entities rendered literally** — card titles containing `&mdash;` were indexed raw, so results read `Gatekeeper &mdash; agent` and a search for `gatekeeper agent` could not match across the entity. The index builder now decodes named, decimal and hex entities."
+        },
+        {
+          "label": "Notes",
+          "body": "- The 8 surface frames are unchanged and carry **no site chrome**. They are rendered at an exact 1280×800 as the whole viewport by the capture script, so adding a header or search box to them would corrupt the five Chrome Web Store screenshots. Their purpose copy lives on the hub, where they are presented."
+        }
+      ]
+    },
+    {
+      "version": "6.7.16",
+      "title": "Showcase expansion: full component inventory + card captures",
+      "date": "2026-07-16",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Showcase expanded to the whole user-facing surface area** — `showcase/index.html` is now an indexed gallery (sticky in-page nav, grouped sections, client-side filter) fronting **8 surface frames** and **6 new category pages** carrying **90 component cards**: `components-overlays.html` (InBar in 5 states, sticky note, edit dropdown, backburner, Gatekeeper strict/relaxed/inherited/agent, BlockGate, Welcome Back, What's New), `components-focus.html` (FocusBar active/paused/drifted/over-time/edit/checkpoint, FocusInput, queue, backburner dock, CheckpointTimeline, FlipClock, shift controls), `components-data.html` (every hand-rolled chart incl. the 365-day ActivityHeatmap and LogsPanel), `components-org.html` (TeamActivity, StatusChip's 9 states, invites, org tree, Live Stints, abandoned stints, Schedule's 3 modes), `components-settings.html` (all 22 shipped sections, sync chip's 5 states, SettingsSearch, all 12 themes, URL Rules, Developer, Cortex), and `components-primitives.html` (GlassCard, PopButton, ComboInput, TagPicker, CommandPalette, KeyboardShortcuts, LinkMergeModal, UnifiedTimeline). State variants are shown side by side wherever state is the point.\n- **New surface frames** — `popup.html` (the 400×500 Quick Switch popup), `workshifts.html` (Work Shifts → Analytics), and `settings-sections.html` (all 22 sections + the live-preview column).\n- **`npm run capture:showcase`** (plus `capture:shots` / `capture:cards`) — `scripts/capture-screenshots.mjs` now captures all 8 shot frames **and** every `.libcard` to `store-assets/screenshots/components/<page>--<card>.png` via CDP, validating each for dimensions and non-blankness. 98 assets in ~28s. The five Chrome Web Store shots keep their exact names and 1280×800 dimensions, now enforced by an explicit `cws` flag."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Showcase: invisible bars in the Work Shifts weekly and per-focus charts** — the fills are `<span>`s, so `height:100%` was silently ignored on an inline box and the bars rendered as empty tracks. They are `display:block` now.\n- **Capture: a fixed CDP debug port made captures attach to the wrong browser** — an orphaned headless Chrome holding port 9333 meant every navigate/screenshot targeted a stale page (capture ran ~500× slower and produced blank cards). Chrome now picks a free port and reports it via `DevToolsActivePort`."
+        }
+      ]
+    },
+    {
+      "version": "6.7.15",
+      "title": "Component showcase / display pages",
+      "date": "2026-07-15",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **`showcase/` component showcase** — polished, on-brand, self-contained HTML display pages for every key surface (Gatekeeper, sidebar, New Tab dashboard, Sync & Account settings, backdating / checkpoint timeline) plus a component library (InBar, BlockGate, TagPicker, tab rows, analytics, abandoned-stint modal). A reusable marketing / docs / onboarding asset rendered from the real design system (halved radius scale, Pop-Art palette, emoji iconography). Five pages double as the Chrome Web Store screenshots; `scripts/capture-screenshots.mjs` renders them to `store-assets/screenshots/*.png` at an exact 1280×800."
+        }
+      ]
+    },
+    {
+      "version": "6.7.14",
+      "title": "First complete self-hosted channel build",
+      "date": "2026-07-15",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Changed",
+          "body": "- First update-channel release built from the fully-merged line — combines the self-hosted updater (v6.7.13) with the backdating-actually-moves fix (v6.7.12), which the initial v6.7.13 release predated. This is the build the auto-updater serves to staff installs."
+        }
+      ]
+    },
+    {
+      "version": "6.7.13",
+      "title": "Self-hosted remote update channel for unpacked staff installs",
+      "date": "2026-07-15",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **`scripts/publish-update.mjs` + `npm run publish:update`** — builds the WITH-key unpacked-staff package, zips `dist/` to `store-assets/tabatha-<version>.zip`, computes its sha256, publishes a GitHub Release (tag `ext-v<version>`, distinct from the project's `v<version>` tag scheme) with the zip attached, and commits `latest.json` (`{ version, zipUrl, sha256, published }`) to a dedicated `update-channel` branch — served at the stable URL `https://raw.githubusercontent.com/MrMalkio/tabatha/update-channel/latest.json`.\n- **`scripts/tabatha-updater.ps1`** — polls that `latest.json`, compares semver against the installed stable-path manifest, and on a newer remote version: downloads the release zip, verifies its sha256 (aborts and leaves the current install untouched on any mismatch), validates the extracted build (manifest parses, pinned key present, entry pages present), then atomic-swaps it into `%LocalAppData%\\Tabatha\\extension` using the same never-empty rename pattern as `mirror-extension.ps1`. Logs to `%LocalAppData%\\Tabatha\\update.log`. Idempotent — no-op when already current.\n- **`scripts/install-tabatha-staff.ps1`** — staff/multi-machine installer superseding `install-extension-persistence.ps1` for non-dev machines: seeds the stable path from a bundled `.\\extension` payload, registers both an HKCU Run key (logon) and a Scheduled Task (every 6h) running the updater, and prints the one-time \"Load unpacked\" instruction.\n- **`store-assets/tabatha-staff-v<version>.zip`** — refreshed staff bundle: built extension (WITH pinned key) + `tabatha-updater.ps1` + `install-tabatha-staff.ps1` + updated `INSTALL.md` documenting the 6h/logon auto-update cadence.\n- This channel does NOT depend on Chrome Web Store review — it is live and testable on any staff machine (e.g. PS) the moment `npm run publish:update` is run once."
+        }
+      ]
+    },
+    {
+      "version": "6.7.12",
+      "title": "Backdating actually moves the start; overlap is reported, not blocked",
+      "date": "2026-07-15",
+      "intro": "> Supersedes v6.7.10's clamp-feedback behavior: the anti-double-count clamp against other focuses is **removed**, not just explained.",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Backdating a start time now actually moves the start — even when other focuses occupied that window.** The anti-double-count guard in `SET_FOCUS_START_TIME` treated every other focus (including the entire paused/queued backlog) as time already claimed and \"resolved\" overlap by shoving the proposed start *forward* to the latest interval end — with a full queue, that collapsed nearly every backdate into a silent no-op. The start the user picks now always takes effect, bounded only by two hard limits: not before clock-in, not in the future. Parallel/overlapping focuses are an accepted concept — overlap with another focus is now **reported, not silently blocked**: the editor confirms e.g. `Backdated to HH:MM — overlaps \"Email triage\" by 20m (both keep their time)`, and the timeline checkpoint notes the overlapped minutes.\n- **Edits limited by the hard bounds explain themselves.** A backdate fully swallowed by the clock-in floor or the now ceiling keeps the editor open with why and the earliest available time; a partially bounded one confirms the effective time and credited minutes; a clean backdate briefly confirms `+Xm credited`. (Per-focus accounting is unchanged: credited `elapsedMs` is still capped at wall-clock since the new start.)"
+        },
+        {
+          "label": "Changed",
+          "body": "- **`validateStartTime` contract:** bounds the start to `[clock-in, now]` only; `clamped`/`clampedBy` now reflect only those bounds (`'clock-in'` / `'now'`), and overlapping other-focus intervals are returned as `overlaps` (with per-interval `overlapMs` and the sibling's `label`) for the caller to surface. `SET_FOCUS_START_TIME` response adds `overlaps` alongside `startedAt`/`addedMs`/`clamped`/`clampedBy`. A follow-up will let the user trim the overlap from the other focus or move it to backburner time."
+        }
+      ]
+    },
+    {
+      "version": "6.7.11",
+      "title": "Chrome Web Store packaging: real icons, promo tile, store zip, privacy policy",
+      "date": "2026-07-15",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **True multi-resolution icons.** `public/icons/icon16/32/48/128.png` are now real 16/32/48/128px exports (previously all three shipped the same mislabeled 1024×1024 PNG). The 1024px original is preserved as `public/icons/icon-1024.png`; the manifest (`icons` + `action.default_icon`) now also declares the 32px size.\n- **`scripts/build-store-zip.mjs` + `npm run build:store`** — builds, stages `dist`, strips the pinned `key` from the staged manifest (Chrome Web Store rejects uploads carrying one), validates the payload (entry pages, icons, no sourcemaps/dotfiles), and zips to `store-assets/tabatha-store-v<version>.zip`.\n- **Store promo tile** — `store-assets/promo-440x300.png` (icon + wordmark + tagline on brand dark).\n- **`PRIVACY.md`** — plain-language privacy policy (from the listing doc's disclosure section), hosted publicly for the store's privacy-policy URL requirement.\n- **Staff interim bundle** — `store-assets/tabatha-staff-unpacked-v<version>.zip` (built extension WITH pinned key + persistence installer + 3-step INSTALL.md) so existing unpacked installs keep their extension ID until the store listing is live."
+        }
+      ]
+    },
+    {
+      "version": "6.7.9",
+      "title": "Stable extension load path (stops \"uninstalling on restart\")",
+      "date": "2026-07-15",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **The extension no longer disappears after a restart.** Chrome loaded the unpacked extension straight from the git build folder (`…\\Tabatha\\dist`), which `npm run build` legitimately empties/rewrites. Any restart — made frequent and unattended by Windows Fast Startup, and Chrome's startup extension-GC after an unclean exit — that landed while `dist` was mid-build/invalid caused Chrome to permanently drop the unpacked entry, forcing a manual \"Load unpacked\". The load path is now decoupled from the git tree: a stable mirror at `%LOCALAPPDATA%\\Tabatha\\extension` is kept populated with the freshest **valid** build and self-heals on logon, so Chrome always validates against a complete folder."
+        },
+        {
+          "label": "Added",
+          "body": "- **`scripts/mirror-extension.ps1`** — atomically mirrors a valid `dist` build into the stable load path (validates manifest + pinned key + entry pages before swapping; leaves the last-known-good copy untouched if the source is missing/mid-build).\n- **`scripts/install-extension-persistence.ps1`** — one-time machine setup: seeds the stable path and registers a logon autostart (scheduled task, or HKCU Run-key fallback) that re-mirrors/self-heals before Chrome starts. Prints the one-time \"Load unpacked from the stable path\" step.\n- **`npm run mirror:extension`** — refresh the stable load path on demand after a build."
+        }
+      ]
+    },
+    {
+      "version": "6.7.8",
+      "title": "Sync review fixes: durable fallback + per-op outbox persistence",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Display-name saves can no longer silently vanish.** If the service worker was asleep or torn down mid-message (a routine MV3 race), `saveDisplayName` used to swallow the failed `sendMessage` into a fabricated `{ ok: true }` — nothing was queued, no retry armed, and the cloud row stayed stale with a \"✓ syncing\" message. `updateProfileName` now falls back to persisting the write directly into the durable outbox (`_cloudOutbox`) and arms the flush alarm; only a genuine local-persist failure surfaces a real, retryable error to the user.\n- **Cloud outbox honours its at-most-once-per-success contract under teardown.** `flushCloudOutbox` now persists the queue after each op's success/failure inside the loop instead of once at the end, so a service-worker teardown mid-flush can't re-execute an op whose network write already landed."
+        }
+      ]
+    },
+    {
+      "version": "6.7.7",
+      "title": "Background-routed cloud writes + outbox queue (page auth hang fixed)",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Root-caused and killed the page-context Cloud Sync hang.** Saving a display name, creating an organisation, or redeeming/minting an invite from Settings (and Work Shifts schedule reads) could hang ~10–15s then time out, and the Account panel logged `auth_init_failed`. The cause was a self-deadlock inside the page's auth client: its init lock is held while `onAuthStateChange` subscribers run, and the subscriber's nested cloud read re-entered that same lock forever. The `onAuthStateChange` callback now defers all follow-up work off its microtask (never `await`s a cloud call inline), so the client can never wedge."
+        },
+        {
+          "label": "Added",
+          "body": "- **Background is now the single Cloud auth owner.** Page contexts source the session and access token from the background service worker (`GET_AUTH_STATE` / `GET_ACCESS_TOKEN`) and read via a deadlock-proof data client configured with an `accessToken` callback — it never runs page-local auth machinery. Realtime (team activity, live profile) keeps working on the routed token.\n- **Cloud outbox — queue, never race.** Display-name changes enqueue to a durable, idempotency-keyed queue (`src/utils/cloudOutbox.js`) with latest-wins dedupe and exponential backoff, flushed by the background. The UI gets an instant optimistic ack instead of a 10s timeout race; the name updates locally, survives a reload, and reconciles on cloud confirm. Survives service-worker restarts.\n- **All cloud mutations routed through the background** (`UPDATE_PROFILE_NAME`, `CREATE_ORGANIZATION`, `REDEEM_INVITE_TOKEN`, `CREATE_INVITE_TOKEN`, `DELETE_INVITE_TOKEN`) so they execute against the never-wedged background client.\n- **Auto-sync on sign-in.** Signing in now triggers a full sync + outbox flush automatically (also on service-worker boot) — no need to click \"Cloud Sync now\" (kept as a manual fallback)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.6",
+      "title": "UI: hide backend vendor name in Cloud Sync label",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Changed",
+          "body": "- **UI:** renamed the \"Supabase Cloud Sync\" integration label to \"Cloud Sync\" (hide backend vendor name from end users)."
+        }
+      ]
+    },
+    {
+      "version": "6.7.5",
+      "title": "Session-log housekeeping",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Changed",
+          "body": "- Docs/session-log housekeeping; version discipline reconciliation."
+        }
+      ]
+    },
+    {
+      "version": "6.7.3",
+      "title": "Cortex capture-config reconnect-flap guard",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **A settings read racing an MV3 SW-restart storm could silently flap desktop capture off** for as long as ~90 seconds. `pushCaptureConfig()` ran unconditionally on every companion-bridge reconnect; since `getSettings()` always merges onto `DEFAULT_SETTINGS` (`screenshotCapture: false`), a read before the raw `settings` key was confirmed loaded resolved to \"off\" and pushed that guess to the companion. Added `isSettingsLoaded()` — a pure guard that distinguishes \"genuinely not configured yet\" from \"confirmed loaded\" — so the push is skipped rather than asserting a false negative."
+        }
+      ]
+    },
+    {
+      "version": "6.7.2",
+      "title": "Cortex panel: surface the real capture folder",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **\"Where are my captures?\"** — the Cortex panel now shows the desktop companion's actual on-disk frames directory and a live \"last frame written\" timestamp, instead of only the extension's own observation-ledger count. The companion's `GET_CAPTURE_STATE` reply is now persisted (`companionCaptureState`) and re-requested on every bridge reconnect via a new `GET_COMPANION_CAPTURE_STATE` handler."
+        }
+      ]
+    },
+    {
+      "version": "6.7.1",
+      "title": "Awareness identity-race fix (Live Stints ghost cards)",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **Live Stints ghost cards / silent no-ops on cold start.** `LIST_LIVE_STINTS`, `GET_OTHER_QUEUE`, `CLOCK_OUT_INSTALL`, `DISMISS_INSTALL`, `CLEAR_ALL_OFFLINE`, and the auto-clock-in abandoned-stint check all hard-guarded on the module-level identity `startAwareness()` sets — before that resolves (fresh service-worker spin-up, or a restart mid-startup), they silently returned empty. Added `resolveActiveIdentity()`, a fallback that re-derives the profile/install identity directly from the Supabase session when module state isn't populated yet, and wired it into all five call sites plus `getOwnAbandonedStints()`."
+        }
+      ]
+    },
+    {
+      "version": "6.7.0",
+      "title": "Work Schedule Profiles (NB-01/NB-02)",
+      "date": "2026-07-10",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Work Schedule Profiles**: per-member `dedicated_hours` / `self_managed` work profiles, required-hours floors at daily/weekly/monthly cadences (independent, anti-back-loading), a fixed weekly schedule editor, and a schedule-change-request flow (slot change / shift hours / make-up) with a manager approval inbox.\n- **Shortfall tracking**: a `shortfall_ledger` records under-hours periods at clock-out (fire-and-forget, fail-open when signed out/offline) with resolutions (`unresolved` / `made_up` / `shifted` / `excused`) and a `SHORTFALL_PROMPT` notification.\n- **Work Shifts → Schedule view**: three modes — **Self** (own schedule, floors, shortfall accounting, change requests), **Manage** (roster, profile type, slots, floors — gated by org role/permissions), and **Requests** (approval inbox). The legacy local `workSchedule` key is kept as an offline cache and signed-out editor.\n- **Migration 027** (renumbered from the branch's original 023; applied): `org_members.work_profile_type`, `work_requirements`, `work_schedule_slots`, `schedule_change_requests`, `shortfall_ledger`, plus 4 hardened `SECURITY DEFINER` RPCs (`set_member_schedule`, `set_work_requirements`, `set_member_work_profile`, `decide_change_request`) — `search_path=''`, schema-qualified, `REVOKE PUBLIC/anon`, `GRANT authenticated`."
+        }
+      ]
+    },
+    {
+      "version": "6.6.0",
+      "title": "Org management foundation, real analytics, time-editing overhaul + critical storage fix",
+      "date": "2026-07-06",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Fixed",
+          "body": "- **CRITICAL — pause/resume (and all state changes) silently failing**: the extension's `chrome.storage.local` hit Chrome's 10 MB quota, so every state-changing write was rejected while reads kept working — the UI looked alive but nothing persisted. Added the `unlimitedStorage` permission, and storage write failures now surface loudly (console + notification) instead of being swallowed. (Requires the one-time extension reload that delivers this version.)\n- **Sync survives schema drift**: if the client is ever ahead of the database (a missing column), sync now retries that block without the column and reports a named diagnostic instead of failing outright."
+        },
+        {
+          "label": "Added",
+          "body": "- **Work Shifts → Analytics is real** (for everyone, including personal installs): daily hours, weekly comparison, peak productivity hours, break patterns, time-per-focus during shifts, context-switching frequency, and CSV export — all computed from your own data. Org/cross-member analytics ships next (org admins only).\n- **Org roles foundation**: owner/admin are org-wide; managers are scoped to their own teams. New permission helpers gate every org-management surface. (The full Work Schedule + work-profiles system is built and lands in the next update, once its database migrations are applied.)\n- **Time editing that actually works**: type durations like \"500m\" or \"8h20m\" (set total / add / subtract), live preview incl. clamp warnings, Enter-to-apply, edit panel available even with no checkpoints, and honest feedback when a limit clamps your edit.\n- **Offline-gap detection**: if the machine was off/asleep while an intent was running, Tabatha now detects the gap on wake, retro-pauses at the gap start, and asks you to confirm/credit/adjust — no more phantom hours.\n- **Abandoned-stint prompt at clock-in**: your own orphaned stints surface when you clock in, with an end-time picker to correct them on the spot.\n- **Settings search**: press \"/\" in Settings and fuzzy-find any option; sync/companion status chips now click through to Sync & Account."
+        }
+      ]
+    },
+    {
       "version": "6.5.0",
       "title": "Dogfood fix batch: clock sync, onboarding, crash-hardening + new features",
       "date": "2026-07-01",
@@ -614,6 +1144,90 @@
         {
           "label": "Core Philosophy Implementation",
           "body": "- Established the \"Context-First\" data model where every tab must have a purpose\n  or inherit one."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.1.0",
+      "title": "Full sidebar parity + PWA + unified clock",
+      "date": "2026-07-17",
+      "intro": "Companion mobile web app (separate from the extension version line). Live at\nhttps://tabatha.pondocean.co/sidecar",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Near 1:1 Focus parity with the sidebar:** edit panel (label, timer, stage,\n  client/project, backdate start), checkpoint notes + timeline (new synced\n  `focus_checkpoints` table, migration 032), sub-intents, backburner dock\n  (resume/snooze/dismiss), on/off-computer toggle, NOW/drift states.\n- **Phone Focus Mode** — Page Visibility detection: leave the Sidecar and it\n  nudges you back (groundwork for phone-down focus triggers).\n- **PWA install** — web manifest + icons + Apple meta, so it installs to the\n  Home Screen (also what unlocks iOS Web Push).\n- **Expanded push parity** — `send-focus-push` now delivers timer-expiry,\n  **drift**, and **checkpoint-staleness** notifications (was timer only)."
+        },
+        {
+          "label": "Changed",
+          "body": "- **Clock** reframed from \"this phone's shift\" to **\"Your shift\"**, and now\n  surfaces other devices on the clock (\"Also on the clock\") — one shift, many\n  devices.\n- Renamed **off-device → off-computer** everywhere (clearer: at vs away from the\n  computer). Create CTA dropped the \"(off-device)\" tag (it's implied by surface).\n- **Pausing a focus keeps it pinned at the top** (locally-tracked current focus)\n  instead of demoting it into the queue."
+        },
+        {
+          "label": "Fixed",
+          "body": "- `browser_profiles` device registration upserted on a partial index\n  `ON CONFLICT` can't target → switched to the full `(profile_id, local_id)` key."
+        },
+        {
+          "label": "Notes",
+          "body": "- Round-trip stays account-synced (desktop reflects on its next pull). Checkpoints,\n  sub-intents, and backburner are Sidecar-side today (the extension doesn't sync\n  those fields yet) — full desktop round-trip is a follow-up extension change."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.2.0",
+      "title": "Landscape Context View + realtime",
+      "date": "2026-07-17",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Landscape view-only Context View** — on a large landscape viewport\n  (computer / tablet / TV / 3rd screen) `/sidecar` becomes an ambient, view-only\n  focus screen: brand bottom-left, **day countdown (1440 min, tied to a new\n  `dayResetHour` setting)** top-right, current time bottom-middle, one giant\n  focus + timer + up-next. Controls stay on phone/extension. Auto-switches;\n  \"📺 Context view\" / \"Use controls →\" toggles.\n- **Realtime** — migration 033 adds `focus_items` + `browser_profile_status` to\n  the `supabase_realtime` publication; the app subscribes (verified SUBSCRIBED),\n  so the Context View updates live (poll kept as fallback).\n- Settings: **Day resets at (hr)** field driving the 1440 countdown."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **Focus timer no longer restarts on resume** — accumulated elapsed is frozen on\n  pause (`tags._elapsedMs`) and the start is shifted on resume/switch so it\n  continues; a paused focus shows a frozen \"remaining\"."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.2.1",
+      "title": "Phone-away accountability on the big screen",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Phone-away red alert on the Context View.** When the phone is in **Phone\n  Focus Mode** and you navigate away from the Sidecar, the phone broadcasts an\n  \"away\" signal (`browser_profile_status.metadata.focusAway`); the big-screen\n  Context View — already subscribed via realtime — washes **red** with \"Put the\n  phone down\". **Slow fade-in (~7s) by default**, or **immediate** via a new\n  Settings toggle (\"Immediate phone-away alert\"). Clears when the phone returns.\n- Verified cross-device end-to-end under RLS (signal set → detected → cleared)."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.3.0",
+      "title": "Voice, chaperone v0, feedback, pause-on-leave",
+      "date": "2026-07-18",
+      "intro": "Built by the persona fleet under CeeCee (Plan 040 wave 1): Cindra (Lane A),\nCirra (Epic 1+10), Rook (Epic 7); Koda vetted; Kael ran the repo restoration.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Voice capture (#165)** — mic on the new-intent input + checkpoint note\n  field (Web Speech, Android/desktop Chrome; graceful no-op on iOS).\n- **Chaperone v0 (#182)** — pre-recorded personality lines (\"Don't you dare\n  touch that phone.\") play on the Context View when the phone walks off in\n  Focus Mode; 'classic' pack, quiet hours, default off (settings.chaperone).\n- **Feedback & bug reporting (Epic 7)** — Settings card → feedback-to-asana\n  edge fn (now deployed, CORS widened to the sidecar origin) with an\n  AsyncStorage queue fallback; sidecar-only users can report.\n- **Context View: checkpoint counter + last-note preview** (optional,\n  settings.sidecar.showCheckpoints, default on).\n- **Empty-state choose-from cards** — no active focus ⇒ priority-ordered\n  pending-focus cards (view-only).\n- **focus_away server push** — reliable \"you walked off\" notification with\n  per-episode dedup (metadata.awayNotifiedAt vs awaySince)."
+        },
+        {
+          "label": "Changed / Fixed",
+          "body": "- **Pause-on-leave (B1):** leaving in Focus Mode pauses (not clears) the\n  active focus client-side, reusing the _elapsedMs freeze.\n- **Current focus is data-driven (B2):** active → most-recent paused\n  (non-resolved) → empty only when resolved; local pin is a tiebreaker."
+        },
+        {
+          "label": "Repo/infra (extension line)",
+          "body": "- GitHub restoration (Kael): staging reconciled at **6.7.27** (PRs #27–#31),\n  the 6.7.9→6.7.24 run pushed, dist defused to **6.7.24** (was unreviewed\n  6.8.2), 11 branches + 2 stale worktrees pruned (uncommitted InBar work\n  rescue-stashed). main untouched."
+        }
+      ]
+    },
+    {
+      "version": "Tabby Sidecar v0.4.0",
+      "title": "Context View timeline + layout v2 + focus_events",
+      "date": "2026-07-18",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **focus_events** log (migration 034, realtime) — every start/pause/resume/\n  resolve recorded; foundation for accurate per-focus/per-task time.\n- **Context View bottom timeline** — fills as the timer runs; nodes for\n  checkpoints + every start (press/hover = date-time + cumulative\n  \"📱 Sidecar-tracked\" time); overtime feeds a slow-pulsing, capped-growth\n  circle with a halo trail; reduced-motion respected.\n- **ProgressRing** — RN-native circular timer ring (no CSS conic-gradient),\n  native-build safe.\n- **Layout v2** — huge title top-left overlapping the ring, huge timer\n  bottom-right, brand+controls bottom-left, day-countdown compact top-right,\n  clock bottom-middle.\n- (v0.3.1) **Notes-simple capture mode** (\"What's on your mind?\" — type or\n  speak → intent) + **Install Tabby** PWA CTA."
         }
       ]
     }

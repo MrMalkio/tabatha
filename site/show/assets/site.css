@@ -1,0 +1,623 @@
+/* ============================================================
+   site.css — shared chrome for the public Tabatha site.
+   Loaded by every real page (hub, 6 category pages, roadmap).
+   NOT loaded by the 8 surface frames: those are captured at an
+   exact 1280x800 as the Chrome Web Store screenshots, so they
+   must stay pristine renders with no site chrome on them.
+
+   This file deliberately does NOT declare :root tokens. Every
+   page already defines its own (--panel, --border, --cyan, the
+   halved 2/4/8 radius scale). We consume those so the chrome
+   inherits each page's palette instead of fighting it. The two
+   fallbacks below only matter if a page forgets a token.
+   ============================================================ */
+
+/* ── header controls ─────────────────────────────────────── */
+.nav .site-tools { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.searchbtn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel, #14171c); border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-md, 4px); color: var(--muted, #7d8894);
+  font: 400 12px var(--sans, system-ui); padding: 6px 10px; cursor: pointer;
+  min-width: 180px; text-align: left; transition: border-color .16s ease, color .16s ease;
+}
+.searchbtn:hover { border-color: rgba(0, 210, 255, .4); color: var(--text, #F2F5F7); }
+.searchbtn .grow { flex: 1; }
+.searchbtn kbd {
+  font: 600 10px var(--mono, monospace); color: var(--muted, #7d8894);
+  border: 1px solid var(--border, rgba(255,255,255,.09)); border-radius: var(--r-sm, 2px);
+  padding: 1px 5px; background: rgba(255, 255, 255, .03);
+}
+
+.reqbtn {
+  background: transparent; border: 1px solid rgba(0, 210, 255, .35);
+  border-radius: var(--r-md, 4px); color: var(--cyan, #00D2FF);
+  font: 600 12px var(--sans, system-ui); padding: 6px 12px; cursor: pointer;
+  white-space: nowrap; transition: background .16s ease;
+}
+.reqbtn:hover { background: rgba(0, 210, 255, .12); }
+.reqbtn:active { transform: translateY(1px); }
+
+/* ── section purpose copy ────────────────────────────────── */
+/* Sits under a section heading and states what the group is and
+   why it exists. Measure is capped so it stays readable. */
+.sec-purpose {
+  font-size: 13.5px; line-height: 1.6; color: #9aa5b1;
+  max-width: 78ch; margin: -8px 0 22px;
+}
+.sec-head + .sec-purpose { margin-top: 0; }
+.sec-purpose b { color: #c4ced8; font-weight: 600; }
+
+/* ── product status badges ───────────────────────────────── */
+/* The family now covers three products at three different maturities, so a
+   card must say which it is. Same pill geometry as the hub's `.cwsflag`, so
+   these read as one vocabulary rather than a bolted-on second system.
+
+   Colours are the product's own semantic tokens, not new ones:
+     live   → #66bb6a, the success/synced green
+     dev    → #ffa726, the same amber the app uses for paused/not-running
+     planned→ --muted, deliberately the quietest thing on the card
+
+   `.dev` is the load-bearing one: every mobile card carries it, because the
+   mobile app is not something you can install today and a gallery that renders
+   it identically to the shipped extension would be lying by omission. */
+.statusflag {
+  font: 700 8.5px var(--sans, system-ui); letter-spacing: .08em; text-transform: uppercase;
+  border-radius: 999px; padding: 2px 7px; white-space: nowrap; flex: none;
+  border: 1px solid currentColor;
+}
+.statusflag.live { color: #66bb6a; }
+.statusflag.dev { color: #ffa726; }
+.statusflag.planned { color: var(--muted, #7d8894); }
+
+/* Card-level sub-status. Sits in the caption under the title: the mobile page
+   is tagged in-development as a whole, and this says how far along one card is
+   within that — "built" is honest about the app, not about shipping. */
+.substatus {
+  display: inline-flex; align-items: center; gap: 5px;
+  font: 600 9.5px var(--sans, system-ui); letter-spacing: .04em;
+  margin-top: 6px; padding: 2px 7px; border-radius: var(--r-sm, 2px);
+}
+.substatus.built { color: #8fce93; background: rgba(102, 187, 106, .12); }
+.substatus.partial { color: #ffc072; background: rgba(255, 167, 38, .12); }
+.substatus.planned { color: #9aa5b1; background: rgba(255, 255, 255, .05); }
+
+/* Page-level in-development notice. One honest paragraph at the top of a page
+   whose product you cannot install yet. */
+.devnote {
+  display: flex; align-items: flex-start; gap: 12px;
+  max-width: 1180px; margin: 18px auto 0; padding: 14px 16px;
+  border: 1px solid rgba(255, 167, 38, .3); background: rgba(255, 167, 38, .07);
+  border-radius: var(--r-md, 4px);
+}
+.devnote .e { font-size: 16px; line-height: 1.4; flex: none; }
+.devnote .tx { font-size: 12.5px; line-height: 1.6; color: #c8b490; }
+.devnote .tx b { color: #ffc072; font-weight: 700; }
+@media (max-width: 900px) { .devnote { margin: 18px 20px 0; } }
+
+/* ── download panel ──────────────────────────────────────── */
+/* The companion's "get it" surface. Through v6.7.21 this was a
+   deliberately SOFT state — amber, no download — because the binary
+   existed only on the machine that compiled it. As of the
+   desktop-v0.2.0 GitHub release there is a real Windows installer,
+   so `.dl-cta.ready` (cyan, this site's "go" colour) is a genuine
+   <a download> and `.dl-missing` now carries install caveats rather
+   than release blockers. The amber base rules below are kept for
+   any future product whose download is not yet real. */
+.dl {
+  max-width: 1180px; margin: 26px auto 0; padding: 0 40px;
+}
+.dl-box {
+  border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-lg, 8px); background: var(--panel, #14171c);
+  overflow: hidden;
+}
+.dl-main { display: flex; align-items: flex-start; gap: 18px; padding: 20px 22px; }
+.dl-main .e { font-size: 30px; line-height: 1; flex: none; }
+.dl-body { flex: 1; min-width: 0; }
+.dl-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dl-title h2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.dl-meta {
+  display: flex; gap: 8px 14px; flex-wrap: wrap; margin-top: 8px;
+  font: 500 11.5px var(--mono, monospace); color: var(--muted, #7d8894);
+}
+.dl-meta b { color: #c4ced8; font-weight: 600; }
+.dl-desc { font-size: 13px; line-height: 1.6; color: #9aa5b1; margin-top: 10px; max-width: 72ch; }
+.dl-desc b { color: #c4ced8; font-weight: 600; }
+
+.dl-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.dl-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 18px; cursor: pointer;
+  border-radius: var(--r-md, 4px); border: 1px solid rgba(255, 167, 38, .55);
+  background: rgba(255, 167, 38, .12); color: #ffc072;
+  font: 600 13px var(--sans, system-ui);
+  transition: background .16s ease;
+}
+.dl-cta:hover { background: rgba(255, 167, 38, .2); }
+.dl-cta:active { transform: translateY(1px); }
+.dl-cta:focus-visible { outline: 2px solid #ffa726; outline-offset: 2px; }
+.dl-note { font-size: 11.5px; color: var(--muted, #7d8894); }
+
+/* Ready state. When a real release exists the CTA turns cyan — this
+   site's "go" colour — because now it CAN hand you the file. This is
+   the promotion the amber note above anticipates. */
+.dl-cta.ready {
+  border-color: rgba(0, 210, 255, .5); background: rgba(0, 210, 255, .12);
+  color: var(--cyan, #00D2FF); text-decoration: none;
+}
+.dl-cta.ready:hover { background: rgba(0, 210, 255, .2); }
+.dl-cta.ready:focus-visible { outline-color: var(--cyan, #00D2FF); }
+
+/* The verifiable facts of a real download: exact bytes and a sha256
+   the user can check against the file they just saved. Monospace so
+   the digest reads as something to compare, not prose. */
+.dl-facts { margin-top: 14px; display: grid; gap: 6px; }
+.dl-fact {
+  font: 500 11.5px var(--mono, monospace); color: #9aa5b1;
+  display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+}
+.dl-fact .k {
+  font: 700 9px var(--sans, system-ui); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted, #7d8894); flex: none; min-width: 62px;
+}
+.dl-fact .v { color: #c4ced8; word-break: break-all; }
+.dl-note.limit { display: block; margin-top: 12px; line-height: 1.5; max-width: 72ch; }
+
+/* The blocked-on list. Named out loud rather than hidden behind a
+   vague "coming soon", because each line is a real task someone has
+   to do before this button can hand over a file. */
+.dl-missing {
+  border-top: 1px solid var(--border, rgba(255,255,255,.09));
+  background: rgba(255, 255, 255, .02); padding: 14px 22px 16px;
+}
+.dl-missing .h {
+  font: 700 9px var(--sans, system-ui); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted, #7d8894);
+}
+.dl-missing ul { margin: 9px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.dl-missing li {
+  font-size: 12px; line-height: 1.5; color: #9aa5b1;
+  padding-left: 16px; position: relative;
+}
+.dl-missing li::before { content: "○"; position: absolute; left: 0; color: #6b7480; font-size: 9px; top: 4px; }
+.dl-missing li b { color: #c4ced8; font-weight: 600; }
+.dl-missing code {
+  font: 500 11px var(--mono, monospace); color: #c8b490;
+  background: rgba(255, 167, 38, .08); border-radius: 2px; padding: 1px 4px;
+}
+
+@media (max-width: 1024px) { .dl { padding: 0 24px; } }
+@media (max-width: 768px) {
+  .dl { padding: 0 16px; }
+  .dl-main { padding: 16px; gap: 12px; }
+  .dl-main .e { font-size: 22px; }
+  .dl-missing { padding: 13px 16px 15px; }
+  .dl-cta { width: 100%; }
+  .dl-actions { gap: 8px; }
+}
+
+/* The hub's entry point into the panel above. Amber for the same
+   reason `.dl-cta` is: this leads somewhere honest, not to a file. */
+.getstrip {
+  display: flex; align-items: center; gap: 14px; margin-top: 18px;
+  padding: 14px 16px; min-height: 44px;
+  border: 1px solid rgba(255, 167, 38, .28); background: rgba(255, 167, 38, .06);
+  border-radius: var(--r-md, 4px); text-decoration: none; color: inherit;
+  transition: border-color .16s ease, background .16s ease;
+}
+.getstrip:hover { border-color: rgba(255, 167, 38, .55); background: rgba(255, 167, 38, .1); }
+.getstrip:focus-visible { outline: 2px solid #ffa726; outline-offset: 2px; }
+/* Promoted: a real release exists, so the strip goes cyan like the
+   rest of the site's "go" affordances. */
+.getstrip.ready { border-color: rgba(0, 210, 255, .3); background: rgba(0, 210, 255, .06); }
+.getstrip.ready:hover { border-color: rgba(0, 210, 255, .55); background: rgba(0, 210, 255, .1); }
+.getstrip.ready:focus-visible { outline-color: var(--cyan, #00D2FF); }
+.getstrip.ready .gs-go { color: var(--cyan, #00D2FF); }
+.getstrip .e { font-size: 20px; flex: none; }
+.gs-body { flex: 1; min-width: 0; }
+.gs-t { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; }
+.gs-d { display: block; font-size: 12px; color: #9aa5b1; line-height: 1.55; margin-top: 3px; }
+.gs-go { color: #ffc072; flex: none; font-size: 15px; }
+@media (max-width: 768px) {
+  .getstrip { align-items: flex-start; gap: 11px; }
+  .gs-go { display: none; }
+}
+
+/* ── per-card feedback actions ───────────────────────────── */
+/* Absolutely positioned and transparent until hover/focus, so
+   they add ZERO layout height. The capture script clips each
+   .libcard by its bounding box, so anything that changed the
+   card's height would silently reflow all 90 card screenshots. */
+.libcard { position: relative; }
+.cardfb {
+  position: absolute; top: 8px; right: 8px; z-index: 4;
+  display: flex; gap: 4px; opacity: 0; transition: opacity .16s ease;
+}
+.libcard:hover .cardfb,
+.libcard:focus-within .cardfb { opacity: 1; }
+.cardfb button {
+  background: rgba(10, 12, 15, .92); border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-sm, 2px); color: var(--muted, #7d8894);
+  font: 500 10px var(--sans, system-ui); padding: 4px 7px; cursor: pointer;
+  backdrop-filter: blur(6px); transition: color .14s ease, border-color .14s ease;
+}
+.cardfb button:hover { color: var(--text, #F2F5F7); border-color: rgba(0, 210, 255, .45); }
+.cardfb button.bug:hover { color: #ff8a80; border-color: rgba(255, 0, 85, .45); }
+/* Keyboard users must be able to see the control they tabbed to. */
+.cardfb button:focus-visible { opacity: 1; outline: 2px solid var(--cyan, #00D2FF); outline-offset: 1px; }
+
+/* ── overlay shell (shared by search + feedback) ─────────── */
+.ovl {
+  position: fixed; inset: 0; z-index: 200; display: none;
+  background: rgba(3, 4, 6, .72); backdrop-filter: blur(4px);
+  padding: 12vh 20px 20px; overflow-y: auto;
+}
+.ovl.open { display: block; }
+.ovl-box {
+  max-width: 620px; margin: 0 auto;
+  background: var(--panel, #14171c); border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-lg, 8px); box-shadow: 0 24px 70px rgba(0, 0, 0, .6);
+  overflow: hidden;
+}
+
+/* ── search ──────────────────────────────────────────────── */
+.sx-top { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border, rgba(255,255,255,.09)); }
+.sx-top .ic { color: var(--muted, #7d8894); font-size: 14px; }
+#sx-input {
+  flex: 1; background: transparent; border: 0; outline: none;
+  color: var(--text, #F2F5F7); font: 400 16px var(--sans, system-ui);
+}
+#sx-input::placeholder { color: var(--muted, #7d8894); }
+.sx-esc { font: 600 10px var(--mono, monospace); color: var(--muted, #7d8894);
+  border: 1px solid var(--border, rgba(255,255,255,.09)); border-radius: var(--r-sm, 2px); padding: 2px 6px; }
+
+.sx-results { max-height: 52vh; overflow-y: auto; padding: 6px; }
+.sx-item {
+  display: flex; align-items: flex-start; gap: 11px; padding: 9px 10px;
+  border-radius: var(--r-md, 4px); text-decoration: none; color: inherit; cursor: pointer;
+  border: 1px solid transparent;
+}
+.sx-item[aria-selected="true"] { background: rgba(0, 210, 255, .10); border-color: rgba(0, 210, 255, .32); }
+.sx-item .e { font-size: 15px; flex: none; line-height: 1.35; }
+.sx-item .body { min-width: 0; flex: 1; }
+.sx-item .t { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sx-item .d {
+  font-size: 11.5px; color: var(--muted, #7d8894); line-height: 1.5; margin-top: 2px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.sx-item mark { background: rgba(0, 210, 255, .22); color: var(--text, #F2F5F7); border-radius: 2px; padding: 0 1px; }
+.sx-kind {
+  font: 700 8.5px var(--sans, system-ui); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--cyan, #00D2FF); border: 1px solid rgba(0, 210, 255, .3);
+  border-radius: 999px; padding: 1px 6px; flex: none;
+}
+.sx-kind.roadmap { color: var(--gold, #FFD700); border-color: rgba(255, 215, 0, .3); }
+.sx-kind.surface { color: #b388ff; border-color: rgba(179, 136, 255, .3); }
+.sx-foot {
+  display: flex; align-items: center; gap: 14px; padding: 9px 16px;
+  border-top: 1px solid var(--border, rgba(255,255,255,.09));
+  font-size: 11px; color: var(--muted, #7d8894);
+}
+.sx-foot .grow { flex: 1; }
+.sx-foot b { font: 600 10px var(--mono, monospace); color: #9aa5b1; }
+.sx-empty { padding: 26px 16px; text-align: center; color: var(--muted, #7d8894); font-size: 13px; }
+.sx-empty .sub { font-size: 11.5px; margin-top: 6px; }
+
+/* ── feedback form ───────────────────────────────────────── */
+.fb-head { display: flex; align-items: center; gap: 10px; padding: 15px 18px; border-bottom: 1px solid var(--border, rgba(255,255,255,.09)); }
+.fb-head h3 { font-size: 15px; font-weight: 600; }
+.fb-head .x { margin-left: auto; background: none; border: 0; color: var(--muted, #7d8894); font-size: 18px; cursor: pointer; line-height: 1; padding: 2px 6px; }
+.fb-head .x:hover { color: var(--text, #F2F5F7); }
+.fb-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.fb-row { display: flex; flex-direction: column; gap: 6px; }
+.fb-row > label { font-size: 12px; font-weight: 600; color: #c4ced8; }
+.fb-row .hint { font-size: 11px; color: var(--muted, #7d8894); }
+.fb-row input[type="text"], .fb-row input[type="email"], .fb-row textarea {
+  background: var(--bg2, #0b0d10); border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-md, 4px); color: var(--text, #F2F5F7);
+  font: 400 13px var(--sans, system-ui); padding: 9px 11px; outline: none; width: 100%;
+}
+.fb-row textarea { resize: vertical; min-height: 96px; line-height: 1.55; }
+.fb-row input:focus, .fb-row textarea:focus { border-color: rgba(0, 210, 255, .55); }
+/* Placeholders must clear WCAG AA against --bg2, so they are not dimmer than --muted. */
+.fb-row input::placeholder, .fb-row textarea::placeholder { color: #6b7480; }
+
+.fb-seg { display: flex; gap: 8px; }
+.fb-seg label {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+  border: 1px solid var(--border, rgba(255,255,255,.09)); border-radius: var(--r-md, 4px);
+  padding: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  color: var(--muted, #7d8894); transition: all .14s ease;
+}
+.fb-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.fb-seg label:hover { color: var(--text, #F2F5F7); }
+.fb-seg input:checked + span { color: inherit; }
+.fb-seg label.on-bug { border-color: rgba(255, 0, 85, .5); background: rgba(255, 0, 85, .1); color: #ff8a80; }
+.fb-seg label.on-feature { border-color: rgba(0, 210, 255, .5); background: rgba(0, 210, 255, .1); color: var(--cyan, #00D2FF); }
+.fb-seg input:focus-visible + span { outline: 2px solid var(--cyan, #00D2FF); outline-offset: 3px; border-radius: 2px; }
+
+.fb-ctx {
+  font: 500 11px var(--mono, monospace); color: var(--cyan, #00D2FF);
+  background: rgba(0, 210, 255, .07); border: 1px solid rgba(0, 210, 255, .2);
+  border-radius: var(--r-sm, 2px); padding: 6px 9px;
+}
+.fb-foot {
+  display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+  border-top: 1px solid var(--border, rgba(255,255,255,.09)); background: rgba(255, 255, 255, .02);
+}
+.fb-foot .grow { flex: 1; }
+.fb-foot .note { font-size: 11px; color: var(--muted, #7d8894); }
+.btn {
+  border-radius: var(--r-md, 4px); font: 600 12.5px var(--sans, system-ui);
+  padding: 9px 16px; cursor: pointer; border: 1px solid var(--border, rgba(255,255,255,.09));
+  background: transparent; color: var(--muted, #7d8894);
+}
+.btn:hover { color: var(--text, #F2F5F7); }
+.btn:active { transform: translateY(1px); }
+/* Dark ink on the cyan fill: white-on-cyan would fail AA. */
+.btn.primary { background: var(--cyan, #00D2FF); border-color: var(--cyan, #00D2FF); color: #06222b; }
+.btn.primary:hover { filter: brightness(1.08); color: #06222b; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--cyan, #00D2FF); outline-offset: 2px; }
+
+.fb-msg { font-size: 12px; line-height: 1.5; border-radius: var(--r-md, 4px); padding: 10px 12px; display: none; }
+.fb-msg.show { display: block; }
+.fb-msg.err { background: rgba(255, 0, 85, .1); border: 1px solid rgba(255, 0, 85, .3); color: #ff9db1; }
+.fb-msg.ok { background: rgba(102, 187, 106, .1); border: 1px solid rgba(102, 187, 106, .3); color: #a5d6a7; }
+.fb-msg a { color: inherit; font-weight: 600; }
+.fb-done { padding: 30px 20px; text-align: center; }
+.fb-done .e { font-size: 30px; }
+.fb-done h4 { font-size: 15px; margin: 10px 0 6px; }
+.fb-done p { font-size: 12.5px; color: var(--muted, #7d8894); max-width: 44ch; margin: 0 auto; line-height: 1.6; }
+
+/* ── mobile nav drawer ───────────────────────────────────── */
+/* Every page ships the same nav shape: logo, wordmark, .tag, a
+   .grow spacer, 2-4 links, the injected .site-tools, .verbadge.
+   At desktop that is one 64px line. On a phone it is two lines of
+   overflowing text, so site.js wraps the links in `.navlinks` and
+   injects `.navtoggle`.
+
+   `display: contents` is the load-bearing trick: above the drawer
+   breakpoint the wrapper vanishes from layout entirely and the
+   links stay direct flex items of .nav, so the desktop render is
+   byte-identical to before the wrapper existed. */
+.navlinks { display: contents; }
+.navtoggle { display: none; }
+
+@media (max-width: 768px) {
+  .navtoggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; flex: none; order: 99;
+    background: transparent; border: 1px solid var(--border, rgba(255,255,255,.09));
+    border-radius: var(--r-md, 4px); color: var(--text, #F2F5F7);
+    font-size: 15px; cursor: pointer; line-height: 1;
+  }
+  .navtoggle[aria-expanded="true"] { border-color: rgba(0, 210, 255, .45); color: var(--cyan, #00D2FF); }
+
+  .navlinks {
+    display: none;
+    position: absolute; top: 100%; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    /* Fully opaque, and deliberately NOT backdrop-filter'd. `.nav` above
+       already has `backdrop-filter: blur(14px)`, and a filtered child of a
+       filtered ancestor resolves its backdrop against the ancestor's
+       backdrop root instead of its own: the drawer painted see-through and
+       the hero text read straight through the links. A solid fill is also
+       just the right call for a menu you have to read. */
+    background: var(--bg, #0F1115);
+    border-bottom: 1px solid var(--border, rgba(255,255,255,.09));
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
+    padding: 6px 16px 12px; max-height: calc(100dvh - 60px); overflow-y: auto;
+  }
+  .navlinks.open { display: flex; }
+  /* 44px rows: this is the only way to reach another page on a phone. */
+  body .navlinks a {
+    display: flex; align-items: center; min-height: 44px;
+    font-size: 14px; padding: 0 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, .05);
+  }
+  .navlinks a:last-child { border-bottom: 0; }
+}
+
+/* ── responsive layer ────────────────────────────────────── */
+/* Every page defines its own chrome in an inline <style> that
+   comes AFTER this file's <link>, so a bare `.cats {}` here would
+   lose the cascade on source order. The `body` prefix (0,1,1 vs
+   0,1,0) wins without resorting to !important. That is why these
+   selectors look over-qualified: it is deliberate, not noise.
+
+   Breakpoints: 1024 (laptop -> tablet), 768 (tablet -> phone),
+   480 (small phone). Nothing here fires at the 1280 capture
+   width, so the store screenshots cannot be touched by it. */
+
+@media (max-width: 1024px) {
+  body .nav { padding: 12px 20px; }
+  body .hero, body .phead, body section, body footer,
+  body .board-wrap, body .devnote { padding-left: 24px; padding-right: 24px; }
+  body .indexbar { padding-left: 24px; padding-right: 24px; }
+  body .hero { padding-top: 48px; }
+  body .hero h1 { font-size: 40px; }
+  body .phead { padding-top: 40px; }
+  body .phead h1 { font-size: 32px; }
+  /* 6 shot columns -> 2. The lead frame keeps its full-bleed row. */
+  body .shots { grid-template-columns: repeat(2, 1fr); }
+  body .shotcard { grid-column: span 1; }
+  body .shotcard.lead { grid-column: span 2; }
+  body .cats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── hub thumbnails ──────────────────────────────────────── */
+/* Each thumb is a live 1280x800 sibling page in an iframe, shrunk
+   by a hard-coded transform (.75 lead / .28 tile) against a
+   hard-coded box height. Those two numbers only agree at one
+   viewport width; anywhere else the frame is cropped or floats in
+   a letterbox, and the phone step (.37 in a 300px box) cropped
+   roughly half of every surface.
+
+   Below desktop, derive the scale from the box instead of guessing
+   it: `container-type: inline-size` makes 100cqw the thumb's own
+   width, `aspect-ratio` gives it the matching height, and the
+   iframe scales to fit exactly. Correct at every width, and the
+   iframe's 1280x800 content is untouched, so what a phone shows is
+   the whole real surface rather than its top-left corner. */
+@media (max-width: 1024px) {
+  body .thumb {
+    container-type: inline-size;
+    aspect-ratio: 1280 / 800;
+    height: auto;
+  }
+  body .shotcard .thumb iframe,
+  body .shotcard.lead .thumb iframe {
+    width: 1280px; height: 800px;
+    transform: scale(calc(100cqw / 1280px));
+  }
+}
+
+@media (max-width: 768px) {
+  body .nav { padding: 10px 16px; gap: 10px; position: relative; }
+  /* The strapline is the first thing to go: the wordmark already says it. */
+  body .nav .tag { display: none; }
+  body .nav .grow { flex: 1; }
+
+  body .hero, body .phead, body section, body footer,
+  body .board-wrap, body .devnote { padding-left: 16px; padding-right: 16px; }
+  body .indexbar { padding-left: 16px; padding-right: 16px; }
+  body .devnote { margin-left: 0; margin-right: 0; }
+  body .hero { padding-top: 36px; }
+  body .hero h1 { font-size: 30px; max-width: none; }
+  body .hero p { font-size: 15px; }
+  body .phead h1 { font-size: 26px; }
+  body .phead p, body .sec-purpose { font-size: 14px; }
+
+  /* Sticky nav + sticky indexbar together eat a phone screen. The nav
+     stays (it is the only navigation); the in-page index unsticks. */
+  body .indexbar { position: static; }
+  body section { scroll-margin-top: 72px; }
+
+  body .shots, body .cats, body .lib { grid-template-columns: 1fr; }
+  body .shotcard, body .shotcard.lead, body .libcard.wide { grid-column: span 1; }
+
+  /* .sec-head is a baseline-aligned row; `.meta` gets pushed off. */
+  body .sec-head { flex-wrap: wrap; gap: 4px 12px; }
+  body .sec-head .meta { margin-left: 0; flex-basis: 100%; }
+
+  body .searchbtn, body .reqbtn, body .btn { min-height: 44px; }
+  body .indexbar a { min-height: 36px; display: inline-flex; align-items: center; }
+}
+
+@media (max-width: 480px) {
+  body .hero h1 { font-size: 25px; }
+  body .phead h1 { font-size: 22px; }
+  body .sec-head h2 { font-size: 17px; }
+}
+
+/* ── intrinsically-wide content: scroll it, never the page ── */
+/* The rule for the whole site: if a thing cannot honestly shrink,
+   it gets its own scroll container and the page body stays put. */
+
+/* Component stages are pinned-width renders of real app UI (the
+   CommandPalette is 540px because the CommandPalette IS 540px).
+   Scaling them down would misrepresent the component, so below the
+   fold-in point the stage becomes the scroller. `overflow: hidden`
+   at desktop merely CLIPS these on a phone, which reads as a broken
+   card rather than an honest one. */
+@media (max-width: 900px) {
+  body .stage {
+    overflow-x: auto; overflow-y: hidden;
+    /* Centring is correct until the content is wider than the box, at
+       which point it makes the overflowing left edge unreachable by
+       scrolling. Start-align once we are in scrolling territory. */
+    justify-content: flex-start;
+    overscroll-behavior-x: contain;
+  }
+  body .stage > * { margin-left: auto; margin-right: auto; }
+}
+
+/* Log tables keep real column widths and scroll inside the card. */
+@media (max-width: 768px) {
+  body .lgtable { overflow-x: auto; }
+  body .lgtable table { min-width: 460px; }
+}
+
+/* ── roadmap board ───────────────────────────────────────── */
+/* Three shapes, because a kanban means different things at each
+   size. Desktop: six columns. Tablet: the same six as a swipeable
+   rail — the board already scrolls itself, so it only needs a
+   floor under the column width and a hint that there is more to
+   the right. Phone: stacked. A 232px column on a 390px screen
+   turns "what is being built" into six swipes through cramped
+   cards; stacked, each column head is a section and the whole
+   roadmap reads top to bottom in one gesture. */
+@media (max-width: 1024px) and (min-width: 769px) {
+  body .board {
+    grid-template-columns: repeat(6, minmax(240px, 1fr));
+    /* Bleed the rail to the viewport edge so a half-cut card at the
+       right reads as "scroll me" rather than as a layout mistake. */
+    margin-right: -24px; padding-right: 24px;
+    scroll-snap-type: x proximity; overscroll-behavior-x: contain;
+  }
+  body .col { scroll-snap-align: start; }
+}
+@media (max-width: 768px) {
+  body .board { grid-template-columns: 1fr; overflow-x: visible; }
+  body .phead h1 { font-size: 26px; }
+  body .legend { gap: 8px; }
+}
+
+/* ── touch ───────────────────────────────────────────────── */
+/* Per-card actions are hover-revealed. A touch device has no hover,
+   which made every card's Bug/Request unreachable on a phone. Keep
+   them permanently visible there instead. Scoped to hover:none so a
+   desktop capture (hover:hover) still renders clean cards. */
+@media (hover: none) and (max-width: 900px) {
+  .cardfb, body .rfb { opacity: 1; }
+  .cardfb button, body .rfb button { min-height: 32px; padding: 6px 9px; }
+}
+
+/* ── overlays: sheet on a phone ──────────────────────────── */
+@media (max-width: 900px) {
+  .nav .site-tools { gap: 6px; }
+  .searchbtn { min-width: 0; }
+  .searchbtn .lbl, .searchbtn kbd { display: none; }
+}
+/* Both header buttons collapse to their glyph. Search is the one that has
+   to survive on a phone, so it keeps a full 44px target rather than being
+   squeezed; `aria-label` carries the name for anyone not seeing the icon. */
+@media (max-width: 768px) {
+  .reqbtn .lbl { display: none; }
+  .reqbtn, .searchbtn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; padding: 0; flex: none; font-size: 15px;
+  }
+}
+@media (max-width: 768px) {
+  /* A centred 620px card with 12vh of dead space above it wastes a
+     phone screen and puts the search field under the thumb's reach
+     for nothing. Full-height sheet: the field lands at the top, the
+     result list gets every remaining pixel. */
+  .ovl { padding: 0; overflow: hidden; }
+  .ovl-box {
+    max-width: none; height: 100dvh; border: 0; border-radius: 0;
+    display: flex; flex-direction: column; box-shadow: none;
+  }
+  .ovl-box > form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  /* The scrolling middle of the sheet; head and foot stay pinned. */
+  .sx-results, .fb-body { flex: 1; min-height: 0; overflow-y: auto; }
+  .sx-results { max-height: none; }
+  .sx-item { padding: 11px 10px; }
+  /* 16px keeps iOS from zooming the viewport on focus. */
+  .fb-row input[type="text"], .fb-row input[type="email"], .fb-row textarea { font-size: 16px; }
+  .fb-seg { flex-direction: column; }
+  .fb-seg label { min-height: 44px; }
+  .fb-head .x { min-width: 44px; min-height: 44px; }
+  .fb-foot { flex-wrap: wrap; }
+  .fb-foot .note { flex-basis: 100%; }
+  .sx-foot span:not(.grow):not(#sx-count) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardfb, .searchbtn, .reqbtn, .btn, .navtoggle { transition: none; }
+  .btn:active, .reqbtn:active { transform: none; }
+}

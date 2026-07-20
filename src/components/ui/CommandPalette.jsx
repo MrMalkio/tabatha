@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useInstallIdentity } from '../../hooks/useInstallIdentity';
+import { fuzzyMatch, fuzzyScore } from '../../utils/settingsSearch';
 
 /**
  * CommandPalette — Global fuzzy search + quick action menu.
@@ -31,28 +32,8 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     }
   }, [isOpen]);
 
-  // Fuzzy match helper
-  const fuzzyMatch = useCallback((text, q) => {
-    if (!q) return true;
-    const lower = text.toLowerCase();
-    const qLower = q.toLowerCase();
-    if (lower.includes(qLower)) return true;
-    let qi = 0;
-    for (let i = 0; i < lower.length && qi < qLower.length; i++) {
-      if (lower[i] === qLower[qi]) qi++;
-    }
-    return qi === qLower.length;
-  }, []);
-
-  const fuzzyScore = useCallback((text, q) => {
-    if (!q) return 0;
-    const lower = text.toLowerCase();
-    const qLower = q.toLowerCase();
-    if (lower === qLower) return 100;
-    if (lower.startsWith(qLower)) return 90;
-    if (lower.includes(qLower)) return 70;
-    return 30;
-  }, []);
+  // Fuzzy matching lives in src/utils/settingsSearch.js (NB-08 extraction).
+  // Module-scope identity is stable, so no useCallback wrap and no useMemo dep.
 
   // Execute action safely
   const executeAction = useCallback((actionFn) => {
@@ -161,7 +142,7 @@ export function CommandPalette({ isOpen, onClose, actions, allItems, tabs, orgDa
     }
 
     return items.sort((a, b) => b.score - a.score).slice(0, 15);
-  }, [query, allItems, orgData, tabs, fuzzyMatch, fuzzyScore]);
+  }, [query, allItems, orgData, tabs]);
 
   // Handle item selection
   const selectItem = useCallback((idx) => {
