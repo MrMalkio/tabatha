@@ -1,0 +1,150 @@
+/* ============================================================
+   docs.css — layout for the /docs help section.
+   Loaded AFTER ../show/assets/site.css, which is loaded first and
+   supplies the shared chrome: nav, search overlay, mobile drawer,
+   .devnote, .statusflag, .sec-purpose. This file only adds what
+   /docs needs on top: the two-axis hub layout, guide cards, the
+   numbered-steps list, and small honesty callouts (Where / See it).
+
+   Same tokens as the rest of the public site (each docs page still
+   declares its own :root, byte-identical to /show's, so the two
+   sections read as one system rather than a bolted-on second site).
+   ============================================================ */
+
+/* ── docs hub hero ───────────────────────────────────────────── */
+.dhero { max-width: 1180px; margin: 0 auto; padding: 60px 40px 20px; }
+.dhero h1 { font-size: 44px; line-height: 1.05; letter-spacing: -.02em; margin-top: 14px; max-width: 18ch; }
+.dhero p { font-size: 15.5px; color: #b8c2cc; max-width: 68ch; margin-top: 16px; }
+
+/* A big, obviously-clickable search trigger — the docs hub's front door,
+   distinct from the small header searchbtn every other page gets. */
+.dsearch {
+  display: flex; align-items: center; gap: 12px; margin-top: 28px;
+  max-width: 560px; width: 100%; text-align: left; cursor: pointer;
+  background: var(--panel, #14171c); border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-lg, 8px); padding: 16px 18px; color: var(--muted, #7d8894);
+  font: 400 14.5px var(--sans, system-ui); transition: border-color .16s ease, color .16s ease;
+}
+.dsearch:hover, .dsearch:focus-visible { border-color: rgba(0, 210, 255, .4); color: var(--text, #F2F5F7); }
+.dsearch .ic { font-size: 16px; flex: none; }
+.dsearch .grow { flex: 1; }
+.dsearch kbd {
+  font: 600 10px var(--mono, monospace); color: var(--muted, #7d8894);
+  border: 1px solid var(--border, rgba(255,255,255,.09)); border-radius: var(--r-sm, 2px);
+  padding: 2px 6px; background: rgba(255, 255, 255, .03); flex: none;
+}
+
+/* ── two-axis sections on the hub ────────────────────────────── */
+.dsection { max-width: 1180px; margin: 0 auto; padding: 30px 40px; }
+.dsec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+.dsec-head h2 { font-size: 22px; letter-spacing: -.01em; }
+.dsec-head .meta { font-size: 12.5px; color: var(--muted, #7d8894); margin-left: auto; }
+.dsec-sub { font-size: 13.5px; color: #9aa5b1; max-width: 72ch; margin: 6px 0 24px; line-height: 1.6; }
+
+/* Getting Started: one card per surface. */
+.startgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.startcard {
+  background: var(--panel, #14171c); border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-lg, 8px); padding: 18px 16px; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column; gap: 8px; transition: transform .18s ease, border-color .18s ease;
+}
+.startcard:hover { transform: translateY(-3px); border-color: rgba(0, 210, 255, .4); }
+.startcard .e { font-size: 24px; }
+.startcard .t { font-weight: 600; font-size: 13.5px; line-height: 1.35; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.startcard .d { font-size: 11.5px; color: var(--muted, #7d8894); line-height: 1.55; flex: 1; }
+.startcard .go { font-family: var(--mono, monospace); font-size: 10.5px; color: var(--cyan, #00D2FF); margin-top: auto; padding-top: 6px; }
+
+/* How do I…: task categories. */
+.taskgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.taskcard {
+  background: var(--panel, #14171c); border: 1px solid var(--border, rgba(255,255,255,.09));
+  border-radius: var(--r-lg, 8px); padding: 18px 18px 16px; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column; gap: 8px; transition: transform .18s ease, border-color .18s ease;
+}
+.taskcard:hover { transform: translateY(-3px); border-color: rgba(0, 210, 255, .4); }
+.taskcard .e { font-size: 20px; }
+.taskcard .t { font-weight: 600; font-size: 14.5px; }
+.taskcard .d { font-size: 12px; color: var(--muted, #7d8894); line-height: 1.6; }
+.taskcard .items { font-size: 11px; color: #5b6570; line-height: 1.7; margin-top: 2px; }
+.taskcard .go { font-family: var(--mono, monospace); font-size: 10.5px; color: var(--cyan, #00D2FF); margin-top: auto; padding-top: 8px; }
+
+/* ── guide page head ─────────────────────────────────────────── */
+.gwhere {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 16px;
+  font: 500 11.5px var(--mono, monospace); color: #9aa5b1;
+  border: 1px solid var(--border, rgba(255,255,255,.09)); border-radius: 999px;
+  padding: 5px 12px 5px 10px; background: rgba(255, 255, 255, .02);
+}
+.gwhere .e { color: var(--cyan, #00D2FF); }
+
+/* ── numbered steps ──────────────────────────────────────────── */
+.steps { max-width: 1180px; margin: 0 auto; padding: 8px 40px 10px; display: grid; gap: 4px; }
+.step { display: flex; gap: 16px; padding: 18px 0; border-top: 1px solid var(--border, rgba(255,255,255,.09)); }
+.step:first-child { border-top: 0; padding-top: 6px; }
+.step .n {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(0, 210, 255, .35); color: var(--cyan, #00D2FF);
+  display: flex; align-items: center; justify-content: center;
+  font: 700 12.5px var(--mono, monospace);
+}
+.step .body { flex: 1; min-width: 0; padding-top: 2px; }
+.step h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; letter-spacing: -.005em; }
+.step p { font-size: 13.5px; line-height: 1.68; color: #b8c2cc; max-width: 78ch; }
+.step p + p { margin-top: 8px; }
+.step code {
+  font: 500 12px var(--mono, monospace); color: #c8d3dc;
+  background: rgba(255, 255, 255, .06); border-radius: var(--r-sm, 2px); padding: 1px 5px;
+}
+.step .sub { display: block; margin-top: 8px; font-size: 12px; color: var(--muted, #7d8894); }
+
+/* Sub-groups within a "how do I" guide — several mini-flows under one topic
+   (e.g. "Start an intent" / "Resolve a focus" / "Add a sub-intent"), each
+   rendered as its own short step list under a labelled divider. */
+.gsub {
+  max-width: 1180px; margin: 30px auto 0; padding: 0 40px;
+  font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--cyan, #00D2FF); display: flex; align-items: center; gap: 12px;
+}
+.gsub::after { content: ''; flex: 1; height: 1px; background: var(--border, rgba(255,255,255,.09)); }
+.gsub:first-of-type { margin-top: 10px; }
+
+/* ── see it / cross-links ────────────────────────────────────── */
+.seeit { max-width: 1180px; margin: 20px auto 0; padding: 0 40px; display: flex; flex-wrap: wrap; gap: 10px; }
+.seeit a {
+  display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+  font-size: 12.5px; color: var(--cyan, #00D2FF); border: 1px solid rgba(0, 210, 255, .3);
+  border-radius: 999px; padding: 7px 13px; background: rgba(0, 210, 255, .05);
+  transition: background .16s ease, border-color .16s ease;
+}
+.seeit a:hover { background: rgba(0, 210, 255, .12); border-color: rgba(0, 210, 255, .5); }
+.seeit .lbl { font-size: 10.5px; color: var(--muted, #7d8894); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; align-self: center; margin-right: 2px; }
+
+.related { max-width: 1180px; margin: 0 auto; padding: 30px 40px 60px; border-top: 1px solid var(--border, rgba(255,255,255,.09)); }
+.related h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted, #7d8894); margin-bottom: 14px; }
+.related .grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.related a {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;
+  font-size: 13px; border: 1px solid var(--border, rgba(255,255,255,.09)); border-radius: var(--r-md, 4px);
+  padding: 9px 14px; background: var(--panel, #14171c); transition: border-color .16s ease;
+}
+.related a:hover { border-color: rgba(0, 210, 255, .4); color: var(--text, #F2F5F7); }
+
+footer { max-width: 1180px; margin: 0 auto; padding: 20px 40px 70px; border-top: 1px solid var(--border, rgba(255,255,255,.09));
+  color: var(--muted, #7d8894); font-size: 12.5px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+footer .dot { opacity: .4; }
+
+@media (max-width: 1024px) {
+  .startgrid { grid-template-columns: repeat(3, 1fr); }
+  .taskgrid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .dhero, .dsection, .steps, .seeit, .related, footer { padding-left: 20px; padding-right: 20px; }
+  .gsub { padding-left: 20px; padding-right: 20px; }
+  .dhero h1 { font-size: 32px; max-width: none; }
+  .startgrid { grid-template-columns: repeat(2, 1fr); }
+  .taskgrid { grid-template-columns: 1fr; }
+  .step { gap: 12px; }
+}
+@media (max-width: 480px) {
+  .startgrid { grid-template-columns: 1fr; }
+}

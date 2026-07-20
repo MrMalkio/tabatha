@@ -4,6 +4,15 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.40] - Marketing site: new /docs help section - _2026-07-20_
+
+> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.
+
+### Added
+
+- **`/docs`** — a new task-oriented help section on the public site, alongside the existing `/show` component showcase. Landing page with its own search box (separate `docs-search-index.json` so `/show`'s card count stays untouched) laid out on two axes: **Getting Started** (one guide per surface — Extension, Tabby Sidecar, Context View, Desktop Companion, Tabby Watch) and **How do I…** (9 task categories — Focus & intents; Timers, extensions & backburner; Checkpoints & voice; Tasks & Asana sync; Work shifts & clock; Phone Focus Mode & the red screen; Pairing devices; Settings & customization; Feedback & troubleshooting). 14 guide pages, every step verified against the current `src/`, `sidecar/src/`, `tabatha-watch`, and `tabatha-desktop` source rather than paraphrased from memory. Honest framing kept for beta bits (Tabby Watch is a sideload beta; the Desktop Companion installer is unsigned and triggers SmartScreen).
+- **"Docs" nav link** added to the homepage footer and to every `/show` page's header nav (index, roadmap, and all 10 component-category pages), matching the existing sticky-nav/mobile-drawer mechanics. `/docs` pages cross-link back to the relevant `/show` surface and component pages ("See it: …").
+
 ## [v6.7.39] - Sidecar line reconciled into staging - _2026-07-19_
 
 > Merge commit: brings the entire Tabby Sidecar 0.x line (sidecar/ app v0.8.2, Supabase migrations 030-041 + 5 edge functions, Plan 040/041 specs and docs) into staging. No extension code changed.

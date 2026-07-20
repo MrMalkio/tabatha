@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.40",
+      "title": "Marketing site: new /docs help section",
+      "date": "2026-07-20",
+      "intro": "> Marketing-site only (Cloudflare Pages `tabatha`, tabatha.pondocean.co). No extension code changed.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **`/docs`** — a new task-oriented help section on the public site, alongside the existing `/show` component showcase. Landing page with its own search box (separate `docs-search-index.json` so `/show`'s card count stays untouched) laid out on two axes: **Getting Started** (one guide per surface — Extension, Tabby Sidecar, Context View, Desktop Companion, Tabby Watch) and **How do I…** (9 task categories — Focus & intents; Timers, extensions & backburner; Checkpoints & voice; Tasks & Asana sync; Work shifts & clock; Phone Focus Mode & the red screen; Pairing devices; Settings & customization; Feedback & troubleshooting). 14 guide pages, every step verified against the current `src/`, `sidecar/src/`, `tabatha-watch`, and `tabatha-desktop` source rather than paraphrased from memory. Honest framing kept for beta bits (Tabby Watch is a sideload beta; the Desktop Companion installer is unsigned and triggers SmartScreen).\n- **\"Docs\" nav link** added to the homepage footer and to every `/show` page's header nav (index, roadmap, and all 10 component-category pages), matching the existing sticky-nav/mobile-drawer mechanics. `/docs` pages cross-link back to the relevant `/show` surface and component pages (\"See it: …\")."
+        }
+      ]
+    },
+    {
       "version": "6.7.39",
       "title": "Sidecar line reconciled into staging",
       "date": "2026-07-19",

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabatha Docs — Help & Guides</title>
+<meta name="description" content="Task-oriented help for the whole Tabatha family: the browser extension, Tabby Sidecar, Context View, the desktop companion, and Tabby Watch.">
+<link rel="stylesheet" href="../show/assets/site.css">
+<link rel="stylesheet" href="assets/docs.css">
+<style>
+:root{
+  --bg:#0F1115;--bg2:#0b0d10;--panel:#14171c;--panel2:#181c22;
+  --border:rgba(255,255,255,.09);--text:#F2F5F7;--muted:#7d8894;
+  --cyan:#00D2FF;--appcyan:#00F0FF;--magenta:#FF0055;--gold:#FFD700;
+  --green:#66bb6a;--amber:#ffa726;--red:#ef5350;--blue:#42a5f5;--violet:#b388ff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  --r-sm:2px;--r-md:4px;--r-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 78% -8%,rgba(0,210,255,.10),transparent 60%),
+                   radial-gradient(900px 500px at 0% 4%,rgba(0,210,255,.05),transparent 55%)}
+.nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
+  padding:14px 40px;border-bottom:1px solid var(--border);
+  background:rgba(15,17,21,.82);backdrop-filter:blur(14px)}
+.logo{width:28px;height:28px;border-radius:7px;flex:none}
+.wordmark{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.wordmark b{color:var(--cyan)}
+.nav .tag{font-size:12px;color:var(--muted);border-left:1px solid var(--border);padding-left:14px}
+.nav .grow{flex:1}
+.nav a{font-size:12.5px;color:var(--muted);text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.back{color:var(--cyan)}
+.verbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--cyan);
+  border:1px solid rgba(0,210,255,.35);border-radius:999px;padding:4px 10px}
+.phead{max-width:1180px;margin:0 auto;padding:52px 40px 12px}
+.kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-weight:700}
+.phead h1{font-size:38px;line-height:1.05;letter-spacing:-.02em;margin-top:14px}
+.phead p{font-size:15px;color:#b8c2cc;max-width:70ch;margin-top:14px}
+@media (max-width:900px){ .phead h1{font-size:30px} }
+
+</style>
+
+</head>
+<body>
+<nav class="nav">
+  <svg class="logo" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="128" height="128" rx="24" fill="#0F1115"/>
+    <path d="M32 44C32 37.37 37.37 32 44 32H84C90.63 32 96 37.37 96 44V84C96 90.63 90.63 96 84 96H44C37.37 96 32 90.63 32 84V44Z" stroke="#00D2FF" stroke-width="8"/>
+    <circle cx="64" cy="64" r="16" fill="#00D2FF"/>
+    <rect x="56" y="24" width="16" height="8" rx="2" fill="#00D2FF"/>
+  </svg>
+  <span class="wordmark">Ta<b>b</b>atha</span>
+  <span class="tag">Help &amp; Guides</span>
+  <span class="grow"></span>
+  <a href="../">Home</a>
+  <a href="../show/index.html">Show &amp; Tell</a>
+  <span class="verbadge">v6.7.40</span>
+</nav>
+<header class="dhero">
+  <div class="kicker">Tabatha Docs</div>
+  <h1>Help &amp; guides for the whole family.</h1>
+  <p>Task-oriented walkthroughs for the Browser Extension, Tabby Sidecar, Context View, the Desktop Companion, and Tabby Watch — every step checked against the current source, not remembered from a spec.</p>
+  <button class="dsearch" id="dsearch-trigger" type="button">
+    <span class="ic" aria-hidden="true">🔍</span>
+    <span class="grow">Search guides, steps and settings…</span>
+    <kbd>/</kbd>
+  </button>
+</header>
+
+<section class="dsection" id="start">
+  <div class="dsec-head"><h2>Getting Started</h2><span class="meta">one guide per surface</span></div>
+  <p class="dsec-sub">Setting up a surface for the first time — install it, sign in, and find your way around.</p>
+  <div class="startgrid">
+    <a class="startcard" href="getting-started-extension.html" data-k=" Set up the Browser Extension">
+      <span class="e" aria-hidden="true">🧩</span>
+      <div class="t">Browser Extension <span class="statusflag live">Shipped</span></div>
+      <div class="d">The core product — gates new tabs, runs the clock, and puts a status bar on every page.</div>
+      <div class="go">Start →</div>
+    </a>
+    <a class="startcard" href="getting-started-sidecar.html" data-k=" Set up Tabby Sidecar">
+      <span class="e" aria-hidden="true">📱</span>
+      <div class="t">Tabby Sidecar (phone) <span class="statusflag live">Shipped · Web</span></div>
+      <div class="d">The queue in your pocket — sign in from any phone browser, nothing to install.</div>
+      <div class="go">Start →</div>
+    </a>
+    <a class="startcard" href="getting-started-context-view.html" data-k=" Set up Context View">
+      <span class="e" aria-hidden="true">📺</span>
+      <div class="t">Context View (big screen) <span class="statusflag live">Shipped</span></div>
+      <div class="d">A landscape, glanceable read-out of your focus and timer — for a TV or a second monitor.</div>
+      <div class="go">Start →</div>
+    </a>
+    <a class="startcard" href="getting-started-companion.html" data-k=" Install the Desktop Companion">
+      <span class="e" aria-hidden="true">🖥️</span>
+      <div class="t">Desktop Companion <span class="statusflag live">Built · Windows</span></div>
+      <div class="d">A Windows tray app that turns time outside the browser into real activity data.</div>
+      <div class="go">Start →</div>
+    </a>
+    <a class="startcard" href="getting-started-watch.html" data-k=" Build & pair Tabby Watch">
+      <span class="e" aria-hidden="true">⌚</span>
+      <div class="t">Tabby Watch <span class="statusflag dev">Sideload beta</span></div>
+      <div class="d">A Galaxy Watch 6 companion — focus ring, checkpoints, +5 extend. Sideload-only today.</div>
+      <div class="go">Start →</div>
+    </a>
+  </div>
+</section>
+
+<section class="dsection" id="howdoi">
+  <div class="dsec-head"><h2>How do I…</h2><span class="meta">9 task categories</span></div>
+  <p class="dsec-sub">Already set up, and looking for one specific thing — pause a focus, connect Asana, pair a watch.</p>
+  <div class="taskgrid">
+    <a class="taskcard" href="focus-and-intents.html" data-k="Gatekeeper · FocusInput · sub-intents · resolving">
+      <span class="e" aria-hidden="true">🎯</span>
+      <div class="t">Focus & intents</div>
+      <div class="d">Start an intent, resolve it, and branch off a sub-intent without losing the parent.</div>
+      <div class="items">Gatekeeper · FocusInput · sub-intents · resolving</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="timers-extensions-backburner.html" data-k="Pause/resume · +5m · timer expired · backburner · snooze">
+      <span class="e" aria-hidden="true">⏱️</span>
+      <div class="t">Timers, extensions & backburner</div>
+      <div class="d">Pause with a note, add +5 minutes, or put something aside without losing it.</div>
+      <div class="items">Pause/resume · +5m · timer expired · backburner · snooze</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="checkpoints-and-voice.html" data-k="Checkpoint notes · progress levels · voice capture · proactive check-ins">
+      <span class="e" aria-hidden="true">📋</span>
+      <div class="t">Checkpoints & voice</div>
+      <div class="d">Log progress on a running focus, or just say it out loud instead of typing.</div>
+      <div class="items">Checkpoint notes · progress levels · voice capture · proactive check-ins</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="tasks-and-asana.html" data-k="Create a task · connect Asana (PAT) · start a task as a focus">
+      <span class="e" aria-hidden="true">✅</span>
+      <div class="t">Tasks & Asana sync</div>
+      <div class="d">Keep a task list, or connect Asana from your phone so tasks show up everywhere.</div>
+      <div class="items">Create a task · connect Asana (PAT) · start a task as a focus</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="work-shifts-and-clock.html" data-k="Clock in/out · breaks · cross-device shifts · shift history">
+      <span class="e" aria-hidden="true">🕐</span>
+      <div class="t">Work shifts & clock</div>
+      <div class="d">Clock in, take a break, and see the same shift no matter which device you're on.</div>
+      <div class="items">Clock in/out · breaks · cross-device shifts · shift history</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="phone-focus-mode.html" data-k="Phone-away detection · the red alert · fade speed">
+      <span class="e" aria-hidden="true">📵</span>
+      <div class="t">Phone Focus Mode & the red screen</div>
+      <div class="d">Wander off your phone mid-focus and a paired big screen turns red.</div>
+      <div class="items">Phone-away detection · the red alert · fade speed</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="pairing-devices.html" data-k="Watch pairing (6-digit code) · Companion pairing (token)">
+      <span class="e" aria-hidden="true">🔗</span>
+      <div class="t">Pairing devices</div>
+      <div class="d">Link a Galaxy Watch or the desktop companion to your Tabatha account.</div>
+      <div class="items">Watch pairing (6-digit code) · Companion pairing (token)</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="settings-and-customization.html" data-k="Context View settings · install the PWA · install the companion · Desk View">
+      <span class="e" aria-hidden="true">⚙️</span>
+      <div class="t">Settings & customization</div>
+      <div class="d">Tune Context View, install the apps, and set up a standing screen.</div>
+      <div class="items">Context View settings · install the PWA · install the companion · Desk View</div>
+      <div class="go">Read →</div>
+    </a>
+    <a class="taskcard" href="feedback-and-troubleshooting.html" data-k="Send feedback (extension, Sidecar) · sync mismatches">
+      <span class="e" aria-hidden="true">💬</span>
+      <div class="t">Feedback & troubleshooting</div>
+      <div class="d">Report a bug, ask for something new, or figure out why two devices disagree.</div>
+      <div class="items">Send feedback (extension, Sidecar) · sync mismatches</div>
+      <div class="go">Read →</div>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <span>Tabatha docs</span><span class="dot">·</span>
+  <span>task-oriented help across the whole family</span><span class="dot">·</span>
+  <span>brand-faithful to v6.7.40</span>
+</footer>
+<script src="assets/docs.js" defer></script>
+
+</body>
+</html>
