@@ -604,3 +604,12 @@
   1. No action — already superseded, isolated incident ← **suggested**
   2. Add a lightweight pre-merge check that flags files touched outside a branch's stated scope in `docs/parallel-development-workflow.md`'s zone map
   3. Audit other recent merge commits for similar unrelated-file drift
+
+## 2026-07-20 — Tabatha_Changelog.md has stray leftover conflict-style `=======` separators
+- **Noticed while:** feat/ext-live-ingest — about to append a changelog entry for the live-ingest fix.
+- **What:** Lines 28 and 44 of `Tabatha_Changelog.md` are bare `=======` separators (no matching `<<<<<<<`/`>>>>>>>`), sitting between THREE separate "v6.7.41" entries that appear to have been concatenated from different merge sources without being properly de-duplicated/resolved into one heading.
+- **Why it matters:** Cosmetic/documentation only — doesn't affect build or runtime — but reads as a broken merge and will confuse anyone skimming the changelog for what actually shipped in v6.7.41.
+- **Options:**
+  1. No action — cosmetic only
+  2. Squash the three v6.7.41 entries into one heading with combined sub-sections, remove the stray `=======` lines
+  3. Renumber the two duplicate/orphaned entries under their own version numbers if they were meant to be distinct releases ← **suggested**

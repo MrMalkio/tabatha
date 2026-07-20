@@ -94,6 +94,11 @@ import {
   notifyStateChange as notifyAwarenessStateChange,
   setLocalIdleState as setAwarenessIdleState
 } from './services/awarenessService.js';
+import * as focusIngestService from './services/focusIngestService.js';
+import {
+  configureFocusIngestService,
+  registerFocusIngestAlarm
+} from './services/focusIngestService.js';
 import {
   configureCompanionInstallService,
   startCompanionInstallService
@@ -115,6 +120,9 @@ configureAwarenessService({
   // local path (history archive + companion + webhook + sync).
   requestClockOut: () => clockService.handleMessage('CLOCK_OUT', {}, null)
 });
+// feat/ext-live-ingest: cross-surface pull (Sidecar/other-install focus +
+// clock changes → this install), 60s alarm + post-push trigger.
+configureFocusIngestService({ supabase });
 configureCompanionInstallService({ supabase, companionBridge });
 // Cloud writes (profile name via outbox; org/invite via direct RPC). The SW is
 // the single auth owner — page contexts route every mutation here.
@@ -215,7 +223,8 @@ const services = [
   agentSessionService,
   selfCorrectionService,
   contextReconcileService,
-  cloudWriteService
+  cloudWriteService,
+  focusIngestService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -257,6 +266,9 @@ registerAutoFocusListeners();
 registerSyncServiceAlarms();
 registerSyncStorageListener();
 registerAlarmServiceListener();
+// feat/ext-live-ingest: 60s cross-surface ingest alarm (focus_items +
+// browser_profile_status pull/reconcile/arbitrate).
+registerFocusIngestAlarm();
 // Cortex Plan 040 T4: adaptive-capture event listeners + dwell/export alarms.
 // All handlers gate on the opt-in screenshotCapture master toggle internally.
 registerCaptureListeners();

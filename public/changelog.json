@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.45",
+      "title": "Continuous cross-surface live ingest (focus + clock)",
+      "date": "2026-07-20",
+      "intro": "> Fixes the top-reported round-trip bug: intents/switches made in the Sidecar (or another browser install) never reached a running extension — it only pushed to Cloud Sync and rehydrated once per install. The extension now pulls continuously and arbitrates account-wide \"what's current\" for both focus and clock.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Continuous focus ingest** — a 60s alarm (`focus-live-ingest`) plus a trigger right after every push cycle pull `focus_items` for the signed-in profile: a `created_at`-watermarked query for brand-new rows, plus a small `focus_state`+`tags`-only \"light sweep\" of every non-completed row to catch state changes (there's no `updated_at` column). Unknown rows are created locally via the same mapper the one-time rehydrate uses; known rows reconcile per a source-aware winner matrix — cloud wins for Sidecar-authored rows (`tags._src === 'sidecar'`), local wins for extension-authored rows.\n- **Account-wide focus arbitration** — the account's single \"current\" focus is whichever active row (any source) has the latest `tags._startedAt`. When a newer remote active row appears, the extension pauses its local current (normal pause path — events still emit) and adopts the newer one through a new suppressed activation path (`adoptRemoteActive`) that never re-emits a `start` event and never stamps a fresh timestamp, so the next push is a no-op and no ping-pong loop forms.\n- **Continuous clock ingest** — the same ingest cycle also pulls `browser_profile_status` rows (excluding self) and arbitrates the account's shift state by the latest `last_clock_event_at`, adopting a newer remote clock-in/break/clock-out into the local `clockSession` mirror (`clockService.applyRemoteClockState`) without touching `clockHistory` or re-pushing — the origin install's own history push remains the single source of truth for `clock_sessions`.\n- The extension now also mirrors `tags._startedAt`/`tags._elapsedMs` on every focus push (`syncService.buildFocusRows`), matching the Sidecar's own convention, so extension-authored rows are comparable on equal terms during arbitration from any surface.\n- `src/utils/liveIngestArbitration.js` — the pure comparator/reconcile-matrix logic, unit tested (30 tests, `test/liveIngestArbitration.test.js`) independent of chrome/supabase."
+        }
+      ]
+    },
+    {
       "version": "6.7.44",
       "title": "Sidecar 0.9-0.11 line reconciled",
       "date": "2026-07-20",

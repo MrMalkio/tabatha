@@ -367,6 +367,52 @@ export async function setSessionFromCompanion(companionClock) {
 }
 
 /**
+ * Ingest-driven clock adoption (feat/ext-live-ingest).
+ *
+ * Applies a REMOTE tabatha.browser_profile_status row (another install, or
+ * the phone/Sidecar) to this install's local `clockSession` when
+ * liveIngestArbitration.shouldAdoptClock() has already decided the remote
+ * event is the account-wide latest. Mirrors setSessionFromCompanion's
+ * proven shape/echo-avoidance pattern above, generalized from "companion
+ * origin" to "any remote install origin":
+ *   - never calls clock.clockIn/clockOut/toggleBreak (those stamp `now` and
+ *     archive to clockHistory — this is a pure presence mirror, not a local
+ *     clock action taken by this install);
+ *   - never calls companionBridge.send*, fireWebhook, or triggerSync — no
+ *     cloud write is made from ingest, only the local mirror;
+ *   - PRESERVES the remote row's own timestamps (clocked_in_at /
+ *     last_clock_event_at) instead of stamping Date.now(). This is what
+ *     prevents a ping-pong: this install's own next awareness heartbeat
+ *     (awarenessService.buildStatusPayload, driven by the chrome.storage
+ *     listener this write fires) re-derives the IDENTICAL last_clock_event_at
+ *     from the adopted session, so no new "latest" event is ever created by
+ *     the act of adopting one.
+ */
+export async function applyRemoteClockState(row) {
+  const state = row?.clock_state;
+  const active = state === 'clocked_in' || state === 'on_break';
+  const onBreak = state === 'on_break';
+
+  const session = {
+    active,
+    clockedInAt: active ? (row.clocked_in_at || null) : null,
+    clockedOutAt: active ? null : (row.last_clock_event_at || null),
+    onBreak,
+    breakStartedAt: onBreak ? (row.on_break_since || null) : null,
+    // The remote row doesn't carry individual break spans (only
+    // on_break_since for the CURRENT break) — this install's break-total
+    // math will under-count prior breaks for an adopted session. Acceptable:
+    // the authoritative clock_sessions history row is written once, by the
+    // ORIGIN install's own syncClockHistory push, not reconstructed here.
+    breaks: []
+  };
+
+  await setStorage({ clockSession: session });
+  broadcastToExtension({ type: 'CLOCK_SESSION_UPDATED' });
+  return session;
+}
+
+/**
  * Forward a clock event to the desktop companion.
  * Called by companionService (Phase 5).
  */

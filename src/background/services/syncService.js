@@ -14,6 +14,7 @@ import { getInstallIdentity, recordSupabaseId, touchLastSeen } from '../../servi
 import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
 import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
 import { getCompanionBrowserProfileId } from './companionInstallService.js';
+import { runLiveIngestAfterPush } from './focusIngestService.js';
 
 let deps = {};
 let syncTimeout = null;
@@ -326,10 +327,24 @@ function buildFocusRows(engine, scope) {
     // tags._backburner). Mirror the extension's fields into tags on every
     // push so items created here render correctly as nested sub-intents /
     // a collapsed Backburner group on the Sidecar and Context View.
+    //
+    // feat/ext-live-ingest: also mirror tags._startedAt / tags._elapsedMs —
+    // the Sidecar's own "current active run began at" / "frozen elapsed"
+    // convention (sidecar/src/data/focus.ts) — so the cross-surface live
+    // ingest arbitration (extension AND Sidecar) can compare an
+    // extension-authored row against a Sidecar-authored one on equal terms.
+    // _startedAt while active = lastResumedAt (the current run's start,
+    // matching the Sidecar's back-dated semantics); while paused it stays
+    // frozen at whatever it already was (falls back to startedAt/createdAt
+    // the first time a paused item is ever pushed).
     tags: {
       ...(item.tags || {}),
       ...(item.parentFocusId ? { _parent: item.parentFocusId } : {}),
-      _backburner: !!item.backburnered
+      _backburner: !!item.backburnered,
+      _startedAt: item.focusState === 'active' && item.lastResumedAt
+        ? item.lastResumedAt
+        : (item.tags?._startedAt || item.startedAt || item.createdAt || null),
+      ...(item.focusState !== 'active' ? { _elapsedMs: item.elapsedMs || 0 } : {})
     },
     created_at: isoOrNow(item.createdAt || item.startedAt),
     completed_at: isoOrNull(item.completedAt || item.endedAt),
@@ -1025,6 +1040,16 @@ export async function syncToSupabase() {
       await recordDiagnostic('sync_completed_with_errors', 'One or more sync blocks failed. See the preceding diagnostic rows for details.');
     } else {
       await recordSuccess();
+    }
+
+    // feat/ext-live-ingest: pull right after every push cycle too, not just
+    // the 60s alarm — closes the round trip fast when the user is actively
+    // switching between the Sidecar and the extension. Best-effort: a pull
+    // failure here must never mark the push itself as failed.
+    try {
+      await runLiveIngestAfterPush({ supabase, profileId, browserProfileId });
+    } catch (err) {
+      await recordDiagnostic('live_ingest_after_push_failed', err);
     }
   } catch (err) {
     await recordDiagnostic('sync_threw', err);

@@ -326,7 +326,11 @@ function addElapsedSinceResume(item, engine) {
   }
 }
 
-function pauseItem(item, reason, engine) {
+// Exported (feat/ext-live-ingest): reused by focusIngestService.js so a
+// remote-driven "another surface is now current" adoption pauses the local
+// item through the exact same path a manual pause takes — elapsed accounting,
+// autoCheckpoint, and the 'pause' focus_event all fire identically.
+export function pauseItem(item, reason, engine) {
   addElapsedSinceResume(item, engine);
   item.focusState = 'paused';
   item.pausedAt = new Date().toISOString();
@@ -334,6 +338,50 @@ function pauseItem(item, reason, engine) {
   if (item.funnelStage === 'addressing') item.funnelStage = 'focus';
   autoCheckpoint(item, reason ? `Paused (${reason})` : 'Paused');
   if (item.id) logFocusEvent(item.id, 'pause');
+}
+
+// Ingest-driven adoption (feat/ext-live-ingest): this item is now the
+// account-wide current focus because a REMOTE active row (any source) has a
+// newer tags._startedAt than whatever was locally current. Mirrors
+// switchFocus's activation bookkeeping (backburner clear, funnel stage,
+// timer re-arm) but with two deliberate differences:
+//   1. lastResumedAt is seeded from the REMOTE's own start time, not "now" —
+//      elapsedMs folds to 0 (mirrors the Sidecar's back-dated _startedAt
+//      model: live elapsed = now - lastResumedAt). This keeps the item's own
+//      next push byte-identical to what was just ingested (no new
+//      timestamp → no ping-pong; see focusIngestService.js).
+//   2. It never calls logFocusEvent(id, 'start') — the originating surface
+//      already logged that event; emitting a second one would duplicate the
+//      cross-surface timeline.
+export function adoptRemoteActive(item, engine, remoteStartedAtIso) {
+  const wasBackburnered = !!item.backburnered;
+  if (wasBackburnered) {
+    item.backburnered = false;
+    item.backburnerExpired = false;
+    item.backburnerReason = null;
+    item.backburnerDurationMinutes = null;
+    item.backburneredAt = null;
+    chrome.alarms.clear(`backburner-timer-${item.id}`);
+  }
+
+  const startIso = remoteStartedAtIso || new Date().toISOString();
+  item.focusState = 'active';
+  item.funnelStage = (item.funnelStage === 'todo' || item.funnelStage === 'unsorted') ? 'focus' : item.funnelStage;
+  item.lastResumedAt = startIso;
+  item.elapsedMs = 0;
+  item.pausedAt = null;
+  if (!item.startedAt) item.startedAt = startIso;
+  engine.activeFocusId = item.id;
+
+  chrome.alarms.clear(`focus-timer-${item.id}`);
+  const totalTimerMs = (item.timerMinutes || 0) * 60 * 1000;
+  const elapsedNow = Math.max(0, Date.now() - new Date(startIso).getTime());
+  const remaining = totalTimerMs - elapsedNow;
+  if (remaining > 0) {
+    chrome.alarms.create(`focus-timer-${item.id}`, { delayInMinutes: remaining / 60000 });
+  }
+
+  return { wasBackburnered };
 }
 
 async function persistFocusHistoryCap(engine) {
