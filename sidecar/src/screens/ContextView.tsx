@@ -10,6 +10,7 @@ import FocusTimeline from '../components/FocusTimeline';
 import ProgressRing from '../components/ProgressRing';
 import { supabase } from '../lib/supabase';
 import { resolveContextViewSettings } from '../lib/contextViewSettings';
+import { computePomodoroState, DEFAULT_POMODORO_CONFIG } from '../lib/pomodoro';
 import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
 
 // Coarse "how long ago" for the last-checkpoint preview — matches the rest of
@@ -79,6 +80,14 @@ export default function ContextView({
   const day = dayLeft(resetHour);
   const immediateAlert = cv.focusAwayImmediate;
   const showCheckpoints = cv.showCheckpoints;
+
+  // Pomodoro timer mode (Plan 040 roadmap "gusto" pick) — a VIEW over the
+  // same elapsedMsOf the ring already derives its progress from; underlying
+  // focus timing/events (and the FocusTimeline's own goal-duration progress
+  // below) are untouched. See lib/pomodoro.ts.
+  const sc = profile?.settings?.sidecar || {};
+  const timerMode: 'simple' | 'pomodoro' = sc.timerMode === 'pomodoro' ? 'pomodoro' : 'simple';
+  const pomoConfig = { ...DEFAULT_POMODORO_CONFIG, ...(sc.pomodoro || {}) };
 
   // Checkpoint counter + last-note preview for the current focus (read-only,
   // ambient — Settings can turn it off). Reuses the existing
@@ -161,6 +170,16 @@ export default function ContextView({
   const overtimeMs = over && remaining != null ? Math.abs(remaining) : 0;
   const frac = dur > 0 ? Math.max(0, Math.min(1, cfElapsed / dur)) : 0;
   const accent = over ? colors.red : shift?.state === 'on_break' ? colors.amber : colors.accent;
+
+  // Pomodoro state, computed but NOT substituted into remaining/over/
+  // overtimeMs/frac/accent above — those still drive the FocusTimeline's
+  // goal-duration progress unchanged. The ring block below reads `pomo`
+  // directly to override its own display only.
+  const pomo =
+    cf && isSidecarSourced(cf) && timerMode === 'pomodoro'
+      ? computePomodoroState(cfElapsed, pomoConfig)
+      : null;
+  const onBreak = !!pomo && pomo.phase !== 'focus';
 
   // shift elapsed
   let shiftText = '';
@@ -269,7 +288,29 @@ export default function ContextView({
               2026-07-18: "04:3(" cut off at 1h44m over). */}
           <View style={styles.ringZone} pointerEvents="none">
             {(() => {
-              const timerStr = remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed);
+              // Pomodoro override: swap in the current phase's remaining
+              // time + a phase-scoped progress fraction for the ring only.
+              // `remaining`/`frac`/`accent`/`over` above stay goal-duration
+              // based for the FocusTimeline below.
+              const displayRemaining = pomo ? pomo.phaseRemainingMs : remaining;
+              const ringFrac = pomo
+                ? (() => {
+                    const phaseDur = pomo.phaseElapsedMs + pomo.phaseRemainingMs;
+                    return phaseDur > 0 ? Math.max(0, Math.min(1, pomo.phaseElapsedMs / phaseDur)) : 0;
+                  })()
+                : frac;
+              const ringAccent = onBreak ? colors.amber : accent;
+              const modeLabel = pomo
+                ? pomo.phase === 'focus'
+                  ? 'FOCUS TIMER'
+                  : pomo.phase === 'longBreak'
+                    ? 'LONG BREAK'
+                    : 'BREAK'
+                : isSidecarSourced(cf)
+                  ? 'FOCUS TIMER'
+                  : 'IN FOCUS';
+
+              const timerStr = displayRemaining != null ? formatTimer(Math.abs(displayRemaining)) : formatElapsedMs(cfElapsed);
               // Fit-to-ring (Malkio, 2026-07-19): at 5+ characters ("04:30",
               // "104:30") the text must SHRINK to stay inside the ring — the
               // ring sits at the viewport's right edge, so any text wider than
@@ -281,12 +322,12 @@ export default function ContextView({
                   ? big
                   : Math.min(big, (ringSize * 0.9) / (0.58 * timerStr.length));
               return (
-                <ProgressRing size={ringSize} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
-                  <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
-                  <Text style={[styles.timerBig, { fontSize: timerFont, color: accent }]} numberOfLines={1}>
+                <ProgressRing size={ringSize} thickness={Math.max(6, big * 0.045)} progress={ringFrac} color={ringAccent} bgColor={colors.bgBase}>
+                  <Text style={[styles.timerMode, onBreak && { color: colors.amber }]}>{modeLabel}</Text>
+                  <Text style={[styles.timerBig, { fontSize: timerFont, color: ringAccent }]} numberOfLines={1}>
                     {timerStr}
                   </Text>
-                  <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
+                  <Text style={styles.timerCap}>{displayRemaining != null ? (pomo ? 'remaining' : over ? 'over' : 'remaining') : 'elapsed'}</Text>
                 </ProgressRing>
               );
             })()}
