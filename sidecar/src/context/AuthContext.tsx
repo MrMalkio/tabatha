@@ -293,7 +293,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // that could orphan a profile and bypass the invite gate. One call,
       // no client-side provisioning.
       //
-      // Migration 043 adds `kind` ('demo' | 'team' | 'founder') to the
+      // Migration 043 adds `kind` ('demo' | 'personal' | 'team', remodeled
+      // from 'demo' | 'team' | 'founder' in migration 044) to the
       // payload — passed through here so a caller COULD show kind-specific
       // copy, but InviteGateScreen doesn't today: `needsInvite` flips to
       // false as soon as this resolves `ok: true`, and app/index.tsx

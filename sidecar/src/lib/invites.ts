@@ -11,12 +11,16 @@ import { supabase } from './supabase';
 export type OrgMembership = { org_id: string; role: string; org_name: string };
 export type TeamMembership = { team_id: string; role: string; team_name: string };
 
-// Invite kind (migration 043): 'demo' — account only, no org/team attach.
-// 'team' — unchanged prior behavior: account + org/team membership.
-// 'founder' — account only; the invitee creates their own org later via
+// Invite kind (migration 043, remodeled in 044): 'demo' — account only, no
+// org/team attach; distinguished from 'personal' only by a durable
+// account_type='demo' marker on the profile (migration 044) for future
+// treatment/limits/cleanup. 'personal' — account only, no org/team
+// attach; the invitee can start their own org any time via
 // tabatha.create_organization (migration 020, extension-only surface —
-// the Sidecar has no org-creation UI, see InvitesCard.tsx comment).
-export type InviteKind = 'demo' | 'team' | 'founder';
+// the Sidecar has no org-creation UI, see InvitesCard.tsx comment) same
+// as any other standard account — nothing about the invite gates that.
+// 'team' — unchanged prior behavior: account + org/team membership.
+export type InviteKind = 'demo' | 'personal' | 'team';
 
 export type RedeemResult = {
   success: boolean;
@@ -28,7 +32,7 @@ export type RedeemResult = {
 
 /**
  * Redeem an invite token for the currently authenticated user. Calls
- * tabatha.redeem_invite_token (supabase/migrations/003 + 018 + 042 + 043)
+ * tabatha.redeem_invite_token (supabase/migrations/003 + 018 + 042 + 043 + 044)
  * — that RPC looks up the caller's profile by auth_user_id and REQUIRES
  * the row to already exist (it attaches org/team membership + stamps
  * profile defaults for 'team' kind invites only; it does not create the
@@ -55,11 +59,11 @@ export type MintResult = {
 
 /**
  * Mint a new invite token. Server-side gated by SECURITY DEFINER RPC
- * tabatha.create_invite_token (supabase/migrations/012 + 043) — 'team'
- * kind: org owners, or team owners/managers/sub_managers for the given
- * team (org_id required). 'demo'/'founder' kind: account-only, org_id
- * and teamId must be omitted/null; gated to callers who are OWNER of at
- * least one org. Callers without the right role get back
+ * tabatha.create_invite_token (supabase/migrations/012 + 043 + 044) —
+ * 'team' kind: org owners, or team owners/managers/sub_managers for the
+ * given team (org_id required). 'demo'/'personal' kind: account-only,
+ * org_id and teamId must be omitted/null; gated to callers who are OWNER
+ * of at least one org. Callers without the right role get back
  * `{ success: false, error: '...' }`; the UI is expected to show a
  * friendly message rather than pre-hiding the mint form.
  */

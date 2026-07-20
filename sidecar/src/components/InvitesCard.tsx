@@ -13,42 +13,40 @@ import {
 
 const ROLE_OPTIONS = ['user', 'sub_manager', 'manager', 'read_only'];
 
-// Invite type — migration 043. 'demo'/'founder' are account-only (no
-// org/team picker, no role picker — role only matters for a membership
-// row, which neither kind creates); 'team' is the pre-existing flow. The
-// RPC is still the authority on who may mint each kind (team: org owner
-// or team owner/manager/sub_manager for the target; demo/founder: owner
-// of at least one org) — this UI doesn't pre-hide any chip by role.
-const INVITE_KIND_OPTIONS: { value: InviteKind; label: string }[] = [
-  { value: 'demo', label: 'Demo' },
-  { value: 'team', label: 'My team' },
-  { value: 'founder', label: 'Founder' },
+// Invite type — migration 043, remodeled in 044. 'demo'/'personal' are
+// account-only (no org/team picker, no role picker — role only matters
+// for a membership row, which neither kind creates); 'team' is the
+// pre-existing flow. The RPC is still the authority on who may mint each
+// kind (team: org owner or team owner/manager/sub_manager for the
+// target; demo/personal: owner of at least one org) — this UI doesn't
+// pre-hide any chip by role. One-line explanations shown per chip since
+// the three kinds aren't self-explanatory from the label alone.
+const INVITE_KIND_OPTIONS: { value: InviteKind; label: string; blurb: string }[] = [
+  { value: 'demo', label: 'Demo', blurb: 'Demo — try-it-out account' },
+  {
+    value: 'personal',
+    label: 'Personal',
+    blurb: 'Personal — full individual account; they can start their own team any time',
+  },
+  { value: 'team', label: 'My team', blurb: 'My team — joins your org' },
 ];
 
 const KIND_RESULT_LABEL: Record<InviteKind, string> = {
   demo: 'Demo invite — account only',
+  personal: 'Personal invite — account only',
   team: 'Team invite',
-  founder: "Founder invite — they'll create their own team",
 };
 
-// Founder invites hand the redeemer a bare account; they create their own
-// org afterward via tabatha.create_organization (migration 020). That RPC
-// currently has NO UI surface in the Sidecar (extension-only, see
-// src/settings/... in the main app) — a founder-kind invitee has nowhere
-// in the Sidecar today to actually create their org. Flagged, not built
-// here (out of scope for this card).
-const FOUNDER_ORG_CREATE_GAP =
-  'They’ll need the browser extension to create their org for now — the Sidecar has no "create organisation" screen yet.';
-
 // Invites card — Settings. Mints tabatha.invite_tokens via the
-// SECURITY DEFINER RPC tabatha.create_invite_token (migration 012 + 043);
-// org owners / team owners-managers-sub_managers only for 'team' kind, org
-// owners only for 'demo'/'founder'. The RPC itself is the authority on who
-// may mint — this card stays visible and lets anyone with at least one
-// org/team membership attempt it, surfacing the RPC's own permission error
-// with friendly copy rather than pre-hiding the form by role (a plain
-// 'user' role member should still be able to try and see why it's
-// refused, matching how the extension's TeamActivityPanel works).
+// SECURITY DEFINER RPC tabatha.create_invite_token (migration 012 + 043
+// + 044); org owners / team owners-managers-sub_managers only for 'team'
+// kind, org owners only for 'demo'/'personal'. The RPC itself is the
+// authority on who may mint — this card stays visible and lets anyone
+// with at least one org/team membership attempt it, surfacing the RPC's
+// own permission error with friendly copy rather than pre-hiding the
+// form by role (a plain 'user' role member should still be able to try
+// and see why it's refused, matching how the extension's
+// TeamActivityPanel works).
 export default function InvitesCard() {
   const { profile } = useAuth();
   const [orgs, setOrgs] = useState<OrgMembership[]>([]);
@@ -158,9 +156,10 @@ export default function InvitesCard() {
                 </Pressable>
               ))}
             </View>
+            <Text style={styles.hint}>
+              {INVITE_KIND_OPTIONS.find((opt) => opt.value === kind)?.blurb}
+            </Text>
           </View>
-
-          {kind === 'founder' && <Text style={styles.hint}>{FOUNDER_ORG_CREATE_GAP}</Text>}
 
           {isTeamKind && orgs.length > 0 && (
             <View style={{ marginTop: 10 }}>
