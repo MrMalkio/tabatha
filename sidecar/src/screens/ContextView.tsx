@@ -76,7 +76,12 @@ export default function ContextView({
   const { currentFocus, queue } = useFocus(profile?.id ?? null, browserProfileId);
   const now = useTick();
   const { width } = useWindowDimensions();
-  const [shift, setShift] = useState<{ state: string; since: string | null } | null>(null);
+  // `breakSince` (mig 010's `last_clock_event_at`) is the timestamp of the
+  // most recent clock-state transition — while `shift.state === 'on_break'`
+  // that transition WAS the break starting, so it doubles as break-start
+  // with no extra query (Fix 2, 2026-07-20). `since` (clocked_in_at) stays
+  // what it always was: the whole-shift start, used for the bar's shiftText.
+  const [shift, setShift] = useState<{ state: string; since: string | null; breakSince: string | null } | null>(null);
   const [phoneAway, setPhoneAway] = useState(false);
 
   // Epic 9 — `contextView` key > legacy `sidecar` keys > defaults (design
@@ -134,7 +139,11 @@ export default function ContextView({
       const clocked = data
         .filter((r: any) => r.clock_state === 'clocked_in' || r.clock_state === 'on_break')
         .sort((a: any, b: any) => new Date(b.last_clock_event_at || 0).getTime() - new Date(a.last_clock_event_at || 0).getTime());
-      setShift(clocked[0] ? { state: clocked[0].clock_state, since: clocked[0].clocked_in_at } : null);
+      setShift(
+        clocked[0]
+          ? { state: clocked[0].clock_state, since: clocked[0].clocked_in_at, breakSince: clocked[0].last_clock_event_at }
+          : null
+      );
       const away = data.some(
         (r: any) =>
           r.browser_profile_id !== browserProfileId &&
@@ -197,6 +206,21 @@ export default function ContextView({
     shiftText = `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   }
 
+  // Fix 2 (2026-07-20) — Prominent On-Break Context View. `shiftOnBreak`
+  // (distinct from the pomodoro `onBreak` above — that's a phase within an
+  // active focus timer, this is the whole-shift clock state) replaces the
+  // main focus layout with a full-screen ambient break state instead of the
+  // previous amber-tint-only treatment. Exits instantly (no fade) the
+  // instant `shift.state` flips back — same tick-driven re-render as
+  // everything else here, so no extra animation/reduced-motion handling is
+  // needed for the transition itself.
+  const shiftOnBreak = shift?.state === 'on_break';
+  let breakElapsedText = '';
+  if (shiftOnBreak && shift?.breakSince) {
+    const s = Math.max(0, Math.floor((now - new Date(shift.breakSince).getTime()) / 1000));
+    breakElapsedText = `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+
   const big = Math.min(width * 0.14, 220);
 
   // SafeAreaView (Malkio, 2026-07-19): on a phone/PWA the status bar was
@@ -228,7 +252,24 @@ export default function ContextView({
       </View>
 
       {/* main */}
-      {pending.length > 0 ? (
+      {shiftOnBreak ? (
+        // Fix 2 (2026-07-20): dedicated break state — replaces the focus
+        // layout entirely (not just an accent tint) while on break. Day
+        // countdown (top bar, above) and current time (footer, below) stay
+        // visible; the FocusTimeline is hidden below via `!shiftOnBreak`.
+        // The phone-away red overlay renders as a sibling further down and
+        // stays above this in all cases.
+        <View style={styles.breakWrap}>
+          <Text style={styles.breakEmoji}>☕</Text>
+          <Text style={styles.breakHeadline}>ON BREAK</Text>
+          {!!breakElapsedText && <Text style={styles.breakTimer}>{breakElapsedText}</Text>}
+          {cf && (
+            <Text style={styles.breakBackTo} numberOfLines={1}>
+              Back to: {cf.label}
+            </Text>
+          )}
+        </View>
+      ) : pending.length > 0 ? (
         <View style={styles.pendingWrap}>
           <Text style={styles.pendingHdr}>Choose a focus · {pending.length} pending</Text>
           <View style={styles.pendingGrid}>
@@ -255,7 +296,10 @@ export default function ContextView({
         <View style={styles.mainV2}>
           <View style={styles.titleCol} pointerEvents="none">
             <Text style={styles.eyebrow}>
-              {shift?.state === 'on_break' ? 'ON BREAK' : 'IN FOCUS'}
+              {/* Fix 2 (2026-07-20): the on_break case now renders the
+                  dedicated break-mode branch above instead of reaching this
+                  one, so this is unconditionally "IN FOCUS". */}
+              IN FOCUS
               {stage ? `   ·   ` : ''}
               <Text style={{ color: stage?.color }}>{stage ? `${stage.icon} ${stage.label}` : ''}</Text>
               {isOffComputer(cf) ? '   ·   🚶 off-computer' : ''}
@@ -349,7 +393,7 @@ export default function ContextView({
       )}
 
       {/* bottom timeline (Plan 040 Epic 2) — checkpoints + focus_events start-nodes */}
-      {cv.showTimeline && cf && dur > 0 && (
+      {cv.showTimeline && !shiftOnBreak && cf && dur > 0 && (
         <FocusTimeline
           focus={cf}
           now={now}
@@ -420,6 +464,22 @@ const styles = StyleSheet.create({
   // (huge top-left title, huge bottom-right ring); z-index keeps the title
   // readable over the ring's upper edge where they intersect.
   mainV2: { flex: 1, position: 'relative' },
+  // Fix 2 (2026-07-20) — Prominent On-Break Context View. A distinct
+  // full-screen ambient state, amber-dominant (vs. the small accent-tint
+  // this used to be limited to), replacing the focus layout entirely while
+  // `shift.state === 'on_break'`.
+  breakWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    backgroundColor: 'rgba(255, 167, 38, 0.06)',
+    borderRadius: radius.lg,
+  },
+  breakEmoji: { fontSize: 96 },
+  breakHeadline: { color: colors.amber, fontWeight: '800', fontSize: 56, letterSpacing: 2 },
+  breakTimer: { color: colors.amber, fontWeight: '700', fontSize: 40, fontVariant: ['tabular-nums'], opacity: 0.9 },
+  breakBackTo: { color: colors.textMuted, fontSize: 18, marginTop: 22, opacity: 0.7, maxWidth: '80%' },
   // QA fix (dev-cv harness, layout v2 first render): `titleCol` had no
   // `bottom`/`height`, so as an absolutely-positioned box it grew to its
   // natural content height instead of respecting `mainV2`'s flex-computed
