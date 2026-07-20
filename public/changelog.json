@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.43",
+      "title": "Cross-surface round-trip parity",
+      "date": "2026-07-20",
+      "intro": "> Extension now emits focus_events (start/pause/resume/resolve/extend/backburner/snooze), syncs checkpoints to/from Cloud Sync, and renders Sidecar sub-intents nested + backburnered items grouped. Fixes backburner flag not clearing on direct switch.",
+      "sections": []
+    },
+    {
       "version": "6.7.42",
       "title": "CWS publishing pipeline merged",
       "date": "2026-07-20",
@@ -32,7 +39,27 @@
         },
         {
           "label": "Fixed",
-          "body": "- **Replaced the orphaned, unwired `scripts/cws-auth.mjs`** that had landed on staging via an unrelated mobile-responsiveness merge (`8aa2d0b`, sourced from `feat/showcase-responsive`). That copy used Google's deprecated `urn:ietf:wg:oauth:2.0:oob` out-of-band flow and was never wired into `package.json` or paired with a publish script. This branch's loopback-listener implementation supersedes it."
+          "body": "- **Replaced the orphaned, unwired `scripts/cws-auth.mjs`** that had landed on staging via an unrelated mobile-responsiveness merge (`8aa2d0b`, sourced from `feat/showcase-responsive`). That copy used Google's deprecated `urn:ietf:wg:oauth:2.0:oob` out-of-band flow and was never wired into `package.json` or paired with a publish script. This branch's loopback-listener implementation supersedes it.\n======="
+        }
+      ]
+    },
+    {
+      "version": "6.7.41",
+      "title": "Extension ↔ Sidecar round-trip parity v1",
+      "date": "2026-07-20",
+      "intro": "> Closes the biggest cross-surface gap flagged on the Feature Matrix: the extension could not see or produce what the Tabby Sidecar (mobile companion) now tracks.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **`focus_events` emission**: the extension now writes best-effort `tabatha.focus_events` rows (`source:'extension'`) at every start/pause/resume/resolve/extend/snooze/backburner/unbackburner transition, using the same kinds and meta shapes as the Sidecar (`sidecar/src/data/events.ts`). Events are appended locally (`_focusEventLog`) and batched to the cloud on the existing sync cadence, mirroring the `intent_history` push pattern — a write failure can never block the underlying focus action.\n- **`focus_checkpoints` round-trip**: the sidebar's existing checkpoint composer (`SAVE_CHECKPOINT_NOTE`) now reaches the cloud — user-authored notes are pushed to `tabatha.focus_checkpoints`, and cloud-authored notes (e.g. from the phone) are pulled back into the local checkpoint timeline, both on the regular sync cycle. System-generated auto-checkpoints stay local (now covered distinctly by `focus_events`).\n- **Sidebar sub-intent / backburner rendering**: the sidebar queue now nests sub-intents of the current focus (↳ badge + indent) and moves backburnered items into their own collapsed dock instead of also showing them in the main queue. Reads both the extension's dedicated fields (`parentFocusId`/`backburnered`) and the Sidecar's tag convention (`tags._parent`/`tags._backburner`) so items from either surface render correctly."
+        },
+        {
+          "label": "Fixed",
+          "body": "- **`switchFocus` never cleared `backburnered`**: switching directly into a backburnered item left it stuck marked as backburnered even while active. Now cleared on activation (mirrors the Sidecar's `switchTo`)."
+        },
+        {
+          "label": "Changed",
+          "body": "- **`buildFocusRows` (sync push)**: now mirrors `item.parentFocusId`/`item.backburnered` into `tags._parent`/`tags._backburner` on every push, so extension-created sub-intents/backburner state render correctly on the Sidecar and Context View.\n- **`serverFocusToLocal` (rehydrate pull)**: now mirrors `tags._parent`/`tags._backburner` into `parentFocusId`/`backburnered` when present, without clobbering local-only values when absent."
         }
       ]
     },
