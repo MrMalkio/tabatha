@@ -53,6 +53,23 @@ function snoozedUntil(f: FocusItem): number {
 }
 
 /**
+ * Cross-surface current-focus arbitration (binding rule, 2026-07-20 fix
+ * batch — the extension is being taught the identical rule in a parallel
+ * build): the account's current focus is the `active` row with the latest
+ * `tags._startedAt`, ANY source. Switching/starting anywhere pauses ALL
+ * other actives regardless of source (see `pauseOtherActives` in
+ * `useFocus`). This comparator is the pure, source-agnostic half of that
+ * rule — used to resolve `currentFocus` below — and is exported/mirrored in
+ * `tests/arbitration.test.mjs` so the selection logic itself is covered,
+ * not just the elapsed-ms math around it.
+ */
+export function pickMostRecentActive<T extends FocusItem>(items: T[]): T | null {
+  const actives = items.filter((f) => f.focus_state === 'active');
+  if (!actives.length) return null;
+  return actives.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0];
+}
+
+/**
  * Live focus/queue state read directly from Supabase `focus_items`.
  * Polls (15s) + refetches after every mutation, exposes a manual refresh.
  * Tracks a locally-pinned "current focus" so pausing keeps it at the top
@@ -161,6 +178,31 @@ export function useFocus(
     [items, patch]
   );
 
+  // Cross-surface arbitration (binding rule): pauses EVERY other `active`
+  // row for this profile, any source (sidecar or extension) — not just
+  // sidecar-sourced ones. Each paused row gets its elapsed frozen into
+  // `tags._elapsedMs` the same way regardless of source, so an
+  // extension-sourced focus paused from the phone resumes with correct
+  // elapsed time later (whichever surface resumes it). Shared by `switchTo`
+  // and `createIntent(active: true)` so both entry points into "this is now
+  // the one active focus" agree.
+  const pauseOtherActives = useCallback(
+    async (excludeId?: string | null) => {
+      const others = items.filter((f) => f.focus_state === 'active' && f.id !== excludeId);
+      for (const f of others) {
+        await supabase
+          .from('focus_items')
+          .update({
+            focus_state: 'paused',
+            tags: { ...(f.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f)) },
+          })
+          .eq('id', f.id);
+        if (f.client_id) insertFocusEvent(profileId, f.client_id, 'pause');
+      }
+    },
+    [items, profileId]
+  );
+
   const createIntent = useCallback(
     async (
       label: string,
@@ -175,11 +217,7 @@ export function useFocus(
       const active = opts.active !== false;
 
       if (active) {
-        const toPause = items.filter(
-          (f) => f.focus_state === 'active' && isSidecarSourced(f)
-        );
-        for (const f of toPause)
-          await supabase.from('focus_items').update({ focus_state: 'paused' }).eq('id', f.id);
+        await pauseOtherActives(null);
       }
 
       const parentClient = opts.parentId
@@ -218,22 +256,16 @@ export function useFocus(
       load();
       return data?.id || null;
     },
-    [profileId, browserProfileId, items, load, persistCurrent]
+    [profileId, browserProfileId, items, load, persistCurrent, pauseOtherActives]
   );
 
   const actions = {
     switchTo: async (id: string) => {
-      // Pause the currently-active one, freezing its elapsed so it can continue later.
-      const others = items.filter(
-        (f) => f.focus_state === 'active' && isSidecarSourced(f) && f.id !== id
-      );
-      for (const f of others) {
-        await supabase
-          .from('focus_items')
-          .update({ focus_state: 'paused', tags: { ...(f.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f)) } })
-          .eq('id', f.id);
-        insertFocusEvent(profileId, f.client_id, 'pause');
-      }
+      // Pause every OTHER active focus, any source — cross-surface
+      // arbitration binding rule (was sidecar-only via isSidecarSourced,
+      // which left extension actives running when switching from the
+      // phone).
+      await pauseOtherActives(id);
       await persistCurrent(id);
       const target = items.find((i) => i.id === id);
       const el = Number(target?.tags?._elapsedMs) || 0; // continue accumulated time
@@ -334,36 +366,45 @@ export function useFocus(
   const backburner = notDone.filter((f) => f.tags?._backburner);
   const nonBB = notDone.filter((f) => !f.tags?._backburner);
 
-  // Current focus (B2/B2b — data-driven, not device-pin-dependent): an
-  // `active` focus always wins; else the most-recent `paused` (non-resolved)
-  // focus keeps showing — paused is not gone, so a Context View running on a
-  // different device shouldn't fall back to "no active focus" just because
-  // the pin lives in *this* device's AsyncStorage. Only truly empty (no
-  // active and no paused candidate — e.g. the last one was resolved) falls
-  // through to null, at which point the caller (ContextView) renders the
-  // pending queue as B2b's choose-from cards. `currentId` (the local pin) is
-  // a same-device tiebreaker only: within whichever tier is in play
-  // (active, then paused), the pinned item wins that tier if it qualifies —
-  // it never overrides the active-beats-paused precedence.
-  // Known limitation: within a tier, "most recent" is ordered by
-  // startedAtOf() (this reuses the same heuristic the pre-existing
-  // most-recent-active logic used) which reflects when a focus was last
-  // started/resumed, not when it was paused — there's no `_pausedAt`/
-  // `updated_at` on FocusItem to rank by actual pause time. With >1 paused
-  // candidate this can pick one that was started earlier but paused later
-  // over one started later but paused first. Acceptable for this pass (no
-  // schema change); revisit if multi-paused ordering becomes a real problem.
-  const activeCandidates = nonBB.filter((f) => f.focus_state === 'active');
+  // Current focus (B2/B2b, now cross-surface-arbitrated): an `active` focus
+  // always wins, and WHICH active row wins is now fully source-agnostic and
+  // device-agnostic — `pickMostRecentActive` (pure, exported above) always
+  // picks the active row with the latest `tags._startedAt` regardless of
+  // source or of this device's local pin. This is what makes two devices
+  // agree on the same current focus: previously `currentId` (the
+  // AsyncStorage pin) could win the active tier on ONE device while the
+  // other device's `currentId` picked a different active row, so phone and
+  // Context View could disagree about which of several actives was "the"
+  // current one.
+  // Else the most-recent `paused` (non-resolved) focus keeps showing —
+  // paused is not gone, so a Context View running on a different device
+  // shouldn't fall back to "no active focus" just because the pin lives in
+  // *this* device's AsyncStorage. Only truly empty (no active and no paused
+  // candidate — e.g. the last one was resolved) falls through to null, at
+  // which point the caller (ContextView) renders the pending queue as B2b's
+  // choose-from cards.
+  // `currentId` (the local pin) is now ONLY a same-device tiebreaker within
+  // the PAUSED tier (there's nothing to arbitrate in the active tier — it's
+  // a single winner by recency) — e.g. choosing which paused row stays "on
+  // top" for this device when nothing account-wide is active. This
+  // preserves the pause-pinning UX (a paused current stays where the user
+  // left it) without letting the pin override cross-surface active
+  // selection.
+  // Known limitation: within the paused tier, "most recent" (the fallback
+  // when the pin doesn't qualify) is ordered by startedAtOf() (reflects when
+  // a focus was last started/resumed, not when it was paused — there's no
+  // `_pausedAt`/`updated_at` on FocusItem to rank by actual pause time).
+  // With >1 paused candidate this can pick one that was started earlier but
+  // paused later over one started later but paused first. Acceptable for
+  // this pass (no schema change); revisit if multi-paused ordering becomes a
+  // real problem.
   const pausedCandidates = nonBB.filter((f) => f.focus_state === 'paused');
-  const pickTier = (tier: FocusItem[]): FocusItem | null =>
+  const pickPausedTier = (tier: FocusItem[]): FocusItem | null =>
     (currentId && tier.find((f) => f.id === currentId)) ||
     tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] ||
     null;
-  const currentFocus: FocusItem | null = activeCandidates.length
-    ? pickTier(activeCandidates)
-    : pausedCandidates.length
-      ? pickTier(pausedCandidates)
-      : null;
+  const currentFocus: FocusItem | null =
+    pickMostRecentActive(nonBB) || pickPausedTier(pausedCandidates);
 
   const queue = nonBB
     .filter((f) => !currentFocus || f.id !== currentFocus.id)
