@@ -44,6 +44,10 @@ The north star: the user can **control Tabatha by voice alone**, including a fre
 - A floating action button injected on every tab (content script), present in the InBar, the sidebar, popup, and bound to a global **hotkey**.
 - In the non-AI stage it can still do useful deterministic things: dictate into the *currently focused* Tabatha input, or capture a raw voice note attached to the active focus/tab.
 
+> **Update 2026-07-16 (user re-request):** the **InBar mic button is a first-class requirement**, not just a mirror of the floating button — "the audio button on the InBar that would allow me to just speak my notes, checkpoints, intent changes or just any context, and then the given AI will make all of the necessary changes." Two deltas this adds to the spec:
+> 1. `log_checkpoint` must be part of the action-routing schema below (speaking a progress note from the InBar creates a CPN checkpoint on the active focus, same path as the InBar 📋 button).
+> 2. Free-form "any context" utterances that don't map to a single action are stored as a voice note on the active focus AND queued for the AI counterpart to apply as changes (intent rename, note append, checkpoint, etc.) — partial groundwork already exists as **C9 voice v0** (voice notes, speak-instead-of-modal) on the Cortex branch.
+
 ### Phase C — General Voice Command (AI Counterpart)
 - Spoken input → transcription → **intent parsing** via the AI counterpart against a defined system prompt/tool schema.
 - The parser maps utterances to **actions**:
@@ -74,6 +78,7 @@ The north star: the user can **control Tabatha by voice alone**, including a fre
   │ change_setting | open_window | group_tabs    │
   │ start_stint | pause | backburner | defer     │
   │ link_tab_to_focus | block_site | brain_dump  │
+  │ log_checkpoint | append_note | change_intent │
   └─────────────────────────────────────────────┘
       │
       ▼

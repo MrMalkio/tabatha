@@ -282,6 +282,12 @@
 | 208 | Smart Deferral & Task Splitting Engine (Auto-Stint Scheduler) | Focus | 📋 | v0.3.0 | #122, #192, #193, #206 | [concept](../../docs/features/208-smart-deferral-stint-scheduling.md) |
 | **— ASANA INTEGRATION (Backlog 2026-05-26)** |
 | 186 | Asana Task ↔ Focus Linking (attach at creation/edit + auto-focus from URL) | Integration | 📋 | v0.2.0 | #54, #142, #122 | [concept](../../docs/features/186-asana-focus-linking.md) |
+| **— INPUT, SESSIONS, GROUPING & AGENT BROWSING (Backlog 2026-07-16)** |
+| 215 | Comprehensive hotkey coverage (every Sidebar + InBar action, rebind UI) | Input | 📋 | v0.5.0 | #176 | [concept](../../docs/features/215-comprehensive-hotkey-coverage.md) |
+| 216 | Session Manager — Tablerone parity (window sessions, timeline, favorites, archive, sleep restore) | Sessions | 📋 | v0.5.0 | #202, #176 | [concept](../../docs/features/216-session-manager-tablerone-parity.md) |
+| 217 | Intent Tab Grouping Suite (counts UI, multi-group per intent, multi-select icon menu, consolidate-into-N-windows) | Tabs | 📋 | v0.5.0 | #209, #186, #218 | [concept](../../docs/features/217-intent-tab-grouping-suite.md) |
+| 218 | Agent Browsing Detection (classify agent-created groups, InPop-Agent variant, no Sugar Box/Side Quest for agents) | Agentic | 📋 | v0.5.0 | #180, #217, C11a | [concept](../../docs/features/218-agent-browsing-detection.md) |
+| 219 | Agent vs Human History (actor attribution, per-agent audit view, analytics exclusion) | Agentic | 📋 | v0.5.0 | #218, C11a, #171, #172 | [concept](../../docs/features/219-agent-vs-human-history.md) |
 | **— BUG FIXES (Logged 2026-05-26)** |
 | B07 | Cannot resolve paused active focus from sidebar top spot | Focus | 🔧 | v0.2.0 | — | [concept](../../docs/features/B07-resolve-paused-focus.md) |
 | B08 | Autopause triggers while user is active on PC (non-browser) | Time | 🔧 | v0.2.0 | B05, #117 | [concept](../../docs/features/B08-autopause-false-trigger.md) |
