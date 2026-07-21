@@ -146,7 +146,14 @@ async function ensureBrowserProfileRow(supabase, profileId) {
     profile_name: identity.profileName || null,
     classification: identity.classification || 'professional',
     extension_installed: true,
-    last_seen_at: new Date().toISOString()
+    last_seen_at: new Date().toISOString(),
+    // 6.7.53 — reclaim on sign-in (parity with Sidecar 0.13.4). This code
+    // only runs under a live authenticated session, and all three paths
+    // below land on THIS install's own row — if that row was remotely
+    // signed out (revoked_at set), a fresh sign-in is the re-authorization
+    // of this device, so the flag must clear or downstream honor logic /
+    // device lists keep treating a signed-in install as signed out.
+    revoked_at: null
   };
 
   try {

@@ -231,6 +231,13 @@ async function mintDeviceCode(deviceLabel) {
     });
     const out = await response.json().catch(() => ({}));
     if (!response.ok || !out?.code) {
+      // 401/unauthorized from the fn almost always means this install's
+      // Supabase session was revoked (e.g. by a remote sign-out sweep) and
+      // token refresh is dead — a raw "unauthorized" told Malkio nothing on
+      // 2026-07-21. Say what to actually do.
+      if (response.status === 401 || /unauthor/i.test(out?.error || '')) {
+        return { error: 'Session expired — sign out and back in (Settings → Sync & Account), then generate again.' };
+      }
       return { error: out?.error || `pairing code failed (${response.status})` };
     }
     return { success: true, code: out.code, expiresInSeconds: out.expiresInSeconds || 300 };

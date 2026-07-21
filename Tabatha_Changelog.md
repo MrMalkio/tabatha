@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.53] - Sign-in reclaims a revoked device row + clearer pairing-code auth error - _2026-07-21_
+
+> Parity with Sidecar 0.13.4: a fresh authenticated registration clears revoked_at on this install's own device row (a remote sign-out sweep otherwise left signed-in installs looking signed out). Pairing-code mint now says "Session expired - sign out and back in" instead of a raw "unauthorized" when the session was revoked.
+
 ## [v6.7.52] - New logo (Split-Tab T) + pair-a-device code minting in the extension - _2026-07-21_
 
 > Extension icons switch to the new eye-free Split-Tab T mark. Settings -> Devices gains "Pair a new device": mint a one-time code (TV / Watch / Other, optional name) right from the extension - same pairing service the Sidecar and TV "Sign in with a code" flow use; previously minting was Sidecar-only.
