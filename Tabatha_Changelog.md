@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.50] - Device management in extension + home header layout fix - _2026-07-21_
+
+> Settings gains a Devices panel (list grouped per physical device, rename, pause/resume, remote sign-out, device-kind picker) backed by new background deviceService handlers; a never-blocking paused-device banner with one-tap Resume lands on home and sidebar (pause is a convenience flag, not a lock). Home header rebuilt: FlipClock contained (transform-scale reserved-box bug), greeting no longer truncates, right cluster spacing fixed, companion pill overlap eliminated. Merges feat/ext-device-management + fix/home-header-layout.
+
 ## [v6.7.47] - Onboarding demo-walkthrough design spec - _2026-07-20_
 
 > Docs-only: approved design spec for the modular onboarding system (10 avatars, universal intro + branched journeys, tagged demo-data lifecycle, host-portable module registry, changelog-driven maintenance automation). No runtime changes.

@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.50",
+      "title": "Device management in extension + home header layout fix",
+      "date": "2026-07-21",
+      "intro": "> Settings gains a Devices panel (list grouped per physical device, rename, pause/resume, remote sign-out, device-kind picker) backed by new background deviceService handlers; a never-blocking paused-device banner with one-tap Resume lands on home and sidebar (pause is a convenience flag, not a lock). Home header rebuilt: FlipClock contained (transform-scale reserved-box bug), greeting no longer truncates, right cluster spacing fixed, companion pill overlap eliminated. Merges feat/ext-device-management + fix/home-header-layout.",
+      "sections": []
+    },
+    {
       "version": "6.7.47",
       "title": "Onboarding demo-walkthrough design spec",
       "date": "2026-07-20",
