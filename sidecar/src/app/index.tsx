@@ -167,7 +167,10 @@ export default function Index() {
 
       {/* Active screen */}
       <View style={{ flex: 1 }}>
-        {tab === 'focus' && <FocusScreen />}
+        {/* Fix Wave 3, item 5b — device-kind gate for Phone Focus Mode
+            (PhoneFocusMode.tsx), threaded down from this same
+            useOwnDeviceStatus() read that ContextView already consumes. */}
+        {tab === 'focus' && <FocusScreen deviceKind={deviceStatus.deviceSettings?.kind} />}
         {tab === 'tasks' && <TasksScreen />}
         {tab === 'clock' && <ClockScreen />}
         {tab === 'recent' && <RecentScreen />}

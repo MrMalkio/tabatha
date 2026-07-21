@@ -34,7 +34,28 @@ type DeviceRow = {
   // displayed directly.
   local_id: string | null;
   machine_id: string | null;
+  // Migration 045 — per-device JSONB overrides. Fix Wave 3 item 5b
+  // (2026-07-20 spec) adds the first real editor UI for one key of it:
+  // `kind`. Everything else in this object (future CV per-device overrides)
+  // is preserved on write via read-modify-write, not clobbered.
+  device_settings: Record<string, any> | null;
 };
+
+// Fix Wave 3, item 5b — device type/priority categorization. No column
+// change (migration 045 already left `device_settings` JSONB open exactly
+// for this); `kind` gates Phone Focus Mode (PhoneFocusMode.tsx) so a
+// tablet/second-desktop-window never triggers phone-away/gone signals.
+// Devices paired before this shipped have `kind: undefined`, treated as
+// 'phone' for backward compatibility (today's only real-world case) until
+// re-categorized here.
+type DeviceKind = 'phone' | 'tablet' | 'desktop' | 'watch' | 'browser_extra';
+const DEVICE_KINDS: { value: DeviceKind; label: string }[] = [
+  { value: 'phone', label: '📱 Phone' },
+  { value: 'tablet', label: '📱 Tablet' },
+  { value: 'desktop', label: '🖥️ Desktop' },
+  { value: 'watch', label: '⌚ Watch' },
+  { value: 'browser_extra', label: '🌐 Extra browser' },
+];
 
 function relTime(iso: string | null): string {
   if (!iso) return 'never seen';
@@ -138,7 +159,7 @@ export default function DevicesCard() {
     const { data, error } = await supabase
       .from('browser_profiles')
       .select(
-        'id, browser, profile_name, display_name, classification, extension_installed, last_seen_at, paused, revoked_at, local_id, machine_id'
+        'id, browser, profile_name, display_name, classification, extension_installed, last_seen_at, paused, revoked_at, local_id, machine_id, device_settings'
       )
       .eq('profile_id', profile.id)
       .order('last_seen_at', { ascending: false, nullsFirst: false });
@@ -215,6 +236,22 @@ export default function DevicesCard() {
       return;
     }
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, paused: next } : r)));
+  };
+
+  // Fix Wave 3, item 5b — read-modify-write so future device_settings keys
+  // (per-device CV overrides, still v1-no-editor per the comment at the top
+  // of this file) aren't clobbered by a `kind`-only write.
+  const setDeviceKind = async (row: DeviceRow, kind: DeviceKind) => {
+    setBusyId(row.id);
+    setErr(null);
+    const nextSettings = { ...(row.device_settings || {}), kind };
+    const { error } = await supabase.from('browser_profiles').update({ device_settings: nextSettings }).eq('id', row.id);
+    setBusyId(null);
+    if (error) {
+      setErr('Could not update that device.');
+      return;
+    }
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, device_settings: nextSettings } : r)));
   };
 
   const signOutDevice = async (row: DeviceRow) => {
@@ -315,6 +352,26 @@ export default function DevicesCard() {
                 thumbColor="#fff"
               />
             </View>
+            {/* Fix Wave 3, item 5b — device type picker (migration 045's
+                device_settings.kind). Gates Phone Focus Mode; an
+                uncategorized row (no display) still behaves as 'phone'. */}
+            <View style={styles.kindRow}>
+              <Text style={styles.kindLabel}>Type</Text>
+              {DEVICE_KINDS.map((k) => {
+                const current = (row.device_settings?.kind as DeviceKind | undefined) || 'phone';
+                const on = current === k.value;
+                return (
+                  <Pressable
+                    key={k.value}
+                    onPress={() => setDeviceKind(row, k.value)}
+                    disabled={isBusy}
+                    style={[styles.kindPill, on && styles.kindPillOn]}
+                  >
+                    <Text style={[styles.kindPillTxt, on && styles.kindPillTxtOn]}>{k.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <View style={styles.rowBottom}>
               <Pressable
                 onPress={() => (isThisDevice || isSignedOut || isBusy ? null : signOutDevice(row))}
@@ -378,6 +435,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  kindRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
+  kindLabel: { fontSize: 10, color: colors.textMuted, marginRight: 2 },
+  kindPill: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  kindPillOn: { borderColor: colors.accent, backgroundColor: colors.accentDim },
+  kindPillTxt: { fontSize: 11, color: colors.textMuted },
+  kindPillTxtOn: { color: colors.accent, fontWeight: '700' },
   rowBottom: { flexDirection: 'row', justifyContent: 'flex-end' },
   signOutBtn: {
     borderWidth: 1,
