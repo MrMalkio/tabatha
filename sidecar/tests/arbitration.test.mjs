@@ -136,3 +136,49 @@ test('pauseOtherActives: non-active rows (already paused/completed) are left unt
   const [p] = pauseOtherActivesAt([alreadyPaused], null, now);
   assert.equal(p, alreadyPaused, 'a non-active row must pass through unchanged');
 });
+
+// ── mirror: pickPausedCurrent (0.13.1 stale-pin fix) ───────────────────
+// <- sidecar/src/data/focus.ts (exported). Recency-first in the paused
+// tier; the device-local pin only breaks a startedAt TIE. Added after the
+// 2026-07-21 "old intents in view" report: with nothing active, a stale
+// AsyncStorage pin outranked an intent started (and paused) the same day.
+function pickPausedCurrent(tier, pinnedId) {
+  if (!tier.length) return null;
+  const sorted = tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a));
+  const winner = sorted[0];
+  if (pinnedId) {
+    const pinned = tier.find((f) => f.id === pinnedId);
+    if (pinned && startedAtOf(pinned) === startedAtOf(winner)) return pinned;
+  }
+  return winner;
+}
+
+test('pickPausedCurrent: returns null on empty tier', () => {
+  assert.equal(pickPausedCurrent([], 'x'), null);
+});
+
+test('pickPausedCurrent: most recently started paused item wins with no pin', () => {
+  const old = item('old', { state: 'paused', startedAgoMin: 60 * 24 * 7 });
+  const today = item('today', { state: 'paused', startedAgoMin: 30 });
+  assert.equal(pickPausedCurrent([old, today], null)?.id, 'today');
+});
+
+test('pickPausedCurrent: a STALE pin must NOT outrank a more recently started paused item (2026-07-21 regression)', () => {
+  const pinnedOld = item('pinned-old', { state: 'paused', startedAgoMin: 60 * 24 * 3 });
+  const today = item('today', { state: 'paused', startedAgoMin: 45 });
+  assert.equal(pickPausedCurrent([pinnedOld, today], 'pinned-old')?.id, 'today');
+});
+
+test('pickPausedCurrent: pin breaks an exact startedAt tie', () => {
+  const now = new Date().toISOString();
+  const mk = (id) => ({ id, focus_state: 'paused', created_at: now, tags: { _startedAt: now } });
+  const a = mk('a');
+  const b = mk('b');
+  assert.equal(pickPausedCurrent([a, b], 'b')?.id, 'b');
+});
+
+test('pickPausedCurrent: pin pointing outside the tier is ignored (recency wins)', () => {
+  const old = item('old', { state: 'paused', startedAgoMin: 600 });
+  const recent = item('recent', { state: 'paused', startedAgoMin: 5 });
+  assert.equal(pickPausedCurrent([old, recent], 'not-here')?.id, 'recent');
+});

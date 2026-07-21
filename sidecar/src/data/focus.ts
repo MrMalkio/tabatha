@@ -70,6 +70,32 @@ export function pickMostRecentActive<T extends FocusItem>(items: T[]): T | null 
 }
 
 /**
+ * Paused-tier current-focus pick (0.13.1). Recency (startedAtOf) wins; the
+ * device-local pin only breaks a startedAt TIE — it must not outrank a more
+ * recently started paused focus. The pre-0.13.1 implementation put the pin
+ * first unconditionally, so with nothing active account-wide a device whose
+ * AsyncStorage pin pointed at a weeks-old paused intent kept showing it over
+ * an intent started (and paused) today — exactly the "old intents in view"
+ * report from 2026-07-21, on both the phone and the Desk View embed (each
+ * surface holds its own stale pin). Pure/exported and mirrored in
+ * tests/arbitration.test.mjs — same rule as pickMostRecentActive: the
+ * comparator IS the cross-surface contract.
+ */
+export function pickPausedCurrent<T extends FocusItem>(
+  tier: T[],
+  pinnedId: string | null
+): T | null {
+  if (!tier.length) return null;
+  const sorted = tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a));
+  const winner = sorted[0];
+  if (pinnedId) {
+    const pinned = tier.find((f) => f.id === pinnedId);
+    if (pinned && startedAtOf(pinned) === startedAtOf(winner)) return pinned;
+  }
+  return winner;
+}
+
+/**
  * Live focus/queue state read directly from Supabase `focus_items`.
  * Polls (15s) + refetches after every mutation, exposes a manual refresh.
  * Tracks a locally-pinned "current focus" so pausing keeps it at the top
@@ -441,12 +467,8 @@ export function useFocus(
   // this pass (no schema change); revisit if multi-paused ordering becomes a
   // real problem.
   const pausedCandidates = nonBB.filter((f) => f.focus_state === 'paused');
-  const pickPausedTier = (tier: FocusItem[]): FocusItem | null =>
-    (currentId && tier.find((f) => f.id === currentId)) ||
-    tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] ||
-    null;
   const currentFocus: FocusItem | null =
-    pickMostRecentActive(nonBB) || pickPausedTier(pausedCandidates);
+    pickMostRecentActive(nonBB) || pickPausedCurrent(pausedCandidates, currentId);
 
   const queue = nonBB
     .filter((f) => !currentFocus || f.id !== currentFocus.id)
