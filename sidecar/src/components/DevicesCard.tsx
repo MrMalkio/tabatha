@@ -162,6 +162,12 @@ export default function DevicesCard() {
         'id, browser, profile_name, display_name, classification, extension_installed, last_seen_at, paused, revoked_at, local_id, machine_id, device_settings'
       )
       .eq('profile_id', profile.id)
+      // 0.13.3: signed-out (revoked) devices leave the list entirely — they
+      // were still rendering for up to 30 days via the recency filter, which
+      // read as "sign-out didn't work" (2026-07-21 report). Filtering in the
+      // query (not render) also keeps a revoked row from being a group's
+      // representative and shadowing a live row on the same machine.
+      .is('revoked_at', null)
       .order('last_seen_at', { ascending: false, nullsFirst: false });
     if (!error && data) setRows(data as DeviceRow[]);
     setLoading(false);
