@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.56",
+      "title": "Security: RLS state-aware guard on browser_profiles.revoked_at (audit NOW #2, migration UNAPPLIED)",
+      "date": "2026-07-21",
+      "intro": "> Adds `supabase/migrations/058_browser_profiles_lifecycle_guard.sql` — a `BEFORE UPDATE` trigger mirroring `syncService.js`'s `reclaimAllowed()` server-side: an authenticated session may only clear `browser_profiles.revoked_at` (un-revoke) when the CURRENT GoTrue session differs from the one stamped on the row when it was revoked. Closes the gap where a revoked session's still-valid JWT could PATCH `revoked_at` back to `null` directly via PostgREST, bypassing the 6.7.54 app-code-only check (migration 016's write RLS never checked session identity). `paused` and every other column stay ungated (soft flag by design); `service_role` bypasses unconditionally. Functionally exercised against a local throwaway Postgres (6 scenarios, all matched expected behavior) plus a 10-assertion structural lint test (`test/migration058Lint.test.js`) — **migration is NOT applied to the live database**, flagged for the placeholder + repair protocol.",
+      "sections": []
+    },
+    {
       "version": "6.7.55",
       "title": "Security: HTML-escaping across gatekeeper.js + inbar.js (audit NOW #1)",
       "date": "2026-07-21",
