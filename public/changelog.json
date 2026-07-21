@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.47",
+      "title": "Device Management in the Extension (Feature #222)",
+      "date": "2026-07-21",
+      "intro": "> After the 2026-07-21 pause-lockout incident (Malkio paused the Sidecar device he was signed into, then his others, with no way to self-rescue from the extension), the extension gets its own **Settings → Devices** panel: list/rename/pause/resume/device-kind/remote-sign-out for every device on the account, grouped one row per physical device. Pause is honored on the extension itself as a dismissible, never-blocking banner with a one-tap Resume — pause is a convenience flag, not a security boundary.",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Settings → Devices** (`src/settings/DevicesPanel.jsx`) — parity with the Sidecar's DevicesCard: rename, pause/resume toggle, device-kind picker (phone/tablet/desktop/watch/extra browser), remote sign-out via the `device-signout` edge function, \"this device\" marker, and a \"Show all\" toggle for stale/unnamed dupe rows.\n- **`deviceService.js`** (`src/background/services/`) — `LIST_DEVICES` / `RENAME_DEVICE` / `SET_DEVICE_PAUSED` / `SET_DEVICE_KIND` / `SIGNOUT_DEVICE` / `GET_SELF_DEVICE_STATUS` message handlers, registered in the router.\n- **`DevicePausedBanner`** (`src/components/`) — dismissible amber banner on home and sidebar when THIS install's own `paused` flag is set, with a one-tap Resume. Never hard-blocks the UI.\n- `src/utils/deviceGrouping.js` — pure grouping/visibility/labeling helpers ported from the Sidecar's DevicesCard.tsx (`groupKey`/`groupRows`/`isDefaultVisible`/`deriveName`), unit tested (23 tests, `test/deviceGrouping.test.js`).\n- Settings-search index entries for the new Devices section (`src/utils/settingsSearch.js`)."
+        }
+      ]
+    },
+    {
       "version": "6.7.46",
       "title": "Device-row flood fix: adopt-before-insert",
       "date": "2026-07-20",

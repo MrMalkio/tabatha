@@ -16,6 +16,7 @@ import { formatTime } from '../utils/formatTime';
 import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
 import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
+import DevicePausedBanner from '../components/DevicePausedBanner';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -412,6 +413,10 @@ function Sidebar() {
             </Tooltip>
           </div>
         </div>
+
+        {/* Feature #222: soft self-rescue if THIS install got paused —
+            never a hard block. */}
+        <DevicePausedBanner compact />
 
         {/* Clock status — compact */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'3px 0 5px' }}>

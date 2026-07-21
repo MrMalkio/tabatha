@@ -4,6 +4,18 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.47] - Device Management in the Extension (Feature #222) - _2026-07-21_
+
+> After the 2026-07-21 pause-lockout incident (Malkio paused the Sidecar device he was signed into, then his others, with no way to self-rescue from the extension), the extension gets its own **Settings → Devices** panel: list/rename/pause/resume/device-kind/remote-sign-out for every device on the account, grouped one row per physical device. Pause is honored on the extension itself as a dismissible, never-blocking banner with a one-tap Resume — pause is a convenience flag, not a security boundary.
+
+### Added
+
+- **Settings → Devices** (`src/settings/DevicesPanel.jsx`) — parity with the Sidecar's DevicesCard: rename, pause/resume toggle, device-kind picker (phone/tablet/desktop/watch/extra browser), remote sign-out via the `device-signout` edge function, "this device" marker, and a "Show all" toggle for stale/unnamed dupe rows.
+- **`deviceService.js`** (`src/background/services/`) — `LIST_DEVICES` / `RENAME_DEVICE` / `SET_DEVICE_PAUSED` / `SET_DEVICE_KIND` / `SIGNOUT_DEVICE` / `GET_SELF_DEVICE_STATUS` message handlers, registered in the router.
+- **`DevicePausedBanner`** (`src/components/`) — dismissible amber banner on home and sidebar when THIS install's own `paused` flag is set, with a one-tap Resume. Never hard-blocks the UI.
+- `src/utils/deviceGrouping.js` — pure grouping/visibility/labeling helpers ported from the Sidecar's DevicesCard.tsx (`groupKey`/`groupRows`/`isDefaultVisible`/`deriveName`), unit tested (23 tests, `test/deviceGrouping.test.js`).
+- Settings-search index entries for the new Devices section (`src/utils/settingsSearch.js`).
+
 ## [v6.7.46] - Device-row flood fix: adopt-before-insert - _2026-07-20_
 
 > browser_profiles registration now adopts this install/machine's newest existing row before ever inserting a fresh one, so an amnesiac install identity converges instead of minting duplicate device rows every wake (650-row flood root-caused on the desktop install). Diagnostics added for adoption + identity minting.
