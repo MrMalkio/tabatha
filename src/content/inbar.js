@@ -13,6 +13,25 @@
 
 import { tabbyAnnounce } from '../services/voiceOutput.js';
 
+// Security fix wave (2026-07-21 audit, NOW #1) — HTML-escaping helper.
+// Duplicated (not imported) on purpose: gatekeeper.js and inbar.js are each
+// built as a standalone classic (non-module) content script per manifest.json
+// content_scripts — Rollup only inlines a shared module when it's referenced
+// by a single entry point; importing this from 2+ content-script entries makes
+// it a separate chunk file with a real `import` statement in the output, which
+// Chrome cannot resolve for a classic script (verified empirically during this
+// fix — see docs/audits/2026-07-21-SYNTHESIS.md item 1). Canonical copy +
+// unit test live at src/utils/escapeHtml.js; keep both in sync if this changes.
+const escapeHtml = (str) => {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 (async () => {
   // 1. Get current tab's context and active focus
   let tabContext, activeFocus, settings, currentNote = '', allFocusItems = [], activeFocusId = null, isTabLinked = false, windowCount = 0;
@@ -497,7 +516,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
 
   const buildBarHTML = () => {
     if (isPaused) {
-      const preview = pauseNote ? `"${pauseNote.slice(0, 40)}${pauseNote.length > 40 ? '…' : ''}"` : '';
+      const preview = pauseNote ? `"${escapeHtml(pauseNote.slice(0, 40))}${pauseNote.length > 40 ? '…' : ''}"` : '';
       return `
         <div class="left">
           <span style="font-size:10px;color:#ffc107;">⏸</span>
@@ -523,14 +542,14 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
           <span style="font-size:10px;color:#555;">—</span>
         `}
         ${focusLabel
-          ? `<span class="divider"></span><span class="badge badge-focus">🎯</span><span class="focus-label-left" title="Active focus: ${focusLabel}">${focusLabel}</span>${activeFocus?.lastCheckpointAt && (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000 ? '<span class="stale-dot" title="Checkpoint overdue!"></span>' : (!activeFocus?.lastCheckpointAt && activeFocus?.startedAt && (Date.now() - new Date(activeFocus.startedAt).getTime()) > 30 * 60000 ? '<span class="stale-dot" title="No checkpoints yet"></span>' : '')}`
+          ? `<span class="divider"></span><span class="badge badge-focus">🎯</span><span class="focus-label-left" title="Active focus: ${escapeHtml(focusLabel)}">${escapeHtml(focusLabel)}</span>${activeFocus?.lastCheckpointAt && (Date.now() - new Date(activeFocus.lastCheckpointAt).getTime()) > 30 * 60000 ? '<span class="stale-dot" title="Checkpoint overdue!"></span>' : (!activeFocus?.lastCheckpointAt && activeFocus?.startedAt && (Date.now() - new Date(activeFocus.startedAt).getTime()) > 30 * 60000 ? '<span class="stale-dot" title="No checkpoints yet"></span>' : '')}`
           : ''
         }
       </div>
       <div class="center">
         ${agentActive ? `<span class="badge badge-agent" title="An agent is driving — not you">🤖 AGENT</span>` : ''}
         ${tabIntent
-          ? `${hasFocus ? `<span class="link-icon" title="${isTabLinked ? 'Tab linked to active focus' : 'Tab NOT linked to active focus'}" style="font-size:10px;margin-right:3px;opacity:${isTabLinked ? '1' : '0.5'};">${isTabLinked ? '🔗' : '⚡'}</span>` : ''}<span class="intent-label" id="intent-label-click" title="Click to mark complete: ${tabIntent}">${tabIntent}</span>`
+          ? `${hasFocus ? `<span class="link-icon" title="${isTabLinked ? 'Tab linked to active focus' : 'Tab NOT linked to active focus'}" style="font-size:10px;margin-right:3px;opacity:${isTabLinked ? '1' : '0.5'};">${isTabLinked ? '🔗' : '⚡'}</span>` : ''}<span class="intent-label" id="intent-label-click" title="Click to mark complete: ${escapeHtml(tabIntent)}">${escapeHtml(tabIntent)}</span>`
           : `<span class="badge badge-no-intent" id="set-intent-btn" title="Click to set intent">No intent set</span>`
         }
       </div>
@@ -561,7 +580,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
         <span>📝 Quick Note</span>
         <button class="bar-btn" id="close-notes" style="font-size:10px;">✕</button>
       </div>
-      <textarea class="notes-textarea" id="note-text" placeholder="Jot a thought about this focus, task, or intent…">${currentNote}</textarea>
+      <textarea class="notes-textarea" id="note-text" placeholder="Jot a thought about this focus, task, or intent…">${escapeHtml(currentNote)}</textarea>
       <div class="notes-saved" id="note-saved">✓ Saved</div>
     </div>
   `;
@@ -584,9 +603,9 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
       const stage = f.funnelStage || 'unsorted';
       const stateIcon = f.focusState === 'active' ? '🎯' : f.focusState === 'paused' ? '⏸' : '📋';
       const isActive = f.id === activeFocusId;
-      return `<div class="focus-item${isActive ? ' active' : ''}" data-focus-id="${f.id}">
-        <span>${stateIcon} ${f.label}</span>
-        <span class="focus-state queued">${stage}</span>
+      return `<div class="focus-item${isActive ? ' active' : ''}" data-focus-id="${escapeHtml(f.id)}">
+        <span>${stateIcon} ${escapeHtml(f.label)}</span>
+        <span class="focus-state queued">${escapeHtml(stage)}</span>
       </div>`;
     }).join('');
     return items || '<div style="font-size:10px;color:#555;padding:4px;">No focus items yet</div>';
@@ -595,10 +614,10 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
     <div class="edit-inner">
       <div class="edit-title">✏️ Edit Intent</div>
       <div class="edit-row">
-        <input class="edit-input" id="edit-intent-input" placeholder="Intent for this tab..." value="${tabIntent || ''}">
+        <input class="edit-input" id="edit-intent-input" placeholder="Intent for this tab..." value="${escapeHtml(tabIntent || '')}">
         <button class="edit-save" id="edit-intent-save">Save</button>
       </div>
-      <textarea class="edit-input" id="edit-intent-desc" placeholder="Description (optional)..." style="width:100%;min-height:36px;resize:vertical;margin-bottom:6px;font-size:10px;">${tabContext?.description || ''}</textarea>
+      <textarea class="edit-input" id="edit-intent-desc" placeholder="Description (optional)..." style="width:100%;min-height:36px;resize:vertical;margin-bottom:6px;font-size:10px;">${escapeHtml(tabContext?.description || '')}</textarea>
       <div class="edit-section">Assign to Focus</div>
       <div id="focus-list" style="max-height:180px;overflow-y:auto;">${buildFocusList()}</div>
       <button class="new-focus-btn" id="new-focus-btn">+ Create new focus from this tab</button>
@@ -635,13 +654,13 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
     );
     let options = '<option value="">-- Switch to existing Focus --</option>';
     actionable.forEach(f => {
-      options += `<option value="${f.id}">🎯 ${f.label}</option>`;
+      options += `<option value="${escapeHtml(f.id)}">🎯 ${escapeHtml(f.label)}</option>`;
     });
     return options;
   };
 
   backburnerPrompt.innerHTML = `
-    <div class="backburner-prompt-title">🔥 Backburner: "${focusLabel || 'Current focus'}"</div>
+    <div class="backburner-prompt-title">🔥 Backburner: "${escapeHtml(focusLabel || 'Current focus')}"</div>
     <div style="font-size: 9px; color: #888; margin-bottom: 2px;">Put this aside while waiting. We'll remind you to return.</div>
     <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 4px;">
       <span style="font-size: 10px; color: #aaa;">Duration:</span>
@@ -677,8 +696,8 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
         <span>📌 Paused</span>
         <span class="sticky-time">${pausedAt ? fmtPauseTime(pausedAt) : ''}</span>
       </div>
-      <div class="sticky-intent">${intentLabel || focusLabel || 'Current work'}</div>
-      <div class="sticky-body" id="sticky-body-text">${pauseNote || ''}</div>
+      <div class="sticky-intent">${escapeHtml(intentLabel || focusLabel || 'Current work')}</div>
+      <div class="sticky-body" id="sticky-body-text">${escapeHtml(pauseNote || '')}</div>
       <div class="sticky-actions">
         <button class="sticky-edit" id="sticky-edit">✏️ Edit Note</button>
         ${matchedPauseFromUrl ? `<button class="sticky-resume" id="sticky-new-intent" style="background:#00e5ff;color:#000;">🆕 Start New Intent</button>` : ''}
@@ -698,12 +717,12 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
     if (!item) return '';
     return `
       <div class="backburner-alert-card-title">🔥 Backburner Expired</div>
-      <div class="backburner-alert-card-focus">🎯 ${item.label}</div>
-      ${item.backburnerReason ? `<div class="backburner-alert-card-reason">Waiting for: "${item.backburnerReason}"</div>` : ''}
+      <div class="backburner-alert-card-focus">🎯 ${escapeHtml(item.label)}</div>
+      ${item.backburnerReason ? `<div class="backburner-alert-card-reason">Waiting for: "${escapeHtml(item.backburnerReason)}"</div>` : ''}
       <div class="backburner-alert-card-actions">
-        <button class="backburner-alert-card-btn backburner-alert-dismiss" id="backburner-alert-dismiss" data-focus-id="${item.id}">Dismiss</button>
-        <button class="backburner-alert-card-btn backburner-alert-snooze" id="backburner-alert-snooze" data-focus-id="${item.id}">Snooze 10m</button>
-        <button class="backburner-alert-card-btn backburner-alert-switch" id="backburner-alert-switch" data-focus-id="${item.id}">Resume Focus</button>
+        <button class="backburner-alert-card-btn backburner-alert-dismiss" id="backburner-alert-dismiss" data-focus-id="${escapeHtml(item.id)}">Dismiss</button>
+        <button class="backburner-alert-card-btn backburner-alert-snooze" id="backburner-alert-snooze" data-focus-id="${escapeHtml(item.id)}">Snooze 10m</button>
+        <button class="backburner-alert-card-btn backburner-alert-switch" id="backburner-alert-switch" data-focus-id="${escapeHtml(item.id)}">Resume Focus</button>
       </div>
     `;
   };
@@ -1255,7 +1274,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
     card.innerHTML = `
       <div style="font-size:24px;margin-bottom:6px;">📋</div>
       <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Progress Check</div>
-      <div style="font-size:12px;color:#aaa;margin-bottom:4px;">"${label || 'Focus'}" · Elapsed: ${elapsedStr} · Timer: ${timerStr}</div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:4px;">"${escapeHtml(label || 'Focus')}" · Elapsed: ${elapsedStr} · Timer: ${timerStr}</div>
       <div style="font-size:11px;color:#666;margin-bottom:10px;">Checkpoint #${(checkpointCount || 0) + 1}</div>
       <textarea id="cpn-text" placeholder="What have you accomplished since your last checkpoint?" style="width:100%;height:56px;background:#111;border:1px solid #444;border-radius:4px;color:#eee;font-size:12px;padding:8px;resize:none;box-sizing:border-box;margin-bottom:10px;"></textarea>
       <div style="font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;">Submit with progress level:</div>
@@ -1371,7 +1390,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
       chip.id = 'tabatha-autofocus-chip';
       Object.assign(chip.style, { position:'fixed',bottom:'16px',right:'16px',zIndex:'2147483646',background:'#1a1a1a',border:'1px solid #ab47bc66',borderRadius:'10px',padding:'10px 12px',maxWidth:'320px',boxShadow:'0 6px 24px rgba(0,0,0,0.4)',fontFamily:"'Segoe UI',system-ui,sans-serif",color:'#eee',display:'flex',alignItems:'center',gap:'10px',transition:'opacity 0.4s ease',opacity:'0' });
       chip.innerHTML = `<span style="font-size:16px;">⚡</span>
-        <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${msg.label || 'Set a focus?'}</div><div style="font-size:10px;color:#888;">Suggested focus</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(msg.label || 'Set a focus?')}</div><div style="font-size:10px;color:#888;">Suggested focus</div></div>
         <button id="afc-accept" style="${_popupBtnStyle('#66bb6a')}padding:4px 10px;">Set</button>
         <button id="afc-dismiss" style="background:transparent;border:none;color:#888;font-size:14px;cursor:pointer;line-height:1;">✕</button>`;
       document.documentElement.appendChild(chip);
@@ -1420,7 +1439,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
           const res = await chrome.runtime.sendMessage({ type: 'GET_FOCUS_ENGINE' });
           const items = Object.values(res?.focusEngine?.items || {}).filter(i => i.id !== focusId && i.focusState === 'paused');
           const list = card.querySelector('#fte-switch-list');
-          if (list) { list.innerHTML = items.length ? items.map(i => `<button data-fid="${i.id}" style="${_popupBtnStyle('#29b6f6')}margin:2px;">${i.label}</button>`).join('') : '<span style="color:#666;font-size:11px;">No other focuses queued.</span>'; list.style.display = 'flex'; list.style.flexWrap = 'wrap'; list.style.gap = '4px'; list.style.justifyContent = 'center'; list.style.marginTop = '6px'; items.forEach(i => list.querySelector(`[data-fid="${i.id}"]`)?.addEventListener('click', () => _dismissAndSend(overlay, 'SWITCH_FOCUS', { focusId: i.id }))); }
+          if (list) { list.innerHTML = items.length ? items.map(i => `<button data-fid="${escapeHtml(i.id)}" style="${_popupBtnStyle('#29b6f6')}margin:2px;">${escapeHtml(i.label)}</button>`).join('') : '<span style="color:#666;font-size:11px;">No other focuses queued.</span>'; list.style.display = 'flex'; list.style.flexWrap = 'wrap'; list.style.gap = '4px'; list.style.justifyContent = 'center'; list.style.marginTop = '6px'; items.forEach(i => list.querySelector(`[data-fid="${i.id}"]`)?.addEventListener('click', () => _dismissAndSend(overlay, 'SWITCH_FOCUS', { focusId: i.id }))); }
         } catch {}
       });
       card.querySelector('#fte-pause')?.addEventListener('click', () => _dismissAndSend(overlay, 'PAUSE_FOCUS', { focusId }));
@@ -1466,7 +1485,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
         card.innerHTML = `
           <div style="font-size:32px;margin-bottom:8px;">⏰</div>
           <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Focus Timer Expired</div>
-          <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"${msg.label}" — Your allotted ${msg.timerMinutes}m is up.</div>
+          <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"${escapeHtml(msg.label)}" — Your allotted ${msg.timerMinutes}m is up.</div>
           ${_fteButtonsHTML()}`;
         overlay.appendChild(card);
         document.documentElement.appendChild(overlay);
@@ -1491,7 +1510,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
         <div style="font-size:28px;margin-bottom:8px;">👋</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Welcome Back!</div>
         <div style="font-size:13px;color:#aaa;margin-bottom:6px;">You were away for ${_fmtIdleDuration(msg.idleDurationMs)}.</div>
-        <div style="font-size:13px;color:#ccc;margin-bottom:16px;">Pick up where you left off?<br><strong style="color:#ff9800;">"${msg.pausedFocusLabel}"</strong></div>
+        <div style="font-size:13px;color:#ccc;margin-bottom:16px;">Pick up where you left off?<br><strong style="color:#ff9800;">"${escapeHtml(msg.pausedFocusLabel)}"</strong></div>
         <div style="display:flex;gap:12px;justify-content:center;">
           <button id="wb-resume" style="${_popupBtnStyle('#ab47bc')}">⚡ Resume Focus</button>
           <button id="wb-dismiss" style="${_popupBtnStyle('#888')}">Not now</button>
@@ -1511,7 +1530,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
         <div style="font-size:28px;margin-bottom:8px;">👋⏰</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Welcome Back!</div>
         <div style="font-size:13px;color:#aaa;margin-bottom:6px;">You were away for ${_fmtIdleDuration(msg.idleDurationMs)}.</div>
-        <div style="font-size:13px;color:#ccc;margin-bottom:12px;">The time you gave yourself for <strong style="color:#ff9800;">"${msg.focusLabel}"</strong> expired while you were away, how would you like to proceed?</div>
+        <div style="font-size:13px;color:#ccc;margin-bottom:12px;">The time you gave yourself for <strong style="color:#ff9800;">"${escapeHtml(msg.focusLabel)}"</strong> expired while you were away, how would you like to proceed?</div>
         ${_fteButtonsHTML()}
         <div style="margin-top:10px;">
           <button id="combo-resume" style="${_popupBtnStyle('#ab47bc')}">⚡ Resume Focus</button>
@@ -1543,7 +1562,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
       card.innerHTML = `
         <div style="font-size:32px;margin-bottom:8px;">🔥</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#ff9800;">Backburner Check-in</div>
-        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"<strong style="color:#ff9800;">${msg.label || 'Backburnered Focus'}</strong>" has been on the backburner for ${elapsed}m.</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">"<strong style="color:#ff9800;">${escapeHtml(msg.label || 'Backburnered Focus')}</strong>" has been on the backburner for ${elapsed}m.</div>
         <div style="font-size:12px;color:#888;margin-bottom:12px;">Would you like to come back to it?</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
           <button id="bb-resume" style="${_popupBtnStyle('#66bb6a')}">▶ Resume</button>
@@ -1567,12 +1586,12 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
       const isGap = msg.source === 'gap';
       const gapMins = Math.round((msg.gapMs || 0) / 60000);
       const gapBody = msg.trimmed
-        ? `Tabatha was offline for ~${gapMins}m while <strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong> was running.<br>Its timer was paused back at the gap start — were you still working?`
-        : `Tabatha was offline for ~${gapMins}m while <strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong> was running.<br>You looked active off-Chrome, so the timer kept running — sound right?`;
+        ? `Tabatha was offline for ~${gapMins}m while <strong style="color:#ff9800;">"${escapeHtml(msg.focusLabel || 'your focus')}"</strong> was running.<br>Its timer was paused back at the gap start — were you still working?`
+        : `Tabatha was offline for ~${gapMins}m while <strong style="color:#ff9800;">"${escapeHtml(msg.focusLabel || 'your focus')}"</strong> was running.<br>You looked active off-Chrome, so the timer kept running — sound right?`;
       card.innerHTML = `
         <div style="font-size:30px;margin-bottom:8px;">${isGap ? '👋' : '💤'}</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:4px;">${isGap ? 'Welcome back!' : 'Still on task?'}</div>
-        <div style="font-size:13px;color:#aaa;margin-bottom:14px;">${isGap ? gapBody : `Chrome's been quiet, but you might still be working on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong>`}</div>
+        <div style="font-size:13px;color:#aaa;margin-bottom:14px;">${isGap ? gapBody : `Chrome's been quiet, but you might still be working on<br><strong style="color:#ff9800;">"${escapeHtml(msg.focusLabel || 'your focus')}"</strong>`}</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
           <button id="idle-ontask" style="${_popupBtnStyle('#66bb6a')}">${isGap ? (msg.trimmed ? '✅ I kept working — credit it' : '✅ Yes, keep the time') : '✅ Yes, on task'}</button>
           <button id="idle-diverged" style="${_popupBtnStyle('#ffa726')}">↪ I diverged</button>
@@ -1605,7 +1624,7 @@ import { tabbyAnnounce } from '../services/voiceOutput.js';
         card.innerHTML = `
           <div style="font-size:30px;margin-bottom:8px;">🧭</div>
           <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Drifting off?</div>
-          <div style="font-size:13px;color:#aaa;margin-bottom:14px;">You've been on unrelated tabs for a bit while focused on<br><strong style="color:#ff9800;">"${msg.focusLabel || 'your focus'}"</strong></div>
+          <div style="font-size:13px;color:#aaa;margin-bottom:14px;">You've been on unrelated tabs for a bit while focused on<br><strong style="color:#ff9800;">"${escapeHtml(msg.focusLabel || 'your focus')}"</strong></div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
             <button id="drift-still" style="${_popupBtnStyle('#66bb6a')}">✅ Still working on it</button>
             <button id="drift-switch" style="${_popupBtnStyle('#ab47bc')}">🔀 Switching tasks</button>

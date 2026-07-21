@@ -2,6 +2,25 @@
 // Injected at document_start to intercept browsing flow
 // Formal name: Intent-Popup (InPop)
 
+// Security fix wave (2026-07-21 audit, NOW #1) — HTML-escaping helper.
+// Duplicated (not imported) on purpose: gatekeeper.js and inbar.js are each
+// built as a standalone classic (non-module) content script per manifest.json
+// content_scripts — Rollup only inlines a shared module when it's referenced
+// by a single entry point; importing this from 2+ content-script entries makes
+// it a separate chunk file with a real `import` statement in the output, which
+// Chrome cannot resolve for a classic script (verified empirically during this
+// fix — see docs/audits/2026-07-21-SYNTHESIS.md item 1). Canonical copy +
+// unit test live at src/utils/escapeHtml.js; keep both in sync if this changes.
+const escapeHtml = (str) => {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 (async () => {
   // 1. Check if we need to intercept
   let response;
@@ -250,10 +269,10 @@
   let activeHTML = '';
   if (focusItems.length > 0) {
     activeHTML = `<div class="preset-list">${focusItems.map(item => `
-      <div class="preset-item active-item" data-inherit-id="${item.id}" data-tip="Click to inherit this focus. Or type above first to nest a sub-intent under it.">
+      <div class="preset-item active-item" data-inherit-id="${escapeHtml(item.id)}" data-tip="Click to inherit this focus. Or type above first to nest a sub-intent under it.">
         <span style="font-size:13px">${item.focusState === 'active' ? '🎯' : '⏸'}</span>
-        <span class="label">${item.label}</span>
-        <span class="badge">${item.funnelStage || 'focus'}</span>
+        <span class="label">${escapeHtml(item.label)}</span>
+        <span class="badge">${escapeHtml(item.funnelStage || 'focus')}</span>
       </div>
     `).join('')}</div>`;
   }
@@ -261,8 +280,8 @@
   let recentHTML = '';
   if (recentIntents.length > 0) {
     recentHTML = `<div class="section-label">Recent</div><div class="preset-list">${recentIntents.map(label => `
-      <div class="preset-item recent-item" data-preset="${label}" data-tip="Click to reuse this intent">
-        <span class="label">${label}</span>
+      <div class="preset-item recent-item" data-preset="${escapeHtml(label)}" data-tip="Click to reuse this intent">
+        <span class="label">${escapeHtml(label)}</span>
       </div>
     `).join('')}</div>`;
   }
@@ -270,8 +289,8 @@
   let commonHTML = '';
   if (persistentIntents.length > 0) {
     commonHTML = `<div class="section-label">Common</div><div class="preset-list">${persistentIntents.map(label => `
-      <div class="preset-item common-item" data-preset="${label}" data-tip="Persistent intent — click to reuse">
-        <span class="label">${label}</span>
+      <div class="preset-item common-item" data-preset="${escapeHtml(label)}" data-tip="Persistent intent — click to reuse">
+        <span class="label">${escapeHtml(label)}</span>
       </div>
     `).join('')}</div>`;
   }
@@ -294,7 +313,7 @@
       <button class="who-opt agent" data-who="agent" data-tip="An AI agent is driving this tab — time recorded as agent-driven">🤖 Agent</button>
     </div>
 
-    <input type="text" id="context" placeholder="What are you working on?" value="${inheritedContext.replace(/"/g, '&quot;')}" autofocus data-tip="Type a new intent, or skip and click a preset below">
+    <input type="text" id="context" placeholder="What are you working on?" value="${escapeHtml(inheritedContext)}" autofocus data-tip="Type a new intent, or skip and click a preset below">
 
     ${activeHTML}
     ${recentHTML}

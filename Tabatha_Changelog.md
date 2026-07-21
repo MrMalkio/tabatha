@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.55] - Security: HTML-escaping across gatekeeper.js + inbar.js (audit NOW #1) - _2026-07-21_
+
+> Closes an XSS gap flagged in the 2026-07-21 security audit: 37 call sites across gatekeeper.js (Intent-Popup/InPop) and inbar.js interpolated user-controlled strings (focus/intent labels, notes, pause text, checkpoint/backburner reasons) into `innerHTML`-style templates with no escaping. Since these labels/notes already sync to Cloud Sync and are already readable cross-user via the existing manager/team RLS scoping (migration 012), this was exploitable today, not just a future risk. Fixed with a small `escapeHtml()` helper — deliberately duplicated inline in both content scripts rather than shared via import, since Rollup chunk-splits a module referenced by 2+ content-script entries and Chrome can't resolve an `import` statement in a classic (non-module) content script; verified empirically against the built `dist/assets/` output. `blockgate.js` was independently re-checked and confirmed clean (only interpolates `location.hostname`, which can't carry HTML-breaking characters). Canonical copy + 8 unit tests at `src/utils/escapeHtml.js` / `test/escapeHtml.test.js`.
+
 ## [v6.7.54] - Session-aware device reclaim + session-id stamping (audit hardening) - _2026-07-21_
 
 > Hardens 6.7.53: a revoked device row now only un-revokes under a genuinely NEW auth session (GoTrue session_id comparison) - a surviving revoked session can no longer resurrect itself on the sync cycle. Every sync also stamps auth_session_id on this install's row, which makes remote sign-out actually able to revoke extension sessions (rows previously had no session id to revoke).

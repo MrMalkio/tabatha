@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.55",
+      "title": "Security: HTML-escaping across gatekeeper.js + inbar.js (audit NOW #1)",
+      "date": "2026-07-21",
+      "intro": "> Closes an XSS gap flagged in the 2026-07-21 security audit: 37 call sites across gatekeeper.js (Intent-Popup/InPop) and inbar.js interpolated user-controlled strings (focus/intent labels, notes, pause text, checkpoint/backburner reasons) into `innerHTML`-style templates with no escaping. Since these labels/notes already sync to Cloud Sync and are already readable cross-user via the existing manager/team RLS scoping (migration 012), this was exploitable today, not just a future risk. Fixed with a small `escapeHtml()` helper — deliberately duplicated inline in both content scripts rather than shared via import, since Rollup chunk-splits a module referenced by 2+ content-script entries and Chrome can't resolve an `import` statement in a classic (non-module) content script; verified empirically against the built `dist/assets/` output. `blockgate.js` was independently re-checked and confirmed clean (only interpolates `location.hostname`, which can't carry HTML-breaking characters). Canonical copy + 8 unit tests at `src/utils/escapeHtml.js` / `test/escapeHtml.test.js`.",
+      "sections": []
+    },
+    {
       "version": "6.7.54",
       "title": "Session-aware device reclaim + session-id stamping (audit hardening)",
       "date": "2026-07-21",
