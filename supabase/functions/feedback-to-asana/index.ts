@@ -23,6 +23,7 @@ const ASANA_API = "https://app.asana.com/api/1.0/tasks";
 // The response echoes the matching origin (browsers reject multi-value here).
 const ALLOWED_ORIGINS = new Set([
   "chrome-extension://hoknmoclnhccpgofpdihmiadmnmejjod",
+  "chrome-extension://piopncjacohahbkkmockjnpenhdbmmbc", // CWS store install (new store-assigned ID, 2026-07-21)
   "https://tabatha.pondocean.co",
 ]);
 

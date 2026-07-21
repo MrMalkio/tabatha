@@ -31,6 +31,7 @@ const ASANA_API = 'https://app.asana.com/api/1.0';
 // browsers reject a multi-value Access-Control-Allow-Origin.
 const ALLOWED_ORIGINS = new Set([
   'chrome-extension://hoknmoclnhccpgofpdihmiadmnmejjod',
+  'chrome-extension://piopncjacohahbkkmockjnpenhdbmmbc', // CWS store install (2026-07-21)
   'https://tabatha.pondocean.co',
 ]);
 
