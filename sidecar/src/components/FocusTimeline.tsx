@@ -5,7 +5,7 @@ import { startedAtOf } from '../data/focus';
 import type { Checkpoint } from '../data/checkpoints';
 import { PROGRESS_LEVELS } from '../data/checkpoints';
 import { type FocusEvent, computeIntervals, cumulativeTrackedAt } from '../data/events';
-import { colors, formatElapsedMs } from '../lib/theme';
+import { colors, formatElapsedDigits } from '../lib/theme';
 
 function fmtDateTime(t: number): string {
   const d = new Date(t);
@@ -44,6 +44,67 @@ type Node = {
   cumulative?: number;
 };
 
+type Separator = { id: string; pos: number; kind: 'day' | 'week' | 'month' };
+
+// Fix Wave 3, item 4 (2026-07-20 spec) — day/week/month boundary markers.
+// `posOf` was purely duration-fractional (no calendar-boundary concept), so
+// a focus backburnered and resumed across multiple days compressed real
+// elapsed CALENDAR time into one undifferentiated bar — no visual signal
+// that a gap was "3 hours later" vs "3 days later." These pure helpers
+// mirror the day-boundary rule already used by `profileLocalClock`
+// (supabase/functions/_shared/webpush.ts) — roll back to the previous
+// calendar day if the local hour is before `dayResetHour` — but operate on
+// device-local time directly (`new Date()`, no Intl/timezone lookup): this
+// component renders on the viewer's own device, unlike the edge function's
+// cron context which has no device to read local time from. Exported/pure
+// for direct unit testing — mirrored verbatim in
+// sidecar/tests/timeline-separators.test.mjs (the component itself can't be
+// `import`ed under plain `node --test`).
+export function dayKeyOf(t: number, dayResetHour: number): string {
+  const d = new Date(t);
+  const eff = d.getHours() < dayResetHour ? new Date(d.getTime() - 24 * 3600000) : d;
+  return `${eff.getFullYear()}-${String(eff.getMonth() + 1).padStart(2, '0')}-${String(eff.getDate()).padStart(2, '0')}`;
+}
+
+/** ISO-8601 week key ("YYYY-Www") for a "YYYY-MM-DD" day key. */
+export function isoWeekKeyOf(dayKey: string): string {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0..Sun=6
+  date.setUTCDate(date.getUTCDate() - dayNum + 3); // nearest Thursday
+  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
+  const week = 1 + Math.round(((date.getTime() - firstThursday.getTime()) / 86400000 - 3 + firstDayNum) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+export function monthKeyOf(dayKey: string): string {
+  return dayKey.slice(0, 7); // "YYYY-MM"
+}
+
+/**
+ * Classifies the boundary crossed between two timestamps as the LARGEST
+ * granularity crossed — a multi-week gap gets one 'month'-or-'week' marker,
+ * not a separate 'day' marker for every day it spans, per the spec's
+ * "weight/length keyed to boundary size" (one marker per gap).
+ */
+export function classifyBoundary(
+  prevT: number,
+  currT: number,
+  dayResetHour: number
+): 'day' | 'week' | 'month' | null {
+  const prevDay = dayKeyOf(prevT, dayResetHour);
+  const currDay = dayKeyOf(currT, dayResetHour);
+  if (prevDay === currDay) return null;
+  const prevMonth = monthKeyOf(prevDay);
+  const currMonth = monthKeyOf(currDay);
+  if (prevMonth !== currMonth) return 'month';
+  const prevWeek = isoWeekKeyOf(prevDay);
+  const currWeek = isoWeekKeyOf(currDay);
+  if (prevWeek !== currWeek) return 'week';
+  return 'day';
+}
+
 /**
  * Context View bottom timeline (Plan 040 Epic 2). A thin full-width line that
  * fills as the focus timer runs (line end = intended end time), with nodes
@@ -63,6 +124,7 @@ export default function FocusTimeline({
   durationMs,
   over,
   overtimeMs,
+  dayResetHour = 0,
 }: {
   focus: FocusItem;
   now: number;
@@ -73,6 +135,10 @@ export default function FocusTimeline({
   durationMs: number;
   over: boolean;
   overtimeMs: number;
+  /** Context View's day-countdown reset hour (`cv.dayResetHour`) — reused
+   * here for calendar-day-boundary math (Fix Wave 3, item 4) so "today" on
+   * the timeline agrees with "today" everywhere else in the Sidecar. */
+  dayResetHour?: number;
 }) {
   const reducedMotion = useReducedMotion();
   const [activeNode, setActiveNode] = useState<string | null>(null);
@@ -161,6 +227,24 @@ export default function FocusTimeline({
     return [...cps, ...starts, ...extensions, ...backburnerNodes].filter((n) => Number.isFinite(n.t));
   }, [checkpoints, events, intervals]);
 
+  // Fix Wave 3, item 4 — one separator marker per consecutive-node gap that
+  // crosses a calendar day/week/month boundary. Positioned at the midpoint
+  // between the two nodes' own x-positions (rather than coinciding exactly
+  // with either node's icon) so it visually reads as "in the gap."
+  const separators: Separator[] = (() => {
+    const sorted = [...nodes].sort((a, b) => a.t - b.t);
+    const out: Separator[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1];
+      const curr = sorted[i];
+      const kind = classifyBoundary(prev.t, curr.t, dayResetHour);
+      if (kind) {
+        out.push({ id: `sep_${prev.id}_${curr.id}`, pos: (posOf(prev.t) + posOf(curr.t)) / 2, kind });
+      }
+    }
+    return out;
+  })();
+
   // Past 100%, compact the line into 92% of the width so the overtime circle
   // (below) has room to grow toward the true right edge without ever
   // leaving the screen.
@@ -198,12 +282,36 @@ export default function FocusTimeline({
           <Text style={styles.tooltipLabel} numberOfLines={1}>{active.label}</Text>
           <Text style={styles.tooltipTime}>{fmtDateTime(active.t)}</Text>
           {(active.kind === 'start' || active.kind === 'extend' || active.kind === 'backburner' || active.kind === 'unbackburner') && (
-            <Text style={styles.tooltipTracked}>📱 {formatElapsedMs(active.cumulative || 0)} tracked</Text>
+            <Text style={styles.tooltipTracked}>📱 {formatElapsedDigits(active.cumulative || 0)} tracked</Text>
           )}
         </View>
       )}
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${fillPct}%` }]} />
+        {separators.map((s) => {
+          const width = s.kind === 'month' ? 3 : s.kind === 'week' ? 2 : 1;
+          const height = s.kind === 'month' ? 22 : s.kind === 'week' ? 16 : 10;
+          const color = s.kind === 'month' ? colors.textPrimary : s.kind === 'week' ? colors.textMuted : colors.border;
+          const opacity = s.kind === 'month' ? 0.9 : s.kind === 'week' ? 0.7 : 0.55;
+          return (
+            <View
+              key={s.id}
+              pointerEvents="none"
+              accessibilityLabel={`${s.kind} boundary`}
+              style={[
+                styles.separator,
+                {
+                  left: `${s.pos * lineFrac * 100}%`,
+                  width,
+                  height,
+                  top: -(height - 8) / 2,
+                  backgroundColor: color,
+                  opacity,
+                },
+              ]}
+            />
+          );
+        })}
         {nodes.map((n) => (
           <Pressable
             key={n.id}
@@ -236,7 +344,7 @@ export default function FocusTimeline({
         )}
       </View>
       {over && (
-        <Text style={styles.overtimeLabel}>📱 {formatElapsedMs(overtimeMs)} over</Text>
+        <Text style={styles.overtimeLabel}>📱 {formatElapsedDigits(overtimeMs)} over</Text>
       )}
     </View>
   );
@@ -246,6 +354,7 @@ const styles = StyleSheet.create({
   wrap: { width: '100%', paddingTop: 4 },
   track: { width: '100%', height: 8, backgroundColor: colors.border, borderRadius: 4, position: 'relative', overflow: 'visible' },
   fill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.accent, borderRadius: 4 },
+  separator: { position: 'absolute', marginLeft: -1, borderRadius: 1 },
   node: {
     position: 'absolute',
     top: -8,

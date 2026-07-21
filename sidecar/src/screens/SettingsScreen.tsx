@@ -34,6 +34,17 @@ const TIMER_MODE_OPTIONS: { value: 'simple' | 'pomodoro'; label: string }[] = [
   { value: 'pomodoro', label: 'Pomodoro' },
 ];
 
+// Fix Wave 3, item 1 (2026-07-20 spec) — Context View timer count
+// direction + precision, settings.sidecar.cv.*.
+const CV_COUNT_DIRECTION_OPTIONS: { value: 'up' | 'down'; label: string }[] = [
+  { value: 'down', label: 'Count down' },
+  { value: 'up', label: 'Count up' },
+];
+const CV_PRECISION_OPTIONS: { value: 'second' | 'rounded_minute'; label: string }[] = [
+  { value: 'second', label: 'Full digits (h:mm:ss)' },
+  { value: 'rounded_minute', label: 'Rounded (calmer)' },
+];
+
 const QUIET_HOUR_PRESETS: Array<{ label: string; start: number | null; end: number | null }> = [
   { label: 'Off', start: null, end: null },
   { label: '10pm–8am', start: 22, end: 8 },
@@ -85,6 +96,19 @@ export default function SettingsScreen() {
   const [dayReset, setDayReset] = useState(String(sc.dayResetHour ?? 0));
   const [awayImmediate, setAwayImmediate] = useState(!!sc.focusAwayImmediate);
   const [showCheckpoints, setShowCheckpoints] = useState(sc.showCheckpoints !== false); // default ON
+
+  // Fix Wave 3, item 1 — settings.sidecar.cv.* (countDirection/precision).
+  // The update_profile_settings RPC merges one level deep per top-level
+  // `sidecar` key, so `cv` is always sent as its OWN full object (both
+  // fields together) to avoid clobbering the sibling field on save — same
+  // read-modify-write rule the nudges/workDays saves above already follow.
+  const [cvCountDirection, setCvCountDirection] = useState<'up' | 'down'>(
+    sc.cv?.countDirection === 'up' ? 'up' : 'down'
+  );
+  const [cvPrecision, setCvPrecision] = useState<'second' | 'rounded_minute'>(
+    sc.cv?.precision === 'rounded_minute' ? 'rounded_minute' : 'second'
+  );
+  const [cvDisplayMsg, setCvDisplayMsg] = useState<string | null>(null);
 
   // Timer mode (Plan 040 roadmap "gusto" pick) — settings.sidecar.timerMode
   // + settings.sidecar.pomodoro. Read-modify-write the full pomodoro object
@@ -180,6 +204,16 @@ export default function SettingsScreen() {
       dayResetHour: dr,
     });
     setPushMsg('Saved.');
+  };
+
+  // Fix Wave 3, item 1 — always send the full `cv` object (both fields),
+  // not just the one the user just touched; see the state-declaration
+  // comment above for why.
+  const saveCvDisplay = async () => {
+    await saveSidecarSettings({
+      cv: { ...(sc.cv || {}), countDirection: cvCountDirection, precision: cvPrecision },
+    });
+    setCvDisplayMsg('Saved.');
   };
 
   // Epic 8 v1 (#194) — work schedule + clock-in nudge.
@@ -506,6 +540,56 @@ export default function SettingsScreen() {
             thumbColor="#fff"
           />
         </View>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.rowTitle}>Timer count direction</Text>
+        <Text style={styles.rowSub}>
+          Count down to the timer target as usual, or always show elapsed time climbing —
+          the target still governs when the ring turns red for "over," only the digits shown change.
+        </Text>
+        <View style={[styles.realmRow, { marginTop: 8 }]}>
+          {CV_COUNT_DIRECTION_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.value}
+              onPress={() => setCvCountDirection(opt.value)}
+              style={[
+                styles.realmPill,
+                cvCountDirection === opt.value && { borderColor: colors.accent, backgroundColor: colors.accentDim },
+              ]}
+            >
+              <Text style={{ fontSize: 12, color: cvCountDirection === opt.value ? colors.accent : colors.textMuted }}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={[styles.rowTitle, { marginTop: 14 }]}>Timer precision</Text>
+        <Text style={styles.rowSub}>
+          Full digits never abbreviate ("1:04:12"). Rounded is the calmer, coarser display
+          ("1h 4m") for anyone who prefers it.
+        </Text>
+        <View style={[styles.realmRow, { marginTop: 8 }]}>
+          {CV_PRECISION_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.value}
+              onPress={() => setCvPrecision(opt.value)}
+              style={[
+                styles.realmPill,
+                cvPrecision === opt.value && { borderColor: colors.accent, backgroundColor: colors.accentDim },
+              ]}
+            >
+              <Text style={{ fontSize: 12, color: cvPrecision === opt.value ? colors.accent : colors.textMuted }}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={{ marginTop: 12 }}>
+          <Btn label="Save timer display" onPress={saveCvDisplay} filled />
+        </View>
+        {cvDisplayMsg && <Text style={styles.msg}>{cvDisplayMsg}</Text>}
       </Card>
 
       <Card style={{ marginBottom: 14 }}>

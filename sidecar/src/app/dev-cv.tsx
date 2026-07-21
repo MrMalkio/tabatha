@@ -7,7 +7,7 @@ import { PROGRESS_LEVELS } from '../data/checkpoints';
 import type { FocusEvent } from '../data/events';
 import FocusTimeline from '../components/FocusTimeline';
 import ProgressRing from '../components/ProgressRing';
-import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedDigits } from '../lib/theme';
 
 // ────────────────────────────────────────────────────────────────────────
 // DEV-ONLY visual harness for Context View "layout v2" (Plan 040 Epic 6).
@@ -334,7 +334,7 @@ function DevContextViewHarness() {
                 </Text>
                 <Text style={[styles.focusLabelHuge, { fontSize: Math.min(width * 0.078, 128) }]} numberOfLines={3}>{cf.label}</Text>
                 <View style={styles.metaRow}>
-                  <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
+                  <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedDigits(cfElapsed)}</Text> elapsed</Text>
                   <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
                 </View>
                 {showCheckpoints && cpNotes.length > 0 && (() => {
@@ -366,7 +366,7 @@ function DevContextViewHarness() {
                 <ProgressRing size={Math.min(width * 0.3, big * 2.3)} thickness={Math.max(6, big * 0.045)} progress={frac} color={accent} bgColor={colors.bgBase}>
                   <Text style={styles.timerMode}>{isSidecarSourced(cf) ? 'FOCUS TIMER' : 'IN FOCUS'}</Text>
                   <Text style={[styles.timerBig, { fontSize: big, color: accent }]}>
-                    {remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedMs(cfElapsed)}
+                    {remaining != null ? formatTimer(Math.abs(remaining)) : formatElapsedDigits(cfElapsed)}
                   </Text>
                   <Text style={styles.timerCap}>{remaining != null ? (over ? 'over' : 'remaining') : 'elapsed'}</Text>
                 </ProgressRing>

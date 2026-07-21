@@ -14,7 +14,7 @@ import { useFocus, type FocusItem } from '../data/focus';
 import { computeIntervals, totalTrackedMs, type FocusEvent } from '../data/events';
 import { supabase } from '../lib/supabase';
 import { Btn, Chip, Empty, SectionLabel } from '../ui/kit';
-import { colors, radius, formatElapsedMs } from '../lib/theme';
+import { colors, radius, formatElapsedDigits } from '../lib/theme';
 
 // Epic 3 Unit 5 — Tasks view: tasks_registry read (Asana-synced + local),
 // nested subtasks, blocked badges, per-task tracked time, and ▶ start-task
@@ -205,7 +205,7 @@ export default function TasksScreen() {
           <View style={styles.badgeRow}>
             {isAsanaTask(t) && <Chip label="Asana" color={colors.purple} />}
             {blockedTaskIds.has(t.task_id) && <Chip label="🚧 blocked" color={colors.amber} />}
-            {tracked > 0 && <Chip label={`⏱ ${formatElapsedMs(tracked)}`} color={colors.textMuted} />}
+            {tracked > 0 && <Chip label={`⏱ ${formatElapsedDigits(tracked)}`} color={colors.textMuted} />}
             {isRunning && <Chip label="● focusing" color={colors.accent} />}
           </View>
         </View>

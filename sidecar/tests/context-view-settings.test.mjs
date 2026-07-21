@@ -18,6 +18,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 // ── mirror: sidecar/src/lib/contextViewSettings.ts ─────────────────────
+// Fix Wave 3 (2026-07-20 spec) added countDirection/precision/awayGraceMin,
+// sourced from a THIRD location (`settings.sidecar.cv.*`) distinct from both
+// the flat legacy `sidecar.*` keys and the top-level `contextView` key.
 const DEFAULT_CONTEXT_VIEW_SETTINGS = {
   showDayCountdown: true,
   showUpNext: true,
@@ -26,11 +29,15 @@ const DEFAULT_CONTEXT_VIEW_SETTINGS = {
   dayResetHour: 0,
   focusAwayImmediate: false,
   layout: 'v2',
+  countDirection: 'down',
+  precision: 'second',
+  awayGraceMin: 3,
 };
 
 function resolveContextViewSettings(settings, deviceSettings) {
   const cv = settings?.contextView || {};
   const legacySidecar = settings?.sidecar || {};
+  const sidecarCv = legacySidecar.cv || {};
   const device = deviceSettings || {};
   return {
     ...DEFAULT_CONTEXT_VIEW_SETTINGS,
@@ -38,6 +45,13 @@ function resolveContextViewSettings(settings, deviceSettings) {
     focusAwayImmediate:
       legacySidecar.focusAwayImmediate ?? DEFAULT_CONTEXT_VIEW_SETTINGS.focusAwayImmediate,
     showCheckpoints: legacySidecar.showCheckpoints ?? DEFAULT_CONTEXT_VIEW_SETTINGS.showCheckpoints,
+    countDirection: sidecarCv.countDirection === 'up' ? 'up' : DEFAULT_CONTEXT_VIEW_SETTINGS.countDirection,
+    precision:
+      sidecarCv.precision === 'rounded_minute' ? 'rounded_minute' : DEFAULT_CONTEXT_VIEW_SETTINGS.precision,
+    awayGraceMin:
+      Number.isFinite(sidecarCv.awayGraceMin) && sidecarCv.awayGraceMin > 0
+        ? sidecarCv.awayGraceMin
+        : DEFAULT_CONTEXT_VIEW_SETTINGS.awayGraceMin,
     ...cv,
     ...device,
   };
@@ -101,4 +115,39 @@ test('full precedence chain: device > contextView > legacy sidecar > defaults, a
   assert.equal(resolveContextViewSettings({ sidecar: { dayResetHour: 1 } }, null).dayResetHour, 1);
   // Nothing set anywhere — default.
   assert.equal(resolveContextViewSettings(null, null).dayResetHour, 0);
+});
+
+// ── Fix Wave 3, item 1/5a — sidecar.cv.* (countDirection/precision/awayGraceMin) ──
+
+test('sidecar.cv.* reads countDirection/precision/awayGraceMin, ignoring garbage values', () => {
+  const out = resolveContextViewSettings({
+    sidecar: { cv: { countDirection: 'up', precision: 'rounded_minute', awayGraceMin: 7 } },
+  });
+  assert.equal(out.countDirection, 'up');
+  assert.equal(out.precision, 'rounded_minute');
+  assert.equal(out.awayGraceMin, 7);
+
+  const garbage = resolveContextViewSettings({
+    sidecar: { cv: { countDirection: 'sideways', precision: 'nanoseconds', awayGraceMin: -5 } },
+  });
+  assert.equal(garbage.countDirection, 'down', 'unrecognized countDirection falls back to default');
+  assert.equal(garbage.precision, 'second', 'unrecognized precision falls back to default');
+  assert.equal(garbage.awayGraceMin, 3, 'non-positive awayGraceMin falls back to default');
+});
+
+test('sidecar.cv.* defaults when absent entirely', () => {
+  const out = resolveContextViewSettings({ sidecar: { dayResetHour: 6 } });
+  assert.equal(out.countDirection, 'down');
+  assert.equal(out.precision, 'second');
+  assert.equal(out.awayGraceMin, 3);
+});
+
+test('contextView key still wins over sidecar.cv.* if both somehow set the same field', () => {
+  // contextView is spread AFTER the sidecar.cv reads, so it wins — same
+  // precedence rule as the legacy sidecar.* keys above it.
+  const out = resolveContextViewSettings({
+    sidecar: { cv: { countDirection: 'up' } },
+    contextView: { countDirection: 'down' },
+  });
+  assert.equal(out.countDirection, 'down');
 });
