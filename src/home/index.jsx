@@ -1851,18 +1851,35 @@ function Home() {
     return active.sort((a, b) => ((a.priority || 10) - (b.priority || 10)) || (a.focusState === 'active' ? -1 : 1))[0];
   }, [allItems]);
 
-  const clockScale = clockSettings?.scale || 1;
+  // The FlipClock is built at screensaver scale (140x200px digit cards) — full
+  // size for Context View / the settings preview. `transform: scale()` (the old
+  // approach here) only shrinks it visually; it does NOT shrink the box it
+  // reserves in layout (transforms never affect flow), so the header was
+  // reserving hundreds of extra px of dead space around a normal-looking clock,
+  // and the un-shrunk box height (per elementSpacing/countdown) could exceed the
+  // header row's own height and paint over whatever rendered below it.
+  // `zoom` (Chromium-only — safe, this is an MV3 extension page) shrinks both
+  // the paint AND the reserved box together, so the header can actually contain
+  // the clock. HEADER_CLOCK_BASE_SCALE fits the default full-size clock into a
+  // compact header footprint; the user's own Scale slider still scales relative
+  // to that base. We pass `scale: 1` into FlipClock itself so it doesn't also
+  // apply its own internal transform on top of this (that would double-shrink).
+  const HEADER_CLOCK_BASE_SCALE = 0.32;
+  const headerClockZoom = HEADER_CLOCK_BASE_SCALE * (clockSettings?.scale || 1);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 0, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background-color 0.3s ease, color 0.3s ease' }}>
       {theme === 'pop-art' && (<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.03, backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '12px 12px' }} />)}
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1100px', padding: '8px 32px 0' }}>
-        {/* Header Row — Greeting (left) | Clock (center) | Right Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '16px', flexWrap: 'nowrap' }}>
-          
+        {/* Header Row — Greeting (left) | Clock (center) | Right Actions.
+            Grid (not flex space-between) so the greeting and right cluster each
+            keep a guaranteed minimum share of the row instead of shrinking to
+            make room for whatever width the clock's box happens to claim. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) auto minmax(220px, 1fr)', alignItems: 'center', marginBottom: '6px', gap: '16px' }}>
+
           {/* Left — Greeting */}
-          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
             <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getGreeting()}{settings.userName ? `, ${settings.userName}` : ''}</h1>
             <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
               {tabCount} tab{tabCount !== 1 ? 's' : ''} open · {formatTime(totalActiveTime)} active today
@@ -1872,15 +1889,15 @@ function Home() {
             </p>
           </div>
 
-          {/* Center — FlipClock */}
-          <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '56px', overflow: 'visible' }}>
-            <div style={{ transform: `scale(${clockScale})`, transformOrigin: 'center' }}>
-              <FlipClock settings={clockSettings} />
+          {/* Center — FlipClock, contained to its actual footprint (margin 5px / padding 20px) */}
+          <div style={{ margin: '5px', padding: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ zoom: headerClockZoom }}>
+              <FlipClock settings={{ ...clockSettings, scale: 1 }} />
             </div>
           </div>
 
           {/* Right — Utilities */}
-          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ minWidth: 0, display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {sugarBox.length > 0 && (
               <Tooltip text={`${sugarBox.length} item${sugarBox.length !== 1 ? 's' : ''} in Sugar Box`}>
                 <button onClick={() => setActivePanel('stashed')} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer', backdropFilter: 'var(--surface-blur)' }}>🍬 {sugarBox.length}</button>

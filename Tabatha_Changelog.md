@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.49] - Home header layout fix (clock containment + greeting truncation) - _2026-07-21_
+
+> The home page header's FlipClock was reserving hundreds of px of dead layout space it never used: it's built at screensaver scale (140x200px digit cards) and the header only ever shrunk it visually via `transform: scale()`, which never shrinks the box an element reserves in flex layout. That stole width from the greeting (forcing "Good afte…" truncation even with room to spare) and squeezed the right-side icon cluster, while the clock's real un-shrunk height could exceed its declared box and silently paint over the companion/other-profiles pill row below it. Header row is now a 3-column grid (guaranteed min-width for greeting and utilities), the clock is shrunk via `zoom` (which *does* affect layout size, Chromium-only — safe for this MV3 extension) inside a wrapper set to exactly margin: 5px / padding: 20px, and the right cluster gap was widened for breathing room. `src/home/index.jsx` only; `FlipClock.jsx`/`.css` untouched (Context View, screensaver, and the Settings preview keep their existing full-size rendering).
+
 ## [v6.7.46] - Device-row flood fix: adopt-before-insert - _2026-07-20_
 
 > browser_profiles registration now adopts this install/machine's newest existing row before ever inserting a fresh one, so an amnesiac install identity converges instead of minting duplicate device rows every wake (650-row flood root-caused on the desktop install). Diagnostics added for adoption + identity minting.
