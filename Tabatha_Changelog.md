@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.54] - Session-aware device reclaim + session-id stamping (audit hardening) - _2026-07-21_
+
+> Hardens 6.7.53: a revoked device row now only un-revokes under a genuinely NEW auth session (GoTrue session_id comparison) - a surviving revoked session can no longer resurrect itself on the sync cycle. Every sync also stamps auth_session_id on this install's row, which makes remote sign-out actually able to revoke extension sessions (rows previously had no session id to revoke).
+
 ## [v6.7.53] - Sign-in reclaims a revoked device row + clearer pairing-code auth error - _2026-07-21_
 
 > Parity with Sidecar 0.13.4: a fresh authenticated registration clears revoked_at on this install's own device row (a remote sign-out sweep otherwise left signed-in installs looking signed out). Pairing-code mint now says "Session expired - sign out and back in" instead of a raw "unauthorized" when the session was revoked.
