@@ -304,7 +304,49 @@ export function useFocus(
         focus_state: 'completed',
         funnel_stage: 'resolved',
         completed_at: new Date().toISOString(),
+        // Fix Wave 3, item 2 (2026-07-20 spec): stash the pre-resolve stage
+        // so `unresolve` below can restore it exactly instead of guessing
+        // — the prior resolve path threw this information away entirely.
+        tags: { ...(f?.tags || {}), _preResolveStage: f?.funnel_stage || 'addressing' },
       });
+    },
+    // Fix Wave 3, item 2 (2026-07-20 spec) — un-resolve, ported from the
+    // extension's confirm-gated reopen pattern
+    // (`src/background/services/focusService.js` `applyStageTransition`,
+    // ~lines 716-720): changing a completed item's stage away from
+    // 'resolved' requires an explicit `confirmed` flag, returning
+    // `{ error, needsConfirm: true }` until the caller confirms. Restores
+    // `focus_state: 'paused'` (not 'active' — matches the extension, which
+    // never auto-resumes a reopened item) and `funnel_stage` to whatever was
+    // stashed at resolve time (defaulting to 'addressing' if this item
+    // predates the stash, same "best inferable guess" the spec calls for).
+    // Koda addition (2026-07-20 vet): stamps `tags._lastUnresolvedAt` so a
+    // focus resolved-and-reopened multiple times has a visible provenance
+    // trail rather than silent state flipping.
+    unresolve: async (
+      id: string,
+      confirmed = false
+    ): Promise<{ error?: string; needsConfirm?: boolean; ok?: boolean }> => {
+      const f = items.find((i) => i.id === id);
+      if (!f) return { error: 'Focus not found' };
+      const isResolved = f.focus_state === 'completed' || f.funnel_stage === 'resolved';
+      if (!isResolved) return { error: 'This focus is not resolved.' };
+      if (!confirmed) {
+        return { error: 'This focus is completed. Confirm to reopen.', needsConfirm: true };
+      }
+      // No focus_events row here (deliberately) — 'resume' would mislead
+      // computeIntervals into treating this as reopening a tracked run
+      // (this restores 'paused', not 'active'), and the spec doesn't call
+      // for a new 'unresolve' event kind. Provenance lives in tags instead
+      // (Koda addition, below), visible in the edit panel.
+      const restoredStage = f.tags?._preResolveStage || 'addressing';
+      await patch(id, {
+        focus_state: 'paused',
+        funnel_stage: restoredStage,
+        completed_at: null,
+        tags: { ...(f.tags || {}), _preResolveStage: null, _lastUnresolvedAt: new Date().toISOString() },
+      });
+      return { ok: true };
     },
     extend: (id: string, mins: number) => {
       const cur = items.find((i) => i.id === id);

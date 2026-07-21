@@ -30,7 +30,7 @@ import {
   FUNNEL_STAGES,
   priorityColor,
   formatTimer,
-  formatElapsedMs,
+  formatElapsedDigits,
 } from '../lib/theme';
 
 const REALMS = ['professional', 'work', 'business', 'personal'];
@@ -76,7 +76,7 @@ function PriorityRow({ value, onChange }: { value: number; onChange: (p: number)
   );
 }
 
-export default function FocusScreen() {
+export default function FocusScreen({ deviceKind }: { deviceKind?: string | null }) {
   const { profile, browserProfileId } = useAuth();
   const { currentFocus, queue, backburner, history, loading, refreshing, refresh, createIntent, actions } =
     useFocus(profile?.id ?? null, browserProfileId);
@@ -158,7 +158,7 @@ export default function FocusScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />}
     >
-      <PhoneFocusMode currentFocus={cf} onPause={actions.pause} />
+      <PhoneFocusMode currentFocus={cf} onPause={actions.pause} deviceKind={deviceKind} />
       {cf ? (
         <Card style={{ marginBottom: 12 }}>
           {/* NOW bar */}
@@ -171,7 +171,7 @@ export default function FocusScreen() {
                 {isOffComputer(cf) ? <Chip label="🚶 off-computer" color={colors.accent} /> : <Chip label="💻 at computer" color={colors.textMuted} />}
               </View>
               <Text style={styles.cfLabel}>{cf.label}</Text>
-              <Text style={styles.cfMeta}>{formatElapsedMs(cfElapsed)} elapsed · P{cf.priority || 5}</Text>
+              <Text style={styles.cfMeta}>{formatElapsedDigits(cfElapsed)} elapsed · P{cf.priority || 5}</Text>
             </View>
             {remaining != null && (
               <View style={{ alignItems: 'flex-end' }}>
@@ -266,12 +266,7 @@ export default function FocusScreen() {
         <>
           <Text style={styles.bbHdr}>🔥 Backburner ({backburner.length})</Text>
           {backburner.map((b) => (
-            <View key={b.id} style={styles.bbRow}>
-              <Text style={styles.bbLabel} numberOfLines={1}>🔥 {b.label}</Text>
-              <Btn label="▶" small color={colors.green} onPress={() => actions.resumeBackburner(b.id)} />
-              <Btn label="⏰" small color={colors.amber} onPress={() => actions.snoozeBackburner(b.id, 10)} />
-              <Btn label="✕" small color={colors.red} onPress={() => actions.dismissBackburner(b.id)} />
-            </View>
+            <BackburnerRow key={b.id} item={b} actions={actions} />
           ))}
         </>
       )}
@@ -291,9 +286,7 @@ export default function FocusScreen() {
         <>
           <SectionLabel>History</SectionLabel>
           {history.map((h) => (
-            <View key={h.id} style={styles.histRow}>
-              <Text style={styles.histLabel} numberOfLines={1}>{h.funnel_stage === 'resolved' ? '🏁' : '✅'} {h.label}</Text>
-            </View>
+            <HistoryRow key={h.id} item={h} actions={actions} />
           ))}
         </>
       )}
@@ -449,8 +442,14 @@ function CheckpointPanel({ profileId, focus }: { profileId: string | null; focus
 }
 
 // ── Queue row ──────────────────────────────────────────────
+// Fix Wave 3, item 3 (2026-07-20 spec): non-current queue rows previously had
+// no label/description edit affordance at all — the pencil below opens the
+// same generic `EditPanel` used for the current focus, parameterized by this
+// row's own item instead of always `cf`. `EditPanel` needed no changes; the
+// gap was purely that only `cf` was ever passed to it.
 function QueueRow({ item, actions }: { item: FocusItem; actions: ReturnType<typeof useFocus>['actions'] }) {
   const [open, setOpen] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const s = FUNNEL_STAGES[item.funnel_stage] || FUNNEL_STAGES.unsorted;
   return (
     <Card style={{ marginBottom: 6, padding: 10 }}>
@@ -461,9 +460,20 @@ function QueueRow({ item, actions }: { item: FocusItem; actions: ReturnType<type
         <Pressable onPress={() => setOpen((o) => !o)} style={styles.prioBadge}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: priorityColor(item.priority || 5) }}>P{item.priority || 5}</Text>
         </Pressable>
+        <Btn label="✏️" small onPress={() => setShowEdit((v) => !v)} />
         <Btn label="▶" small onPress={() => actions.switchTo(item.id)} />
         <Btn label="✓" small color={colors.green} onPress={() => actions.resolve(item.id)} />
       </View>
+      {showEdit && (
+        <EditPanel
+          key={item.id}
+          focus={item}
+          onSave={(u) => {
+            actions.updateFocus(item.id, u);
+            setShowEdit(false);
+          }}
+        />
+      )}
       {open && (
         <View style={{ marginTop: 8, gap: 8 }}>
           <PriorityRow value={item.priority || 5} onChange={(p) => actions.setPriority(item.id, p)} />
@@ -475,6 +485,72 @@ function QueueRow({ item, actions }: { item: FocusItem; actions: ReturnType<type
         </View>
       )}
     </Card>
+  );
+}
+
+// ── Backburner row ────────────────────────────────────────
+// Same edit-affordance gap as QueueRow, for the backburner tier (spec item 3
+// explicitly calls out "and the backburner row variant").
+function BackburnerRow({ item, actions }: { item: FocusItem; actions: ReturnType<typeof useFocus>['actions'] }) {
+  const [showEdit, setShowEdit] = useState(false);
+  return (
+    <View style={{ marginBottom: 6 }}>
+      <View style={styles.bbRow}>
+        <Text style={styles.bbLabel} numberOfLines={1}>🔥 {item.label}</Text>
+        <Btn label="✏️" small onPress={() => setShowEdit((v) => !v)} />
+        <Btn label="▶" small color={colors.green} onPress={() => actions.resumeBackburner(item.id)} />
+        <Btn label="⏰" small color={colors.amber} onPress={() => actions.snoozeBackburner(item.id, 10)} />
+        <Btn label="✕" small color={colors.red} onPress={() => actions.dismissBackburner(item.id)} />
+      </View>
+      {showEdit && (
+        <EditPanel
+          key={item.id}
+          focus={item}
+          onSave={(u) => {
+            actions.updateFocus(item.id, u);
+            setShowEdit(false);
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+// ── History row ────────────────────────────────────────────
+// Fix Wave 3, item 2 (2026-07-20 spec): un-resolve, ported from the
+// extension's confirm-gated reopen pattern (`focusService.js`
+// `applyStageTransition`, ~lines 716-720) — a completed item's stage can't
+// change away from resolved without an explicit `confirmed` flag. One tap
+// shows the confirm step inline; a second tap actually calls
+// `actions.unresolve(id, true)`.
+function HistoryRow({ item, actions }: { item: FocusItem; actions: ReturnType<typeof useFocus>['actions'] }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <View style={styles.histRow}>
+      <View style={styles.histTop}>
+        <Text style={styles.histLabel} numberOfLines={1}>{item.funnel_stage === 'resolved' ? '🏁' : '✅'} {item.label}</Text>
+        {!confirming ? (
+          <Btn label="↩ Restore" small color={colors.textMuted} onPress={() => setConfirming(true)} />
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Btn label="Cancel" small color={colors.textMuted} onPress={() => setConfirming(false)} />
+            <Btn
+              label="Confirm restore"
+              small
+              filled
+              color={colors.accent}
+              onPress={async () => {
+                await actions.unresolve(item.id, true);
+                setConfirming(false);
+              }}
+            />
+          </View>
+        )}
+      </View>
+      {confirming && (
+        <Text style={styles.histConfirmHint}>Restores to your queue, paused — not re-resolved automatically.</Text>
+      )}
+    </View>
   );
 }
 
@@ -521,5 +597,7 @@ const styles = StyleSheet.create({
   cpRowSystem: { opacity: 0.72 },
   cpSystemText: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic' },
   histRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border },
-  histLabel: { fontSize: 13, color: colors.textPrimary },
+  histTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  histLabel: { flex: 1, fontSize: 13, color: colors.textPrimary },
+  histConfirmHint: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
 });
