@@ -37,6 +37,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ALLOWED_ORIGINS = new Set([
   "https://tabatha.pondocean.co",
   "chrome-extension://hoknmoclnhccpgofpdihmiadmnmejjod",
+  "chrome-extension://piopncjacohahbkkmockjnpenhdbmmbc", // CWS store install (2026-07-21)
 ]);
 
 function corsHeaders(reqOrigin: string | null): Record<string, string> {
