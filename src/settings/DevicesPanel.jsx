@@ -136,6 +136,102 @@ function DeviceRow({ row, isThisDevice, onRename, onTogglePause, onSetKind, onSi
   );
 }
 
+// 6.7.52 — mint a pairing code from the extension (parity with the Sidecar's
+// PairWatchCard / TV "Sign in with a code" flow; until now minting was
+// Sidecar-only, which is why the Devices panel had no "generate a code").
+const PAIR_KINDS = [
+  { key: 'tv', label: 'TV', mintLabel: 'TV' },
+  { key: 'watch', label: 'Watch', mintLabel: 'Galaxy Watch' },
+  { key: 'other', label: 'Other', mintLabel: 'Other device' },
+];
+
+function PairDeviceCard() {
+  const [kind, setKind] = useState('tv');
+  const [customName, setCustomName] = useState('');
+  const [code, setCode] = useState(null);
+  const [left, setLeft] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    if (!code || left <= 0) return undefined;
+    const iv = setInterval(() => {
+      setLeft((s) => {
+        if (s <= 1) { setCode(null); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [code, left > 0]);
+
+  const mint = async () => {
+    setBusy(true);
+    setErr(null);
+    const chipDefault = PAIR_KINDS.find((k) => k.key === kind)?.mintLabel || 'Other device';
+    const res = await sendMessage('MINT_DEVICE_CODE', { device_label: customName.trim() || chipDefault });
+    setBusy(false);
+    if (!res?.code) { setErr(res?.error || 'Pairing service unavailable'); return; }
+    setCode(res.code);
+    setLeft(res.expiresInSeconds || 300);
+  };
+
+  return (
+    <div data-search-id="devices-pair" style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: '16px' }}>
+      <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>➕ Pair a new device</div>
+      <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+        Generate a one-time code, then on the new device open the Sidecar and choose
+        “Sign in with a code” (TVs), or use Pair on the watch.
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+        {PAIR_KINDS.map((k) => {
+          const on = kind === k.key;
+          return (
+            <button
+              key={k.key}
+              disabled={busy}
+              onClick={() => setKind(k.key)}
+              style={{
+                border: `1px solid ${on ? 'var(--color-accent-primary)' : 'var(--color-border)'}`,
+                background: on ? 'var(--color-accent-primary)22' : 'transparent',
+                color: on ? 'var(--color-accent-primary)' : 'var(--color-text-muted)',
+                borderRadius: 'var(--radius-sm)', padding: '3px 10px', fontSize: '11px', fontWeight: on ? 700 : 500, cursor: 'pointer',
+              }}
+            >
+              {k.label}
+            </button>
+          );
+        })}
+        <input
+          value={customName}
+          onChange={(e) => setCustomName(e.target.value)}
+          placeholder="Name it (optional) — e.g. Living-room TV"
+          style={{ ...inputStyle, flex: 1, minWidth: '160px' }}
+        />
+      </div>
+      {code ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '0.35em', color: 'var(--color-accent-primary)', fontFamily: 'monospace' }}>{code}</span>
+          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+            expires in {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
+          </span>
+        </div>
+      ) : (
+        <button
+          onClick={mint}
+          disabled={busy}
+          style={{
+            border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', background: 'transparent',
+            borderRadius: 'var(--radius-sm)', padding: '6px 14px', fontSize: '12px', fontWeight: 700, cursor: busy ? 'default' : 'pointer',
+          }}
+        >
+          {busy ? 'Generating…' : 'Generate code'}
+        </button>
+      )}
+      {err && <p style={{ fontSize: '11px', color: '#ef5350', margin: '8px 0 0' }}>⚠ {err}</p>}
+    </div>
+  );
+}
+
 export default function DevicesPanel({ isSignedIn }) {
   const { identity } = useInstallIdentity();
   const [rows, setRows] = useState([]);
@@ -195,6 +291,8 @@ export default function DevicesPanel({ isSignedIn }) {
       <p style={{ fontSize: '11px', color: '#ffa726', marginBottom: '12px', lineHeight: 1.5 }}>
         Pause is a reminder, not a lock — a paused device can always resume itself from a dismissible banner. Sign out is the only remote action that actually ends a session.
       </p>
+
+      <PairDeviceCard />
 
       {loading && <p style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Loading…</p>}
       {error && <p style={{ fontSize: '11px', color: '#ef5350' }}>⚠ {error}</p>}

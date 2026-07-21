@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.52] - New logo (Split-Tab T) + pair-a-device code minting in the extension - _2026-07-21_
+
+> Extension icons switch to the new eye-free Split-Tab T mark. Settings -> Devices gains "Pair a new device": mint a one-time code (TV / Watch / Other, optional name) right from the extension - same pairing service the Sidecar and TV "Sign in with a code" flow use; previously minting was Sidecar-only.
+
 ## [v6.7.50] - Device management in extension + home header layout fix - _2026-07-21_
 
 > Settings gains a Devices panel (list grouped per physical device, rename, pause/resume, remote sign-out, device-kind picker) backed by new background deviceService handlers; a never-blocking paused-device banner with one-tap Resume lands on home and sidebar (pause is a convenience flag, not a lock). Home header rebuilt: FlipClock contained (transform-scale reserved-box bug), greeting no longer truncates, right cluster spacing fixed, companion pill overlap eliminated. Merges feat/ext-device-management + fix/home-header-layout.

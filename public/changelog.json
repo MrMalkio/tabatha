@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.52",
+      "title": "New logo (Split-Tab T) + pair-a-device code minting in the extension",
+      "date": "2026-07-21",
+      "intro": "> Extension icons switch to the new eye-free Split-Tab T mark. Settings -> Devices gains \"Pair a new device\": mint a one-time code (TV / Watch / Other, optional name) right from the extension - same pairing service the Sidecar and TV \"Sign in with a code\" flow use; previously minting was Sidecar-only.",
+      "sections": []
+    },
+    {
       "version": "6.7.50",
       "title": "Device management in extension + home header layout fix",
       "date": "2026-07-21",

@@ -166,6 +166,7 @@ export const SETTINGS_SEARCH_INDEX = [
   { id: 'devices-panel', section: 'devices', label: 'Devices list', keywords: ['devices', 'browser profiles', 'sidecar', 'extension installs'] },
   { id: 'devices-list', section: 'devices', label: 'Device rows — rename, pause, kind, sign out', keywords: ['rename', 'pause', 'resume', 'device kind', 'phone', 'tablet', 'desktop', 'watch', 'sign out', 'revoke'] },
   { id: 'devices-show-all', section: 'devices', label: 'Show all devices', keywords: ['show all', 'hidden devices', 'stale', 'unnamed'] },
+  { id: 'devices-pair', section: 'devices', label: 'Pair a new device — generate code', keywords: ['pair', 'pairing code', 'device code', 'generate code', 'tv', 'watch', 'sign in with a code', 'code sign in'] },
   { id: 'desktop-pairing', section: 'desktop', label: 'Companion pairing', keywords: ['pair', 'pairing', 'token', 'companion', 'desktop'] },
   { id: 'section-about', section: 'about', label: 'About', keywords: ['version', 'changelog', 'about', 'flux'] },
 

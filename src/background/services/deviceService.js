@@ -31,6 +31,10 @@ import { groupRows } from '../../utils/deviceGrouping.js';
 const SUPABASE_URL = 'https://mtdgoahskcibjbhfvofx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_lPmWAzfBqbHkyGslkhohQA_8QgdBCu_';
 const DEVICE_SIGNOUT_FN_PATH = '/functions/v1/device-signout';
+// pair-watch despite the name is the generic device-pairing mint/redeem fn
+// (watch, TV "Sign in with a code", any code-redeeming surface) — same
+// endpoint the Sidecar's PairWatchCard and the TV login flow already use.
+const PAIR_FN_PATH = '/functions/v1/pair-watch';
 const TIMEOUT_MS = 8000;
 
 // Written on every self-status refresh so Settings → Devices and the
@@ -203,6 +207,38 @@ async function signOutDevice(browserProfileId) {
   }
 }
 
+// Mint a device pairing code (6.7.52) — the missing half of the Devices
+// panel Malkio hit on 2026-07-21 ("why can't I generate a device code from
+// the extension?"): minting only existed in the Sidecar. Mirrors
+// PairWatchCard.tsx's call exactly: user JWT as Bearer, `action: 'mint'`,
+// optional deviceLabel that the redeeming device adopts as its first name.
+// The raw code lives only in the edge fn's response + the DB hash.
+async function mintDeviceCode(deviceLabel) {
+  const accessToken = await getAccessToken();
+  if (!accessToken) return { error: 'You must be signed in to pair a device' };
+  const label = String(deviceLabel || '').trim().slice(0, 120) || 'Other device';
+  const fetchImpl = deps.fetchImpl || globalThis.fetch;
+  try {
+    const response = await fetchImpl(`${SUPABASE_URL}${PAIR_FN_PATH}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ action: 'mint', deviceLabel: label }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const out = await response.json().catch(() => ({}));
+    if (!response.ok || !out?.code) {
+      return { error: out?.error || `pairing code failed (${response.status})` };
+    }
+    return { success: true, code: out.code, expiresInSeconds: out.expiresInSeconds || 300 };
+  } catch (e) {
+    return { error: e?.message || 'pairing request failed' };
+  }
+}
+
 // Fetch + cache THIS install's own paused/revoked flags. Called on SW
 // startup (startDeviceStatusWatch, from background.js) and on-demand via
 // GET_SELF_DEVICE_STATUS (the banner polls this — no realtime channel here;
@@ -275,6 +311,10 @@ export async function handleMessage(type, message) {
       if (!deps.supabase) return { error: 'not_ready' };
       await resolveActiveIdentity(); // ensure activeBrowserProfileId is populated for the self-signout guard
       return signOutDevice(message?.browser_profile_id);
+    }
+    case 'MINT_DEVICE_CODE': {
+      if (!deps.supabase) return { error: 'not_ready' };
+      return mintDeviceCode(message?.device_label);
     }
     case 'GET_SELF_DEVICE_STATUS': {
       if (!deps.supabase) return { status: null, error: 'not_ready' };
