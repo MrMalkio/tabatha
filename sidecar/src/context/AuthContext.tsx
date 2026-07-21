@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const { data: existing } = await supabase
         .from('browser_profiles')
-        .select('display_name')
+        .select('display_name, revoked_at, auth_session_id')
         .eq('profile_id', prof.id)
         .eq('local_id', localId)
         .maybeSingle();
@@ -220,16 +220,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             local_id: localId,
             machine_id: deviceId,
             last_seen_at: new Date().toISOString(),
-            // 0.13.4 — reclaim on sign-in. The upsert keys on
-            // (profile_id, local_id), so a device that was remotely signed
-            // out lands back on its own REVOKED row; without clearing
-            // revoked_at the honor logic (app/index.tsx) sees "revoked →
-            // sign yourself out" and boots the fresh session immediately —
-            // the 2026-07-21 magic-link sign-in/sign-out loop. A registration
-            // only ever runs under a live authenticated session for this
-            // profile, and signing in IS the re-authorization of this
-            // device, so clearing the flag here is exactly right.
-            revoked_at: null,
+            // 0.13.5 — SESSION-AWARE reclaim (hardens 0.13.4, which cleared
+            // revoked_at unconditionally; audit finding 2026-07-21: session
+            // revocation is best-effort, so a surviving revoked session
+            // could un-revoke itself on next app load). A device row may
+            // only reclaim when the CURRENT GoTrue session differs from the
+            // one stamped on the row — i.e. the user genuinely signed in
+            // again after the revocation (the magic-link loop fix stays
+            // fixed: a fresh sign-in always mints a new session_id). A
+            // revoked row with a legacy NULL stamp also reclaims (pre-sid
+            // rows; recovery-friendly, and the row gets stamped below so
+            // it's a one-time grace).
+            ...(!existing?.revoked_at ||
+            (sessionId && existing?.auth_session_id !== sessionId)
+              ? { revoked_at: null }
+              : {}),
             ...(sessionId ? { auth_session_id: sessionId } : {}),
             ...namePatch,
           },
