@@ -35,6 +35,7 @@ import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { logger } from '../services/logger';
 import CompanionStatus from '../components/CompanionStatus';
 import UnifiedTimeline from '../components/UnifiedTimeline';
+import DevicePausedBanner from '../components/DevicePausedBanner';
 
 // B1: format an ISO timestamp into a `datetime-local` input value (local TZ).
 function toLocalInput(iso) {
@@ -1905,6 +1906,10 @@ function Home() {
             </Tooltip>
           </div>
         </div>
+
+        {/* Feature #222: soft self-rescue if THIS install got paused from
+            Settings → Devices (or another device) — never a hard block. */}
+        <DevicePausedBanner />
 
         {/* Other browser-profile installs of this user — awareness chips */}
         <OtherProfilesStrip style={{ marginBottom: '8px' }} />

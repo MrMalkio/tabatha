@@ -15,6 +15,7 @@ import { useSyncStatus } from '../hooks/useSyncStatus';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import ContextViewPanel from './ContextViewPanel';
+import DevicesPanel from './DevicesPanel';
 import CortexPanel from './CortexPanel';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
@@ -87,6 +88,7 @@ const SECTIONS = [
   { id: 'appearance', label: '🎨 Appearance' },
   { id: 'clock', label: '🕐 FlipClock' },
   { id: 'contextview', label: '📺 Context View' },
+  { id: 'devices', label: '📟 Devices' },
   { id: 'focus', label: '🎯 Focus Engine' },
   { id: 'lifecycle', label: '🧠 Focus Lifecycle' },
   { id: 'intent', label: '🚪 Intent-Popup' },
@@ -1513,6 +1515,13 @@ function Settings() {
               <div data-search-id="section-contextview">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Context View</h2>
                 <ContextViewPanel profile={profile} isSignedIn={isSignedIn} refreshProfile={refreshProfile} />
+              </div>
+            )}
+
+            {activeSection === 'devices' && (
+              <div data-search-id="section-devices">
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Devices</h2>
+                <DevicesPanel isSignedIn={isSignedIn} />
               </div>
             )}
 

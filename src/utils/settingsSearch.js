@@ -161,6 +161,11 @@ export const SETTINGS_SEARCH_INDEX = [
   { id: 'contextview-checkpoint-preview', section: 'contextview', label: 'Checkpoint counter and last note', keywords: ['checkpoint', 'counter', 'note', 'preview'] },
   { id: 'contextview-fade-speed', section: 'contextview', label: 'Phone-away fade speed', keywords: ['phone away', 'red', 'fade', 'immediate', 'slow'] },
   { id: 'contextview-day-reset-hour', section: 'contextview', label: 'Day reset hour', keywords: ['day reset', 'hour', 'midnight'] },
+  { id: 'section-devices', section: 'devices', label: 'Devices', keywords: ['devices', 'device management', 'sign out', 'pause', 'rename', 'sidecar', 'browser profiles'] },
+  { id: 'devices-signin', section: 'devices', label: 'Devices — Cloud Sync sign-in', keywords: ['sign in', 'cloud sync', 'devices'] },
+  { id: 'devices-panel', section: 'devices', label: 'Devices list', keywords: ['devices', 'browser profiles', 'sidecar', 'extension installs'] },
+  { id: 'devices-list', section: 'devices', label: 'Device rows — rename, pause, kind, sign out', keywords: ['rename', 'pause', 'resume', 'device kind', 'phone', 'tablet', 'desktop', 'watch', 'sign out', 'revoke'] },
+  { id: 'devices-show-all', section: 'devices', label: 'Show all devices', keywords: ['show all', 'hidden devices', 'stale', 'unnamed'] },
   { id: 'desktop-pairing', section: 'desktop', label: 'Companion pairing', keywords: ['pair', 'pairing', 'token', 'companion', 'desktop'] },
   { id: 'section-about', section: 'about', label: 'About', keywords: ['version', 'changelog', 'about', 'flux'] },
 
