@@ -13,6 +13,15 @@
 Recommended five, in order: `02-sidebar.png`, `03-home.png`, `06-popup.png`,
 `07-workshifts.png`, `04-settings.png`.
 
+**Graphics (generated 2026-07-21, all in `store-assets/`):**
+- Store icon: `store-icon-128.png` (128×128)
+- Small promo tile: `promo-small-440x280.png` (440×280, 24-bit, no alpha)
+- Marquee promo tile: `promo-marquee-1400x560.png` (1400×560, 24-bit, no alpha)
+
+**Privacy policy URL:** `https://tabatha.pondocean.co/privacy.html` (live,
+updated 2026-07-16 — covers default collection, never-collected list, screen
+capture opt-in, companion, AI features, storage, orgs, no selling/sharing).
+
 **Category:** Productivity → Workflow & Planning. **Language:** English.
 
 **Description (paste verbatim):**
@@ -90,10 +99,26 @@ Tabatha is part of the Flux ecosystem — tools built to bridge the gap between 
 ## 3) Distribution tab
 
 - Visibility: **Private** → restricted to the Workspace domain.
-  ⚠️ The admin login observed is `mr@gnge.co` (OU "Duck & Shark") — confirm whether
-  the private-domain option shows `duckandshark.com` or `gnge.co`, and that it
-  matches the domain of the devices being force-installed.
+  Domain question RESOLVED (Malkio 2026-07-21): `mr@gnge.co` and
+  `mr@duckandshark.com` are the same Workspace account (`@duckandshark.com` is an
+  alias); force-install targets' `@duckandshark.com` emails are in the Workspace.
+- **Trusted testers**: for people OUTSIDE the Workspace, use a **Google Group**
+  as the trusted-tester list (allowed for private visibility, and much easier to
+  manage than per-email) — add the group's email in the trusted-tester field.
 - Distribution: all regions. Then **Save draft → Submit**.
+
+## 3b) Host-permission review note
+
+The console warns: `<all_urls>` may trigger an in-depth review that delays
+publishing. Our usage is legitimately broad and non-negotiable for the product:
+the Gatekeeper/InBar/BlockGate overlays and per-tab context+time tracking must
+inject on whatever site the user happens to visit — Tabatha targets no specific
+site, reads only tab title/URL (never page content), and does nothing without the
+user's own account. If a reviewer asks, that's the answer; the permission
+justifications in §2 already state it. Expect days-not-hours for first publish;
+private/domain-restricted items still get reviewed. Do NOT try to narrow to
+activeTab/optional-hosts — the proactive overlays are the core product and
+require injection before user interaction.
 
 ## 4) After publish — Workspace force-install
 
