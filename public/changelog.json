@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.51",
+      "title": "Logo redesign: Split-Tab T replaces eye-in-T mark",
+      "date": "2026-07-21",
+      "intro": "> Retires the neon \"T with an eye\" icon — Malkio flagged it as reading like surveillance, the wrong story for an attention *aid*. New mark (\"Split-Tab T\"): two rounded browser-tab cards meet over the stem to form the crossbar, no eye/lens/camera/crosshair anywhere. Same dark plate + single cyan accent family language, legibility-tested at 16px. Replaces `public/icons/icon-1024.png`, `icon128.png`, `icon48.png`, `icon32.png`, `icon16.png`, `icon.svg`. Store-listing assets (`store-assets/*.png`) regenerated separately, ahead of Malkio's next Chrome Web Store upload — see `store-assets/logo-redesign/` for the full concept set and rationale.",
+      "sections": []
+    },
+    {
       "version": "6.7.46",
       "title": "Device-row flood fix: adopt-before-insert",
       "date": "2026-07-20",

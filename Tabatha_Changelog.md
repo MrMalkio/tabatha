@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.51] - Logo redesign: Split-Tab T replaces eye-in-T mark - _2026-07-21_
+
+> Retires the neon "T with an eye" icon — Malkio flagged it as reading like surveillance, the wrong story for an attention *aid*. New mark ("Split-Tab T"): two rounded browser-tab cards meet over the stem to form the crossbar, no eye/lens/camera/crosshair anywhere. Same dark plate + single cyan accent family language, legibility-tested at 16px. Replaces `public/icons/icon-1024.png`, `icon128.png`, `icon48.png`, `icon32.png`, `icon16.png`, `icon.svg`. Store-listing assets (`store-assets/*.png`) regenerated separately, ahead of Malkio's next Chrome Web Store upload — see `store-assets/logo-redesign/` for the full concept set and rationale.
+
 ## [v6.7.46] - Device-row flood fix: adopt-before-insert - _2026-07-20_
 
 > browser_profiles registration now adopts this install/machine's newest existing row before ever inserting a fresh one, so an amnesiac install identity converges instead of minting duplicate device rows every wake (650-row flood root-caused on the desktop install). Diagnostics added for adoption + identity minting.
