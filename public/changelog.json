@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.47",
+      "title": "Onboarding demo-walkthrough design spec",
+      "date": "2026-07-20",
+      "intro": "> Docs-only: approved design spec for the modular onboarding system (10 avatars, universal intro + branched journeys, tagged demo-data lifecycle, host-portable module registry, changelog-driven maintenance automation). No runtime changes.",
+      "sections": []
+    },
+    {
       "version": "6.7.46",
       "title": "Device-row flood fix: adopt-before-insert",
       "date": "2026-07-20",
