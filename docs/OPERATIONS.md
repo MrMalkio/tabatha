@@ -84,6 +84,37 @@ npm run publish:update -- --no-build   # package the existing dist/ instead
   --check`) has nothing to resolve and would fail every time otherwise.
 - Requires `gh` CLI authenticated with push access.
 
+### 2.2b Extension — Workspace enterprise force-install channel (the jbdka line)
+
+Undocumented until 2026-07-21 (found by archaeology; nothing in `scripts/`
+builds it). This is the channel behind the Google Admin force-install entry
+`jbdkacccpknbiphigeabcdojemnhacjj` — a PACKED CRX, self-hosted on the marketing
+site under `site/enterprise/`. The ID comes from the OUTER CRX signature (the
+standalone signing key at
+`C:\Users\mrmal\.tabatha-secrets\tabatha-extension-signing-key.pem`), NOT the
+manifest `key` (which stays pinned inside the package, harmless).
+
+Release steps (proven 6.7.22 → 6.7.50, 2026-07-21):
+
+1. Build the release dist in a clean worktree at the release commit.
+2. Pack: `chrome.exe --pack-extension="<dist-copy>" --pack-extension-key="<pem>"`
+   (copy the dist to a scratch dir first — Chrome writes `<dir>.crx` next to it).
+3. **Verify before publishing**: parse the CRX3 header (protobuf field
+   `0x0a 0x10` = 16-byte crx_id, nibble→a-p alphabet) and assert the id equals
+   `jbdka…` and the inner manifest version equals the release. A wrong-key pack
+   silently changes the id and the fleet would ignore the update.
+4. Drop `site/enterprise/tabatha-<version>.crx` (`git add -f` — `*.crx` is
+   gitignored) and point `site/enterprise/update.xml` `codebase` + `version` at
+   it. Keep the previous crx in place for rollback.
+5. Deploy the site (`wrangler pages deploy site --project-name=tabatha
+   --branch=main`) and live-verify: update.xml shows the new version and the crx
+   URL serves the `Cr24` magic bytes.
+6. Managed Chromes poll the policy update URL on Chrome's own cadence (hours);
+   no user action needed.
+
+This channel retires once the CWS item (§2.3) is published and the Workspace
+force-install is repointed to store id `piopncjacohahbkkmockjnpenhdbmmbc`.
+
 ### 2.3 Extension — Chrome Web Store
 
 Sources: `scripts/build-store-zip.mjs`, `scripts/cws-publish.mjs`,
