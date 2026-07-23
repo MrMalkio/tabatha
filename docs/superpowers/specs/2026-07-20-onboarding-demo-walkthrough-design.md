@@ -1,9 +1,9 @@
 # Onboarding Demo Walkthrough — Design Spec
 
-**Date:** 2026-07-20
-**Current version:** 6.7.46
+**Date:** 2026-07-20 (rev. 2026-07-23)
+**Current version:** 6.7.47
 **Status:** Approved design, pre-plan (implementation plan will register as Plan 046)
-**Related:** #168 (Help & Docs Page), `useWhatsNew` hook, TEAM-ONBOARDING.md
+**Related:** #168 (Help & Docs Page), `useWhatsNew` hook, TEAM-ONBOARDING.md, #211 (Voice), #182 (Chaperone), Cortex program (Plans 039–044), Tabby Sidecar/Watch/Companion
 
 ---
 
@@ -17,7 +17,9 @@ New users land in Tabatha with zero context and a dense product. Build a **modul
 4. Ends with a **"what you skipped" menu** — every module not in their branch, launchable on demand.
 5. Makes **every feature's onboarding an independent, on-demand module**, so new tours = reordering module lists, not writing code.
 6. Is **host-portable**: the same module definitions run live in the extension (real saves) and, later, on a sandboxed demo site.
-7. **Stays current automatically** via changelog-driven lint + a scheduled maintenance agent.
+7. **Stays current automatically** via changelog-driven lint + a scheduled maintenance agent, wired into the release runbook (§13).
+8. Includes a **guided settings interview** (§12): the assistant turns the settings surface into plain-language questions and applies the user's answers directly.
+9. Spans **all surfaces** — extension, Sidecar (mobile), Watch, Desktop Companion — and can be **driven by voice** and **personalized by Cortex** observational data (§14).
 
 ## 2. Avatars
 
@@ -178,15 +180,90 @@ The step vocabulary + host adapter is the portability layer. The demo site ships
 - SandboxHost doubles as the test harness: full journeys run headless in Vitest without Chrome.
 - Browser regression: fresh-profile install → full solo journey → keep/clear both paths → assert no `_demo` rows in sync payloads.
 
-## 11. Out of scope (v1)
+## 12. Guided settings interview
+
+The last leg of onboarding (offered after the branch, before the completion screen; also replayable from Settings → Tours). Instead of dropping the user into 20+ settings sections, the assistant **interviews** them and applies answers directly. This is roadmap — a later phase of Plan 046, after the core walkthrough ships.
+
+### 12.1 Settings-as-questions registry
+
+Each interview question is a declarative object generated from the existing settings schema, so the interview stays in lockstep with real settings (and is covered by the same lint in §13):
+
+```js
+{
+  id: 'gatekeeper-intensity',
+  section: 'intent-popup',          // maps to a real settings section
+  question: 'When you open a fresh tab with no plan, how much should Tabatha step in?',
+  kind: 'single',                   // single | multi | scale | toggle | text
+  options: [
+    { label: 'Always ask what I\'m doing', apply: { gatekeeper: 'always' } },
+    { label: 'Only when I seem to be drifting', apply: { gatekeeper: 'smart' } },
+    { label: 'Stay out of my way', apply: { gatekeeper: 'off' } },
+  ],
+  avatars: ['adhd', 'solo', 'time-tracker-only'],   // whose interview this belongs in
+  writes: ['settings.intentPopup.mode'],            // for lint + audit
+  reversible: true,
+}
+```
+
+- **Answers write real settings live** (via `settingsService`), the same as any manual change — no separate apply step, and every write is auditable/reversible (`activityAuditService`).
+- Questions are **avatar-scoped**: a time-tracker gets clock/auto-clock/quiet-Gatekeeper questions; a biller gets client/taxonomy/rounding questions; an ADHD user gets friction/blocking/routine questions. The interview is a filtered pass over the question registry, not a fixed script.
+- **Plain language, not setting names** — "how much should Tabatha step in?" not "Intent-Popup mode." Copy lives beside the question.
+- **Skippable per question and as a whole**; every answer has a sensible default so skipping is safe. A short summary card at the end shows exactly what changed with one-tap undo.
+- **Coverage, not exhaustiveness** — the interview surfaces the high-impact settings for the user's avatar; the full settings surface remains for power users. Lint (§13) tracks which settings are interview-reachable and flags high-impact ones that aren't.
+
+### 12.2 Voice mode
+
+When voice (#211) / Chaperone (#182) is available, the interview can be **spoken**: the assistant asks each question aloud and parses the reply into the same `apply` payload. Falls back to tap/type silently when voice is off or unsupported. The question registry is unchanged — voice is a delivery adapter, mirroring the host-adapter pattern (§4.4).
+
+## 13. Runbook integration (onboarding never goes stale)
+
+The maintenance automation in §9 is only reliable if it's a **release gate**, not a good intention. Tabatha has no formal runbook file today (release discipline lives in the pre-commit `version:sync --check` hook and the `changelog:check` drift gate). Plan 046 adds:
+
+1. **`docs/RUNBOOK.md`** — a first-class release runbook. Its "every release" checklist includes an **Onboarding coverage** step: run `npm run tour:check`; if it reports an uncovered feature-flagged changelog entry, either author/extend a module or mark it `no-tour` with a reason. The build fails otherwise.
+2. **Pre-commit + CI gate** — `tour:check` joins `version:check` and `changelog:check` in `.git/hooks/pre-commit` and in CI, so a commit that ships a user-facing feature without an onboarding decision **cannot land**. This is the mechanism that makes "onboarding components are always updated whenever new features are released" enforced rather than aspirational.
+3. **Changelog contract** — a lightweight convention: a changelog entry that introduces user-facing behavior carries a trailing tag — `[tour: <moduleId>]` or `[tour: none]`. `tour:check` parses these; `changelog:build` already parses the file, so this is an additive field. The weekly maintenance agent (§9.3) reads the same tags to draft stubs for any `[tour: TODO]` left behind.
+4. **TaskRun hook** — the existing `docs/taskrun/*` overnight queues gain a standing "onboarding coverage sweep" item so drift is caught even between releases.
+
+Net: the release runbook, the pre-commit gate, the changelog contract, and the weekly agent form one loop — a feature can't ship without an onboarding decision, and anything that slips is swept up within a week.
+
+## 14. Surface & AI advancements (2026-07-23 revision)
+
+Onboarding is no longer an extension-only, typed-only, un-personalized flow. Three shifts fold into the same module registry:
+
+### 14.1 Multi-surface
+
+Tabatha now spans the **extension**, **Tabby Sidecar** (mobile web, v0.11 line), **Tabby Watch**, and the **Desktop Companion** (0.3.1, a real Windows download). The `surface` field on each module (§4.1) already anticipates this; the additions:
+
+- **Per-surface host adapters** — Sidecar and Companion each implement the §4.4 adapter (mobile gets a `MobileHost`; the Companion drives its own tray/panel steps). A module declares which surfaces it supports; a journey only includes surface-appropriate modules.
+- **Cross-device handoff moment** — a first-class intro step: after the user logs their first intent in the extension, the tour surfaces "see it on your phone" — the same focus appears live in Sidecar (realtime already ships), teaching the sync value proposition at the exact moment it's most legible.
+- **Companion install** is woven into the owner/team-member and time-tracker journeys rather than living only in TEAM-ONBOARDING.md.
+
+### 14.2 Voice / Chaperone
+
+Voice input (#211) and Chaperone mode (#182) become both **a tour module** (teaching the feature) and **a delivery adapter** for the tour itself (narration spoken, replies parsed) — see §12.2. Adapter pattern keeps the module content identical across typed and spoken delivery.
+
+### 14.3 Cortex personalization
+
+The Cortex program (capture, self-correction, agent context) gives the assistant real **observational data** to personalize onboarding:
+
+- **Smarter avatar inference** — instead of only asking "what brings you here?", Cortex signals (app/site categories, clock patterns) can pre-select the most likely avatar, which the user confirms or overrides. Fail-open: no Cortex data → fall back to the plain picker.
+- **Data-driven contextual re-offers** — the §7 re-offer triggers upgrade from simple thresholds to Cortex-observed patterns (e.g. "you've had 5 unfinished focuses this week" → offer the follow-through/checkpoint module).
+- **Interview priming** — the guided interview (§12) can pre-fill likely answers from observed behavior, shown as "we noticed X — sound right?" rather than a blank question. Always user-confirmed, always reversible, never silently applied.
+
+Privacy stance is unchanged: Cortex personalization is **opt-in and local-first**; onboarding degrades gracefully to the non-personalized flow when capture is off.
+
+## 15. Out of scope (v1)
 
 - The standalone demo website itself (adapter-ready only).
 - Localization of tour copy.
-- Mobile Sidecar onboarding (future journey over the same registry).
-- Contextual re-offer ML/heuristics beyond simple threshold rules.
+- Native Watch onboarding steps (glanceable surface; Watch enters via the multi-surface registry later).
+- Contextual re-offer ML/heuristics beyond simple threshold rules (Cortex-driven re-offers are §14.3 roadmap, not v1).
+- Full voice-driven interview (§12.2 is roadmap; v1 interview is tap/type).
 
-## 12. Open questions
+## 16. Open questions
 
-- Copy voice/tone pass — who writes final narration text? (Draft copy ships with v1 modules.)
+- Copy voice/tone pass — who writes final narration and interview text? (Draft copy ships with v1 modules.)
 - Avatar picker wording — "profiles" vs "goals" framing; needs a quick design pass.
 - Whether the intro's clock step is skipped entirely for the Distraction-blocker avatar (leaning yes).
+- Interview depth — how many questions is too many before fatigue? (Leaning: ≤6 per avatar, hard cap.)
+- Changelog tag enforcement — soft-warn for one release before hard-failing the gate, to avoid blocking unrelated work during rollout.

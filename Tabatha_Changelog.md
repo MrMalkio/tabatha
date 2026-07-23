@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.48] - Onboarding spec rev: settings interview + runbook gate + multi-surface/voice/Cortex - _2026-07-23_
+
+> Docs-only: revised the onboarding design spec. Added §12 guided settings interview (assistant turns the settings schema into avatar-scoped plain-language questions that write real settings live, with a voice-mode delivery adapter), §13 runbook integration (new docs/RUNBOOK.md + tour:check pre-commit/CI gate + `[tour: <moduleId>]` changelog contract so no user-facing feature ships without an onboarding decision), and §14 surface/AI advancements (multi-surface host adapters + cross-device handoff, voice/Chaperone as both module and delivery adapter, Cortex-driven avatar inference/re-offers/interview priming). No runtime changes. [tour: none]
+
 ## [v6.7.47] - Onboarding demo-walkthrough design spec - _2026-07-20_
 
 > Docs-only: approved design spec for the modular onboarding system (10 avatars, universal intro + branched journeys, tagged demo-data lifecycle, host-portable module registry, changelog-driven maintenance automation). No runtime changes.
