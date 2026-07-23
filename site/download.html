@@ -72,6 +72,88 @@ hr { border:0; border-top:1px solid var(--border); margin:36px 0 24px; }
 hr + p { font-size:13px; color:var(--dim); }
 :focus-visible { outline:2px solid var(--cyan); outline-offset:3px; border-radius:var(--r-sm); }
 @media (max-width:560px) { .wrap { padding:0 18px 56px; } .top { height:64px; } }
+
+/* ── tester section ──────────────────────────────────────── */
+.tester { border-color:rgba(0,240,255,.28); background:rgba(0,240,255,.035); }
+.tester h3 {
+  font:600 12.5px/1 var(--mono); letter-spacing:.04em; margin:20px 0 8px;
+  color:var(--text);
+}
+.tester h3:first-of-type { margin-top:4px; }
+.callout {
+  border:1px solid rgba(255,215,0,.3); background:rgba(255,215,0,.05);
+  border-radius:var(--r-md); padding:14px 16px; margin:16px 0 4px;
+  font-size:13.5px; color:var(--muted);
+}
+.callout strong { color:#ffd766; }
+.reslist { list-style:none; padding-left:0; display:flex; flex-wrap:wrap; gap:8px 18px; }
+.reslist li { margin-bottom:0; }
+.reslist a { border-bottom-style:dotted; }
+
+/* ── shared form label (invite gate + waitlist) ──────────────── */
+.lbl {
+  display:block; margin-bottom:8px; font:500 11px/1 var(--mono);
+  letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+}
+
+/* ── invite gate form (mirrors the homepage waitlist form) ──── */
+.invform { max-width:480px; margin:14px 0 4px; }
+.invrow { display:flex; gap:8px; flex-wrap:wrap; }
+.invrow input[type=text] {
+  flex:1; min-width:180px;
+  background:#0d1014; border:1px solid var(--border);
+  border-radius:var(--r-md); color:var(--text);
+  font:400 14px var(--mono); letter-spacing:.02em; padding:11px 13px;
+  transition:border-color .16s ease, background .16s ease;
+}
+.invrow input[type=text]::placeholder { color:#6b7580; font-family:var(--sans); }
+.invrow input[type=text]:hover { border-color:rgba(255,255,255,.18); }
+.invrow input[type=text]:focus {
+  outline:none; border-color:var(--cyan); background:#0f1318;
+  box-shadow:0 0 0 3px rgba(0,240,255,.12);
+}
+.invrow input[type=text][aria-invalid=true] { border-color:#ff5c86; }
+.invrow button {
+  flex:none; background:var(--cyan); color:#04070a;
+  border:1px solid var(--cyan); border-radius:var(--r-md);
+  font:700 12.5px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+  padding:0 18px; cursor:pointer; white-space:nowrap;
+  transition:filter .16s ease, transform .06s ease;
+}
+.invrow button:hover { filter:brightness(1.12); }
+.invrow button:active { transform:translateY(1px); }
+.invrow button[disabled] { opacity:.55; cursor:progress; }
+.msg { min-height:20px; margin:10px 0 0; font:400 13px/1.5 var(--sans); color:var(--muted); }
+.msg[data-state=error] { color:#ff5c86; }
+.msg[data-state=success] { color:var(--cyan); }
+.reveal { margin-top:16px; padding-top:16px; border-top:1px dashed var(--border); }
+.reveal[hidden] { display:none; }
+
+/* ── waitlist (reused from the homepage teaser) ─────────────── */
+.wlform { max-width:440px; margin:12px 0 4px; }
+.wlform .row { display:flex; gap:8px; flex-wrap:wrap; }
+.wlform input[type=email] {
+  flex:1; min-width:180px;
+  background:#0d1014; border:1px solid var(--border);
+  border-radius:var(--r-md); color:var(--text);
+  font:400 14px var(--sans); padding:11px 13px;
+  transition:border-color .16s ease, background .16s ease;
+}
+.wlform input[type=email]::placeholder { color:#6b7580; }
+.wlform input[type=email]:focus {
+  outline:none; border-color:var(--cyan); background:#0f1318;
+  box-shadow:0 0 0 3px rgba(0,240,255,.12);
+}
+.wlform input[type=email][aria-invalid=true] { border-color:#ff5c86; }
+.wlform button {
+  flex:none; background:transparent; color:var(--cyan);
+  border:1px solid rgba(0,240,255,.45); border-radius:var(--r-md);
+  font:700 12.5px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+  padding:0 18px; cursor:pointer; white-space:nowrap;
+  transition:filter .16s ease, background .16s ease;
+}
+.wlform button:hover { background:rgba(0,240,255,.1); }
+.wlform button[disabled] { opacity:.55; cursor:progress; }
 </style>
 </head>
 <body>
@@ -84,6 +166,61 @@ hr + p { font-size:13px; color:var(--dim); }
     <h1>Get Tabatha</h1>
     <p class="lede">One account, every surface. Install the pieces you need — they find
     each other through your sign-in and stay in sync.</p>
+
+    <section class="card tester" id="testers">
+      <div class="sur"><h2>For invited testers</h2><span class="tag">Start here</span></div>
+      <p>You're on this page because you were personally invited to try Tabatha before
+      anyone else. This section is for you.</p>
+
+      <h3>What we're asking</h3>
+      <p>Use it for real — let it gate your actual browsing, not a demo tab. Then tell us
+      what broke, what confused you, or what you wanted it to do and it didn't. Rough
+      feedback is more useful than polished silence.</p>
+
+      <h3>What you can do</h3>
+      <p>Everything: the browser extension (Gatekeeper, sidebar, work shifts, time
+      tracking), <a href="https://tabatha.pondocean.co/sidecar">Tabby Sidecar</a> on your
+      phone, the Windows desktop companion, and Context View on a spare screen. Nothing
+      below is held back from testers.</p>
+
+      <h3>How to get started</h3>
+      <ol>
+        <li><strong>Install the extension</strong> — enter your invite key just below to
+        unlock the current build, or use your organization's managed Chrome account if
+        you were set up that way.</li>
+        <li><strong>Sign in and activate with your invite key</strong> — open the
+        extension's <b>Settings → ☁️ Sync &amp; Account</b>, sign in, then paste your key
+        under <b>Join via Invite Token</b> and press <b>Join</b>. This is what actually
+        redeems the key and attaches your account.</li>
+        <li><strong>Install Tabby Sidecar</strong> — open
+        <a href="https://tabatha.pondocean.co/sidecar">tabatha.pondocean.co/sidecar</a> on
+        your phone and sign in with the same account. If it asks for an invite code
+        (new accounts only), the same key works there too.</li>
+      </ol>
+
+      <h3>Resources</h3>
+      <ul class="reslist">
+        <li><a href="/docs/">Docs &amp; guides</a></li>
+        <li><a href="/show/">Show &amp; Tell (see every surface)</a></li>
+        <li><a href="https://tabatha.pondocean.co/sidecar">Tabby Sidecar</a></li>
+        <li><a href="/docs/feedback-and-troubleshooting.html">Where to send feedback</a></li>
+      </ul>
+      <p>Fastest feedback path once installed: toolbar popup → <b>💬 Send feedback</b> →
+      <b>🐛 Bug</b> or <b>💡 Idea</b> (extension), or Settings →
+      <b>💬 Feedback &amp; bug report</b> — same pipeline either way.</p>
+
+      <div class="callout">
+        <strong>About the official Chrome Web Store listing:</strong> it is currently
+        <strong>under review</strong>. Once it's approved, you'll be able to switch to it
+        seamlessly — <strong>as long as you sign in first</strong>. Here's the plain
+        version of why: Chrome treats the Web Store version as a completely different
+        extension install from this one, and anything that hasn't synced to your
+        account — local-only focus history, unsynced settings — <strong>cannot transfer
+        between two separate installs</strong>. Sign in now (Settings → ☁️ Sync &amp;
+        Account) and switching later carries everything with it. Stay signed out, and
+        switching means starting over.
+      </div>
+    </section>
 
     <section class="card">
       <div class="sur"><h2>Browser Extension</h2><span class="tag">Chrome · Core</span></div>
@@ -101,19 +238,39 @@ hr + p { font-size:13px; color:var(--dim); }
         <li>Pin the icon, open a new tab, and tell the Gatekeeper what you're down
         for. Sign in from the home page to turn on cloud sync.</li>
       </ol>
+
+      <h3 style="font:600 12.5px/1 var(--mono);letter-spacing:.04em;margin:22px 0 8px;color:var(--text);">Invited tester? Download the current build directly</h3>
+      <p>Enter your invite key to unlock a direct download of the current staff build —
+      no Chrome Web Store account needed. Checking your key here does <strong>not</strong>
+      spend it: the same key still works afterwards to activate your account.</p>
+      <form class="invform" id="invform" novalidate>
+        <label class="lbl" for="invkey">Invite key</label>
+        <div class="invrow">
+          <input id="invkey" name="invkey" type="text" inputmode="text"
+                 autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx-xxxxxxxx"
+                 aria-describedby="invmsg" required>
+          <button type="submit" id="invgo">Check key</button>
+        </div>
+        <p class="msg" id="invmsg" role="status" aria-live="polite"></p>
+      </form>
+      <div class="reveal" id="invreveal" hidden></div>
+
       <p class="docs">Full guide: <a href="/docs/getting-started-extension.html">Getting started with the extension</a></p>
     </section>
 
     <section class="card">
-      <div class="sur"><h2>Tabby Sidecar</h2><span class="tag">Phone · Tablet · Web app</span></div>
-      <p>Your focus, queue, checkpoints, and clock — from your phone. Installs straight
-      from the browser; no app store needed.</p>
+      <div class="sur"><h2>Tabby Sidecar</h2><span class="tag">No app store · Installs in seconds</span></div>
+      <p>Your focus, queue, checkpoints, and clock — from your phone. There is
+      <strong>no app store listing to wait on</strong>: open the link, sign in, and it
+      installs straight to your home screen in seconds.</p>
       <div class="btnrow">
         <a class="btn" href="https://tabatha.pondocean.co/sidecar">Open Sidecar</a>
       </div>
       <ol>
-        <li>Open the link above <strong>on your phone or tablet</strong> and sign in
-        (use your invite code if you're new).</li>
+        <li>Open the link above <strong>on your phone or tablet</strong> and sign in.
+        New account? Your <strong>invite key works here too</strong> — sign in first,
+        then enter it when Sidecar asks for one to activate the account (the same key
+        from the extension, not a separate one).</li>
         <li><strong>iPhone / iPad:</strong> in Safari, tap Share &rarr;
         <strong>Add to Home Screen</strong>.<br>
         <strong>Android:</strong> in Chrome, tap the menu &rarr;
@@ -182,10 +339,25 @@ hr + p { font-size:13px; color:var(--dim); }
     </div>
 
     <hr>
-    <p><em>Access is currently invite-based. If you need an invite, or an installer for
-    a platform not listed here, write to
+    <section class="card" id="waitlist">
+      <div class="sur"><h2>No invite yet?</h2><span class="tag dim">Waitlist</span></div>
+      <p>Access is currently invite-based. Leave your email and we'll reach out once a
+      spot opens up — one email, when it happens, nothing else.</p>
+      <form class="wlform" id="wl" novalidate>
+        <label class="lbl" for="email">Get told when a spot opens</label>
+        <div class="row">
+          <input id="email" name="email" type="email" inputmode="email"
+                 autocomplete="email" placeholder="you@example.com"
+                 aria-describedby="msg" required>
+          <button type="submit" id="go">Join</button>
+        </div>
+        <p class="msg" id="msg" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+    <p><em>Or, for an installer for a platform not listed here, write to
     <a href="mailto:caspera@duckandshark.com">caspera@duckandshark.com</a>.</em></p>
   </main>
 </div>
+<script src="/assets/download.js" defer></script>
 </body>
 </html>

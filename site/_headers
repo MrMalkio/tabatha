@@ -46,3 +46,18 @@
 /enterprise/*.crx
   Content-Type: application/x-chrome-extension
   Cache-Control: public, max-age=300
+
+# /download (site/download.html) needs two additional fetch targets beyond
+# same-origin, both first-party/public data with no user auth on them:
+#   - the invite-check Edge Function (validates an invite key client-side,
+#     non-consuming — see supabase/functions/invite-check/index.ts)
+#   - the public update-channel pointer (zipUrl/version/sha256 for the
+#     current staff build — already public, already the newest-pointer
+#     convention used by the desktop/enterprise update paths)
+# Overrides the global connect-src for this path only; every other directive
+# is unchanged from the site-wide policy above.
+/download
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://mtdgoahskcibjbhfvofx.supabase.co https://raw.githubusercontent.com; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'; object-src 'none'
+
+/download.html
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://mtdgoahskcibjbhfvofx.supabase.co https://raw.githubusercontent.com; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'; object-src 'none'
