@@ -21,6 +21,7 @@ import RecentScreen from '../screens/RecentScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ContextView from '../screens/ContextView';
 import SimpleScreen from '../screens/SimpleScreen';
+import FeedbackButton from '../components/FeedbackButton';
 import { useOwnDeviceStatus } from '../data/deviceStatus';
 import { colors } from '../lib/theme';
 
@@ -157,6 +158,7 @@ export default function Index() {
           <Pressable onPress={() => setSimpleMode(true)} style={styles.ctxBtn}>
             <Text style={styles.ctxBtnTxt}>✏️ Simple view</Text>
           </Pressable>
+          <FeedbackButton profileId={profile?.id ?? null} />
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {(profile?.display_name || 'T').charAt(0).toUpperCase()}
