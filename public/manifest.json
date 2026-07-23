@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tabatha",
-  "version": "6.7.64",
+  "version": "6.7.65",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7QwwycV7g9jk2zir/DkG5oDcTm9Swo+CUJvo/aq7UFCDan1MHx3KondJH5uisT/JeVxKwDi7iP9GbLrfJUUWmfEK4TVtaN0pWRwxDbIoP+sLR9ia3LwG544112GcmkcGZT1BUtqTXPZCTPfF6k3Me0oh9Vte4synFvphyruJY8vpm7xGOsjb8EAmbsliCYCZNo1MV77GAyYt8x1aheqsB0lr6mSChl4EreT/quhrKZ/oMHCM6p35mJbIyCskjyoN8/BK1GDSQuKLbt12toFIoSB0uiZgjNGV7hLajzysZnULA6w53OO1WhRYybRN3jUhR3WJbdKRj62RfcGk+VysQIDAQAB",
   "description": "Context-driven tab manager that maintains intention, tracks time, and supports follow-through across browsing sessions.",
   "permissions": [

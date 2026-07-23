@@ -22,12 +22,50 @@ const escapeHtml = (str) => {
 };
 
 (async () => {
+  // Guard against double-injection (e.g. this content script re-running on
+  // the same document for any reason) — never stack two overlays.
+  if (document.getElementById('tabatha-gatekeeper-host')) return;
+
+  // TR-03 fix (2026-07-23): synchronous dimming placeholder, created and
+  // attached BEFORE any await below. document_start guarantees
+  // document.documentElement exists (body may not yet) so we attach there.
+  // This closes the race where page content could paint while
+  // CHECK_CONTEXT_NEEDED / GET_FOCUS_ENGINE / the storage.local round-trips
+  // below are in flight — without this, a fast page could render a frame or
+  // more of un-gated content before the intent gate appeared, defeating
+  // "set intent before browsing."
+  //
+  // The SAME host + shadow root is reused (not replaced) once the full gate
+  // is ready — see step 4 below — so the fast-resolve path is a content swap
+  // inside an already-dim backdrop, not a placeholder->form flicker.
+  const host = document.createElement('div');
+  host.id = 'tabatha-gatekeeper-host';
+  Object.assign(host.style, {
+    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+    zIndex: '2147483647',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    backdropFilter: 'blur(2px)',
+    transition: 'background-color 0.12s ease-out, backdrop-filter 0.12s ease-out',
+    pointerEvents: 'auto'
+  });
+  const shadow = host.attachShadow({ mode: 'closed' });
+  document.documentElement.appendChild(host);
+
+  // Becomes true once the full gate form is appended into `shadow`. Used to
+  // decide whether a bail-out / error path should tear down the bare
+  // placeholder (gate never materialized) or leave the real gate alone.
+  let gateShown = false;
+  const teardownPlaceholder = () => {
+    if (!gateShown && host.isConnected) host.remove();
+  };
+
+  try {
   // 1. Check if we need to intercept
   let response;
   try {
     response = await chrome.runtime.sendMessage({ type: 'CHECK_CONTEXT_NEEDED' });
-  } catch (e) { return; } // Extension context invalidated
-  if (!response || !response.needed) return;
+  } catch (e) { teardownPlaceholder(); return; } // Extension context invalidated
+  if (!response || !response.needed) { teardownPlaceholder(); return; }
 
   // Capture inherited context for pre-filling the form
   const inheritedContext = response.inheritedContext || '';
@@ -94,21 +132,17 @@ const escapeHtml = (str) => {
     setTimeout(() => { obs.disconnect(); resolve(); }, 3000);
   });
   await waitForBody();
-  if (!document.body) return; // Still no body — abort
+  if (!document.body) { teardownPlaceholder(); return; } // Still no body — abort
 
-  // 4. Create Shadow DOM Overlay
-  const host = document.createElement('div');
-  host.id = 'tabatha-gatekeeper-host';
+  // 4. Promote the placeholder into the full Shadow DOM Overlay. Reuse the
+  // SAME `host` + `shadow` created synchronously above — do not create a new
+  // host/shadow here — so there is no gap where the placeholder is removed
+  // and the full gate hasn't yet appeared (which would flash raw page).
   Object.assign(host.style, {
-    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-    zIndex: '2147483647',
     backgroundColor: `rgba(0,0,0,${strictMode ? 0.85 : 0.6})`,
     backdropFilter: `blur(${blurStrength}px)`,
     pointerEvents: strictMode ? 'auto' : 'auto'
   });
-
-  const shadow = host.attachShadow({ mode: 'closed' });
-  document.documentElement.appendChild(host);
   if (strictMode) document.body.style.overflow = 'hidden';
 
   // 5. Styles
@@ -333,6 +367,7 @@ const escapeHtml = (str) => {
     <a class="skip-link" id="skip-domain" data-tip="Stop showing this prompt on ${location.hostname}">Skip intent for this domain</a>
   `;
   shadow.appendChild(container);
+  gateShown = true; // full gate is live — teardownPlaceholder() must no-op from here on
 
   // 7. Logic
   const ctxInput = shadow.getElementById('context');
@@ -494,4 +529,11 @@ const escapeHtml = (str) => {
 
   // Enter key
   ctxInput.onkeydown = (e) => { if (e.key === 'Enter') shadow.getElementById('continue').click(); };
+  } catch (err) {
+    // TR-03 safety net: if anything above throws before the full gate is
+    // appended, never leave the dimming placeholder stuck over the page.
+    teardownPlaceholder();
+    if (!gateShown && document.body) document.body.style.overflow = '';
+    console.error('[Tabatha] gatekeeper failed to render intent gate:', err);
+  }
 })();
