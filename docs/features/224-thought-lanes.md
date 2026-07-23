@@ -1,6 +1,7 @@
-# Feature #224 — Thought Lanes (working title; alt: Threads)
+# Feature #224 — Thought Lanes
 
-**Status:** concept — captured 2026-07-22, awaiting Malkio confirmation of framing
+**Naming:** CONFIRMED by Malkio 2026-07-22 — "Lanes" over "Threads."
+**Status:** concept — framing confirmed, awaiting concept-exploration pass
 **Source:** Malkio voice dump, 2026-07-22 (turkey-in-the-oven moment)
 **Candidate north star** for the attention suite — Malkio explicitly flagged this
 as a possible framing for "what the platform actually does."
@@ -57,7 +58,7 @@ single-focus model can produce.
 2. Is a lane a focus_state ('lane'/'running_background') or a tag tier?
 3. Reminder policy per lane (time-based? kind-based — oven vs build?)
 4. Does clock/shift time attribute to lanes concurrently or primary-only?
-5. Naming: Thought Lanes vs Threads vs Lanes (Malkio not settled).
+5. ~~Naming: Thought Lanes vs Threads vs Lanes~~ — RESOLVED: Lanes (2026-07-22).
 
 ## Disposition
 
