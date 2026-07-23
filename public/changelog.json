@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.69",
+      "title": "Self-heal InPop \"[object Object]\" data corruption (legacy-corrupted label/funnelStage/context)",
+      "date": "2026-07-23",
+      "intro": "> Fixes the live-observed bug where the InPop gatekeeper rendered `[object Object]` for the intent input value, every paused-focus row's label, and every row's funnel-stage badge. Root cause: `gatekeeper.js`'s `escapeHtml()` faithfully renders whatever it's given (`String(anObject)` is literally `\"[object Object]\"`) — the DATA reaching it was object-shaped, not the render code. A full sweep of every current shipping writer of `label`/`funnelStage`/tab `context` (focusService.js, tabService.js, dataRehydrate.js, focusIngestService.js/liveIngestArbitration.js, every UI caller of `updateFocus`/`renameFocus`/`SET_TAB_CONTEXT`) found none that produce an object today — this is legacy/historical local-storage corruption that survives indefinitely because `reconcileKnownFocusRow` returns non-Sidecar-sourced items untouched and `dataRehydrate`'s newest-wins merge only overwrites when the cloud ref time is newer; neither path ever coerced an existing bad value back to a string, and `handleTabCreated`'s parent→child `context` inheritance silently propagates one corrupted ancestor tab's value to every tab opened from it. New pure module `src/utils/focusDataSanitize.js` (`coerceStringField`/`sanitizeFocusItem`/`sanitizeFocusEngine`/`sanitizeTabContext`/`sanitizeTabsMap`) coerces any object-shaped field to its best inner string (`{label|text|value|name}`) or a safe default (`label`→'Untitled focus', `funnelStage`→'unsorted', `context`→null), wired into `focusService.js` + `storageService.js`'s `getFocusEngine()` and `storageService.js`'s `getTabData()` so every install self-heals on its very next engine/tabs read — no reinstall, no data loss — plus defensive coercion at the two inbound-cloud-row mappers (`dataRehydrate.js serverFocusToLocal`, `liveIngestArbitration.js reconcileKnownFocusRow`) so re-corruption can't sneak back in. 16 new unit tests (`test/focusDataSanitize.test.js`) including a red→green repro against the real `focusService.getFocusEngine()` proving the self-heal persists the repair to storage.",
+      "sections": []
+    },
+    {
       "version": "6.7.68",
       "title": "Gatekeeper race-fix hardening: no flash for disabled users + hang-proof timeouts (Koda review, TR-03 unblocked)",
       "date": "2026-07-23",

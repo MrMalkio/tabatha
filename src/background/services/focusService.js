@@ -8,6 +8,8 @@ import { archiveBeforeCap } from './archiveService.js';
 import { broadcastAll, broadcastToExtension } from './notificationService.js';
 import { logAudit } from './activityAuditService.js';
 import { validateStartTime } from '../../utils/focusTimeValidation.js';
+import { sanitizeFocusEngine } from '../../utils/focusDataSanitize.js';
+import { logger } from '../../services/logger.js';
 
 let injectedDeps = {};
 let focusAlarmsRegistered = false;
@@ -283,6 +285,22 @@ export async function getFocusEngine() {
   const engine = focusEngine ? { ...focusEngine } : { ...DEFAULT_FOCUS_ENGINE };
   if (!engine.items) engine.items = {};
   if (!engine.history) engine.history = [];
+
+  // 2026-07-23 self-heal (InPop "[object Object]" fix): a legacy/historical
+  // write left some installs with object-valued label/funnelStage on one or
+  // more items. No current writer produces this, but nothing sanitizes an
+  // already-corrupted value either, so it survives every reconcile/rehydrate
+  // pass indefinitely (reconcileKnownFocusRow returns non-Sidecar-sourced
+  // items untouched; dataRehydrate's newest-wins merge only overwrites when
+  // the cloud ref time is >=). Sanitize on every read and persist the repair
+  // immediately so the very next read (including the gatekeeper's own
+  // GET_FOCUS_ENGINE round trip) is clean — no reinstall, no data loss.
+  const { engine: healedEngine, healed, healedIds } = sanitizeFocusEngine(engine);
+  if (healed) {
+    logger.warn('DATA_SANITIZE', 'Healed corrupted focus-engine item(s) (object-valued label/funnelStage/context/tags)', { healedIds });
+    await setStorage({ focusEngine: healedEngine });
+    return healedEngine;
+  }
   return engine;
 }
 

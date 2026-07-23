@@ -27,6 +27,8 @@
 // commit message for the traced proof.
 // ============================================================
 
+import { coerceStringField } from './focusDataSanitize.js';
+
 export function isSidecarSourced(tags) {
   return !!tags && tags._src === 'sidecar';
 }
@@ -109,9 +111,19 @@ export function reconcileKnownFocusRow({ localItem, row }) {
     next.focusState = row.focus_state;
     changed = true;
   }
-  if (row.label !== undefined && row.label !== localItem.label) {
-    next.label = row.label;
-    changed = true;
+  if (row.label !== undefined) {
+    // Defensive coercion (2026-07-23 InPop "[object Object]" fix): row.label
+    // is a Supabase text column and is never actually object-shaped in
+    // practice, but this is the inbound boundary from a cloud row applying
+    // straight onto a local item, so it gets the same defense as
+    // dataRehydrate's serverFocusToLocal(). Falls back to the local item's
+    // existing label (never 'Untitled focus') so an unusable inbound value
+    // can't clobber a perfectly good local label.
+    const coercedLabel = coerceStringField(row.label, localItem.label);
+    if (coercedLabel !== localItem.label) {
+      next.label = coercedLabel;
+      changed = true;
+    }
   }
   if (row.timer_minutes !== undefined) {
     const tm = Number(row.timer_minutes);

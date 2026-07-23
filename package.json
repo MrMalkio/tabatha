@@ -1,7 +1,7 @@
 {
   "name": "tabatha",
   "private": true,
-  "version": "6.7.68",
+  "version": "6.7.69",
   "type": "module",
   "scripts": {
     "dev": "vite",
