@@ -17,6 +17,7 @@ import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
 import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 import DevicePausedBanner from '../components/DevicePausedBanner';
+import FeedbackWidget from '../components/FeedbackWidget';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -405,6 +406,8 @@ function Sidebar() {
             <Tooltip text="Open settings">
               <button onClick={() => chrome?.runtime?.openOptionsPage?.()} style={{ background:'none', border:'none', fontSize:'12px', cursor:'pointer', padding:'0 2px', color:'var(--color-text-muted)' }}>⚙️</button>
             </Tooltip>
+            {/* TR-14a: settings-adjacent, non-intrusive feedback affordance */}
+            <FeedbackWidget surface="sidebar" variant="inline" />
             <Tooltip text="Work Shifts">
               <button onClick={() => chrome?.tabs?.create?.({ url: chrome.runtime.getURL('workshifts.html') })} style={{ background:'none', border:'none', fontSize:'12px', cursor:'pointer', padding:'0 2px', color:'var(--color-text-muted)' }}>⏱️</button>
             </Tooltip>

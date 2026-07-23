@@ -35,6 +35,7 @@ import { logger } from '../services/logger';
 import CompanionStatus from '../components/CompanionStatus';
 import UnifiedTimeline from '../components/UnifiedTimeline';
 import DevicePausedBanner from '../components/DevicePausedBanner';
+import FeedbackWidget from '../components/FeedbackWidget';
 
 // B1: format an ISO timestamp into a `datetime-local` input value (local TZ).
 function toLocalInput(iso) {
@@ -2461,6 +2462,11 @@ function Home() {
         onResolved={() => { setAbandonedOpen(false); dispatchClockIn(); }}
         onClose={() => setAbandonedOpen(false)}
       />
+
+      {/* TR-14a: persistent, non-intrusive feedback affordance (corner icon —
+          Home is a tall scrolling dashboard, so a fixed corner button stays
+          reachable without competing with any section's primary content) */}
+      <FeedbackWidget surface="home" variant="corner" />
     </div>
   );
 }
