@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import appConfig from '../../app.json';
 
 const DEVICE_KEY = 'tabby.sidecar.deviceId';
 
@@ -20,10 +21,11 @@ function uuid(): string {
   });
 }
 
-// Kept as a literal (mirrors app.json) rather than pulled in via
-// expo-constants at runtime — same approach the Settings screen's version
-// footer already used before this was extracted. Bump alongside app.json.
-export const SIDECAR_VERSION = '0.13.5';
+// Single source of truth: read from app.json at build time via a static JSON
+// import (tsconfig extends expo/tsconfig.base → resolveJsonModule on), so a
+// version bump in app.json propagates automatically with no second manual
+// edit. Mirrors the extension's sync-version.mjs no-drift guarantee (TR-17).
+export const SIDECAR_VERSION: string = appConfig.expo.version;
 
 let cached: string | null = null;
 
