@@ -149,6 +149,42 @@ deploy after a 5-second visual smoke-check (`OPERATIONS.md` §2.1 clean-worktree
   (backburner buttons, feedback affordances); SYSTEM-MAP migration/version ledger. These should follow the
   fork merge so they describe a real shipped line, not a forked one.
 
+## Addendum (2026-07-23, Dex) — TR-03 unblocked by Koda's late review
+
+Koda's adversarial review of TR-03 (`be45b99`, the 6.7.65 gatekeeper render-race fix) landed after
+this report was written and **demoted TR-03 from self-reviewed PASS to BLOCKED**, with three findings:
+
+- **P1-A** — the synchronous dimming placeholder attached unconditionally on every navigation, before
+  `CHECK_CONTEXT_NEEDED` resolved, even for users with the gatekeeper fully disabled — a transient
+  click-blocking dim on every page load for a population that should see nothing.
+- **P1-B** — neither `CHECK_CONTEXT_NEEDED` nor `GET_FOCUS_ENGINE` had a timeout on the service-worker
+  round-trip: a stalled SW left the placeholder stuck over the page **indefinitely**, strictly worse
+  than the pre-fix failure mode ("no gate appears" = usable page).
+- **P2-C** — the top-level `const escapeHtml` (outside the IIFE) would throw a parse-time SyntaxError
+  on re-injection into an already-loaded document (`notificationService.js`'s `openPopup` re-injection
+  path), silently defeating the double-injection guard since the whole file fails to parse before the
+  guard runs.
+
+**`integrate/6.7.50` @ `c3681e9`, v6.7.68, closes all three:**
+1. Fast local `chrome.storage.local.get('settings')` pre-check (no SW round-trip) bails with zero DOM
+   for confirmed-disabled users; ambiguous reads still fail toward gating but the placeholder now
+   starts `pointerEvents:'none'` and only flips to `'auto'` once the background positively confirms
+   `needed:true`.
+2. Both round-trips wrapped in a `withTimeout()` helper (~2.5s, precedented by the existing
+   `waitForBody()` 3s pattern); on timeout the placeholder tears down and the gate quietly aborts.
+3. `escapeHtml` moved inside the IIFE; swept the rest of the file for the same top-level
+   const/let/class hazard, none found.
+
+`npm test` (723/723) and `npm run build` (with the changelog `--check` gate) both green. Changelog
+backfilled for 6.7.65/66/67 (was missing, prebuild was warning) plus the 6.7.68 entry. Pushed to
+`origin/integrate/6.7.50`.
+
+**TR-13 (6.7.66, Team Activity device grouping) and TR-14a (6.7.67, non-intrusive feedback widget)
+stand as-is** — Koda's review raised no findings against either; both remain self-reviewed PASS per
+the original report above.
+
+---
+
 ## Queue position & verification summary
 - **Executable queue: 16/16 addressed.** Shipped+verified: TR-02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17.
   Prepped-for-approval: TR-01, TR-18. Fork-blocked: TR-19.
