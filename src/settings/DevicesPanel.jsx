@@ -179,8 +179,9 @@ function PairDeviceCard() {
     <div data-search-id="devices-pair" style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: '16px' }}>
       <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>➕ Pair a new device</div>
       <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
-        Generate a one-time code, then on the new device open the Sidecar and choose
-        “Sign in with a code” (TVs), or use Pair on the watch.
+        Generate a one-time code, then on the new device (phone, TV, watch, or
+        anything else running the Sidecar) open the Sidecar and choose
+        “Sign in with a code.”
       </p>
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
         {PAIR_KINDS.map((k) => {
