@@ -82,6 +82,23 @@ Resolves largely with Q1: the logo source already lives inside `integrate/6.7.50
 `a22b504`). **Decision:** confirm the reconciled line (per Q1) is the CWS-submission source before any
 store submission.
 
+## Q8 — TR-01: Regina device-row cleanup (one DELETE to approve + run)
+
+Prepped, not executed (hard-deleting production rows is a §1.2 deferred action, and no prior
+server-side-cleanup run existed to replicate). **Findings (verified live via Mgmt API):**
+Regina (`profile_id 07466c2e-ba6c-4a89-b701-1a550544a44e`, display_name "regina") has **37**
+`tabatha.browser_profiles` rows: 33 are the null-`machine_id` chrome local_id-regen flood, the
+other 4 are real distinct devices. Of the 33 flood rows, **15 carry FK-referenced history (keep)**
+and **18 are unreferenced pure dupes (safe to delete)**. Post-cleanup Regina keeps **19** rows; the
+15 referenced flood rows collapse visually once TR-13's chip grouping ships.
+- (Correction to the queue's premise: the "~731 rows / ~650 dupes" figure describes *Malkio's own*
+  historical account (`4abda377`, "Malkio R", 115 rows / 110 revoked today), not Regina's — Regina's
+  flood is the milder 37→19 case.)
+
+**The action:** review + run `scripts/regina-device-dedup-2026-07-23.sql`. It is a DRY-RUN SELECT
+(expect 18), then a transactional BACKUP-to-shadow-table + DELETE with a count safety-rail and a
+one-line UNDO. Fully reversible via the shadow table. Nothing else needs deciding — just approve and run.
+
 ## Q7 — staging → main promotion (queue Excluded)
 
 Not executed tonight. **Decision:** once `origin/staging` is caught up (Q4) and the fork reconciled
