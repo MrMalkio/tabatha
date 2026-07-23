@@ -2,29 +2,59 @@
 // Injected at document_start to intercept browsing flow
 // Formal name: Intent-Popup (InPop)
 
-// Security fix wave (2026-07-21 audit, NOW #1) — HTML-escaping helper.
-// Duplicated (not imported) on purpose: gatekeeper.js and inbar.js are each
-// built as a standalone classic (non-module) content script per manifest.json
-// content_scripts — Rollup only inlines a shared module when it's referenced
-// by a single entry point; importing this from 2+ content-script entries makes
-// it a separate chunk file with a real `import` statement in the output, which
-// Chrome cannot resolve for a classic script (verified empirically during this
-// fix — see docs/audits/2026-07-21-SYNTHESIS.md item 1). Canonical copy +
-// unit test live at src/utils/escapeHtml.js; keep both in sync if this changes.
-const escapeHtml = (str) => {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-};
-
 (async () => {
+  // Security fix wave (2026-07-21 audit, NOW #1) — HTML-escaping helper.
+  // Duplicated (not imported) on purpose: gatekeeper.js and inbar.js are each
+  // built as a standalone classic (non-module) content script per manifest.json
+  // content_scripts — Rollup only inlines a shared module when it's referenced
+  // by a single entry point; importing this from 2+ content-script entries makes
+  // it a separate chunk file with a real `import` statement in the output, which
+  // Chrome cannot resolve for a classic script (verified empirically during this
+  // fix — see docs/audits/2026-07-21-SYNTHESIS.md item 1). Canonical copy +
+  // unit test live at src/utils/escapeHtml.js; keep both in sync if this changes.
+  //
+  // Moved INSIDE the IIFE in 6.7.68 (Koda adversarial review of TR-03, P2-C):
+  // a top-level `const escapeHtml` would throw a parse-time SyntaxError if
+  // this classic script is re-injected into an already-loaded document (e.g.
+  // notificationService.js's openPopup re-injection path) — re-declaring a
+  // top-level `const` is a syntax error, and a syntax error means the WHOLE
+  // FILE fails to parse before even the double-injection guard below runs,
+  // silently defeating that guard. Scoped inside the IIFE, a re-injection
+  // just re-declares a function-scoped const on a fresh call, which is safe.
+  // (Swept the rest of this file for the same hazard: no other top-level
+  // const/let/class exists outside this IIFE.)
+  const escapeHtml = (str) => {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   // Guard against double-injection (e.g. this content script re-running on
   // the same document for any reason) — never stack two overlays.
   if (document.getElementById('tabatha-gatekeeper-host')) return;
+
+  // 6.7.68 (Koda adversarial review of TR-03, P1-A): fast LOCAL pre-check,
+  // read directly via chrome.storage.local — NOT a chrome.runtime.sendMessage
+  // round-trip to the service worker — so a gatekeeper-disabled user gets a
+  // decision before we ever create DOM, no service-worker wake required.
+  // Mirrors tabService.js's checkContextNeeded(), which reads the exact same
+  // `settings.gatekeeperEnabled` key via getStorage('settings') (itself just
+  // chrome.storage.local.get('settings')). If we can positively confirm the
+  // flag is off, bail with zero placeholder, zero flash. If the read throws,
+  // or the key/flag is missing (e.g. this install has no settings written
+  // yet), fail TOWARD gating and fall through — that ambiguity is exactly
+  // why TR-03 exists (an un-gated flash is the failure this whole file is
+  // for), and the indeterminate-window pointerEvents fix immediately below
+  // makes fail-toward-gating cheap: it dims but never blocks a click until
+  // the background positively confirms gating is needed.
+  try {
+    const { settings: localSettings } = await chrome.storage.local.get('settings');
+    if (localSettings && localSettings.gatekeeperEnabled === false) return;
+  } catch (e) { /* unreadable — fail toward gating, continue below */ }
 
   // TR-03 fix (2026-07-23): synchronous dimming placeholder, created and
   // attached BEFORE any await below. document_start guarantees
@@ -46,7 +76,14 @@ const escapeHtml = (str) => {
     backgroundColor: 'rgba(0,0,0,0.35)',
     backdropFilter: 'blur(2px)',
     transition: 'background-color 0.12s ease-out, backdrop-filter 0.12s ease-out',
-    pointerEvents: 'auto'
+    // 6.7.68 (P1-A): dim-only during the indeterminate window between "we
+    // don't yet know if gating is needed" and CHECK_CONTEXT_NEEDED's
+    // response. Clicks must still reach the page here — we have NOT yet had
+    // background confirmation that gating actually applies to this tab (a
+    // disabled-but-locally-unconfirmed, or genuinely un-gated, tab must not
+    // have its clicks swallowed). Flipped to 'auto' only once `needed: true`
+    // comes back below — that's the real "promote toward the gate" point.
+    pointerEvents: 'none'
   });
   const shadow = host.attachShadow({ mode: 'closed' });
   document.documentElement.appendChild(host);
@@ -59,13 +96,37 @@ const escapeHtml = (str) => {
     if (!gateShown && host.isConnected) host.remove();
   };
 
+  // 6.7.68 (P1-B): hard timeout wrapper for the background round-trips
+  // below. Precedent: waitForBody()'s 3s safety timeout further down in this
+  // file. Before this fix, a stalled/unresponsive service worker left the
+  // `await chrome.runtime.sendMessage(...)` calls pending forever — the
+  // surrounding try/catch only ever caught a *rejection*, never a hang, so
+  // the placeholder (with pointerEvents now 'auto' once confirmed needed)
+  // stayed attached over the page INDEFINITELY. That's strictly worse than
+  // pre-TR-03 behavior, where a hang just meant "no gate appears" (page
+  // stayed usable). withTimeout() turns a hang into a rejection after
+  // ~2.5s so the existing catch blocks can tear the placeholder down and
+  // quietly abort, restoring the old "usable page" failure mode.
+  const withTimeout = (promise, ms = 2500) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Tabatha gatekeeper: background did not respond within ${ms}ms`)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+
   try {
   // 1. Check if we need to intercept
   let response;
   try {
-    response = await chrome.runtime.sendMessage({ type: 'CHECK_CONTEXT_NEEDED' });
-  } catch (e) { teardownPlaceholder(); return; } // Extension context invalidated
+    response = await withTimeout(chrome.runtime.sendMessage({ type: 'CHECK_CONTEXT_NEEDED' }));
+  } catch (e) { teardownPlaceholder(); return; } // Extension context invalidated, or SW stall/timeout
   if (!response || !response.needed) { teardownPlaceholder(); return; }
+
+  // Confirmed: gating IS needed for this tab. Only now do we start blocking
+  // clicks — everything from here forward is "promoting toward the real
+  // gate" per the P1-A fix above.
+  host.style.pointerEvents = 'auto';
 
   // Capture inherited context for pre-filling the form
   const inheritedContext = response.inheritedContext || '';
@@ -81,13 +142,19 @@ const escapeHtml = (str) => {
   let blurStrength = 10;
 
   try {
-    const feRes = await chrome.runtime.sendMessage({ type: 'GET_FOCUS_ENGINE' });
+    // 6.7.68 (P1-B): same withTimeout wrapper as CHECK_CONTEXT_NEEDED above —
+    // a stalled service worker must not hang this await. Unlike
+    // CHECK_CONTEXT_NEEDED, a timeout/rejection here is non-fatal to the
+    // gate itself (caught below, focusItems just stays empty) — the point is
+    // only to guarantee this step can never be the thing that hangs the
+    // whole IIFE and leaves the (now-blocking) placeholder stuck.
+    const feRes = await withTimeout(chrome.runtime.sendMessage({ type: 'GET_FOCUS_ENGINE' }));
     if (feRes?.focusEngine?.items) {
       focusItems = Object.values(feRes.focusEngine.items)
         .filter(i => i.focusState === 'active' || i.focusState === 'paused')
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
-  } catch (e) { /* no focus items */ }
+  } catch (e) { /* no focus items, or SW stall/timeout — proceed without them */ }
 
   try {
     const stored = await chrome.storage.local.get(['intentHistory', 'intentPresets', 'settings']);

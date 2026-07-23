@@ -4,6 +4,22 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.68] - Gatekeeper race-fix hardening: no flash for disabled users + hang-proof timeouts (Koda review, TR-03 unblocked) - _2026-07-23_
+
+> Koda's adversarial review of 6.7.65's gatekeeper race fix demoted TR-03 to blocked on three findings; this closes all three so the fix can ship. **P1-A:** the synchronous dimming placeholder from 6.7.65 was attaching unconditionally on every navigation before `CHECK_CONTEXT_NEEDED` resolved — even for users with the gatekeeper fully disabled — giving them a transient click-blocking dim they should never see. `gatekeeper.js` now does a fast local `chrome.storage.local.get('settings')` pre-check (no service-worker round-trip, mirrors `tabService.js`'s `checkContextNeeded()` read of the same `settings.gatekeeperEnabled` key) and bails with zero DOM if positively confirmed off; if the read is ambiguous it still fails toward gating, but the placeholder now starts `pointerEvents: 'none'` (dim-only, non-blocking) and only flips to `'auto'` once the background positively confirms `needed: true`. **P1-B:** neither `CHECK_CONTEXT_NEEDED` nor `GET_FOCUS_ENGINE` had a timeout, so a stalled service worker left the placeholder stuck over the page indefinitely — strictly worse than the pre-fix "no gate appears" hang. Both awaits are now wrapped in a `withTimeout()` helper (~2.5s, same pattern as the existing `waitForBody()` 3s safety timeout); on timeout the placeholder is torn down and the gate quietly aborts. **P2-C:** the top-level `const escapeHtml` (outside the IIFE) would throw a parse-time SyntaxError on re-injection into an already-loaded document (e.g. `notificationService.js`'s `openPopup` path), which silently defeats the double-injection guard since the whole file fails to parse before the guard runs — moved inside the IIFE, where re-declaration on re-injection is a harmless function-scoped rebind. Swept the rest of the file for the same top-level const/let/class hazard; none found.
+
+## [v6.7.67] - Non-intrusive feedback affordance on Sidebar and Home (TR-14a) - _2026-07-23_
+
+> Adds a low-profile feedback entry point (`src/components/FeedbackWidget.jsx`) to both the Sidebar and Home surfaces, reusing the existing feedback-to-Asana pipeline rather than a new backend path.
+
+## [v6.7.66] - Team Activity groups device chips (TR-13) - _2026-07-23_
+
+> `TeamActivityPanel.jsx` now groups a user's device chips together via a shared `deviceGrouping` util instead of listing them flat, and filters out revoked devices from the grouped view.
+
+## [v6.7.65] - Gatekeeper injects synchronous dimming placeholder before async intent gate (close render race, TR-03) - _2026-07-23_
+
+> `gatekeeper.js` now attaches a synchronous full-viewport dim+blur placeholder at `document_start`, before any `CHECK_CONTEXT_NEEDED` / `GET_FOCUS_ENGINE` / storage.local awaits — closing a race where a fast page could paint a frame or more of un-gated content before the intent gate appeared. The same host + shadow root is reused (not replaced) once the full gate form is ready, so the resolve path is a content swap inside an already-dim backdrop rather than a placeholder-to-form flicker. (Superseded in part by 6.7.68 above — Koda's adversarial review found this initial version showed the placeholder unconditionally, including to gatekeeper-disabled users, and had no timeout on the background round-trips; both are fixed in 6.7.68.)
+
 ## [v6.7.56] - Security: RLS state-aware guard on browser_profiles.revoked_at (audit NOW #2, migration UNAPPLIED) - _2026-07-21_
 
 > Adds `supabase/migrations/058_browser_profiles_lifecycle_guard.sql` — a `BEFORE UPDATE` trigger mirroring `syncService.js`'s `reclaimAllowed()` server-side: an authenticated session may only clear `browser_profiles.revoked_at` (un-revoke) when the CURRENT GoTrue session differs from the one stamped on the row when it was revoked. Closes the gap where a revoked session's still-valid JWT could PATCH `revoked_at` back to `null` directly via PostgREST, bypassing the 6.7.54 app-code-only check (migration 016's write RLS never checked session identity). `paused` and every other column stay ungated (soft flag by design); `service_role` bypasses unconditionally. Functionally exercised against a local throwaway Postgres (6 scenarios, all matched expected behavior) plus a 10-assertion structural lint test (`test/migration058Lint.test.js`) — **migration is NOT applied to the live database**, flagged for the placeholder + repair protocol.
