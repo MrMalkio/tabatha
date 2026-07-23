@@ -45,11 +45,12 @@ CRX rebuild/publish. They sit on the branch that already owns the ext source, re
 
 ## Q2 — Sidecar source-of-truth (parallel to Q1, if confirmed)
 
-Charter says Sidecar **0.13.5** is live, but `staging` and this worktree both read `app.json`
-**0.11.0**. The current Sidecar source likely lives on another branch/worktree (same pattern as the
-extension fork). **Decision:** confirm which branch is the canonical Sidecar source so Sidecar work
-(TR-14 feedback button, TR-17 version-gen) bases on the right tree.
-_[Investigation status filled in during the run — see progress log.]_
+**RESOLVED during the run:** the only worktree at Sidecar `app.json` 0.13.5 is
+`claude/tabby-sidecar-mobile-46c612` (the sidecar mobile branch) — `staging` and every other
+worktree read 0.11.0. So `claude/tabby-sidecar-mobile-46c612` **is** the canonical Sidecar source
+line (it ships straight to prod via the clean-worktree pipeline; it doesn't need staging). Sidecar
+work tonight (TR-17 version-gen, the Sidecar half of TR-14) bases on it. **Decision (confirm only):**
+agree this branch is canonical for Sidecar. See `docs/taskrun/2026-07-22-git-reconciliation.md`.
 
 ---
 
