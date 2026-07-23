@@ -15,7 +15,6 @@ import { TagPicker } from '../components/ui/TagPicker';
 import { ComboInput } from '../components/ui/ComboInput';
 import { StagePicker } from '../components/ui/StagePicker';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
-import { SessionList } from './SessionList';
 import { LogsPanel } from './LogsPanel';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { ProjectsClientsPanel } from './ProjectsClientsPanel';
