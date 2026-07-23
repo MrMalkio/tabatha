@@ -174,14 +174,14 @@ undownloadable**:
 
 `package.json` (staging) `site:deploy` script:
 ```
-npm run site:build && npx wrangler@4 pages deploy site --project-name=tabatha
+npm run site:build && npx wrangler@4 pages deploy site --project-name=tabatha --branch=main
 ```
 `site:build` = `build-privacy.mjs` + `build-search-index.mjs`.
-**Practiced addition not in the script**: run with `--branch=main` explicit.
-`wrangler pages deploy` without `--branch` infers it from the current git
-ref, and agents routinely run this from a feature/worktree branch —
-omitting the flag risks a Cloudflare Pages *preview* deploy instead of
-production. Real gap between the written script and the safe command.
+The `--branch=main` flag is now **in the script** (TR-16, 2026-07-23): without
+it `wrangler pages deploy` infers the branch from the current git ref, and
+agents routinely run this from a feature/worktree branch — omitting the flag
+risked a Cloudflare Pages *preview* deploy instead of production. The script and
+the safe command now match; no manual flag addition is required anymore.
 
 ### 2.6 Supabase migrations
 
