@@ -15,7 +15,7 @@
     "site:privacy": "node scripts/build-privacy.mjs",
     "site:check-privacy": "node scripts/build-privacy.mjs --check",
     "site:build": "node scripts/build-privacy.mjs && node scripts/build-search-index.mjs",
-    "site:deploy": "npm run site:build && npx wrangler@4 pages deploy site --project-name=tabatha",
+    "site:deploy": "npm run site:build && npx wrangler@4 pages deploy site --project-name=tabatha --branch=main",
     "site:serve": "node scripts/serve-showcase.mjs",
     "lint": "eslint .",
     "test": "node --test \"test/**/*.js\"",
