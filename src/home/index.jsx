@@ -274,6 +274,10 @@ function FocusBar({ activeFocus, actions, onAddAnother, clients, projects, tasks
             <Tooltip text="Pause focus — timer stops, you can start a new focus">
               <button onClick={() => actions.pauseFocus(activeFocus.id)} style={btnStyle('#ffa726')}>⏸ Pause</button>
             </Tooltip>
+            {/* TR-08 (#207 parity): Backburner — same message InBar sends */}
+            <Tooltip text="Backburner — put focus aside while waiting for something">
+              <button onClick={() => actions.backburnerFocus(activeFocus.id)} style={btnStyle('#ff9800')}>🔥</button>
+            </Tooltip>
           </>
         )}
         <Tooltip text="Edit label, timer, or funnel stage">

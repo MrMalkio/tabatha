@@ -515,6 +515,8 @@ function Sidebar() {
                     ) : activeFocus.focusState === 'paused' ? (
                       <Tooltip text="Resume focus"><button onClick={() => actions.resumeFocus(activeFocus.id)} style={btn('#66bb6a')}>▶ Resume</button></Tooltip>
                     ) : null}
+                    {/* TR-08 (#207 parity): Backburner — same message InBar sends */}
+                    <Tooltip text="Backburner — put focus aside while waiting for something"><button onClick={() => actions.backburnerFocus(activeFocus.id)} style={btn('#ff9800')}>🔥</button></Tooltip>
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                     <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
                     <Tooltip text="Checkpoint note"><button onClick={() => setShowCheckpoint(p => !p)} style={btn(isCheckpointStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isCheckpointStale ? '🟠' : ''}</button></Tooltip>
