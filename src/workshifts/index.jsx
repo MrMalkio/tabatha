@@ -625,8 +625,9 @@ function BreakNotes({ shiftIndex, breaks }) {
                 <button onClick={() => saveNote(j)} style={{ background: 'var(--color-accent-primary)', border: 'none', color: '#000', borderRadius: '3px', padding: '1px 6px', fontSize: '9px', cursor: 'pointer' }}>✓</button>
               </div>
             ) : (
-              <span onClick={() => { setEditing(j); setNoteInput(note); }} style={{ cursor: 'pointer', color: note ? 'var(--color-text-primary)' : '#ffab40', fontStyle: note ? 'normal' : 'italic' }}>
+              <span onClick={() => { setEditing(j); setNoteInput(note); }} style={{ cursor: 'pointer', color: note ? 'var(--color-text-primary)' : '#ffab40', fontStyle: note ? 'normal' : 'italic', display: 'inline-flex', alignItems: 'center' }}>
                 {note || '+ Add note'}
+                {note && <span style={STUB_BADGE} title="Break notes aren't wired to persistence yet — this note lives only in this session and will be lost on reload">SOON</span>}
               </span>
             )}
           </div>
