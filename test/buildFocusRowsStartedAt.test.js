@@ -105,3 +105,28 @@ test('buildFocusRows: paused item is unaffected (existing _elapsedMs/_startedAt 
   assert.equal(row.tags._startedAt, engine.items.f3.tags._startedAt);
   assert.equal(row.tags._elapsedMs, 12345);
 });
+
+test('buildFocusRows: malformed lastResumedAt degrades gracefully instead of throwing (Koda review — sync-cycle blast-radius guard)', () => {
+  const now = Date.now();
+  const engine = {
+    items: {
+      f4: {
+        id: 'f4',
+        label: 'Corrupted timestamp',
+        focusState: 'active',
+        elapsedMs: 5000,
+        lastResumedAt: 'garbage-not-a-date',
+        startedAt: new Date(now - 60000).toISOString(),
+        createdAt: new Date(now - 120000).toISOString(),
+        tags: {}
+      }
+    },
+    history: []
+  };
+  // Must NOT throw (a RangeError here would abort the entire sync cycle).
+  let rows;
+  assert.doesNotThrow(() => { rows = buildFocusRows(engine, { profile_id: 'p1' }); });
+  const row = rows.find(r => r.client_id === 'f4');
+  // Falls back to startedAt (the same fallback the paused branch uses).
+  assert.equal(row.tags._startedAt, engine.items.f4.startedAt);
+});

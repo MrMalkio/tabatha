@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.73] - Harden buildFocusRows against a malformed timestamp (Koda review of 6.7.71) - _2026-07-24_
+
+> Koda's adversarial review of the 6.7.71 cross-surface elapsed-drift fix found a P1 blast-radius bug: a malformed `item.lastResumedAt` makes `new Date(NaN).toISOString()` throw a RangeError inside `buildFocusRows`'s `.map()` — uncaught there, it aborts the ENTIRE `syncToSupabase()` cycle (intent history, calendar, clock history, org registry, desktop activity all silently skipped), repeating every sync until that one item is paused/resumed. The pre-6.7.71 code pushed `lastResumedAt` verbatim and never threw, so 6.7.71 introduced the regression; this is not theoretical given `lastResumedAt` can be seeded from ingested/remote values and the codebase's prior `[object Object]` corruption history. Fixed by guarding the back-date with `Number.isFinite(anchorMs)` and degrading to the same `startedAt/createdAt` fallback the paused branch uses, so a single corrupted item can never black out an install's whole sync. 4th unit test added asserting `assert.doesNotThrow` on a malformed `lastResumedAt`. [tour: none]
+
 ## [v6.7.72] - Asana PAT connect card in extension Settings (parity with Sidecar) - _2026-07-24_
 
 > The "Task Sync (Asana)" connect card — paste a Personal Access Token, pull Asana tasks into Tabatha (subtasks/blockers included) via `connect-asana`, sync now, disconnect — existed only in the Tabby Sidecar (Epic 3 v1); it now has an extension-side equivalent at Settings → Integrations, above the older Asana Time Tracking widget card. New `AsanaPanel.jsx` + background `asanaIntegrationService.js` (CONNECT_ASANA / DISCONNECT_ASANA / SYNC_ASANA_NOW / GET_ASANA_INTEGRATION, same message-router pattern as DevicesPanel/deviceService) forward the PAT once to `connect-asana` and never log, persist, or echo it back; a new `disconnect-asana` edge function wires up migration 035's previously-unwired `revoke_asana_credential` RPC for the Disconnect action.

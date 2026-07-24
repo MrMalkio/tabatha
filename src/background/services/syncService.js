@@ -439,9 +439,19 @@ export function buildFocusRows(engine, scope) {
       ...(item.tags || {}),
       ...(item.parentFocusId ? { _parent: item.parentFocusId } : {}),
       _backburner: !!item.backburnered,
-      _startedAt: item.focusState === 'active' && item.lastResumedAt
-        ? new Date(new Date(item.lastResumedAt).getTime() - (item.elapsedMs || 0)).toISOString()
-        : (item.tags?._startedAt || item.startedAt || item.createdAt || null),
+      _startedAt: (() => {
+        // Back-date the anchor by accumulated elapsedMs so `now - _startedAt`
+        // reproduces TOTAL elapsed on any reading surface (Sidecar parity).
+        // Guard against a malformed lastResumedAt: `new Date(NaN).toISOString()`
+        // throws RangeError, which — uncaught inside this .map() — would abort
+        // the whole sync cycle (Koda review 2026-07-24). Degrade to the same
+        // fallback the paused branch uses instead of throwing.
+        if (item.focusState === 'active' && item.lastResumedAt) {
+          const anchorMs = new Date(item.lastResumedAt).getTime() - (item.elapsedMs || 0);
+          if (Number.isFinite(anchorMs)) return new Date(anchorMs).toISOString();
+        }
+        return item.tags?._startedAt || item.startedAt || item.createdAt || null;
+      })(),
       ...(item.focusState !== 'active' ? { _elapsedMs: item.elapsedMs || 0 } : {})
     },
     created_at: isoOrNow(item.createdAt || item.startedAt),
