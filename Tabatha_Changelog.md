@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.72] - Asana PAT connect card in extension Settings (parity with Sidecar) - _2026-07-24_
+
+> The "Task Sync (Asana)" connect card — paste a Personal Access Token, pull Asana tasks into Tabatha (subtasks/blockers included) via `connect-asana`, sync now, disconnect — existed only in the Tabby Sidecar (Epic 3 v1); it now has an extension-side equivalent at Settings → Integrations, above the older Asana Time Tracking widget card. New `AsanaPanel.jsx` + background `asanaIntegrationService.js` (CONNECT_ASANA / DISCONNECT_ASANA / SYNC_ASANA_NOW / GET_ASANA_INTEGRATION, same message-router pattern as DevicesPanel/deviceService) forward the PAT once to `connect-asana` and never log, persist, or echo it back; a new `disconnect-asana` edge function wires up migration 035's previously-unwired `revoke_asana_credential` RPC for the Disconnect action.
+
 ## [v6.7.71] - Fix cross-surface elapsed-time drift (back-date tags._startedAt to Sidecar math) - _2026-07-24_
 
 > `syncService.buildFocusRows` pushed `tags._startedAt = lastResumedAt` verbatim for active items, silently dropping the item's accumulated `elapsedMs` from the cross-surface signal. Every other surface (Sidecar, Context View, another extension install) computes elapsed as `now - tags._startedAt`, so an active focus's elapsed time was undercounted by exactly its prior accumulated `elapsedMs` — worsening with every pause/resume cycle (a concrete slice of Malkio's "syncing between surfaces still a little off"). Fixed by back-dating `_startedAt = lastResumedAt - elapsedMs`, mirroring the Sidecar's own resume math (`Date.now() - accumulatedElapsed`); stable across repeated pushes while active (both fields frozen until the next pause) so it introduces no new "now" timestamp and can't trigger adoption ping-pong. `buildFocusRows` exported + a red→green unit test (`test/buildFocusRowsStartedAt.test.js`). [tour: none]
