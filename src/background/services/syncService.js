@@ -386,7 +386,7 @@ async function upsertRows(supabase, table, rows, onConflict, diagnosticKind) {
   });
 }
 
-function buildFocusRows(engine, scope) {
+export function buildFocusRows(engine, scope) {
   const byId = new Map();
   for (const item of Object.values(engine?.items || {})) {
     if (item?.id && !byId.has(item.id)) byId.set(item.id, item);
@@ -417,16 +417,30 @@ function buildFocusRows(engine, scope) {
     // convention (sidecar/src/data/focus.ts) — so the cross-surface live
     // ingest arbitration (extension AND Sidecar) can compare an
     // extension-authored row against a Sidecar-authored one on equal terms.
-    // _startedAt while active = lastResumedAt (the current run's start,
-    // matching the Sidecar's back-dated semantics); while paused it stays
-    // frozen at whatever it already was (falls back to startedAt/createdAt
-    // the first time a paused item is ever pushed).
+    //
+    // fix/sync-drift (v6.7.73): the extension's own resume paths
+    // (switchFocus/resumeFocus/adoptRemoteActive) use a two-field local model
+    // — elapsedMs (accumulated across prior pauses) + lastResumedAt (raw,
+    // NEVER back-dated wall-clock resume time) — which is fine internally,
+    // but pushing lastResumedAt verbatim as tags._startedAt silently dropped
+    // elapsedMs from the cross-surface signal. The Sidecar (and Context View,
+    // and any other extension install) compute elapsed as
+    // `now - tags._startedAt`; without back-dating that undercounts an
+    // active item's TRUE elapsed time by exactly its prior accumulated
+    // elapsedMs — worse with every pause/resume cycle. Back-dating
+    // (lastResumedAt - elapsedMs) mirrors the Sidecar's own resume math
+    // exactly (sidecar/src/data/focus.ts: `Date.now() - accumulatedElapsed`)
+    // and is stable across repeated pushes while the item stays active (both
+    // lastResumedAt and elapsedMs are frozen until the next pause), so it
+    // introduces no new "now" timestamp and can't cause adoption ping-pong.
+    // While paused it stays frozen at whatever it already was (falls back to
+    // startedAt/createdAt the first time a paused item is ever pushed).
     tags: {
       ...(item.tags || {}),
       ...(item.parentFocusId ? { _parent: item.parentFocusId } : {}),
       _backburner: !!item.backburnered,
       _startedAt: item.focusState === 'active' && item.lastResumedAt
-        ? item.lastResumedAt
+        ? new Date(new Date(item.lastResumedAt).getTime() - (item.elapsedMs || 0)).toISOString()
         : (item.tags?._startedAt || item.startedAt || item.createdAt || null),
       ...(item.focusState !== 'active' ? { _elapsedMs: item.elapsedMs || 0 } : {})
     },

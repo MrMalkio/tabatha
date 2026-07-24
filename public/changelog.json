@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.71",
+      "title": "Fix cross-surface elapsed-time drift (back-date tags._startedAt to Sidecar math)",
+      "date": "2026-07-24",
+      "intro": "> `syncService.buildFocusRows` pushed `tags._startedAt = lastResumedAt` verbatim for active items, silently dropping the item's accumulated `elapsedMs` from the cross-surface signal. Every other surface (Sidecar, Context View, another extension install) computes elapsed as `now - tags._startedAt`, so an active focus's elapsed time was undercounted by exactly its prior accumulated `elapsedMs` — worsening with every pause/resume cycle (a concrete slice of Malkio's \"syncing between surfaces still a little off\"). Fixed by back-dating `_startedAt = lastResumedAt - elapsedMs`, mirroring the Sidecar's own resume math (`Date.now() - accumulatedElapsed`); stable across repeated pushes while active (both fields frozen until the next pause) so it introduces no new \"now\" timestamp and can't trigger adoption ping-pong. `buildFocusRows` exported + a red→green unit test (`test/buildFocusRowsStartedAt.test.js`). [tour: none]",
+      "sections": []
+    },
+    {
       "version": "6.7.70",
       "title": "Extension source line reconciled onto staging (Split-Tab T on the canonical line)",
       "date": "2026-07-24",

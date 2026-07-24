@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.71] - Fix cross-surface elapsed-time drift (back-date tags._startedAt to Sidecar math) - _2026-07-24_
+
+> `syncService.buildFocusRows` pushed `tags._startedAt = lastResumedAt` verbatim for active items, silently dropping the item's accumulated `elapsedMs` from the cross-surface signal. Every other surface (Sidecar, Context View, another extension install) computes elapsed as `now - tags._startedAt`, so an active focus's elapsed time was undercounted by exactly its prior accumulated `elapsedMs` — worsening with every pause/resume cycle (a concrete slice of Malkio's "syncing between surfaces still a little off"). Fixed by back-dating `_startedAt = lastResumedAt - elapsedMs`, mirroring the Sidecar's own resume math (`Date.now() - accumulatedElapsed`); stable across repeated pushes while active (both fields frozen until the next pause) so it introduces no new "now" timestamp and can't trigger adoption ping-pong. `buildFocusRows` exported + a red→green unit test (`test/buildFocusRowsStartedAt.test.js`). [tour: none]
+
 ## [v6.7.70] - Extension source line reconciled onto staging (Split-Tab T on the canonical line) - _2026-07-24_
 
 > Reconciliation-only: merges the forked `integrate/6.7.50` extension-source line (the real source behind the shipped 6.7.48–6.7.69 CRX — device management, home-header fix, pairing-code mint, session-aware reclaim, the XSS-escape sweep, the RLS `revoked_at` guard, the InPop `[object Object]` self-heal) forward onto `staging`, which until now carried only the compiled 6.7.56 CRX binary plus the site/docs/audit work and a 9-patch-stale source tree. The two lines forked at `59d326b` and neither contained the other; this brings them into one canonical line. The Split-Tab T logo rollout (`feat/logo-rollout`, already merged into the integrate line) now rides on the reconciled `staging` — the next store upload carries the new mark. No new runtime code beyond what the merge carried; version-per-commit bump for the reconciliation merge. [tour: none]
