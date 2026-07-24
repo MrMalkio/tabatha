@@ -28,7 +28,8 @@ const HEAD = `
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="Tabby Sidecar"/>
-    <link rel="apple-touch-icon" href="/sidecar/icons/icon-192.png"/>
+    <link rel="icon" href="/sidecar/icons/favicon.ico" sizes="any"/>
+    <link rel="apple-touch-icon" href="/sidecar/icons/apple-touch-icon.png"/>
   </head>`;
 
 const indexPath = path.join(dist, 'index.html');
