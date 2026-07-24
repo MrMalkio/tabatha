@@ -348,6 +348,27 @@ export async function handleMessage(type, message = {}) {
         return { ok: false, error: err?.message || String(err) };
       }
     }
+    // ── Org-hours v1 (migration 060): per-person opt-in write. Direct RPC
+    // (server result required) via tabatha.set_share_hours_with_org — a
+    // small dedicated setter, not update_profile_settings, since
+    // share_hours_with_org is a scalar boolean and that RPC's merge logic
+    // assumes object-valued sub-keys. ──
+    case 'SET_SHARE_HOURS_WITH_ORG': {
+      try {
+        await requireSessionFor('update your sharing preference');
+        const profileId = message.profileId || null;
+        if (!profileId || typeof message.enabled !== 'boolean') {
+          return { ok: false, error: 'Missing profileId or enabled flag' };
+        }
+        const data = await rpc('set_share_hours_with_org', {
+          p_profile_id: profileId,
+          p_enabled: message.enabled,
+        });
+        return { ok: true, data };
+      } catch (err) {
+        return { ok: false, error: err?.message || String(err) };
+      }
+    }
     case 'DELETE_INVITE_TOKEN': {
       try {
         await requireSessionFor('revoke a token');

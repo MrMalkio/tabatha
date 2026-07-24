@@ -381,3 +381,41 @@ export async function updateProfileSettings({ profileId, patch }) {
   const res = await callBackground('UPDATE_PROFILE_SETTINGS', { profileId, patch });
   return res.data;
 }
+
+// ── Org-hours v1 (migration 060) ──────────────────────────────────────────
+
+/**
+ * Org-hours v1 read: tabatha.get_org_hours_summary(p_org_id, p_start_date,
+ * p_end_date) — a SECURITY DEFINER RPC, read-only (STABLE), so unlike the
+ * mutation wrappers above it's called directly through `dataClient` (page
+ * context is deadlock-safe for reads/RPCs; only writes that need the
+ * background's never-wedged auth client route through callBackground).
+ *
+ * Returns the RPC's flat row array as-is — one anonymous aggregate row
+ * (member_profile_id null) plus zero or more named rows for members who
+ * have opted in via profiles.settings.share_hours_with_org. A caller who
+ * isn't a member of orgId gets an empty array, not an error. Shape it with
+ * `splitOrgHoursRows` (src/utils/orgHours.js) before rendering.
+ */
+export async function getOrgHoursSummary({ orgId, startDate = null, endDate = null }) {
+  if (!orgId) return [];
+  const params = { p_org_id: orgId };
+  if (startDate) params.p_start_date = startDate;
+  if (endDate) params.p_end_date = endDate;
+  const { data, error } = await dataClient.schema('tabatha').rpc('get_org_hours_summary', params);
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Org-hours v1 opt-in write: tabatha.set_share_hours_with_org(profile_id,
+ * enabled) — writes the single scalar boolean profiles.settings.
+ * share_hours_with_org. Routed through the background (mutation, same
+ * pattern as updateProfileSettings above) rather than reusing
+ * update_profile_settings's RPC, since that RPC's merge logic assumes every
+ * allow-listed top-level key holds a JSON object, not a scalar.
+ */
+export async function setShareHoursWithOrg({ profileId, enabled }) {
+  const res = await callBackground('SET_SHARE_HOURS_WITH_ORG', { profileId, enabled: !!enabled });
+  return res.data;
+}

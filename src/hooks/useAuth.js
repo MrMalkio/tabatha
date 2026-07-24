@@ -111,7 +111,17 @@ export function useAuth() {
       // fall back to the minimal set so the user can still sign in and see their
       // display_name. The diagnostics row tells them what's missing.
       let prof = null;
-      const WIDE = 'id, auth_user_id, display_name, avatar_url, default_org_id, default_team_id, created_at';
+      // `settings` has existed since migration 001 (the very first schema),
+      // so it carries zero fallback risk — added here (Org-hours v1, mig 060)
+      // because it was never actually being fetched: ContextViewPanel.jsx
+      // (Epic 9) already reads `profile?.settings?.contextView` expecting it
+      // to be populated, but with no `settings` column in this SELECT that
+      // was always silently falling back to hardcoded defaults on every read
+      // (writes still worked via the RPC; only the reflected-state read was
+      // broken). Org-hours v1's own share_hours_with_org toggle has the same
+      // dependency, so this fixes both in one place rather than duplicating
+      // a second ad-hoc settings fetch.
+      const WIDE = 'id, auth_user_id, display_name, avatar_url, default_org_id, default_team_id, settings, created_at';
       const MIN = 'id, auth_user_id, display_name, avatar_url, created_at';
       // BARE = only the columns guaranteed by migration 001. Falling back to
       // this means a missing OPTIONAL column (avatar_url/default_* from

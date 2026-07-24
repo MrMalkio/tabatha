@@ -652,6 +652,10 @@ function Settings() {
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
 
+  // Org-hours v1 (migration 060) — per-person opt-in toggle state
+  const [savingShareHours, setSavingShareHours] = useState(false);
+  const [shareHoursError, setShareHoursError] = useState(null);
+
   // Display-name editor state
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameDraft, setDisplayNameDraft] = useState('');
@@ -802,6 +806,29 @@ function Settings() {
       setAuthError(err.message);
     }
     setInviteLoading(false);
+  };
+
+  // Org-hours v1 (migration 060): flips profiles.settings.share_hours_with_org.
+  // Default is OFF/absent (aggregate-only) — this toggle is the ONLY way a
+  // member's individual hours become named in an org's breakdown, and it
+  // only ever affects THIS profile's own row (never anyone else's).
+  const handleToggleShareHours = async () => {
+    if (!profile?.id || savingShareHours) return;
+    const next = !(profile?.settings?.share_hours_with_org === true);
+    setSavingShareHours(true);
+    setShareHoursError(null);
+    try {
+      const { setShareHoursWithOrg } = await import('../services/supabaseClient');
+      const res = await setShareHoursWithOrg({ profileId: profile.id, enabled: next });
+      if (res?.success) {
+        await refreshProfile();
+      } else {
+        setShareHoursError(res?.error || 'Could not update sharing preference');
+      }
+    } catch (err) {
+      setShareHoursError(err.message);
+    }
+    setSavingShareHours(false);
   };
 
   const handleCreateOrg = async (e) => {
@@ -1297,6 +1324,46 @@ function Settings() {
                       </div>
                     ) : (
                       <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '12px' }}>No organizations yet. Create one below, or use an invite token to join an existing one.</p>
+                    )}
+
+                    {/* ── Org-hours v1 (migration 060): per-person opt-in ──
+                        Only shown once the user actually belongs to an org —
+                        the setting is meaningless before that. Default is
+                        OFF/absent: by default your hours only ever count
+                        toward your org's AGGREGATE total (no name attached).
+                        Flipping this on is the only way your individual
+                        worked-hours breakdown becomes visible, by name, to
+                        other members of orgs you belong to. Your personal-
+                        realm time is never shared either way — clock
+                        sessions carry no realm data at all. */}
+                    {orgs.length > 0 && (
+                      <>
+                        <div style={sectionLabel} data-search-id="sync-share-hours">Share Hours With Org</div>
+                        <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.5, marginTop: '2px', marginBottom: '8px' }}>
+                          By default, your worked hours only ever count toward your org's aggregate total — nobody sees a number with your name on it.
+                          Turn this on to let other members of your org(s) see your own hours broken out by name. Your personal-realm time is never
+                          shared, on or off.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600 }}>Share my hours by name</span>
+                          <button
+                            onClick={handleToggleShareHours}
+                            disabled={savingShareHours || !profile?.id}
+                            title={profile?.settings?.share_hours_with_org === true ? 'On — your named hours are visible to org members' : 'Off — your hours only count toward the org aggregate'}
+                            style={{
+                              width: '36px', height: '20px', borderRadius: '10px', border: 'none',
+                              cursor: savingShareHours ? 'wait' : 'pointer',
+                              background: profile?.settings?.share_hours_with_org === true ? 'var(--color-accent-primary)' : 'var(--color-border)',
+                              position: 'relative', flexShrink: 0,
+                            }}
+                          >
+                            <span style={{ position: 'absolute', top: '2px', left: profile?.settings?.share_hours_with_org === true ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                          </button>
+                        </div>
+                        {shareHoursError && (
+                          <div style={{ fontSize: '11px', color: '#ef5350', marginBottom: '12px' }}>{shareHoursError}</div>
+                        )}
+                      </>
                     )}
 
                     {/* ── Create Organization ── */}
