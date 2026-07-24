@@ -203,3 +203,13 @@ the original report above.
 - **Companion 0.3.9 RELEASED**: GitHub `desktop-v0.3.10` (exe + msi), `companion-latest.json` bumped to 0.3.9 (live), download page repointed 0.3.1 → 0.3.9.
   - **Reinstall path (Malkio):** `C:\Users\mrmal\le dev\tabatha-desktop\src-tauri\target-039\release\bundle\nsis\Tabatha Desktop_0.3.10_x64-setup.exe` (MSI beside it in `...\bundle\msi\`). Quit the running tray companion (pid was 16392, the stale 0.3.4) first, then run the setup exe. SHA-256 `96742e8eeefbf694f67966009e33b4b9d258d8faa6d899621cbdd4be44c2736f`.
 - **Companion update-check UX** (no visible check activity / no out-of-date indicator): fix in flight as 0.3.10 (Cindra) — visible "Checking…" state, up-to-date vs update-available result with proper semver compare, persistent out-of-date badge on Desk Panel.
+
+---
+
+## Kael execution addendum — 2026-07-24 (morning approvals actioned)
+
+Dispatched by CeeCee with Malkio's recorded Q1–Q8 approvals. Full per-question resolution is in `docs/taskrun/2026-07-22-morning-questions.md` → "Resolution Addendum — 2026-07-24 (Kael)". Headlines:
+
+- **Fork reconciled + shipped (Q1/Q4/Q6).** Merged `integrate/6.7.50` (6.7.69) → `staging`, bumped to **6.7.70**, pushed `origin/staging` `98c9e5b → e9e0a2e`. 739/739 tests, build green, zero conflict markers. Split-Tab T icons confirmed already on the reconciled line. Enterprise CRX 6.7.70 packed + **id/version verified** (`jbdka…`, 6.7.70), committed; dist mirrored to the Chrome load path; staff channel published (`ext-v6.7.70`, latest.json → 6.7.70).
+- **Deliberately deferred (lane safety):** the `wrangler pages deploy site` that takes enterprise `update.xml` live — it shares the Pages project with Vessa's in-flight `site/docs` work; needs one combined deploy. Local `staging` in the main checkout NOT ff'd (Vessa's uncommitted tree). Q8 Regina dedup script confirmed safe but not executed (no non-interactive prod-write path this session). Q7 promotion held pending Malkio's manual regression + the fix wave settling.
+- **Phase 2 fix wave dispatched** (parallel Sonnet agents): P1 pairing-code-expiry, invite-token shortening (mig 059), Asana-PAT parity in extension Settings, org-hours v1 + team stints (Koda-gated), cross-surface sync-drift investigation, download-page freshness (incl. the companion 0.3.9-vs-0.3.10 page mismatch noted above).
