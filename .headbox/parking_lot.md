@@ -613,3 +613,12 @@
   1. No action — cosmetic only
   2. Squash the three v6.7.41 entries into one heading with combined sub-sections, remove the stray `=======` lines
   3. Renumber the two duplicate/orphaned entries under their own version numbers if they were meant to be distinct releases ← **suggested**
+
+## 2026-07-24 — Desktop companion auto-updater manifest frozen at v0.2.1 (3 releases stale)
+- **Noticed while:** download-page freshness sweep (fix/download-page-freshness) — verifying companion version surfaces.
+- **What:** `site/desktop/latest.json` is the *live* Tauri updater manifest — confirmed it's the exact URL configured in `tabatha-desktop/src-tauri/tauri.conf.json` (`endpoints: ["https://tabatha.pondocean.co/desktop/latest.json"]`). It still reports `"version": "0.2.1"` with a signature/URL pointing at the `desktop-v0.2.1` installer, even though `desktop-v0.3.9` and `desktop-v0.3.10` have since shipped (site/download.html's direct links are already correctly on 0.3.10). Every installed companion app polling this endpoint sees itself as already current and never gets prompted to update. I did not fix this myself: the manifest's `signature` field is a minisign signature over the exact installer bytes, produced at build/release time with the private key; neither release (`desktop-v0.3.9`, `desktop-v0.3.10`) published a `.sig` asset alongside the installer, so there is no legitimate signature available to hand-write into the JSON. Fabricating one would make the updater *offer* an update that then fails signature verification on install — worse than the current silent no-op.
+- **Why it matters:** silently broken auto-update for every companion user since v0.2.1 shipped (2026-07-17) — they are stuck on old builds until they manually re-download from `/download`.
+- **Options:**
+  1. Re-run the tabatha-desktop release pipeline for 0.3.10 with `tauri signer sign` (or re-invoke `tauri-action` with the signing key) to produce the `.sig`, then regenerate `site/desktop/latest.json` from that real signature ← **suggested**
+  2. Change future desktop release scripts to always publish the `.sig` as a release asset so this manifest can be safely regenerated from CI without needing local key access
+  3. Leave latest.json stale for now and rely entirely on the download page for manual updates (not recommended — users won't know a new version exists)
