@@ -1114,3 +1114,17 @@ Fleet outcomes (all verified by CeeCee before ship):
 - **Nothing pushed/deployed** — all local commits. Morning = approvals (Q1 fork reconciliation unblocks 12 ext fixes reaching users; Q8 Regina cleanup; Q4 origin/staging push; Q3/Q5 org-hours+SMTP).
 - **Infra:** Git Bash curl TLS-broken here → Mgmt API via PowerShell. Asana: `soren`/`corin` lack duckandshark.com workspace access (403) — Corin's task filed by CeeCee.
 - **Next steps:** Malkio answers Q1 (fork merge direction) → reconcile → rebuild/ship 6.7.57 CRX; approve+run TR-01; deploy Sidecar 0.13.7 after visual smoke-check; optional fresh Koda pass on M-items before CRX.
+
+---
+
+## 2026-07-23/24 — Nightly bug-fix TaskRun (CeeCee night-shift / Tova build)
+
+**Goal:** Work the 6-hourly feedback-review queue. Only unworked item tonight = **TR-20** (last night's TR-01–TR-19 fully addressed; named `nightly-bugfix-queue.md` doesn't exist, so read `feedback-review-2026-07-23.md`).
+
+**Done — TR-20 (Sidecar 0.13.8, commit `218279c` on `claude/tabby-sidecar-mobile-46c612`):** pause/resume/start events were recorded in `focus_events` but filtered out of the phone checkpoint "Timeline" reading view. Added `start`/`pause`/`resume` to `SYSTEM_KINDS` + `systemEntryLabel()` (▶ Started/Resumed, ⏸ Paused) in `FocusScreen.tsx`; added the ⏸ pause node to `FocusTimeline.tsx` (landscape Context View — start/resume already rendered). `resolve`/`snooze` left out per plan. Presentational only; no migration, interval math untouched.
+
+**Proof:** `tsc` clean (only pre-existing `app-tabs.web.tsx` error); 40/40 timeline+timer tests; `expo export -p web` healthy 2.4MB; built-bundle grep `Paused`×5 / `Resumed`×3. Asana comment on `1216832543077901` (as Dex — `tova` 403s the project).
+
+**NOT deployed** — new user-facing rows can't be visually smoke-checked headless (Sidecar sign-in = Malkio-only credential gate). Same consent-first call as TR-14b.
+
+**Next steps:** Malkio — visual smoke-check ▶/⏸ rows on `/sidecar`, then one `wrangler deploy` (Sidecar 0.13.8 prod). Full detail: `docs/taskrun/2026-07-23-morning-report.md`.

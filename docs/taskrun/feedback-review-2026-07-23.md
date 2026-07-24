@@ -24,6 +24,21 @@
 ### TR-20. Show pause/resume events in the Sidecar checkpoint Timeline
 > Self-estimate: Tier 2, user-visible bug — a recorded-but-hidden data gap, no security/data-integrity angle.
 
+> **✅ DONE — 2026-07-23 nightly TaskRun (Tovi persona).** Fixed on canonical Sidecar branch
+> `claude/tabby-sidecar-mobile-46c612`, commit `218279c`, **Sidecar 0.13.8**.
+> - `FocusScreen.tsx`: `SYSTEM_KINDS` now includes `start`/`pause`/`resume`; `systemEntryLabel()`
+>   labels them ▶ Started / ▶ Resumed / ⏸ Paused. `resolve`/`snooze` left out per the plan.
+> - `FocusTimeline.tsx` (landscape parity): added the ⏸ pause node (start/resume already rendered).
+> - **Proof:** `tsc --noEmit` clean on both changed files (only the pre-existing unrelated
+>   `app-tabs.web.tsx` route-type error remains); 40/40 timeline+timer node tests green;
+>   `expo export -p web` healthy 2.4 MB bundle; built bundle grep shows `Paused`×5 / `Resumed`×3
+>   (absent before this change in the phone reading view).
+> - **Deploy:** committed + build-verified, **NOT deployed to prod** — the new rows can't be
+>   visually smoke-checked headless (Sidecar sign-in is a Malkio-only credential gate), so per the
+>   consent-first / proof-before-done bar (same call as TR-14b last night) the prod redeploy is a
+>   morning approval: a 5-second visual check that ▶/⏸ rows interleave correctly, then one
+>   `wrangler deploy` (`OPERATIONS.md` §2.1).
+
 - **Source:** Feedback review agent, 2026-07-23. Asana task `1216832543077901`, filed `2026-07-23T18:26:11.703Z`.
 - **What:** User (surface `sidecar_android_web`, version `0.13.7`) reports that pauses/resumes —
   "everything that happens" — should appear in the timeline log "when you leave a checkpoint or
