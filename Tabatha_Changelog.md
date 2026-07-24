@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.48] - Docs refresh: pairing, phone-away, un-resolve, device invites + build-time version badge - _2026-07-24_
+
+> Docs-only: updated 4 pages with accurate descriptions of shipped features. `site/docs/pairing-devices.html` now covers extension-minted pairing codes, phone/TV sign-in routes, and device parity. `site/docs/phone-focus-mode.html` explains 3-way phone-away heartbeat (near+active, near+idle, away). `site/docs/timers-extensions-backburner.html` adds un-resolve action. `site/docs/focus-and-intents.html` adds device invites and Context View/TV ambient display. Created `scripts/stamp-docs-version.mjs` to read version from `public/manifest.json` and stamp `site/docs/index.html` at build time — no more hardcoded version strings. Wired script into `npm run site:build`. No runtime changes.
+
 ## [v6.7.48] - Onboarding spec rev: settings interview + runbook gate + multi-surface/voice/Cortex - _2026-07-23_
 
 > Docs-only: revised the onboarding design spec. Added §12 guided settings interview (assistant turns the settings schema into avatar-scoped plain-language questions that write real settings live, with a voice-mode delivery adapter), §13 runbook integration (new docs/RUNBOOK.md + tour:check pre-commit/CI gate + `[tour: <moduleId>]` changelog contract so no user-facing feature ships without an onboarding decision), and §14 surface/AI advancements (multi-surface host adapters + cross-device handoff, voice/Chaperone as both module and delivery adapter, Cortex-driven avatar inference/re-offers/interview priming). No runtime changes. [tour: none]

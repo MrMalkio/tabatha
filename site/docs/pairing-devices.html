@@ -57,37 +57,63 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:
   <span class="grow"></span>
   <a href="index.html" class="back">← Docs</a>
   <a href="../show/index.html">Show &amp; Tell</a>
-  <span class="verbadge">v6.7.41</span>
+  <span class="verbadge"><!-- DOCS_VERSION_PLACEHOLDER -->v6.7.48</span>
 </nav>
 <header class="phead">
   <div class="kicker">How do I…</div>
   <h1>Pairing devices</h1>
-  <p>Two different pairing flows, both short: a 6-digit code for the watch, a copy-paste token for the desktop companion.</p>
+  <p>Three pairing flows: the watch uses a 6-digit code (sent from phone or generated in the extension), other devices (phone, TV) can use the same code, and the desktop companion uses a copy-paste token. You can generate pairing codes directly from the extension to sign in new devices.</p>
   <div class="gwhere"><span class="e" aria-hidden="true">📍</span> Tabby Sidecar Settings, Tabby Watch, and the Desktop Companion tray</div>
 </header>
-<div class="gsub">Pair a watch</div><div class="steps">
+<div class="gsub">Get a pairing code</div><div class="steps">
   <div class="step">
     <div class="n">1</div>
     <div class="body">
-      <h3>Get a code, on your phone</h3>
-      <p>Sidecar → Settings → <b>⌚ Pair a watch</b> → <b>Get pairing code</b>. It shows a 6-digit code, valid 5 minutes, that works once.</p>
-      
+      <h3>From your phone</h3>
+      <p>Sidecar → Settings → <b>⌚ Pair a watch</b> (or <b>🔗 Pair a device</b>) → <b>Get pairing code</b>. It generates a 6-digit code, valid for 5 minutes, usable once.</p>
+
     </div>
   </div>
   <div class="step">
     <div class="n">2</div>
     <div class="body">
-      <h3>Enter it, on the watch</h3>
-      <p>Open <b>Tabby Watch</b> → tap <b>"⌚ Pair with Tabatha"</b> (or <b>"⌚ Re-pair watch"</b> if you've paired before) → enter the 6 digits. It shows <b>"Pairing…"</b> then <b>"Paired ✓."</b></p>
-      
+      <h3>From the extension</h3>
+      <p>Extension Settings → <b>🔗 Devices</b> → <b>Generate pairing code</b>. Same 6-digit code that works on phone, watch, or TV — you pick which device initiates it.</p>
+
     </div>
   </div>
   <div class="step">
     <div class="n">3</div>
     <div class="body">
-      <h3>If it fails</h3>
-      <p><i>"Code invalid or expired — mint a fresh one on your phone"</i> just means the 5 minutes ran out, or it was already used — get a new code and try again.</p>
-      
+      <h3>If it expires</h3>
+      <p><i>"Code invalid or expired"</i> just means the 5 minutes ran out, or it was already used. Generate a fresh code and try again.</p>
+
+    </div>
+  </div>
+</div>
+<div class="gsub">Use a pairing code</div><div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <h3>On a Galaxy Watch</h3>
+      <p>Open <b>Tabby Watch</b> → tap <b>"⌚ Pair with Tabatha"</b> (or <b>"⌚ Re-pair watch"</b> if paired before) → enter the 6 digits. It shows <b>"Pairing…"</b> then <b>"Paired ✓."</b></p>
+
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <h3>On a phone (new or off-device)</h3>
+      <p>Open Tabby Sidecar or sign in at <b>https://tabatha.pondocean.co/sidecar</b> → <b>Sign in</b> → <b>🔗 Sign in with pairing code</b> → enter the 6 digits. You'll see your account, queue, and work shifts.</p>
+
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">3</div>
+    <div class="body">
+      <h3>On a TV or Context View</h3>
+      <p>Open Context View (on a TV, big monitor, or the screensaver) → the sign-in screen has a <b>🔗 Sign in with code</b> button → enter the 6 digits. It shows your current focus, timer, and a day-reset countdown.</p>
+
     </div>
   </div>
 </div>
@@ -133,7 +159,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:
 <footer>
   <span>Tabatha docs</span><span class="dot">·</span>
   <span>task-oriented help across the whole family</span><span class="dot">·</span>
-  <span>brand-faithful to v6.7.41</span>
+  <span>brand-faithful to <!-- DOCS_VERSION_PLACEHOLDER -->v6.7.48</span>
 </footer>
 <script src="assets/docs.js" defer></script>
 
