@@ -343,13 +343,26 @@ function EditPanel({ focus, onSave }: { focus: FocusItem; onSave: (u: any) => vo
 }
 
 // System (read-only) context entries interleaved into the checkpoint
-// "Timeline" — extend (migration 039) and backburner/unbackburner
-// (migration 041) events. Not deletable, not editable; purely presentational
-// (Malkio: "backburning should be on the timeline and added to the
-// checkpoint when an intent goes in or out of backburner").
-const SYSTEM_KINDS = new Set<FocusEvent['kind']>(['extend', 'backburner', 'unbackburner']);
+// "Timeline" — lifecycle start/pause/resume (migration 034), extend
+// (migration 039) and backburner/unbackburner (migration 041) events. Not
+// deletable, not editable; purely presentational (Malkio: "everything that
+// happens" — pauses/resumes and backburning — "should be on the timeline...
+// when you leave a checkpoint or you're reading your past checkpoints"). We
+// leave `resolve` out (it ends the focus, not activity on it) and `snooze`
+// out (deferral, not activity on this focus).
+const SYSTEM_KINDS = new Set<FocusEvent['kind']>([
+  'start',
+  'pause',
+  'resume',
+  'extend',
+  'backburner',
+  'unbackburner',
+]);
 
 function systemEntryLabel(e: FocusEvent): { icon: string; text: string } {
+  if (e.kind === 'start') return { icon: '▶', text: 'Started' };
+  if (e.kind === 'resume') return { icon: '▶', text: 'Resumed' };
+  if (e.kind === 'pause') return { icon: '⏸', text: 'Paused' };
   if (e.kind === 'backburner') return { icon: '🔥', text: 'Sent to backburner' };
   if (e.kind === 'unbackburner') return { icon: '▲', text: 'Back from backburner' };
   const added = Number(e.meta?.addedMinutes) || 0;

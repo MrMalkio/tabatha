@@ -36,7 +36,7 @@ function useReducedMotion(): boolean {
 
 type Node = {
   id: string;
-  kind: 'checkpoint' | 'start' | 'extend' | 'backburner' | 'unbackburner';
+  kind: 'checkpoint' | 'start' | 'pause' | 'extend' | 'backburner' | 'unbackburner';
   t: number;
   icon: string;
   color: string;
@@ -185,6 +185,23 @@ export default function FocusTimeline({
           cumulative: cumulativeTrackedAt(intervals, t),
         };
       });
+    // Pauses render as their own node (⏸) so "everything that happens" shows
+    // on the Context View timeline too, matching the phone checkpoint panel
+    // (TR-20). start/resume already render as ▶ nodes above; pause was the gap.
+    const pauses: Node[] = events
+      .filter((e) => e.kind === 'pause')
+      .map((e) => {
+        const t = new Date(e.at).getTime();
+        return {
+          id: e.id,
+          kind: 'pause' as const,
+          t,
+          icon: '⏸',
+          color: colors.textMuted,
+          label: 'Paused',
+          cumulative: cumulativeTrackedAt(intervals, t),
+        };
+      });
     // Extensions render like checkpoints (Malkio: "tracked and added to the
     // timeline almost like a checkpoint") — a node where the user bought more
     // time, tooltip shows how much and the new total.
@@ -224,7 +241,7 @@ export default function FocusTimeline({
           cumulative: cumulativeTrackedAt(intervals, t),
         };
       });
-    return [...cps, ...starts, ...extensions, ...backburnerNodes].filter((n) => Number.isFinite(n.t));
+    return [...cps, ...starts, ...pauses, ...extensions, ...backburnerNodes].filter((n) => Number.isFinite(n.t));
   }, [checkpoints, events, intervals]);
 
   // Fix Wave 3, item 4 — one separator marker per consecutive-node gap that
