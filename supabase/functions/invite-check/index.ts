@@ -5,8 +5,9 @@
 // invite key WITHOUT spending it — the same token is still expected to work
 // afterwards on the real activation paths (extension Settings → Sync &
 // Account → "Join via Invite Token"; Sidecar's InviteGateScreen "Redeem"),
-// both of which call tabatha.redeem_invite_token (migrations 042/044/050)
-// and DO consume the token. This function only ever SELECTs.
+// both of which call tabatha.redeem_invite_token (migrations 042/044/050,
+// unchanged by 051's short-token mint change) and DO consume the token.
+// This function only ever SELECTs.
 //
 // Contract: POST { token: string } -> 200 { valid: boolean, kind?: string }
 //   - Always 200 (barring malformed method/JSON) so the page never has to
@@ -68,11 +69,16 @@ function json(body: unknown, status: number, cors: Record<string, string>): Resp
   });
 }
 
-// Tokens are minted as 24-hex + "-" + 8-hex (migration 012/044/050) — 33
-// chars exactly. Generous bounds kept anyway so a wildly malformed body
-// (someone pasting a whole email, or nothing) short-circuits before ever
-// reaching the database, without hardcoding the exact mint shape as a hard
-// requirement (kept future-proof if the mint format ever changes length).
+// Mint shape has changed over time: 24-hex + "-" + 8-hex (33 chars,
+// migrations 012/044/050) up through migration 051, which switched new
+// mints to an ~8-char Crockford base32 token. This function never
+// enforces a specific shape — it only bounds length as a cheap guard
+// against wildly malformed input (someone pasting a whole email, or
+// nothing) before ever reaching the database. Both old 33-char tokens
+// still outstanding and new ~8-char tokens resolve identically via the
+// exact-match lookup below, same as tabatha.redeem_invite_token — no
+// format branching needed here or there. Bounds kept generous/future-
+// proof rather than pinned to either exact length.
 const MIN_LEN = 6;
 const MAX_LEN = 128;
 
