@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion } from 'framer-motion';
 import '../styles/global.css';
@@ -90,6 +90,16 @@ function Popup() {
   const [tabs] = useChromeStorage('tabs', {});
   const [timeTracking] = useChromeStorage('timeTracking', { byTab: {} });
   const [searchTerm, setSearchTerm] = useState('');
+  const [shortcutLabel, setShortcutLabel] = useState('Ctrl+Shift+E');
+
+  useEffect(() => {
+    try {
+      chrome.commands?.getAll?.((commands) => {
+        const bound = commands?.find(c => c.name === 'open_tab_list')?.shortcut;
+        if (bound) setShortcutLabel(bound);
+      });
+    } catch { /* commands API unavailable — keep static fallback */ }
+  }, []);
 
   const filteredTabs = useMemo(() => {
     let entries = Object.entries(tabs);
@@ -123,7 +133,7 @@ function Popup() {
         </div>
         <input
           type="text"
-          placeholder="Search tabs... (Ctrl+Space)"
+          placeholder={`Search tabs... (${shortcutLabel})`}
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           autoFocus

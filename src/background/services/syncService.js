@@ -118,6 +118,23 @@ async function readProfile(supabase, authUserId) {
   return { profile: minimal.data ? { ...minimal.data, default_org_id: null, default_team_id: null } : null, partial: true };
 }
 
+// GoTrue session id (`session_id` claim) of the current access token —
+// stable across token refreshes within one session, changes only on a real
+// re-sign-in. This is what makes reclaim-on-sign-in distinguishable from a
+// surviving revoked session (see ensureBrowserProfileRow). Returns null when
+// signed out or the token is unparsable.
+async function currentSessionId(supabase) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.session_id || null;
+  } catch {
+    return null;
+  }
+}
+
 function syncScope(profileId, orgId, teamId, browserProfileId) {
   return {
     profile_id: profileId,
@@ -148,16 +165,37 @@ async function ensureBrowserProfileRow(supabase, profileId) {
     extension_installed: true,
     last_seen_at: new Date().toISOString()
   };
+  // 6.7.54 — session-aware reclaim (hardens 6.7.53, which cleared revoked_at
+  // UNCONDITIONALLY every sync cycle: since device-signout's GoTrue session
+  // revocation is best-effort, a surviving revoked session could silently
+  // un-revoke its own row 15 minutes after an admin signed it out — audit
+  // finding, 2026-07-21). Rule: a row may only reclaim (revoked_at → null)
+  // when the CURRENT session is a different GoTrue session (session_id
+  // claim) than the one stamped on the row — i.e. the user actually signed
+  // in again after the revocation. Same-session ⇒ stays revoked. Legacy
+  // rows with no stamped session id do NOT reclaim via sync (conservative);
+  // every path below now stamps auth_session_id so rows converge, and an
+  // explicit re-sign-in mints a new sid that then differs.
+  const sid = await currentSessionId(supabase);
+  if (sid) payload.auth_session_id = sid;
+  const reclaimAllowed = (row) =>
+    !!(row?.revoked_at && sid && row?.auth_session_id && row.auth_session_id !== sid);
 
   try {
     if (identity.supabaseId) {
       // Legacy / known install: keep its single existing row and adopt
       // local_id onto it (the row predates this column). Do NOT upsert here
       // or a NULL-local_id row would fail the conflict target and duplicate.
+      const { data: currentRow } = await supabase
+        .schema('tabatha')
+        .from('browser_profiles')
+        .select('revoked_at, auth_session_id')
+        .eq('id', identity.supabaseId)
+        .maybeSingle();
       const { error } = await supabase
         .schema('tabatha')
         .from('browser_profiles')
-        .update(payload)
+        .update(reclaimAllowed(currentRow) ? { ...payload, revoked_at: null } : payload)
         .eq('id', identity.supabaseId)
         .eq('profile_id', profileId);
       if (error) {
@@ -183,7 +221,7 @@ async function ensureBrowserProfileRow(supabase, profileId) {
     let adoptQuery = supabase
       .schema('tabatha')
       .from('browser_profiles')
-      .select('id, local_id')
+      .select('id, local_id, revoked_at, auth_session_id')
       .eq('profile_id', profileId)
       .eq('browser', 'chrome')
       .order('last_seen_at', { ascending: false })
@@ -192,10 +230,12 @@ async function ensureBrowserProfileRow(supabase, profileId) {
     const { data: adoptable } = await adoptQuery.maybeSingle();
     if (adoptable?.id) {
       await recordDiagnostic('browser_profile_adopted_existing', { id: adoptable.id });
+      const adoptPayload = { ...payload, local_id: adoptable.local_id || payload.local_id };
+      if (reclaimAllowed(adoptable)) adoptPayload.revoked_at = null;
       const { error: adoptErr } = await supabase
         .schema('tabatha')
         .from('browser_profiles')
-        .update({ ...payload, local_id: adoptable.local_id || payload.local_id })
+        .update(adoptPayload)
         .eq('id', adoptable.id)
         .eq('profile_id', profileId);
       if (!adoptErr) {

@@ -15,6 +15,7 @@ import { useSyncStatus } from '../hooks/useSyncStatus';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import ContextViewPanel from './ContextViewPanel';
+import DevicesPanel from './DevicesPanel';
 import CortexPanel from './CortexPanel';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
@@ -87,6 +88,7 @@ const SECTIONS = [
   { id: 'appearance', label: '🎨 Appearance' },
   { id: 'clock', label: '🕐 FlipClock' },
   { id: 'contextview', label: '📺 Context View' },
+  { id: 'devices', label: '📟 Devices' },
   { id: 'focus', label: '🎯 Focus Engine' },
   { id: 'lifecycle', label: '🧠 Focus Lifecycle' },
   { id: 'intent', label: '🚪 Intent-Popup' },
@@ -1516,6 +1518,13 @@ function Settings() {
               </div>
             )}
 
+            {activeSection === 'devices' && (
+              <div data-search-id="section-devices">
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Devices</h2>
+                <DevicesPanel isSignedIn={isSignedIn} />
+              </div>
+            )}
+
             {activeSection === 'focus' && (
               <div data-search-id="section-focus">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Focus Engine</h2>
@@ -2203,6 +2212,22 @@ function Settings() {
               </div>
               <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
                 {activeSection === 'about' ? 'Tabatha — Attention Operating System' : 'Preview available when components are active'}
+              </div>
+            </div>
+          )}
+
+          {/* 6.7.60 — TR-12: generic fallback for sections that previously
+              rendered a fully blank Live Preview pane (no mockup, no message).
+              Context View / Blocked Sites intentionally stay fallback-only
+              here — real mockups for those are OVERHAUL-scoped. */}
+          {(activeSection === 'contextview' || activeSection === 'devices' || activeSection === 'lifecycle' ||
+            activeSection === 'blocked' || activeSection === 'workclock' || activeSection === 'followthrough' ||
+            activeSection === 'sync' || activeSection === 'webhooks' || activeSection === 'desktop' ||
+            activeSection === 'integrations' || activeSection === 'developer') && (
+            <div style={{ width: '100%', textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔍</div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Preview available when components are active
               </div>
             </div>
           )}

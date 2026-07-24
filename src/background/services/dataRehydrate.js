@@ -21,6 +21,7 @@
 
 import { getStorage, setStorage } from './storageService.js';
 import { getFocusEngine, setFocusEngine } from './storageService.js';
+import { coerceStringField } from '../../utils/focusDataSanitize.js';
 
 function toArray(v) { return Array.isArray(v) ? v : []; }
 function maxIso(a, b) {
@@ -74,8 +75,14 @@ export function serverFocusToLocal(row) {
   const tags = row.tags || {};
   const mapped = {
     id: row.client_id,
-    label: row.label || 'Untitled focus',
-    funnelStage: row.funnel_stage || 'unsorted',
+    // Defensive coercion (2026-07-23 InPop "[object Object]" fix): a bare
+    // `row.label || 'Untitled focus'` would NOT catch an object-shaped label
+    // — objects are truthy, so the fallback never fires and the object
+    // sails straight through into local storage. No known writer currently
+    // produces this, but this is the inbound boundary from the cloud, so it
+    // gets the same defense as the local self-heal in getFocusEngine().
+    label: coerceStringField(row.label, null) || 'Untitled focus',
+    funnelStage: coerceStringField(row.funnel_stage, null) || 'unsorted',
     focusState: row.focus_state || (completedAt ? 'completed' : 'paused'),
     timerMinutes: Number.isFinite(Number(row.timer_minutes)) ? Number(row.timer_minutes) : 15,
     tags,

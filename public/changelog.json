@@ -2,6 +2,83 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.69",
+      "title": "Self-heal InPop \"[object Object]\" data corruption (legacy-corrupted label/funnelStage/context)",
+      "date": "2026-07-23",
+      "intro": "> Fixes the live-observed bug where the InPop gatekeeper rendered `[object Object]` for the intent input value, every paused-focus row's label, and every row's funnel-stage badge. Root cause: `gatekeeper.js`'s `escapeHtml()` faithfully renders whatever it's given (`String(anObject)` is literally `\"[object Object]\"`) — the DATA reaching it was object-shaped, not the render code. A full sweep of every current shipping writer of `label`/`funnelStage`/tab `context` (focusService.js, tabService.js, dataRehydrate.js, focusIngestService.js/liveIngestArbitration.js, every UI caller of `updateFocus`/`renameFocus`/`SET_TAB_CONTEXT`) found none that produce an object today — this is legacy/historical local-storage corruption that survives indefinitely because `reconcileKnownFocusRow` returns non-Sidecar-sourced items untouched and `dataRehydrate`'s newest-wins merge only overwrites when the cloud ref time is newer; neither path ever coerced an existing bad value back to a string, and `handleTabCreated`'s parent→child `context` inheritance silently propagates one corrupted ancestor tab's value to every tab opened from it. New pure module `src/utils/focusDataSanitize.js` (`coerceStringField`/`sanitizeFocusItem`/`sanitizeFocusEngine`/`sanitizeTabContext`/`sanitizeTabsMap`) coerces any object-shaped field to its best inner string (`{label|text|value|name}`) or a safe default (`label`→'Untitled focus', `funnelStage`→'unsorted', `context`→null), wired into `focusService.js` + `storageService.js`'s `getFocusEngine()` and `storageService.js`'s `getTabData()` so every install self-heals on its very next engine/tabs read — no reinstall, no data loss — plus defensive coercion at the two inbound-cloud-row mappers (`dataRehydrate.js serverFocusToLocal`, `liveIngestArbitration.js reconcileKnownFocusRow`) so re-corruption can't sneak back in. 16 new unit tests (`test/focusDataSanitize.test.js`) including a red→green repro against the real `focusService.getFocusEngine()` proving the self-heal persists the repair to storage.",
+      "sections": []
+    },
+    {
+      "version": "6.7.68",
+      "title": "Gatekeeper race-fix hardening: no flash for disabled users + hang-proof timeouts (Koda review, TR-03 unblocked)",
+      "date": "2026-07-23",
+      "intro": "> Koda's adversarial review of 6.7.65's gatekeeper race fix demoted TR-03 to blocked on three findings; this closes all three so the fix can ship. **P1-A:** the synchronous dimming placeholder from 6.7.65 was attaching unconditionally on every navigation before `CHECK_CONTEXT_NEEDED` resolved — even for users with the gatekeeper fully disabled — giving them a transient click-blocking dim they should never see. `gatekeeper.js` now does a fast local `chrome.storage.local.get('settings')` pre-check (no service-worker round-trip, mirrors `tabService.js`'s `checkContextNeeded()` read of the same `settings.gatekeeperEnabled` key) and bails with zero DOM if positively confirmed off; if the read is ambiguous it still fails toward gating, but the placeholder now starts `pointerEvents: 'none'` (dim-only, non-blocking) and only flips to `'auto'` once the background positively confirms `needed: true`. **P1-B:** neither `CHECK_CONTEXT_NEEDED` nor `GET_FOCUS_ENGINE` had a timeout, so a stalled service worker left the placeholder stuck over the page indefinitely — strictly worse than the pre-fix \"no gate appears\" hang. Both awaits are now wrapped in a `withTimeout()` helper (~2.5s, same pattern as the existing `waitForBody()` 3s safety timeout); on timeout the placeholder is torn down and the gate quietly aborts. **P2-C:** the top-level `const escapeHtml` (outside the IIFE) would throw a parse-time SyntaxError on re-injection into an already-loaded document (e.g. `notificationService.js`'s `openPopup` path), which silently defeats the double-injection guard since the whole file fails to parse before the guard runs — moved inside the IIFE, where re-declaration on re-injection is a harmless function-scoped rebind. Swept the rest of the file for the same top-level const/let/class hazard; none found.",
+      "sections": []
+    },
+    {
+      "version": "6.7.67",
+      "title": "Non-intrusive feedback affordance on Sidebar and Home (TR-14a)",
+      "date": "2026-07-23",
+      "intro": "> Adds a low-profile feedback entry point (`src/components/FeedbackWidget.jsx`) to both the Sidebar and Home surfaces, reusing the existing feedback-to-Asana pipeline rather than a new backend path.",
+      "sections": []
+    },
+    {
+      "version": "6.7.66",
+      "title": "Team Activity groups device chips (TR-13)",
+      "date": "2026-07-23",
+      "intro": "> `TeamActivityPanel.jsx` now groups a user's device chips together via a shared `deviceGrouping` util instead of listing them flat, and filters out revoked devices from the grouped view.",
+      "sections": []
+    },
+    {
+      "version": "6.7.65",
+      "title": "Gatekeeper injects synchronous dimming placeholder before async intent gate (close render race, TR-03)",
+      "date": "2026-07-23",
+      "intro": "> `gatekeeper.js` now attaches a synchronous full-viewport dim+blur placeholder at `document_start`, before any `CHECK_CONTEXT_NEEDED` / `GET_FOCUS_ENGINE` / storage.local awaits — closing a race where a fast page could paint a frame or more of un-gated content before the intent gate appeared. The same host + shadow root is reused (not replaced) once the full gate form is ready, so the resolve path is a content swap inside an already-dim backdrop rather than a placeholder-to-form flicker. (Superseded in part by 6.7.68 above — Koda's adversarial review found this initial version showed the placeholder unconditionally, including to gatekeeper-disabled users, and had no timeout on the background round-trips; both are fixed in 6.7.68.)",
+      "sections": []
+    },
+    {
+      "version": "6.7.56",
+      "title": "Security: RLS state-aware guard on browser_profiles.revoked_at (audit NOW #2, migration UNAPPLIED)",
+      "date": "2026-07-21",
+      "intro": "> Adds `supabase/migrations/058_browser_profiles_lifecycle_guard.sql` — a `BEFORE UPDATE` trigger mirroring `syncService.js`'s `reclaimAllowed()` server-side: an authenticated session may only clear `browser_profiles.revoked_at` (un-revoke) when the CURRENT GoTrue session differs from the one stamped on the row when it was revoked. Closes the gap where a revoked session's still-valid JWT could PATCH `revoked_at` back to `null` directly via PostgREST, bypassing the 6.7.54 app-code-only check (migration 016's write RLS never checked session identity). `paused` and every other column stay ungated (soft flag by design); `service_role` bypasses unconditionally. Functionally exercised against a local throwaway Postgres (6 scenarios, all matched expected behavior) plus a 10-assertion structural lint test (`test/migration058Lint.test.js`) — **migration is NOT applied to the live database**, flagged for the placeholder + repair protocol.",
+      "sections": []
+    },
+    {
+      "version": "6.7.55",
+      "title": "Security: HTML-escaping across gatekeeper.js + inbar.js (audit NOW #1)",
+      "date": "2026-07-21",
+      "intro": "> Closes an XSS gap flagged in the 2026-07-21 security audit: 37 call sites across gatekeeper.js (Intent-Popup/InPop) and inbar.js interpolated user-controlled strings (focus/intent labels, notes, pause text, checkpoint/backburner reasons) into `innerHTML`-style templates with no escaping. Since these labels/notes already sync to Cloud Sync and are already readable cross-user via the existing manager/team RLS scoping (migration 012), this was exploitable today, not just a future risk. Fixed with a small `escapeHtml()` helper — deliberately duplicated inline in both content scripts rather than shared via import, since Rollup chunk-splits a module referenced by 2+ content-script entries and Chrome can't resolve an `import` statement in a classic (non-module) content script; verified empirically against the built `dist/assets/` output. `blockgate.js` was independently re-checked and confirmed clean (only interpolates `location.hostname`, which can't carry HTML-breaking characters). Canonical copy + 8 unit tests at `src/utils/escapeHtml.js` / `test/escapeHtml.test.js`.",
+      "sections": []
+    },
+    {
+      "version": "6.7.54",
+      "title": "Session-aware device reclaim + session-id stamping (audit hardening)",
+      "date": "2026-07-21",
+      "intro": "> Hardens 6.7.53: a revoked device row now only un-revokes under a genuinely NEW auth session (GoTrue session_id comparison) - a surviving revoked session can no longer resurrect itself on the sync cycle. Every sync also stamps auth_session_id on this install's row, which makes remote sign-out actually able to revoke extension sessions (rows previously had no session id to revoke).",
+      "sections": []
+    },
+    {
+      "version": "6.7.53",
+      "title": "Sign-in reclaims a revoked device row + clearer pairing-code auth error",
+      "date": "2026-07-21",
+      "intro": "> Parity with Sidecar 0.13.4: a fresh authenticated registration clears revoked_at on this install's own device row (a remote sign-out sweep otherwise left signed-in installs looking signed out). Pairing-code mint now says \"Session expired - sign out and back in\" instead of a raw \"unauthorized\" when the session was revoked.",
+      "sections": []
+    },
+    {
+      "version": "6.7.52",
+      "title": "New logo (Split-Tab T) + pair-a-device code minting in the extension",
+      "date": "2026-07-21",
+      "intro": "> Extension icons switch to the new eye-free Split-Tab T mark. Settings -> Devices gains \"Pair a new device\": mint a one-time code (TV / Watch / Other, optional name) right from the extension - same pairing service the Sidecar and TV \"Sign in with a code\" flow use; previously minting was Sidecar-only.",
+      "sections": []
+    },
+    {
+      "version": "6.7.50",
+      "title": "Device management in extension + home header layout fix",
+      "date": "2026-07-21",
+      "intro": "> Settings gains a Devices panel (list grouped per physical device, rename, pause/resume, remote sign-out, device-kind picker) backed by new background deviceService handlers; a never-blocking paused-device banner with one-tap Resume lands on home and sidebar (pause is a convenience flag, not a lock). Home header rebuilt: FlipClock contained (transform-scale reserved-box bug), greeting no longer truncates, right cluster spacing fixed, companion pill overlap eliminated. Merges feat/ext-device-management + fix/home-header-layout.",
+      "sections": []
+    },
+    {
       "version": "6.7.47",
       "title": "Onboarding demo-walkthrough design spec",
       "date": "2026-07-20",

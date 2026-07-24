@@ -118,6 +118,12 @@ export function useFocusEngine() {
 
     resumeFocus: (focusId) =>
       sendMessage('RESUME_FOCUS', { focusId }),
+
+    // TR-08 (#207 parity): Sidebar/Home send the same message InBar sends,
+    // with InBar's own default duration (15m) since these surfaces expose a
+    // single-click action rather than InBar's duration/reason prompt.
+    backburnerFocus: (focusId, durationMinutes = 15, reason) =>
+      sendMessage('BACKBURNER_FOCUS', { focusId, durationMinutes, reason }),
   }), []);
 
   return { activeFocus, allItems, history, actions, engine };

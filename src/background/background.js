@@ -99,6 +99,11 @@ import {
   configureFocusIngestService,
   registerFocusIngestAlarm
 } from './services/focusIngestService.js';
+import * as deviceService from './services/deviceService.js';
+import {
+  configureDeviceService,
+  startDeviceStatusWatch
+} from './services/deviceService.js';
 import {
   configureCompanionInstallService,
   startCompanionInstallService
@@ -124,6 +129,8 @@ configureAwarenessService({
 // clock changes → this install), 60s alarm + post-push trigger.
 configureFocusIngestService({ supabase });
 configureCompanionInstallService({ supabase, companionBridge });
+// Feature #222: device list CRUD + self paused/revoked status watch.
+configureDeviceService({ supabase });
 // Cloud writes (profile name via outbox; org/invite via direct RPC). The SW is
 // the single auth owner — page contexts route every mutation here.
 configureCloudWriteService({ supabase, triggerSync });
@@ -224,7 +231,8 @@ const services = [
   selfCorrectionService,
   contextReconcileService,
   cloudWriteService,
-  focusIngestService
+  focusIngestService,
+  deviceService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -307,6 +315,10 @@ registerToolbarActionListeners();
 // can be re-armed by sending `AWARENESS_START` (the Settings UI does this
 // after sign-in and after the first sync registers this install).
 startAwareness();
+
+// Feature #222: prime the paused/revoked self-status cache so Settings →
+// Devices and the dismissible paused banner have data on first paint.
+startDeviceStatusWatch();
 
 // Phase D₂: proxy-register the desktop companion as a browser_profiles row
 // + heartbeat its status. Bails gracefully if the companion isn't running
