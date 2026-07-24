@@ -4,6 +4,10 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.72] - Asana PAT connect card in extension Settings (parity with Sidecar) - _2026-07-24_
+
+> The "Task Sync (Asana)" connect card — paste a Personal Access Token, pull Asana tasks into Tabatha (subtasks/blockers included) via `connect-asana`, sync now, disconnect — existed only in the Tabby Sidecar (Epic 3 v1); it now has an extension-side equivalent at Settings → Integrations, above the older Asana Time Tracking widget card. New `AsanaPanel.jsx` + background `asanaIntegrationService.js` (CONNECT_ASANA / DISCONNECT_ASANA / SYNC_ASANA_NOW / GET_ASANA_INTEGRATION, same message-router pattern as DevicesPanel/deviceService) forward the PAT once to `connect-asana` and never log, persist, or echo it back; a new `disconnect-asana` edge function wires up migration 035's previously-unwired `revoke_asana_credential` RPC for the Disconnect action.
+
 ## [v6.7.70] - Extension source line reconciled onto staging (Split-Tab T on the canonical line) - _2026-07-24_
 
 > Reconciliation-only: merges the forked `integrate/6.7.50` extension-source line (the real source behind the shipped 6.7.48–6.7.69 CRX — device management, home-header fix, pairing-code mint, session-aware reclaim, the XSS-escape sweep, the RLS `revoked_at` guard, the InPop `[object Object]` self-heal) forward onto `staging`, which until now carried only the compiled 6.7.56 CRX binary plus the site/docs/audit work and a 9-patch-stale source tree. The two lines forked at `59d326b` and neither contained the other; this brings them into one canonical line. The Split-Tab T logo rollout (`feat/logo-rollout`, already merged into the integrate line) now rides on the reconciled `staging` — the next store upload carries the new mark. No new runtime code beyond what the merge carried; version-per-commit bump for the reconciliation merge. [tour: none]

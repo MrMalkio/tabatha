@@ -12,7 +12,7 @@
 
 ## Project State
 
-- **Current version:** 6.7.70
+- **Current version:** 6.7.72
 - **Current focus:** Cortex program (Plans 039/040-044) on top of staging v6.6.0 (NB-03 to NB-09 merged in: time-editing overhaul, offline-gap detector, abandoned stints, work-shifts analytics, settings search). Phase 1 browser-regression-verified; Phases 2-5 partial (companion capture on tabatha-desktop feat/cortex-capture; voice v0 + self-correction shipped). Awaiting Malkio: extension RELOAD + re-smoke-test -> v7.0.0, companion merge/deploy, proxy secret. See docs/cortex/HANDOFF.md.
 - **Architecture:** React 19 + Vite 8 + TailwindCSS 4, Chrome MV3 Extension, Framer Motion
 - **Dev command:** `npm run dev`

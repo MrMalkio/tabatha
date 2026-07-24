@@ -271,7 +271,9 @@ export const SETTINGS_SEARCH_INDEX = [
   { id: 'desktop-today-data', section: 'desktop', label: "Today's data cleanup", keywords: ['trim', 'delete range', 'hide range', 'clear', 'activity'] },
 
   // ── Integrations ──
-  { id: 'integrations-asana', section: 'integrations', label: 'Asana integration', keywords: ['asana', 'widget', 'time entries', 'project management'] },
+  { id: 'integrations-asana-tasksync', section: 'integrations', label: 'Task Sync (Asana)', keywords: ['asana', 'task sync', 'personal access token', 'pat', 'connect asana', 'subtasks', 'blockers', 'sidecar'] },
+  { id: 'asana-connection-status', section: 'integrations', label: 'Asana connection status', keywords: ['asana', 'connected', 'last synced', 'sync now', 'disconnect'] },
+  { id: 'integrations-asana', section: 'integrations', label: 'Asana Time Tracking (widget)', keywords: ['asana', 'widget', 'time entries', 'project management'] },
   { id: 'integrations-supabase', section: 'integrations', label: 'Cloud Sync', keywords: ['supabase', 'cloud', 'sync', 'account', 'connected'] },
   { id: 'integrations-companion', section: 'integrations', label: 'Desktop Companion', keywords: ['companion', 'desktop', 'tracker', 'apps'] },
 

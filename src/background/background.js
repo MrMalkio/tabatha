@@ -104,6 +104,8 @@ import {
   configureDeviceService,
   startDeviceStatusWatch
 } from './services/deviceService.js';
+import * as asanaIntegrationService from './services/asanaIntegrationService.js';
+import { configureAsanaIntegrationService } from './services/asanaIntegrationService.js';
 import {
   configureCompanionInstallService,
   startCompanionInstallService
@@ -131,6 +133,9 @@ configureFocusIngestService({ supabase });
 configureCompanionInstallService({ supabase, companionBridge });
 // Feature #222: device list CRUD + self paused/revoked status watch.
 configureDeviceService({ supabase });
+// Asana PAT parity: extension-side Task Sync (Asana) connect card (mirrors
+// the Tabby Sidecar's integrations.ts CONNECT/DISCONNECT/SYNC contracts).
+configureAsanaIntegrationService({ supabase });
 // Cloud writes (profile name via outbox; org/invite via direct RPC). The SW is
 // the single auth owner — page contexts route every mutation here.
 configureCloudWriteService({ supabase, triggerSync });
@@ -232,7 +237,8 @@ const services = [
   contextReconcileService,
   cloudWriteService,
   focusIngestService,
-  deviceService
+  deviceService,
+  asanaIntegrationService
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

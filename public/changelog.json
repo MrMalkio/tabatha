@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.72",
+      "title": "Asana PAT connect card in extension Settings (parity with Sidecar)",
+      "date": "2026-07-24",
+      "intro": "> The \"Task Sync (Asana)\" connect card — paste a Personal Access Token, pull Asana tasks into Tabatha (subtasks/blockers included) via `connect-asana`, sync now, disconnect — existed only in the Tabby Sidecar (Epic 3 v1); it now has an extension-side equivalent at Settings → Integrations, above the older Asana Time Tracking widget card. New `AsanaPanel.jsx` + background `asanaIntegrationService.js` (CONNECT_ASANA / DISCONNECT_ASANA / SYNC_ASANA_NOW / GET_ASANA_INTEGRATION, same message-router pattern as DevicesPanel/deviceService) forward the PAT once to `connect-asana` and never log, persist, or echo it back; a new `disconnect-asana` edge function wires up migration 035's previously-unwired `revoke_asana_credential` RPC for the Disconnect action.",
+      "sections": []
+    },
+    {
       "version": "6.7.70",
       "title": "Extension source line reconciled onto staging (Split-Tab T on the canonical line)",
       "date": "2026-07-24",

@@ -16,6 +16,7 @@ import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import ContextViewPanel from './ContextViewPanel';
 import DevicesPanel from './DevicesPanel';
+import AsanaPanel from './AsanaPanel';
 import CortexPanel from './CortexPanel';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
@@ -2007,12 +2008,20 @@ function Settings() {
                   Connect Tabatha to external services for enhanced time tracking and project management.
                 </p>
 
-                {/* Asana */}
+                {/* Asana PAT parity — Task Sync connect card (mirrors the Tabby
+                    Sidecar). Distinct from the legacy "Asana Time Tracking"
+                    widget card below it: this one pulls Asana tasks INTO
+                    Tabatha via a Personal Access Token + connect-asana edge
+                    function; the widget card below pushes clock time entries
+                    OUT via a locally-run Flux Widget Server. */}
+                <AsanaPanel isSignedIn={isSignedIn} />
+
+                {/* Asana (legacy time-tracking widget) */}
                 <GlassCard style={{ padding: '16px', marginBottom: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }} data-search-id="integrations-asana">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '16px' }}>📋</span>
-                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Asana</span>
+                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Asana Time Tracking (widget)</span>
                     </div>
                     <span style={{
                       fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
