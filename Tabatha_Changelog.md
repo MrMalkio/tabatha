@@ -59,6 +59,9 @@ file.
 ## [v6.7.50] - Device management in extension + home header layout fix - _2026-07-21_
 
 > Settings gains a Devices panel (list grouped per physical device, rename, pause/resume, remote sign-out, device-kind picker) backed by new background deviceService handlers; a never-blocking paused-device banner with one-tap Resume lands on home and sidebar (pause is a convenience flag, not a lock). Home header rebuilt: FlipClock contained (transform-scale reserved-box bug), greeting no longer truncates, right cluster spacing fixed, companion pill overlap eliminated. Merges feat/ext-device-management + fix/home-header-layout.
+## [v6.7.48-docs] - Docs refresh: pairing, phone-away, un-resolve, device invites + build-time version badge - _2026-07-24_
+
+> Docs-only (Vessa/TaskRun-2): updated 4 pages with accurate descriptions of shipped features. `site/docs/pairing-devices.html` now covers extension-minted pairing codes, phone/TV sign-in routes, and device parity. `site/docs/phone-focus-mode.html` explains 3-way phone-away heartbeat (near+active, near+idle, away). `site/docs/timers-extensions-backburner.html` adds un-resolve action. `site/docs/focus-and-intents.html` adds device invites and Context View/TV ambient display. Created `scripts/stamp-docs-version.mjs` to read version from `public/manifest.json` and stamp `site/docs/index.html` at build time — no more hardcoded version strings. Wired script into `npm run site:build`. No runtime changes.
 
 ## [v6.7.48] - Onboarding spec rev: settings interview + runbook gate + multi-surface/voice/Cortex - _2026-07-23_
 

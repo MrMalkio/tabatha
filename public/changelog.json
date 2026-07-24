@@ -100,6 +100,13 @@
       "sections": []
     },
     {
+      "version": "6.7.48-docs",
+      "title": "Docs refresh: pairing, phone-away, un-resolve, device invites + build-time version badge",
+      "date": "2026-07-24",
+      "intro": "> Docs-only (Vessa/TaskRun-2): updated 4 pages with accurate descriptions of shipped features. `site/docs/pairing-devices.html` now covers extension-minted pairing codes, phone/TV sign-in routes, and device parity. `site/docs/phone-focus-mode.html` explains 3-way phone-away heartbeat (near+active, near+idle, away). `site/docs/timers-extensions-backburner.html` adds un-resolve action. `site/docs/focus-and-intents.html` adds device invites and Context View/TV ambient display. Created `scripts/stamp-docs-version.mjs` to read version from `public/manifest.json` and stamp `site/docs/index.html` at build time — no more hardcoded version strings. Wired script into `npm run site:build`. No runtime changes.",
+      "sections": []
+    },
+    {
       "version": "6.7.48",
       "title": "Onboarding spec rev: settings interview + runbook gate + multi-surface/voice/Cortex",
       "date": "2026-07-23",
