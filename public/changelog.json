@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.70",
+      "title": "Extension source line reconciled onto staging (Split-Tab T on the canonical line)",
+      "date": "2026-07-24",
+      "intro": "> Reconciliation-only: merges the forked `integrate/6.7.50` extension-source line (the real source behind the shipped 6.7.48–6.7.69 CRX — device management, home-header fix, pairing-code mint, session-aware reclaim, the XSS-escape sweep, the RLS `revoked_at` guard, the InPop `[object Object]` self-heal) forward onto `staging`, which until now carried only the compiled 6.7.56 CRX binary plus the site/docs/audit work and a 9-patch-stale source tree. The two lines forked at `59d326b` and neither contained the other; this brings them into one canonical line. The Split-Tab T logo rollout (`feat/logo-rollout`, already merged into the integrate line) now rides on the reconciled `staging` — the next store upload carries the new mark. No new runtime code beyond what the merge carried; version-per-commit bump for the reconciliation merge. [tour: none]",
+      "sections": []
+    },
+    {
       "version": "6.7.69",
       "title": "Self-heal InPop \"[object Object]\" data corruption (legacy-corrupted label/funnelStage/context)",
       "date": "2026-07-23",
@@ -76,6 +83,13 @@
       "title": "Device management in extension + home header layout fix",
       "date": "2026-07-21",
       "intro": "> Settings gains a Devices panel (list grouped per physical device, rename, pause/resume, remote sign-out, device-kind picker) backed by new background deviceService handlers; a never-blocking paused-device banner with one-tap Resume lands on home and sidebar (pause is a convenience flag, not a lock). Home header rebuilt: FlipClock contained (transform-scale reserved-box bug), greeting no longer truncates, right cluster spacing fixed, companion pill overlap eliminated. Merges feat/ext-device-management + fix/home-header-layout.",
+      "sections": []
+    },
+    {
+      "version": "6.7.48",
+      "title": "Onboarding spec rev: settings interview + runbook gate + multi-surface/voice/Cortex",
+      "date": "2026-07-23",
+      "intro": "> Docs-only: revised the onboarding design spec. Added §12 guided settings interview (assistant turns the settings schema into avatar-scoped plain-language questions that write real settings live, with a voice-mode delivery adapter), §13 runbook integration (new docs/RUNBOOK.md + tour:check pre-commit/CI gate + `[tour: <moduleId>]` changelog contract so no user-facing feature ships without an onboarding decision), and §14 surface/AI advancements (multi-surface host adapters + cross-device handoff, voice/Chaperone as both module and delivery adapter, Cortex-driven avatar inference/re-offers/interview priming). No runtime changes. [tour: none]",
       "sections": []
     },
     {
