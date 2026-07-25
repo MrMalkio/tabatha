@@ -22,6 +22,8 @@ import {
   classifyInstallForCleanup,
   isOwnAbandonedStint
 } from '../../utils/stintReconciliation.js';
+import { lastClockEventAt } from '../../utils/liveIngestArbitration.js';
+import { liveElapsedClamped } from '../../utils/elapsedClamp.js';
 
 let deps = {};
 let realtimeChannel = null;
@@ -136,10 +138,15 @@ async function buildStatusPayload({ online }) {
     clock_state = clockSession.onBreak ? 'on_break' : 'clocked_in';
     clocked_in_at = clockSession.clockedInAt || null;
     on_break_since = clockSession.onBreak ? (clockSession.breakStartedAt || null) : null;
-    last_clock_event_at = clockSession.breakStartedAt || clockSession.clockedInAt || null;
+    // S5/#5: was `breakStartedAt || clockedInAt`, which REGRESSED to the
+    // shift start the moment a break ended (clock.js nulls breakStartedAt),
+    // letting a sibling's stale `on_break` row win arbitration and drag this
+    // install back onto break. lastClockEventAt() takes the max over all four
+    // event stamps, so the published value is monotonic.
+    last_clock_event_at = lastClockEventAt(clockSession);
   } else if (clockSession?.clockedOutAt) {
     clock_state = 'clocked_out';
-    last_clock_event_at = clockSession.clockedOutAt;
+    last_clock_event_at = lastClockEventAt(clockSession);
   }
 
   let focus_state = null;
@@ -156,13 +163,22 @@ async function buildStatusPayload({ online }) {
     active_focus_label = af.label || null;
     focus_started_at = af.startedAt || af.createdAt || null;
     focus_timer_minutes = Number.isFinite(Number(af.timerMinutes)) ? Number(af.timerMinutes) : null;
-    focus_elapsed_ms = Number.isFinite(Number(af.elapsedMs)) ? Number(af.elapsedMs) : 0;
-    // Predict expiry from elapsed + lastResumedAt
+    // S9/#9: this published the STORED-only `elapsedMs`, so the number froze
+    // for the whole duration of a run and only jumped at pause — while the
+    // block just below already added the live portion when deriving
+    // `focus_timer_ends_at`. One row, two contradictory notions of elapsed.
+    // Now both use the live, clamped value (the same one the extension
+    // renders and the same one the pause path will bank — see S4/#4).
+    const storedMs = Number.isFinite(Number(af.elapsedMs)) ? Number(af.elapsedMs) : 0;
+    focus_elapsed_ms = liveElapsedClamped({
+      storedMs,
+      lastResumedAt: af.lastResumedAt,
+      createdAt: af.createdAt || af.startedAt
+    });
+    // Predict expiry from the same live elapsed — no second formula.
     if (focus_timer_minutes != null) {
       const targetMs = focus_timer_minutes * 60_000;
-      const remainMs = af.focusState === 'paused' || !af.lastResumedAt
-        ? Math.max(0, targetMs - (focus_elapsed_ms || 0))
-        : Math.max(0, targetMs - ((focus_elapsed_ms || 0) + (Date.now() - new Date(af.lastResumedAt).getTime())));
+      const remainMs = Math.max(0, targetMs - focus_elapsed_ms);
       focus_timer_ends_at = new Date(Date.now() + remainMs).toISOString();
     }
   }
@@ -190,9 +206,15 @@ async function buildStatusPayload({ online }) {
 
 function shallowEqualMostFields(a, b) {
   if (!a || !b) return false;
+  // S9/#9 follow-on: `focus_elapsed_ms` used to be a frozen stored value, so
+  // it was a fair identity key. Now that it's LIVE it changes on every tick,
+  // and leaving it here would force a full upsert every 60 s for the whole
+  // duration of every focus. It moves to the cheap heartbeat-refresh UPDATE
+  // below instead — same freshness, none of the write amplification.
+  // `focus_timer_ends_at` was never an identity key for the same reason.
   const keys = ['online', 'clock_state', 'clocked_in_at', 'on_break_since',
     'focus_state', 'active_focus_id', 'active_focus_label', 'focus_started_at',
-    'focus_timer_minutes', 'focus_elapsed_ms'];
+    'focus_timer_minutes'];
   for (const k of keys) {
     if (a[k] !== b[k]) return false;
   }
@@ -209,11 +231,18 @@ async function pushHeartbeat({ online }) {
   const payload = await buildStatusPayload({ online });
   if (shallowEqualMostFields(payload, lastPayload)) {
     // Refresh only last_heartbeat_at to keep the row fresh without
-    // bumping updated_at noticeably.
+    // bumping updated_at noticeably — plus the two continuously-varying
+    // derived columns (S9/#9), which are no longer identity keys and would
+    // otherwise stay frozen at whatever the last full upsert wrote.
     const { error } = await supabase
       .schema('tabatha')
       .from('browser_profile_status')
-      .update({ last_heartbeat_at: payload.last_heartbeat_at, online: payload.online })
+      .update({
+        last_heartbeat_at: payload.last_heartbeat_at,
+        online: payload.online,
+        focus_elapsed_ms: payload.focus_elapsed_ms,
+        focus_timer_ends_at: payload.focus_timer_ends_at
+      })
       .eq('browser_profile_id', activeBrowserProfileId);
     if (!error) lastPayload = payload;
     return;

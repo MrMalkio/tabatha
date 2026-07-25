@@ -9,6 +9,7 @@ import { broadcastAll, broadcastToExtension } from './notificationService.js';
 import { logAudit } from './activityAuditService.js';
 import { validateStartTime } from '../../utils/focusTimeValidation.js';
 import { sanitizeFocusEngine } from '../../utils/focusDataSanitize.js';
+import { accrueElapsed, liveElapsedClamped, clampStamp } from '../../utils/elapsedClamp.js';
 import { logger } from '../../services/logger.js';
 
 let injectedDeps = {};
@@ -328,13 +329,51 @@ async function applyDefaultRealm(tags = {}) {
   return tags;
 }
 
+// Sync forensics S4 / bug #4 — this used to bank `Date.now() - lastResumedAt`
+// with no ceiling, so a focus left `active` while the browser was closed or
+// the machine asleep billed the entire absence to one intent (measured: 37 h
+// 14 m on `f_1784676002315_yo37y`). It now routes through the shared clamp in
+// src/utils/elapsedClamp.js, which both this surface and the Sidecar use.
+//
+// NOTE the clamped delta — not the raw one — is what propagates to a parent
+// sub-intent. Clamping the child but crediting the parent the raw span would
+// have re-introduced the same inflation one level up.
 function addElapsedSinceResume(item, engine) {
   if (item?.lastResumedAt) {
-    const delta = Date.now() - new Date(item.lastResumedAt).getTime();
-    item.elapsedMs = (item.elapsedMs || 0) + delta;
+    const now = Date.now();
+    const before = item.elapsedMs || 0;
+    const accrued = accrueElapsed({
+      storedMs: before,
+      lastResumedAt: item.lastResumedAt,
+      createdAt: item.createdAt || item.startedAt,
+      now
+    });
+    item.elapsedMs = accrued.elapsedMs;
     item.lastResumedAt = null;
 
+    if (accrued.clamped) {
+      // Never silent: keep the number the old path would have written, next
+      // to the one we actually wrote, so this is auditable and reversible.
+      item.tags = {
+        ...(item.tags || {}),
+        _elapsedClamp: clampStamp({
+          requestedMs: accrued.requestedMs,
+          appliedMs: accrued.elapsedMs,
+          reason: accrued.reason,
+          now
+        })
+      };
+      logger.warn('FOCUS_ELAPSED', 'Clamped implausible elapsed accrual', {
+        focusId: item.id,
+        label: item.label,
+        requestedMs: accrued.requestedMs,
+        appliedMs: accrued.elapsedMs,
+        reason: accrued.reason
+      });
+    }
+
     // Plan 031: Sub-intent parent tick — propagate elapsed to parent focus
+    const delta = accrued.deltaMs;
     if (item.parentFocusId && engine?.items?.[item.parentFocusId]) {
       const parent = engine.items[item.parentFocusId];
       if (parent.focusState !== 'completed') {
@@ -1052,11 +1091,17 @@ async function idlePromptResponse(message) {
 // Plan 037 — Focus Time Editing
 // ════════════════════════════════════════════
 
-// Total displayed elapsed = stored elapsedMs + (active ? now - lastResumedAt : 0).
-function liveElapsed(item) {
-  let ms = item.elapsedMs || 0;
-  if (item.lastResumedAt) ms += Date.now() - new Date(item.lastResumedAt).getTime();
-  return ms;
+// Total displayed elapsed = stored elapsedMs + (active ? now - lastResumedAt : 0),
+// run through the same clamp the pause path will apply when this run is banked
+// (S4/#4). Sharing one definition is the point: S9 existed precisely because
+// the published number and the internal number were computed two different
+// ways. Exported so awarenessService publishes the identical value.
+export function liveElapsed(item) {
+  return liveElapsedClamped({
+    storedMs: item?.elapsedMs || 0,
+    lastResumedAt: item?.lastResumedAt,
+    createdAt: item?.createdAt || item?.startedAt
+  });
 }
 
 // Wall-clock ceiling: a focus can never have more active time than has elapsed

@@ -14,8 +14,11 @@ import {
   shouldAdoptFocus,
   reconcileKnownFocusRow,
   deriveLocalClockEvent,
+  lastClockEventAt,
   clockEventMs,
   pickLatestClockCandidate,
+  isFreshClockCandidate,
+  CLOCK_CANDIDATE_MAX_STALENESS_MS,
   shouldAdoptClock
 } from '../src/utils/liveIngestArbitration.js';
 
@@ -185,14 +188,160 @@ test('deriveLocalClockEvent: no session at all → all null', () => {
   assert.deepEqual(evt, { clock_state: null, clocked_in_at: null, on_break_since: null, last_clock_event_at: null });
 });
 
+// ── S5 / bug #5: break-end must not regress last_clock_event_at ───
+//
+// Pre-fix, `last_clock_event_at` was `breakStartedAt || clockedInAt`. Because
+// clock.js nulls breakStartedAt on break-end, the published timestamp jumped
+// BACKWARDS to the shift start, and a sibling row still reading `on_break`
+// then won arbitration and dragged the just-resumed install back onto break.
+
+test('S5: lastClockEventAt advances on every clock event, including break-end', () => {
+  const shiftStart = iso(T0);              // 09:00
+  const breakStart = iso(T0 + 60 * M);     // 10:00
+  const breakEnd = iso(T0 + 90 * M);       // 10:30
+
+  assert.equal(lastClockEventAt({ clockedInAt: shiftStart }), shiftStart);
+  assert.equal(lastClockEventAt({ clockedInAt: shiftStart, breakStartedAt: breakStart }), breakStart);
+  // The regression: breakStartedAt is nulled, breakEndedAt takes over.
+  assert.equal(
+    lastClockEventAt({ clockedInAt: shiftStart, breakStartedAt: null, breakEndedAt: breakEnd }),
+    breakEnd,
+    'break-end must advance the event time, not fall back to the shift start'
+  );
+});
+
+test('S5: the exact 09:00/10:00/10:30 sequence is monotonic across the whole shift', () => {
+  const session = { active: true, onBreak: false, clockedInAt: iso(T0), breakStartedAt: null, breakEndedAt: null, breaks: [] };
+  const seen = [];
+
+  seen.push(deriveLocalClockEvent(session).last_clock_event_at);            // clock in 09:00
+  session.onBreak = true; session.breakStartedAt = iso(T0 + 60 * M);
+  seen.push(deriveLocalClockEvent(session).last_clock_event_at);            // break start 10:00
+  session.onBreak = false; session.breakStartedAt = null; session.breakEndedAt = iso(T0 + 90 * M);
+  seen.push(deriveLocalClockEvent(session).last_clock_event_at);            // break end 10:30
+  session.active = false; session.clockedOutAt = iso(T0 + 300 * M);
+  seen.push(deriveLocalClockEvent(session).last_clock_event_at);            // clock out 14:00
+
+  const ms = seen.map(s => new Date(s).getTime());
+  for (let i = 1; i < ms.length; i++) {
+    assert.ok(ms[i] > ms[i - 1],
+      `event ${i} (${seen[i]}) must be strictly newer than event ${i - 1} (${seen[i - 1]})`);
+  }
+});
+
+test('S5: a stale sibling on_break row can no longer drag a resumed install back onto break', () => {
+  // The reported failure, end to end.
+  // This install: shift 09:00, break 10:00, resumed 10:30.
+  const resumed = {
+    active: true, onBreak: false,
+    clockedInAt: iso(T0), breakStartedAt: null, breakEndedAt: iso(T0 + 90 * M), breaks: []
+  };
+  const local = deriveLocalClockEvent(resumed);
+
+  // Sibling row, never updated since the break started at 10:00.
+  const staleSibling = {
+    browser_profile_id: 'other', clock_state: 'on_break',
+    clocked_in_at: iso(T0), on_break_since: iso(T0 + 60 * M),
+    last_clock_event_at: iso(T0 + 60 * M)
+  };
+
+  // Pre-fix `local.last_clock_event_at` was iso(T0) = 09:00, strictly older
+  // than the sibling's 10:00 → adopt → back onto break. Now it is 10:30.
+  assert.equal(local.last_clock_event_at, iso(T0 + 90 * M));
+  assert.equal(shouldAdoptClock({ local, remote: staleSibling }), false,
+    'the install that just resumed must not be pulled back onto break');
+});
+
+test('S5: lastClockEventAt ignores nulls and malformed timestamps', () => {
+  assert.equal(lastClockEventAt(null), null);
+  assert.equal(lastClockEventAt({}), null);
+  assert.equal(lastClockEventAt({ clockedInAt: 'not-a-date', breakEndedAt: iso(T0) }), iso(T0));
+});
+
 // ── Clock: pickLatestClockCandidate / shouldAdoptClock ────────────
 test('pickLatestClockCandidate: picks the row with the latest last_clock_event_at', () => {
+  const now = T0 + 10 * M;
   const rows = [
-    { browser_profile_id: 'a', clock_state: 'clocked_in', last_clock_event_at: iso(T0) },
-    { browser_profile_id: 'b', clock_state: 'clocked_in', last_clock_event_at: iso(T0 + 5 * M) }
+    { browser_profile_id: 'a', clock_state: 'clocked_in', last_clock_event_at: iso(T0), last_heartbeat_at: iso(now) },
+    { browser_profile_id: 'b', clock_state: 'clocked_in', last_clock_event_at: iso(T0 + 5 * M), last_heartbeat_at: iso(now) }
   ];
-  const winner = pickLatestClockCandidate(rows);
+  const winner = pickLatestClockCandidate(rows, now);
   assert.equal(winner.browser_profile_id, 'b');
+});
+
+// ── S7 / bug #7: dead devices must not win clock arbitration ──────
+//
+// The ingest had no freshness cutoff whatsoever, so a device that died months
+// ago while `clocked_in` stayed a candidate forever and beat a fresh install
+// automatically (an install with no local session scores clockEventMs = 0).
+
+test('S7: a long-dead device claiming clocked_in is excluded from candidates', () => {
+  const now = T0 + 400 * M;
+  // Modelled on the real snapshot: a 371-minute-stale row still marked
+  // online:true and clocked_in (audit §S7 / prod probe 2026-07-25).
+  const corpse = {
+    browser_profile_id: 'dead', clock_state: 'clocked_in', online: true,
+    last_clock_event_at: iso(T0 + 200 * M), last_heartbeat_at: iso(now - 371 * M)
+  };
+  assert.equal(isFreshClockCandidate(corpse, now), false);
+  assert.equal(pickLatestClockCandidate([corpse], now), null,
+    'a corpse must not be adoptable at all');
+});
+
+test('S7: a live device wins over a dead device even with an OLDER clock event', () => {
+  // This is the bug in one assertion: the corpse has the newer event time, so
+  // pre-fix it won. Freshness has to gate candidacy BEFORE recency ranks it.
+  const now = T0 + 400 * M;
+  const corpse = {
+    browser_profile_id: 'dead', clock_state: 'clocked_in',
+    last_clock_event_at: iso(T0 + 300 * M),        // newer event…
+    last_heartbeat_at: iso(now - 371 * M)          // …but long dead
+  };
+  const live = {
+    browser_profile_id: 'live', clock_state: 'clocked_in',
+    last_clock_event_at: iso(T0 + 100 * M),        // older event…
+    last_heartbeat_at: iso(now - 20 * 1000)        // …but alive 20s ago
+  };
+  const winner = pickLatestClockCandidate([corpse, live], now);
+  assert.equal(winner.browser_profile_id, 'live');
+});
+
+test('S7: a row with no heartbeat at all is rejected (liveness must be positively evidenced)', () => {
+  const now = T0;
+  const noHeartbeat = { browser_profile_id: 'x', clock_state: 'clocked_in', last_clock_event_at: iso(T0) };
+  assert.equal(isFreshClockCandidate(noHeartbeat, now), false);
+  assert.equal(pickLatestClockCandidate([noHeartbeat], now), null);
+});
+
+test('S7: the horizon is lenient enough to survive an MV3 service-worker eviction', () => {
+  // The extension heartbeat is a plain setInterval with no chrome.alarms
+  // backing, so an OPEN browser whose SW was evicted goes quiet while the
+  // user is genuinely still working. Losing that install's real shift is the
+  // expensive failure, so the horizon must clear a long eviction gap.
+  const now = T0 + 200 * M;
+  const evictedButWorking = {
+    browser_profile_id: 'mv3', clock_state: 'clocked_in',
+    last_clock_event_at: iso(T0), last_heartbeat_at: iso(now - 45 * M)
+  };
+  assert.equal(isFreshClockCandidate(evictedButWorking, now), true,
+    '45 minutes of SW eviction must NOT invalidate a real shift');
+  // …and the awareness UI's much tighter 5-minute rule must not be reused here.
+  assert.ok(CLOCK_CANDIDATE_MAX_STALENESS_MS > 5 * 60 * 1000);
+});
+
+test('S7: the horizon lands inside the empty band separating live devices from corpses', () => {
+  // Observed heartbeat ages (prod probe, 2026-07-25): 0.2, 0.3 | 370.9, 371.8,
+  // 786.3, 6515.3 minutes. Guards the constant itself, not just its use.
+  assert.ok(CLOCK_CANDIDATE_MAX_STALENESS_MS > 1 * M, 'must clear the live devices with room to spare');
+  assert.ok(CLOCK_CANDIDATE_MAX_STALENESS_MS < 370 * M, 'must exclude the nearest corpse');
+});
+
+test('S7: the staleness boundary is inclusive', () => {
+  const now = T0 + 1000 * M;
+  const atEdge = { clock_state: 'clocked_in', last_heartbeat_at: iso(now - CLOCK_CANDIDATE_MAX_STALENESS_MS) };
+  const overEdge = { clock_state: 'clocked_in', last_heartbeat_at: iso(now - CLOCK_CANDIDATE_MAX_STALENESS_MS - 1) };
+  assert.equal(isFreshClockCandidate(atEdge, now), true);
+  assert.equal(isFreshClockCandidate(overEdge, now), false);
 });
 
 test('shouldAdoptClock: adopts a strictly-newer, actually-different remote state', () => {

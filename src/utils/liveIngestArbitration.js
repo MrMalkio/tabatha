@@ -164,15 +164,54 @@ export function reconcileKnownFocusRow({ localItem, row }) {
 // mirroring awarenessService.buildStatusPayload's clock block exactly (kept
 // in sync deliberately — both read the same three clockSession fields the
 // same way) so local-vs-remote comparisons are apples-to-apples.
+/**
+ * Sync forensics S5 / bug #5 — the single, monotonic definition of "when did
+ * this install's clock last change state".
+ *
+ * The old rule was `breakStartedAt || clockedInAt`. Because `clock.js` nulls
+ * `breakStartedAt` when a break ends, ending a break made the published
+ * timestamp jump BACKWARDS to the shift start:
+ *
+ *     09:00 clock in     -> publishes 09:00
+ *     10:00 break start  -> publishes 10:00
+ *     10:30 break end    -> publishes 09:00   <-- regression
+ *
+ * A sibling row still reading `on_break` at 10:00 was then strictly newer AND
+ * described a different state, so `shouldAdoptClock` returned true and the
+ * install that had just resumed was pulled back onto break — silently, and
+ * stickily, because it then converged there.
+ *
+ * Taking the MAX over every event timestamp makes the value monotonic by
+ * construction: each of the four events stamps a fresh `now`, so the max can
+ * only ever move forward. Adding a fifth event later cannot break it.
+ */
+export function lastClockEventAt(clockSession) {
+  const candidates = [
+    clockSession?.clockedInAt,
+    clockSession?.breakStartedAt,
+    clockSession?.breakEndedAt,
+    clockSession?.clockedOutAt
+  ];
+  let bestIso = null;
+  let bestMs = -Infinity;
+  for (const iso of candidates) {
+    if (!iso) continue;
+    const ms = new Date(iso).getTime();
+    if (Number.isFinite(ms) && ms > bestMs) {
+      bestMs = ms;
+      bestIso = iso;
+    }
+  }
+  return bestIso;
+}
+
 export function deriveLocalClockEvent(clockSession) {
   if (clockSession?.active) {
     return {
       clock_state: clockSession.onBreak ? 'on_break' : 'clocked_in',
       clocked_in_at: clockSession.clockedInAt || null,
       on_break_since: clockSession.onBreak ? (clockSession.breakStartedAt || null) : null,
-      last_clock_event_at: clockSession.onBreak
-        ? (clockSession.breakStartedAt || clockSession.clockedInAt || null)
-        : (clockSession.clockedInAt || null)
+      last_clock_event_at: lastClockEventAt(clockSession)
     };
   }
   if (clockSession?.clockedOutAt) {
@@ -180,7 +219,7 @@ export function deriveLocalClockEvent(clockSession) {
       clock_state: 'clocked_out',
       clocked_in_at: null,
       on_break_since: null,
-      last_clock_event_at: clockSession.clockedOutAt
+      last_clock_event_at: lastClockEventAt(clockSession)
     };
   }
   return { clock_state: null, clocked_in_at: null, on_break_since: null, last_clock_event_at: null };
@@ -191,11 +230,73 @@ export function clockEventMs(evt) {
   return Number.isFinite(t) ? t : 0;
 }
 
+/**
+ * Sync forensics S7 / bug #7 — how stale a device's heartbeat may be before
+ * its clock state stops being a candidate for adoption.
+ *
+ * The ingest path had NO freshness cutoff at all: `pullClockCandidates` never
+ * even selected `last_heartbeat_at`, and `pickLatestClockCandidate` filtered
+ * only on `clock_state` being truthy. So a device that died months ago while
+ * `clocked_in` stayed a candidate forever — and beat a freshly-started
+ * install automatically, because an install with no local session scores
+ * `clockEventMs` = 0.
+ *
+ * WHY 90 MINUTES
+ *
+ * Measured heartbeat ages across every status row on the profile (read-only
+ * Mgmt API, 2026-07-25) — note the empty band in the middle:
+ *
+ *      0.2 min   clocked_in, online   <- genuinely live
+ *      0.3 min   clocked_in, online   <- genuinely live
+ *    ----------- 370-minute gap with nothing in it -----------
+ *    370.9 min   clocked_in, online   <- corpse still claiming a shift
+ *    371.8 min   clocked_in, online   <- corpse still claiming a shift
+ *    786.3 min   (no clock state)     <- "Deskview on OD", §S7
+ *   6515.3 min   clocked_out          <- 4.5 days dead
+ *
+ * The two populations are separated by more than six hours of empty space, so
+ * the cutoff only has to land inside that band. 90 min sits ~300x above the
+ * live devices and ~4x below the nearest corpse.
+ *
+ * It is deliberately LENIENT rather than tight, because the two error
+ * directions are not symmetric:
+ *   - Too tight is the dangerous one. The extension heartbeat is a plain
+ *     `setInterval` with no `chrome.alarms` backing (awarenessService.js), so
+ *     an MV3 service worker evicted while the browser is still open stops
+ *     heartbeating even though the user is genuinely working. A tight cutoff
+ *     would make a second install ignore that real, ongoing shift.
+ *   - Too loose merely means a device that has been silent for over an hour
+ *     can still vouch for a shift — which, for a user who stepped away, is
+ *     the correct answer anyway.
+ * This is why we do NOT reuse `OFFLINE_THRESHOLD_MS` (5 min): that threshold
+ * governs the awareness UI, where being wrong is cosmetic. Here being wrong
+ * rewrites the user's clock state, so it gets its own, looser number.
+ *
+ * A device inside the horizon but stale is still subject to the existing
+ * strict-newer + state-differs guards in `shouldAdoptClock`.
+ */
+export const CLOCK_CANDIDATE_MAX_STALENESS_MS = 90 * 60 * 1000; // 90 min
+
+/**
+ * True if a status row's heartbeat is recent enough for its clock state to be
+ * trusted. A row with NO heartbeat at all is rejected: we cannot show it is
+ * alive, and the whole point of the horizon is to require positive evidence
+ * of liveness rather than assume it.
+ */
+export function isFreshClockCandidate(row, now = Date.now(), maxStalenessMs = CLOCK_CANDIDATE_MAX_STALENESS_MS) {
+  const hb = row?.last_heartbeat_at ? new Date(row.last_heartbeat_at).getTime() : NaN;
+  if (!Number.isFinite(hb)) return false;
+  return (now - hb) <= maxStalenessMs;
+}
+
 // Pick the account-wide latest clock-event candidate (self excluded by the
 // caller before this is invoked) from a list of browser_profile_status rows.
-export function pickLatestClockCandidate(candidates) {
+// S7/#7: candidates must now also be demonstrably alive — see the horizon
+// rationale on CLOCK_CANDIDATE_MAX_STALENESS_MS above.
+export function pickLatestClockCandidate(candidates, now = Date.now(), maxStalenessMs = CLOCK_CANDIDATE_MAX_STALENESS_MS) {
   const withMs = (candidates || [])
     .filter(c => c && c.clock_state)
+    .filter(c => isFreshClockCandidate(c, now, maxStalenessMs))
     .map(c => ({ ...c, ms: clockEventMs(c) }));
   return pickLatestByTime(withMs);
 }
