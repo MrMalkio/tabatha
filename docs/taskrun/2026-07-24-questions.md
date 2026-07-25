@@ -124,3 +124,26 @@ Two things make this a redesign rather than a fix:
 mutual opt-in — hours visible only between members who have BOTH opted in; (c) shelve until the
 #221 Lanes/shared-focus model lands and do it properly there. My recommendation: **(c), with (a) as
 an interim if you need something now** — the data isn't trustworthy until #6 is fixed regardless.
+
+## B4 (UPDATED) — PS: SSH fixed by me, Heimdall dispatch still broken
+
+I fixed two genuine config faults tonight, both backed up (`~/.ssh/config.bak-2026-07-25`):
+
+1. The `ps` alias pointed at the **Tailnet IP 100.73.84.45, which times out**. A stale comment claimed
+   the LAN address broke during a subnet move — no longer true; it answers in 4ms. Repointed.
+2. Heimdall dispatches to PS by its **registry hostname `Pondecean-Silver`**, not the `ps` alias — so
+   it never used the `ps_auto` key and died on **host-key verification**. Added a matching entry.
+
+**Result: `ssh ps` and `ssh Pondecean-Silver` both work now** (return `Pondecean-Silver`, key auth, no
+prompt). So PS is usable for compute *directly over SSH* today.
+
+**Still broken: `heimdall run --on ps` fails** even though the underlying SSH now succeeds — so the
+remaining fault is inside Heimdall's own dispatch/daemon layer (its registry lists PS ONLINE with
+node v26.4.0 and openssh 9.5p2, so it can see the machine; it just can't execute). Its `job status`
+surfaces no error text, which is what makes this slow to chase.
+
+**Needs you (small):** either run Heimdall's daemon/enroll step on PS so dispatch works
+(`heimdall daemon start` / `heimdall enroll` on that box), or confirm you're happy for agents to use
+plain `ssh ps "<cmd>"` for fleet compute and I'll write that into OPERATIONS as the sanctioned path.
+Nothing tonight was blocked by this — OD carried the whole run — and honestly the bottleneck has been
+review gates and human-only actions, not compute.
