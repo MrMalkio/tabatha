@@ -21,10 +21,25 @@ function startedAtOf(f) {
   return Number.isFinite(t) ? t : Date.now();
 }
 
+// 0.13.10 (sync forensics S2): `drifted` is a RUNNING state in the extension
+// (focusService.js treats 'active' || 'drifted' as running in eight places),
+// so it must be in the Sidecar's running tier too. Previously it was in
+// neither tier — a drifted focus vanished from the phone / Context View and
+// they fell back to an older paused intent.
+const RUNNING_STATES = ['active', 'drifted'];
+const isRunning = (f) => RUNNING_STATES.includes(f.focus_state);
+
 function pickMostRecentActive(items) {
-  const actives = items.filter((f) => f.focus_state === 'active');
+  const actives = items.filter(isRunning);
   if (!actives.length) return null;
   return actives.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0];
+}
+
+// mirror: elapsedMsOf <- sidecar/src/data/focus.ts (exported, ~line 45)
+function elapsedMsOf(f, now) {
+  if (isRunning(f)) return Math.max(0, now - startedAtOf(f));
+  const frozen = f.tags?._elapsedMs;
+  return Number.isFinite(frozen) ? Math.max(0, frozen) : Math.max(0, now - startedAtOf(f));
 }
 
 const MIN = 60000;
@@ -100,6 +115,53 @@ test('pickMostRecentActive: is a pure function — does not mutate the input arr
   const snapshot = [...input];
   pickMostRecentActive(input);
   assert.deepEqual(input, snapshot, 'input array identity/order must be unchanged (no in-place sort)');
+});
+
+// ── 0.13.10: `drifted` counts as running (sync forensics S2) ───────────
+
+test('pickMostRecentActive: a DRIFTED focus is selectable as current (was in neither tier)', () => {
+  const drifted = item('drifted-focus', { state: 'drifted', src: 'extension', startedAgoMin: 5 });
+  assert.equal(pickMostRecentActive([drifted])?.id, 'drifted-focus',
+    'the extension renders a drifted focus as THE current focus; the phone must agree');
+});
+
+test('pickMostRecentActive: a DRIFTED focus beats an older paused one instead of falling through to it', () => {
+  // The exact "old intents in view" repro: the extension drifts today's
+  // focus, and pre-0.13.10 the Sidecar dropped it from the running tier and
+  // surfaced a week-old paused intent from the paused tier instead.
+  const drifted = item('today-drifted', { state: 'drifted', startedAgoMin: 10 });
+  const stalePaused = item('week-old', { state: 'paused', startedAgoMin: 60 * 24 * 7, elapsedMs: 1000 });
+  assert.equal(pickMostRecentActive([stalePaused, drifted])?.id, 'today-drifted');
+});
+
+test('pickMostRecentActive: active vs drifted still resolves purely by recency', () => {
+  const olderActive = item('older-active', { state: 'active', startedAgoMin: 20 });
+  const newerDrifted = item('newer-drifted', { state: 'drifted', startedAgoMin: 2 });
+  assert.equal(pickMostRecentActive([olderActive, newerDrifted])?.id, 'newer-drifted');
+
+  const newerActive = item('newer-active', { state: 'active', startedAgoMin: 1 });
+  const olderDrifted = item('older-drifted', { state: 'drifted', startedAgoMin: 30 });
+  assert.equal(pickMostRecentActive([newerActive, olderDrifted])?.id, 'newer-active');
+});
+
+test('pickMostRecentActive: completed/paused are still excluded from the running tier', () => {
+  const done = item('done', { state: 'completed' });
+  const paused = item('paused', { state: 'paused', elapsedMs: 42 });
+  assert.equal(pickMostRecentActive([done, paused]), null,
+    'widening to drifted must not accidentally widen to paused/completed');
+});
+
+test('elapsedMsOf: a DRIFTED focus keeps ticking instead of freezing at _elapsedMs', () => {
+  const now = Date.now();
+  const drifted = item('d', { state: 'drifted', startedAgoMin: 7, elapsedMs: 1000 });
+  assert.ok(Math.abs(elapsedMsOf(drifted, now) - 7 * MIN) < 1000,
+    'drifted is running, so elapsed derives from _startedAt — not the stale frozen value');
+});
+
+test('elapsedMsOf: a PAUSED focus still freezes at _elapsedMs', () => {
+  const now = Date.now();
+  const paused = item('p', { state: 'paused', startedAgoMin: 90, elapsedMs: 12345 });
+  assert.equal(elapsedMsOf(paused, now), 12345);
 });
 
 // ── mirror: the "pause all other actives, any source, freeze elapsed"
@@ -181,4 +243,43 @@ test('pickPausedCurrent: pin pointing outside the tier is ignored (recency wins)
   const old = item('old', { state: 'paused', startedAgoMin: 600 });
   const recent = item('recent', { state: 'paused', startedAgoMin: 5 });
   assert.equal(pickPausedCurrent([old, recent], 'not-here')?.id, 'recent');
+});
+
+// ── 0.13.10 regression: `drifted` must be a RUNNING state ──────────────
+// Sync forensics (docs/audits/2026-07-24-sync-forensics.md, S2) traced the
+// long-running "old intents in view" report to this: the extension treats
+// 'drifted' as running, the Sidecar recognised only 'active' in the running
+// tier and only 'paused' in the paused tier, so a drifted focus fell through
+// BOTH — the phone and Context View silently dropped the real current focus
+// and surfaced an older paused intent instead. Two earlier fixes (0.13.1's
+// pin re-ranking, 0.13.5's session-aware reclaim) treated symptoms because
+// nobody asked why the running tier had gone empty. These cases exist so the
+// running tier can never quietly lose a state the extension considers live.
+
+test('drift regression: a drifted focus is RUNNING and wins over an older paused one', () => {
+  const drifted = item('drifted-now', { state: 'drifted', startedAgoMin: 5 });
+  const oldPaused = item('paused-old', { state: 'paused', startedAgoMin: 60 * 24 * 3 });
+  assert.equal(pickMostRecentActive([drifted, oldPaused])?.id, 'drifted-now');
+});
+
+test('drift regression: drifted competes with active on recency, not state rank', () => {
+  const olderActive = item('active-older', { state: 'active', startedAgoMin: 90 });
+  const newerDrift = item('drift-newer', { state: 'drifted', startedAgoMin: 10 });
+  assert.equal(pickMostRecentActive([olderActive, newerDrift])?.id, 'drift-newer');
+  const newerActive = item('active-newer', { state: 'active', startedAgoMin: 2 });
+  assert.equal(pickMostRecentActive([newerActive, newerDrift])?.id, 'active-newer');
+});
+
+test('drift regression: a lone drifted focus never falls through to the paused tier', () => {
+  const drifted = item('solo-drift', { state: 'drifted', startedAgoMin: 20 });
+  // Running tier must claim it — if this returns null the paused-tier
+  // fallback takes over and the stale-intent bug is back.
+  assert.notEqual(pickMostRecentActive([drifted]), null);
+  assert.equal(pickMostRecentActive([drifted])?.id, 'solo-drift');
+});
+
+test('drift regression: completed/resolved states are still NOT running', () => {
+  const done = item('done', { state: 'completed' });
+  const paused = item('paused', { state: 'paused', elapsedMs: 1000 });
+  assert.equal(pickMostRecentActive([done, paused]), null);
 });

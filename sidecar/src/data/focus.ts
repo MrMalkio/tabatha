@@ -43,7 +43,11 @@ export function startedAtOf(f: FocusItem): number {
 // Elapsed run-time, continuing across pauses. While active it's derived from the
 // (pause-shifted) start; while paused it's frozen at tags._elapsedMs.
 export function elapsedMsOf(f: FocusItem, now: number): number {
-  if (f.focus_state === 'active') return Math.max(0, now - startedAtOf(f));
+  // Running (active OR drifted — see RUNNING_STATES below) keeps ticking; a
+  // drifted focus is still running in the extension, so freezing its elapsed
+  // at `_elapsedMs` here made the phone's timer stall while the browser's
+  // kept counting.
+  if (isRunning(f)) return Math.max(0, now - startedAtOf(f));
   const frozen = f.tags?._elapsedMs;
   return Number.isFinite(frozen) ? Math.max(0, frozen) : Math.max(0, now - startedAtOf(f));
 }
@@ -63,8 +67,31 @@ function snoozedUntil(f: FocusItem): number {
  * `tests/arbitration.test.mjs` so the selection logic itself is covered,
  * not just the elapsed-ms math around it.
  */
+/**
+ * States that mean "this focus is RUNNING" (0.13.10, sync forensics S2 —
+ * docs/audits/2026-07-24-sync-forensics.md).
+ *
+ * `drifted` is a first-class running state in the extension: `focusService.js`
+ * treats `'active' || 'drifted'` as running in eight places, `useFocusEngine`
+ * ticks it, and the home page renders it as THE current focus ("⚠️ DRIFTED").
+ * The Sidecar previously recognised only `'active'` in the running tier and
+ * only `'paused'` in the paused tier, so a drifted focus fell through BOTH —
+ * the moment the extension drifted the current focus, the phone and the
+ * Context View dropped it and fell back to an older paused intent, while
+ * still listing it in the queue.
+ *
+ * That is the actual cause of the "old intents in view" report (2026-07-21).
+ * The 0.13.1 fix re-ranked the AsyncStorage pin WITHIN the paused tier; it
+ * never asked why the running tier had gone empty. Drift is routine Tabatha
+ * behaviour, so this fired often.
+ */
+export const RUNNING_STATES = ['active', 'drifted'] as const;
+export function isRunning(f: FocusItem): boolean {
+  return (RUNNING_STATES as readonly string[]).includes(f.focus_state);
+}
+
 export function pickMostRecentActive<T extends FocusItem>(items: T[]): T | null {
-  const actives = items.filter((f) => f.focus_state === 'active');
+  const actives = items.filter(isRunning);
   if (!actives.length) return null;
   return actives.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0];
 }
