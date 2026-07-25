@@ -117,3 +117,44 @@ reason inside its daemon. Nothing tonight was blocked by it.
 **Production promotion: NO-GO** (Koda). The ledger couldn't reproduce prod (since repaired) and
 extension E2E covered 3 of 15 checks because Chrome blocks browser tools from any other extension's
 pages. Not promoted.
+
+---
+
+## Late addendum — the clamp saga (the night's best argument for review gates)
+
+**Koda BLOCKED Corin's sync-integrity clamp**, with both defects reproduced against real modules:
+
+- **K1:** the structural clamp measured a focus's life from `createdAt || startedAt` — the *later*
+  anchor. But your **"I was working before I created this focus"** button deliberately sets
+  `startedAt` EARLIER than `createdAt` (that IS the feature; `validateStartTime` pointedly does not
+  bound by creation). Probe: created 14:00, backdated to 09:00, 5h credited → at 14:05 it reported
+  **5 minutes**, and the next pause **banked** that. 295 minutes destroyed on disk, via a shipped
+  button, silently.
+- **K2:** the 12h ceiling was fed `now − lastResumedAt` for adopted focuses — but adoption sets that
+  anchor from a **back-dated** `_startedAt` (the 6.7.73 fix), so it's *lifetime*, not a run. A 14h
+  cross-surface intent would lose 2h05m on its first pause, and since `liveElapsed` clamps the
+  display too, it would read 12h in the browser and 20.69h on the phone — the exact disagreement the
+  work existed to eliminate.
+- **P1:** the "we always record what we tried to write" safety stamp was being **nulled by the
+  sanitizer** before it ever reached the database. The loss would have been genuinely silent.
+
+**Remediation (6.7.77 ext / 0.13.13 sidecar, verified by me: 827 and 164 tests green, not deployed):**
+Corin reproduced both as failing tests *before* fixing, rather than taking the verdict on faith. K1 is
+now `min(createdAt, startedAt)` with a `life > 0` guard. For K2 he rejected the suggested offset hack
+and fixed the data model instead — adoption banks the remote's accumulated time and starts a genuine
+run at `now`, so the ceiling only ever sees real run time — then flagged the substitution to Koda
+rather than quietly diverging.
+
+**And the part that matters most:** applying Koda's K2 lens to his *own* Sidecar code, Corin found the
+same defect there — worse, because that surface has no run anchor at all, so **any focus with >12h
+accumulated would have been truncated on its next pause.** Nobody asked him to look. That's the
+behaviour to keep.
+
+**One judgement call, flagged not buried:** he did not implement liveness-based clamping (my stated
+preference) — no synchronous liveness source exists on the pause path, and he judged a second
+unbudgeted redesign inside an unblock commit to be the greater risk. It's written up for Plan 046,
+and he asked Koda for an explicit verdict on whether the interim 12h ceiling is safe, committing to
+escalate rather than ship if the answer is no.
+
+**Status: still gated.** Nothing from this cluster is deployed. Extension **6.7.76** (Nell's
+`[object Object]` sanitize fix + two crash-risk read sites) IS live on your machine and the fleet.
