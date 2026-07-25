@@ -187,10 +187,19 @@ async function buildStatusPayload({ online }) {
     });
     focusRunning = !!af.lastResumedAt;
     // Predict expiry from the same live elapsed — no second formula.
+    //
+    // Koda N3: anchor the deadline to a FROZEN instant when the focus is
+    // paused. The heartbeat guard alone wasn't enough — this full-upsert path
+    // still recomputed `now + remaining` on any identity change (clock state,
+    // an `online` flip), re-sliding the deadline of a paused timer and making
+    // it render as counting UP. While paused, `pausedAt + remaining` is
+    // constant across every push; only a running focus may measure from now.
     if (focus_timer_minutes != null) {
       const targetMs = focus_timer_minutes * 60_000;
       const remainMs = Math.max(0, targetMs - focus_elapsed_ms);
-      focus_timer_ends_at = new Date(Date.now() + remainMs).toISOString();
+      const pausedAtMs = af.pausedAt ? new Date(af.pausedAt).getTime() : NaN;
+      const baseMs = (!focusRunning && Number.isFinite(pausedAtMs)) ? pausedAtMs : Date.now();
+      focus_timer_ends_at = new Date(baseMs + remainMs).toISOString();
     }
   }
 

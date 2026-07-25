@@ -387,6 +387,16 @@ async function upsertRows(supabase, table, rows, onConflict, diagnosticKind) {
   });
 }
 
+// Koda N2: the item's own FROZEN reference instant for the structural clamp.
+// Never `Date.now()` — a moving reference made the published anchor recede on
+// every sync cycle (see clampStoredElapsed). While active, the run began at
+// `lastResumedAt`, so the banked total must fit the life before that instant.
+// Once paused, everything froze at `pausedAt`.
+function frozenNowFor(item) {
+  if (item.focusState === 'active' && item.lastResumedAt) return item.lastResumedAt;
+  return item.pausedAt || item.endedAt || item.completedAt || null;
+}
+
 // Koda P2 (6.7.74 review): the banked elapsed a push should publish. Pure
 // function of frozen fields only — see clampStoredElapsed's note on why
 // `now - lastResumedAt` must never enter a pushed anchor.
@@ -394,7 +404,8 @@ function clampedStored(item) {
   return clampStoredElapsed({
     storedMs: item.elapsedMs || 0,
     createdAt: item.createdAt,
-    startedAt: item.startedAt
+    startedAt: item.startedAt,
+    now: frozenNowFor(item)
   });
 }
 
@@ -471,7 +482,22 @@ export function buildFocusRows(engine, scope) {
         }
         return item.tags?._startedAt || item.startedAt || item.createdAt || null;
       })(),
-      ...(item.focusState !== 'active' ? { _elapsedMs: clampedStored(item) } : {})
+      // Koda N1: publish `_elapsedMs` ALWAYS, not only while paused. The
+      // Sidecar recovers the current continuous run as
+      // `(now - _startedAt) - _elapsedMs`, so omitting it on active rows made
+      // banked read as 0 and the run degenerate to the whole lifetime —
+      // re-creating K2 across the wire on the 37-of-38 extension-authored row
+      // population. Measured: a 14h-banked active item pushed a 14h05m
+      // back-dated `_startedAt` with no `_elapsedMs`, so the phone computed a
+      // 14.08h "run", the ceiling fired, and pausing from the phone froze 12h
+      // — destroying 2.08h.
+      //
+      // Publishing both makes `_startedAt` and `_elapsedMs` mutually
+      // consistent BY CONSTRUCTION rather than by luck. Blast radius checked:
+      // `_elapsedMs` is not read by `focusRowStartedAtMs`, so arbitration is
+      // untouched, and `reconcileKnownFocusRow` only applies tag keys from
+      // Sidecar-sourced rows, so no extension row ingests it back.
+      _elapsedMs: clampedStored(item)
     },
     created_at: isoOrNow(item.createdAt || item.startedAt),
     completed_at: isoOrNull(item.completedAt || item.endedAt),

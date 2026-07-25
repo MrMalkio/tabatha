@@ -450,25 +450,38 @@ export function adoptRemoteActive(item, engine, remoteStartedAtIso) {
   //
   // This is push-identical, so the non-ping-pong invariant is untouched:
   // `buildFocusRows` back-dates `_startedAt = lastResumedAt - elapsedMs`
-  // = now - (now - startIso) = startIso — byte for byte what we adopted.
+  // = now - (now - startIso) = startIso — the same INSTANT we adopted (the
+  // string may re-serialise, e.g. 09:00:00Z -> 09:00:00.000Z; arbitration
+  // parses to ms so that is equivalent, but it is not byte-identical).
   const startMs = new Date(startIso).getTime();
   const nowMs = Date.now();
-  const adoptedBaselineMs = Number.isFinite(startMs) ? Math.max(0, nowMs - startMs) : 0;
+  if (!Number.isFinite(startMs)) {
+    // Koda N3: a malformed remote `_startedAt` must NOT be rewritten into a
+    // fresh `now` anchor. Doing so would publish a brand-new timestamp for a
+    // focus whose real start we simply don't know — inventing elapsed time and
+    // handing arbitration a spuriously-recent anchor. The pre-K2 code degraded
+    // to a stable passthrough here; preserve that. Whatever `lastResumedAt`
+    // and `elapsedMs` the item already had stay untouched.
+    item.pausedAt = null;
+    if (!item.startedAt) item.startedAt = new Date(nowMs).toISOString();
+  } else {
+  const adoptedBaselineMs = Math.max(0, nowMs - startMs);
   item.lastResumedAt = new Date(nowMs).toISOString();
   item.elapsedMs = adoptedBaselineMs;
   item.pausedAt = null;
-  // The structural clamp measures life from the earliest anchor, so `startedAt`
-  // must not sit AFTER the run we just adopted or it would clamp this baseline
-  // straight back off again.
-  const existingStartMs = item.startedAt ? new Date(item.startedAt).getTime() : NaN;
-  if (!item.startedAt || (Number.isFinite(startMs) && (!Number.isFinite(existingStartMs) || startMs < existingStartMs))) {
-    item.startedAt = startIso;
+    // The structural clamp measures life from the earliest anchor, so
+    // `startedAt` must not sit AFTER the run we just adopted or it would clamp
+    // this baseline straight back off again.
+    const existingStartMs = item.startedAt ? new Date(item.startedAt).getTime() : NaN;
+    if (!item.startedAt || !Number.isFinite(existingStartMs) || startMs < existingStartMs) {
+      item.startedAt = startIso;
+    }
   }
   engine.activeFocusId = item.id;
 
   chrome.alarms.clear(`focus-timer-${item.id}`);
   const totalTimerMs = (item.timerMinutes || 0) * 60 * 1000;
-  const elapsedNow = Math.max(0, Date.now() - new Date(startIso).getTime());
+  const elapsedNow = Number.isFinite(startMs) ? Math.max(0, nowMs - startMs) : (item.elapsedMs || 0);
   const remaining = totalTimerMs - elapsedNow;
   if (remaining > 0) {
     chrome.alarms.create(`focus-timer-${item.id}`, { delayInMinutes: remaining / 60000 });

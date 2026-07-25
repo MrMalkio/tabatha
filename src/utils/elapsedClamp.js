@@ -216,11 +216,25 @@ export function accrueElapsed({ storedMs, lastResumedAt, createdAt, startedAt, n
  * pushed anchor would make the value change on every sync cycle and reopen the
  * adoption ping-pong the 6.7.71/6.7.73 fixes closed.
  */
-export function clampStoredElapsed({ storedMs, createdAt, startedAt, now = Date.now(), ceilingMs = MAX_CONTINUOUS_RUN_MS }) {
+export function clampStoredElapsed({ storedMs, createdAt, startedAt, now, ceilingMs = MAX_CONTINUOUS_RUN_MS }) {
   const stored = Math.max(0, finiteOrNull(storedMs) ?? 0);
+
+  // Koda N2: `now` is REQUIRED and must be a frozen instant — there is
+  // deliberately no `Date.now()` default any more. With one, `life = now -
+  // anchor` grew on every sync cycle, so a legacy corrupt row published a
+  // `_startedAt` that RECEDED ~5 min per 5 min: three pushes produced
+  // 22:00:00, 22:55:01, 22:49:58, and any reader computing `now - _startedAt`
+  // saw elapsed climb at 2x real time. (No ping-pong — a receding anchor can't
+  // win arbitration — but the "stable across repeated pushes" promise in this
+  // file was simply false, in exactly the corrupt population the clamp is for.)
+  // Callers pass the item's own frozen instant: `lastResumedAt` while active,
+  // `pausedAt`/`endedAt` once paused.
+  const nowMs = toMs(now);
+  if (nowMs == null) return stored; // no frozen reference → do not clamp
+
   const anchorMs = lifeAnchorMs(createdAt, startedAt);
   if (anchorMs == null) return stored;
-  const life = now - anchorMs;
+  const life = nowMs - anchorMs;
   if (life > 0 && stored > life) return life;
   return stored;
 }

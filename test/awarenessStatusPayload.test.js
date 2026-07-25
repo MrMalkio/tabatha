@@ -248,3 +248,39 @@ test('P2: the internal _focusRunning flag never reaches the database row', async
   assert.ok(!Object.keys(row).includes('_focusRunning'), 'it is non-enumerable');
   assert.ok(!('_focusRunning' in JSON.parse(JSON.stringify(row))), 'and never serialised');
 });
+
+test('N3: a paused focus deadline is stable across FULL upserts, not just heartbeats', async () => {
+  // The heartbeat guard covered the 60s case, but any identity change (clock
+  // state, an `online` flip) still took the full-upsert path and recomputed
+  // `now + remaining`, re-sliding the deadline of a paused timer.
+  const pausedAt = isoAgo(30 * M);
+  const engine = {
+    activeFocusId: 'f_n3a',
+    items: {
+      f_n3a: {
+        id: 'f_n3a', label: 'Paused deadline', focusState: 'paused',
+        elapsedMs: 5 * M, lastResumedAt: null, pausedAt,
+        createdAt: isoAgo(3 * H), startedAt: isoAgo(3 * H), timerMinutes: 25
+      }
+    }
+  };
+
+  const { sb, awareness } = await publish({ focusEngine: engine, clockSession: null });
+  const first = lastStatusWrite(sb).focus_timer_ends_at;
+  assert.ok(first, 'a deadline is published');
+
+  // Force a SECOND full upsert by changing an identity field (clock state).
+  installChromeMock({
+    store: {
+      focusEngine: engine,
+      clockSession: { active: true, onBreak: false, clockedInAt: isoAgo(2 * H), breaks: [] }
+    }
+  });
+  await awareness.notifyStateChange();
+  await settle();
+
+  const upserts = sb.recorded.upserts.filter(u => u.table === 'browser_profile_status');
+  assert.equal(upserts.length, 2, 'the identity change forced a full upsert');
+  assert.equal(upserts[1].rows.focus_timer_ends_at, first,
+    'a paused deadline must be identical across full upserts — it used to slide');
+});
