@@ -40,3 +40,17 @@ must be replaced manually once.
 
 **Recommended:** treat the key as lost, mint a new keypair, and fold the new pubkey into the next
 companion release rather than cutting one just for this. Say the word and it's a small task.
+
+## B4 — PS (Pondecean-Silver) is reachable but won't authenticate
+
+Status tonight: PS went from fully offline → **network-reachable** (ping replies, port 22 open) part
+way through the run. Heimdall accepts and dispatches jobs to it, but they **FAIL** immediately —
+consistent with Kael's finding that sshd rejects publickey for `mrmal`, and the Tailscale route
+(100.73.84.45:22) times out separately.
+
+So PS has been unusable for compute all night despite being awake. Nothing tonight depended on it —
+OD carried the run — but it's dead weight in the fleet until the key is fixed.
+
+**Needs you:** either re-add OD's public key to PS's `authorized_keys`, or confirm you'd rather PS
+stay out of the fleet. (Related known issue from earlier: PS's `gh` token is invalid too, so even
+once SSH works it's compute-only, not a push target, until you re-auth `gh` on it interactively.)
