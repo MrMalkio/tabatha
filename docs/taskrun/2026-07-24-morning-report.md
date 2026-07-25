@@ -158,3 +158,41 @@ escalate rather than ship if the answer is no.
 
 **Status: still gated.** Nothing from this cluster is deployed. Extension **6.7.76** (Nell's
 `[object Object]` sanitize fix + two crash-risk read sites) IS live on your machine and the fleet.
+
+### Clamp saga — RESOLVED AND SHIPPED
+
+Koda's re-review returned **SHIP WITH FIXES** and caught one more, worth its own line: Corin's Sidecar
+recovery formula (`run = lifetime − banked`) was correct, but **active rows never published their
+banked time**, so the subtraction got zero and collapsed straight back to lifetime — the same defect
+recurring a *third* time, now across the wire, on the 37-of-38 row population. A 14h cross-surface
+intent would have read **12h on the phone against 14h05m in the browser**, freezing the truncated
+value if you paused from the phone. Fix was publishing one field already being computed. He also
+caught the clamp anchor *receding* on repeated pushes (the function defaulted to `Date.now()` instead
+of a frozen instant), making elapsed appear to grow at 2× real time for legacy-corrupt rows.
+
+**Shipped and independently verified by me:**
+
+| Surface | Version | Verification |
+|---|---|---|
+| Extension | **6.7.78** | fleet `update.xml` + staff channel + local dist all read 6.7.78; CRX id verified before publish; 6.7.76 kept for rollback |
+| Tabby Sidecar | **0.13.14** | live bundle serves 0.13.14 with the clamp constant present |
+
+833 extension tests, 166 Sidecar tests. Closes forensics #4/#5/#7/#9 plus ten defects raised across
+two adversarial rounds.
+
+**S4 is described honestly, in Koda's own wording:** closed for both pause paths on both surfaces now
+that N1 landed, with the two *edit* paths (extension `setFocusStartTime`, Sidecar `updateFocus`) named
+as the residual. Nothing claims S4 is fully closed.
+
+**Deferred to Plan 046 with Koda's endorsement:** liveness-based clamping via `last_heartbeat_at`,
+acceptance criteria taken from the audit's §S4 wording ("never bill focus time to a window in which no
+device was alive"). His reasoning for allowing the 12h ceiling in the interim: now that both surfaces
+measure a genuine continuous run, the ceiling only fires past 12h of *uninterrupted* running, where
+the error direction is over-credit rather than loss.
+
+**Corin's own retrospective, unprompted:** the same conceptual error — treating a back-dated anchor as
+a run — recurred three times in his work, and each instance took an adversarial pass to surface. He
+flagged that pattern himself for whoever scopes the Plan 046 liveness work.
+
+Still untouched and out of scope: S1 (full-table push reverting Sidecar edits), S3, S6 (duplicate
+shift adoption inflating hours ~2.5×), S8, S10.
