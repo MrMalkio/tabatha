@@ -40,3 +40,41 @@
 - **Unworked queue tonight: 1/1 addressed.** TR-20 shipped-to-branch + verified; prod deploy = the single morning approval above.
 - **Builds green:** Sidecar `tsc` + `node --test` (40/40) + `expo export` (healthy bundle).
 - **No "the report says it shipped" claims** — nothing is asserted live to users because nothing was deployed; every claim above is backed by a command output or a bundle grep.
+
+---
+
+## ADDENDUM — 2026-07-24 nightly bug-fix TaskRun (CeeCee night-shift)
+
+**This run found nothing unworked and did not build anything.** Recorded here so the next
+session resumes cold without re-investigating.
+
+### Queue state: empty
+- `docs/taskrun/nightly-bugfix-queue.md` — **does not exist** (still; same as last night). The
+  6-hourly triage agent has not produced a file for 2026-07-24.
+- `docs/taskrun/2026-07-22-queue.md` — TR-01–TR-19 all addressed (TR-19 closed by `fc5c8a6`).
+- `docs/taskrun/feedback-review-2026-07-23.md` — TR-20 closed last night.
+- `docs/audits/` — no synthesis newer than 2026-07-21 (already drained into TR-01–TR-19).
+- **Asana re-check (read-only):** searched project `1214031898449333` for `— Submitted from
+  Tabatha —` feedback. Returned only the five already-dispositioned GIDs (three test tickets
+  `1216713224519004` / `1216712694759006` / `1216712939534243`, the completed QA probe
+  `1216679002855862`, and TR-20's `1216832543077901`). **No new user feedback since
+  2026-07-23T18:26.** Per the skip-if-empty rule, no umbrella task, no builders, no fixes.
+
+### ⚠️ The morning question above is now MOOT — TR-20 is already live
+
+Do **not** run the `wrangler deploy` described in "Morning questions". It already happened,
+incidentally: TaskRun-2 (Vessa's parallel crew, same night) deployed **Sidecar 0.13.9** for the
+logo/icon cascade from the same branch, and TR-20's commit was already underneath it.
+
+- **Ancestry proof:** `git merge-base --is-ancestor 218279c 5f89845` → **true** (TR-20's commit
+  is contained in the deployed 0.13.9 tip).
+- **Live-bundle proof (fetched from prod, not asserted):**
+  `https://tabatha.pondocean.co/sidecar/_expo/static/js/web/entry-418ac613e461837117836b82cd30ed36.js`
+  (2,423,811 bytes) contains **`Paused`×5, `Resumed`×3** — an exact match for last night's
+  build-time grep counts for this change.
+
+**What still remains is only the eyeball, not a deploy.** The fix went to users without the
+visual smoke-check that was the stated reason for holding it (the deploy was driven by an
+unrelated icon change, so nobody checked the timeline rows). Remaining action: open 📋 Checkpoint
+on a focus with ≥1 pause + ≥1 resume and confirm the ⏸/▶ rows interleave chronologically. If
+anything looks wrong it is a roll-forward, not a rollback — the change is presentational only.
