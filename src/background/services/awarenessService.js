@@ -156,6 +156,14 @@ async function buildStatusPayload({ online }) {
   let focus_timer_minutes = null;
   let focus_elapsed_ms = null;
   let focus_timer_ends_at = null;
+  // Koda P2: is the focus actually RUNNING? `focus_timer_ends_at` is an
+  // absolute instant derived from `now + remaining`, so recomputing it for a
+  // PAUSED focus slides the deadline forward on every heartbeat — the timer
+  // appears to count up instead of standing still wherever it was paused
+  // (rendered in OtherProfilesStrip.jsx and TeamActivityPanel.jsx). Only the
+  // running case may refresh it. Attached non-enumerably below so it travels
+  // with the payload without being written to the row.
+  let focusRunning = false;
   const af = focusEngine?.activeFocusId ? focusEngine.items?.[focusEngine.activeFocusId] : null;
   if (af) {
     focus_state = af.focusState || 'active';
@@ -173,8 +181,11 @@ async function buildStatusPayload({ online }) {
     focus_elapsed_ms = liveElapsedClamped({
       storedMs,
       lastResumedAt: af.lastResumedAt,
-      createdAt: af.createdAt || af.startedAt
+      // K1: both anchors — earliest wins, so a backdated startedAt is honoured.
+      createdAt: af.createdAt,
+      startedAt: af.startedAt
     });
+    focusRunning = !!af.lastResumedAt;
     // Predict expiry from the same live elapsed — no second formula.
     if (focus_timer_minutes != null) {
       const targetMs = focus_timer_minutes * 60_000;
@@ -183,7 +194,7 @@ async function buildStatusPayload({ online }) {
     }
   }
 
-  return {
+  const payload = {
     browser_profile_id: activeBrowserProfileId,
     profile_id: activeProfileId,
     online: !!online,
@@ -202,6 +213,12 @@ async function buildStatusPayload({ online }) {
     metadata: { idle_state: localIdleState },
     updated_at: now
   };
+
+  // Non-enumerable so JSON.stringify (and therefore the Supabase request body)
+  // never sees it — it exists only to tell pushHeartbeat whether the timer
+  // deadline may be refreshed. See the focusRunning comment above.
+  Object.defineProperty(payload, '_focusRunning', { value: focusRunning, enumerable: false });
+  return payload;
 }
 
 function shallowEqualMostFields(a, b) {
@@ -234,15 +251,21 @@ async function pushHeartbeat({ online }) {
     // bumping updated_at noticeably — plus the two continuously-varying
     // derived columns (S9/#9), which are no longer identity keys and would
     // otherwise stay frozen at whatever the last full upsert wrote.
+    const refresh = {
+      last_heartbeat_at: payload.last_heartbeat_at,
+      online: payload.online,
+      focus_elapsed_ms: payload.focus_elapsed_ms
+    };
+    // Koda P2: only a RUNNING focus may refresh the timer deadline. For a
+    // paused focus the deadline is fixed at whatever it was when paused;
+    // recomputing `now + remaining` every heartbeat would slide it forward 60s
+    // at a time and render as a timer counting up while paused.
+    if (payload._focusRunning) refresh.focus_timer_ends_at = payload.focus_timer_ends_at;
+
     const { error } = await supabase
       .schema('tabatha')
       .from('browser_profile_status')
-      .update({
-        last_heartbeat_at: payload.last_heartbeat_at,
-        online: payload.online,
-        focus_elapsed_ms: payload.focus_elapsed_ms,
-        focus_timer_ends_at: payload.focus_timer_ends_at
-      })
+      .update(refresh)
       .eq('browser_profile_id', activeBrowserProfileId);
     if (!error) lastPayload = payload;
     return;

@@ -15,6 +15,7 @@ import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
 import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
 import { getCompanionBrowserProfileId } from './companionInstallService.js';
 import { runLiveIngestAfterPush } from './focusIngestService.js';
+import { clampStoredElapsed } from '../../utils/elapsedClamp.js';
 
 let deps = {};
 let syncTimeout = null;
@@ -386,6 +387,17 @@ async function upsertRows(supabase, table, rows, onConflict, diagnosticKind) {
   });
 }
 
+// Koda P2 (6.7.74 review): the banked elapsed a push should publish. Pure
+// function of frozen fields only — see clampStoredElapsed's note on why
+// `now - lastResumedAt` must never enter a pushed anchor.
+function clampedStored(item) {
+  return clampStoredElapsed({
+    storedMs: item.elapsedMs || 0,
+    createdAt: item.createdAt,
+    startedAt: item.startedAt
+  });
+}
+
 export function buildFocusRows(engine, scope) {
   const byId = new Map();
   for (const item of Object.values(engine?.items || {})) {
@@ -446,13 +458,20 @@ export function buildFocusRows(engine, scope) {
         // throws RangeError, which — uncaught inside this .map() — would abort
         // the whole sync cycle (Koda review 2026-07-24). Degrade to the same
         // fallback the paused branch uses instead of throwing.
+        // Koda P2 (6.7.74 review): back-date by the CLAMPED banked total, not
+        // the raw one. Publishing a raw `_elapsedMs` while
+        // `browser_profile_status.focus_elapsed_ms` publishes a clamped value
+        // put two contradictory numbers for the same quantity into one push.
+        // `clampStoredElapsed` is a pure function of frozen fields (never
+        // `now - lastResumedAt`), so the anchor stays stable across repeated
+        // pushes while active and cannot reopen adoption ping-pong.
         if (item.focusState === 'active' && item.lastResumedAt) {
-          const anchorMs = new Date(item.lastResumedAt).getTime() - (item.elapsedMs || 0);
+          const anchorMs = new Date(item.lastResumedAt).getTime() - clampedStored(item);
           if (Number.isFinite(anchorMs)) return new Date(anchorMs).toISOString();
         }
         return item.tags?._startedAt || item.startedAt || item.createdAt || null;
       })(),
-      ...(item.focusState !== 'active' ? { _elapsedMs: item.elapsedMs || 0 } : {})
+      ...(item.focusState !== 'active' ? { _elapsedMs: clampedStored(item) } : {})
     },
     created_at: isoOrNow(item.createdAt || item.startedAt),
     completed_at: isoOrNull(item.completedAt || item.endedAt),

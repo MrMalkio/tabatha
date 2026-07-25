@@ -52,11 +52,24 @@
 // and 8.05 h ("Asana inbox"), both plausible as a full workday left running —
 // sit 46% below the ceiling and are untouched.
 //
-// Corroborating reasons the ceiling belongs above ~8 h and below ~20 h:
-//   - Tabatha's own idle auto-break fires after 5 minutes of inactivity, so a
-//     genuinely-attended session is interrupted long before 12 h.
-//   - 12 h is already more than a double shift. Time beyond it is not being
-//     lost, it is being *disbelieved*.
+// Corroborating reason the ceiling belongs above ~8 h and below ~20 h:
+// 12 h is already more than a double shift. Time beyond it is not being lost,
+// it is being *disbelieved*.
+//
+// (An earlier draft also argued "the idle auto-break interrupts any attended
+// session long before 12 h". Koda struck it and he is right: Plan 036 replaced
+// unconditional auto-pause with a SUPPRESSIBLE prompt, so a user who dismisses
+// it keeps running. The distribution above is the real evidence; that argument
+// was not, and leaving it in would have made the ceiling look better-supported
+// than it is.)
+//
+// ── WHAT THIS CEILING IS AND IS NOT ─────────────────────────────────────
+//
+// It bounds ONE CONTINUOUS RUN, never a lifetime total. `clampStoredElapsed`
+// exists for banked totals and deliberately does not apply the ceiling: a
+// focus can legitimately accumulate far more than 12 h across many sessions.
+// Conflating the two destroyed 2 h 05 m of real cross-surface work in review
+// (K2) — the adopted anchor was a lifetime handed to a run-shaped clamp.
 //
 // ── THE CLAMP IS NEVER SILENT ───────────────────────────────────────────
 //
@@ -113,24 +126,53 @@ export function clampRunDelta(deltaMs, ceilingMs = MAX_CONTINUOUS_RUN_MS) {
 }
 
 /**
+ * The instant a focus's life begins, for the structural clamp: the EARLIEST of
+ * `createdAt` and `startedAt`.
+ *
+ * Koda review of 6.7.74 (K1, reproduced data loss): this used to be
+ * `createdAt || startedAt` — effectively the LATER of the two — which quietly
+ * destroyed backdated work. `setFocusStartTime` ("I was working before I
+ * created this focus") is a shipped, user-facing button that deliberately sets
+ * `startedAt` EARLIER than `createdAt`; `validateStartTime` bounds the choice
+ * to [clock-in, now] and specifically does NOT bound it by `createdAt`,
+ * because being earlier IS the feature. Measured: a focus created 14:00 and
+ * backdated to 09:00 with 5 h credited returned 5.0 MINUTES at 14:05, and the
+ * next pause banked that — 295 minutes of user-asserted work gone from disk.
+ *
+ * Taking the minimum makes this clamp agree with `wallClockMax` in
+ * focusService.js, which already measures from `startedAt`.
+ */
+export function lifeAnchorMs(createdAt, startedAt) {
+  const a = toMs(createdAt);
+  const b = toMs(startedAt);
+  if (a == null) return b;
+  if (b == null) return a;
+  return Math.min(a, b);
+}
+
+/**
  * Accrue a run delta onto a stored elapsed total, applying BOTH clamps.
  *
  * @param {object} args
  * @param {number} args.storedMs         previously banked elapsed
  * @param {*}      args.lastResumedAt    when this run started (ISO/ms/Date/null)
- * @param {*}      [args.createdAt]      focus creation instant, for the structural clamp
+ * @param {*}      [args.createdAt]      focus creation instant
+ * @param {*}      [args.startedAt]      focus start instant — MAY be earlier than
+ *                                       createdAt when the user backdated (K1)
  * @param {number} [args.now=Date.now()]
  * @param {number} [args.ceilingMs=MAX_CONTINUOUS_RUN_MS]
  * @returns {{ elapsedMs: number, deltaMs: number, clamped: boolean, requestedMs: number, reason: string|null }}
  */
-export function accrueElapsed({ storedMs, lastResumedAt, createdAt, now = Date.now(), ceilingMs = MAX_CONTINUOUS_RUN_MS }) {
+export function accrueElapsed({ storedMs, lastResumedAt, createdAt, startedAt, now = Date.now(), ceilingMs = MAX_CONTINUOUS_RUN_MS }) {
   const stored = Math.max(0, finiteOrNull(storedMs) ?? 0);
   const resumedMs = toMs(lastResumedAt);
-  if (resumedMs == null) {
-    return { elapsedMs: stored, deltaMs: 0, clamped: false, requestedMs: 0, reason: CLAMP_REASON.NONE };
-  }
-
-  const run = clampRunDelta(now - resumedMs, ceilingMs);
+  // No in-flight run is NOT an early exit: a paused item can still carry an
+  // impossible banked total (inherited from a pre-fix install), and the
+  // structural clamp below is the only thing that catches it. Treat it as a
+  // zero-length run and fall through.
+  const run = resumedMs == null
+    ? { ms: 0, clamped: false, requestedMs: 0, reason: CLAMP_REASON.NONE }
+    : clampRunDelta(now - resumedMs, ceilingMs);
   let total = stored + run.ms;
   let { clamped, requestedMs, reason } = run;
   // Track the raw total we'd have written, so provenance survives both clamps.
@@ -139,10 +181,16 @@ export function accrueElapsed({ storedMs, lastResumedAt, createdAt, now = Date.n
   // Structural clamp: total running time can never exceed the focus's own
   // wall-clock life. Applied second so it can also catch an already-inflated
   // `storedMs` inherited from a pre-fix row.
-  const createdMs = toMs(createdAt);
-  if (createdMs != null) {
-    const life = Math.max(0, now - createdMs);
-    if (total > life) {
+  //
+  // `life > 0` guard (Koda K1): `buildFocusRows` can stamp `created_at = now`
+  // on an item whose createdAt and startedAt are both null, which would make
+  // life 0 and wipe elapsed entirely. A zero-length life is missing data, not
+  // evidence that no time was spent — so it disables the structural clamp
+  // rather than zeroing the total. The ceiling still applies.
+  const anchorMs = lifeAnchorMs(createdAt, startedAt);
+  if (anchorMs != null) {
+    const life = now - anchorMs;
+    if (life > 0 && total > life) {
       total = life;
       clamped = true;
       reason = reason === CLAMP_REASON.CEILING ? CLAMP_REASON.CEILING : CLAMP_REASON.WALL_CLOCK;
@@ -159,14 +207,33 @@ export function accrueElapsed({ storedMs, lastResumedAt, createdAt, now = Date.n
 }
 
 /**
+ * Clamp an already-BANKED total (no in-flight run). Used when pushing a
+ * stored `_elapsedMs` to the cloud, so a total inflated by a pre-fix install
+ * isn't propagated verbatim to every other surface.
+ *
+ * Deliberately does NOT take `now - lastResumedAt` into account: callers that
+ * push must stay a pure function of frozen fields. Introducing `now` into a
+ * pushed anchor would make the value change on every sync cycle and reopen the
+ * adoption ping-pong the 6.7.71/6.7.73 fixes closed.
+ */
+export function clampStoredElapsed({ storedMs, createdAt, startedAt, now = Date.now(), ceilingMs = MAX_CONTINUOUS_RUN_MS }) {
+  const stored = Math.max(0, finiteOrNull(storedMs) ?? 0);
+  const anchorMs = lifeAnchorMs(createdAt, startedAt);
+  if (anchorMs == null) return stored;
+  const life = now - anchorMs;
+  if (life > 0 && stored > life) return life;
+  return stored;
+}
+
+/**
  * Live elapsed for display/publish: banked + the in-flight run, clamped the
  * same way `accrueElapsed` will clamp it when the run is finally banked.
  * Used by S9 (`browser_profile_status.focus_elapsed_ms`) so the published
  * number matches what the extension itself renders — and matches what the
  * pause path will eventually store.
  */
-export function liveElapsedClamped({ storedMs, lastResumedAt, createdAt, now = Date.now(), ceilingMs = MAX_CONTINUOUS_RUN_MS }) {
-  return accrueElapsed({ storedMs, lastResumedAt, createdAt, now, ceilingMs }).elapsedMs;
+export function liveElapsedClamped({ storedMs, lastResumedAt, createdAt, startedAt, now = Date.now(), ceilingMs = MAX_CONTINUOUS_RUN_MS }) {
+  return accrueElapsed({ storedMs, lastResumedAt, createdAt, startedAt, now, ceilingMs }).elapsedMs;
 }
 
 /**

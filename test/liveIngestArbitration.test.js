@@ -391,3 +391,38 @@ test('ping-pong proof: adopting a remote clock-in does not fabricate a newer loc
   // strictly-newer timestamp exists), which is what breaks the ping-pong loop.
   assert.equal(shouldAdoptClock({ local: localAfter, remote: sidecarRow }), false);
 });
+
+// ── Koda P2: a stale clock-OUT must stay adoptable ────────────────
+//
+// The horizon exists to stop a corpse FABRICATING a shift. A stale clock-out
+// can only ever END one, which is the conservative direction — and filtering
+// it out recreates the ghost-stint class (a device that clocked out while
+// another install never learned about it, leaving an open stint accruing).
+
+test('P2: a long-dead clocked_out row is still a valid candidate', () => {
+  const now = T0 + 10000 * M;
+  const staleOut = {
+    browser_profile_id: 'gone', clock_state: 'clocked_out',
+    last_clock_event_at: iso(T0 + 100 * M), last_heartbeat_at: iso(now - 6515 * M)
+  };
+  assert.equal(isFreshClockCandidate(staleOut, now), true,
+    'a stale clock-out can only end a shift, never invent one');
+  assert.equal(pickLatestClockCandidate([staleOut], now).browser_profile_id, 'gone');
+});
+
+test('P2: a clocked_out row with NO heartbeat at all is still adoptable', () => {
+  const now = T0;
+  const row = { browser_profile_id: 'nohb', clock_state: 'clocked_out', last_clock_event_at: iso(T0) };
+  assert.equal(isFreshClockCandidate(row, now), true);
+});
+
+test('P2: the exemption is only for clocked_out — a stale clocked_in is still rejected', () => {
+  const now = T0 + 10000 * M;
+  const staleIn = {
+    browser_profile_id: 'zombie', clock_state: 'clocked_in',
+    last_clock_event_at: iso(T0 + 100 * M), last_heartbeat_at: iso(now - 6515 * M)
+  };
+  const staleBreak = { ...staleIn, browser_profile_id: 'zombie2', clock_state: 'on_break' };
+  assert.equal(isFreshClockCandidate(staleIn, now), false);
+  assert.equal(isFreshClockCandidate(staleBreak, now), false);
+});

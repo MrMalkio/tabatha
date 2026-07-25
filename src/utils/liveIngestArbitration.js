@@ -284,6 +284,14 @@ export const CLOCK_CANDIDATE_MAX_STALENESS_MS = 90 * 60 * 1000; // 90 min
  * of liveness rather than assume it.
  */
 export function isFreshClockCandidate(row, now = Date.now(), maxStalenessMs = CLOCK_CANDIDATE_MAX_STALENESS_MS) {
+  // Koda P2: `clocked_out` is exempt. The horizon exists to stop a corpse
+  // FABRICATING a shift; a stale clock-out can only ever END one, which is
+  // both safe and the conservative direction. Worse, filtering it out
+  // recreates the ghost-stint class this fleet already fought (a device that
+  // clocked out while another install never learned about it, leaving an open
+  // stint accruing forever). Freshness gates claims of being ON shift only.
+  if (row?.clock_state === 'clocked_out') return true;
+
   const hb = row?.last_heartbeat_at ? new Date(row.last_heartbeat_at).getTime() : NaN;
   if (!Number.isFinite(hb)) return false;
   return (now - hb) <= maxStalenessMs;

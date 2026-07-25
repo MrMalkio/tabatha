@@ -302,3 +302,73 @@ test('S5: adopting an on_break remote state keeps the break start as the event',
   assert.equal(session.breakEndedAt, null);
   assert.equal(deriveLocalClockEvent(session).last_clock_event_at, onBreakSince);
 });
+
+// ── Koda P2: the THIRD S5 door — setSessionFromCompanion ──────────
+//
+// This rebuild dropped `breakEndedAt` entirely, so a companion sync landing
+// right after a local break-end erased the stamp that had just made
+// last_clock_event_at monotonic, and the published event fell back to
+// clockedInAt — S5 all over again, via a third path.
+
+test('S5/P2: a companion sync does not erase a breakEndedAt just stamped locally', async () => {
+  const clockedInAt = new Date(Date.now() - 5 * 3600_000).toISOString();
+  const breakEndedAt = new Date(Date.now() - 20 * 60_000).toISOString();
+
+  installChromeMock({
+    store: {
+      clockSession: {
+        active: true, onBreak: false, clockedInAt,
+        breakStartedAt: null, breakEndedAt, breaks: []
+      }
+    }
+  });
+  const clockMod = await import('../src/background/services/clockService.js');
+  const { deriveLocalClockEvent } = await import('../src/utils/liveIngestArbitration.js');
+
+  const session = await clockMod.setSessionFromCompanion({
+    active: true, on_break: false, clocked_in_at: clockedInAt, total_break_ms: 30 * 60_000
+  });
+
+  assert.equal(session.breakEndedAt, breakEndedAt, 'the local break-end must survive');
+  assert.equal(deriveLocalClockEvent(session).last_clock_event_at, breakEndedAt,
+    'pre-fix this regressed to clockedInAt');
+});
+
+test('S5/P2: a companion reporting the END of a break stamps the transition', async () => {
+  const clockedInAt = new Date(Date.now() - 5 * 3600_000).toISOString();
+  installChromeMock({
+    store: {
+      clockSession: {
+        active: true, onBreak: true, clockedInAt,
+        breakStartedAt: new Date(Date.now() - 30 * 60_000).toISOString(),
+        breakEndedAt: null, breaks: []
+      }
+    }
+  });
+  const clockMod = await import('../src/background/services/clockService.js');
+  const { deriveLocalClockEvent } = await import('../src/utils/liveIngestArbitration.js');
+
+  const before = Date.now();
+  const session = await clockMod.setSessionFromCompanion({
+    active: true, on_break: false, clocked_in_at: clockedInAt
+  });
+
+  assert.ok(session.breakEndedAt, 'the break-end transition must be stamped');
+  const stampedMs = new Date(session.breakEndedAt).getTime();
+  assert.ok(stampedMs >= before, 'stamped at the transition, not backdated');
+  assert.equal(deriveLocalClockEvent(session).last_clock_event_at, session.breakEndedAt);
+});
+
+test('S5/P2: a companion sync with no prior break invents no break-end', async () => {
+  const clockedInAt = new Date(Date.now() - 2 * 3600_000).toISOString();
+  installChromeMock({
+    store: {
+      clockSession: { active: true, onBreak: false, clockedInAt, breakStartedAt: null, breakEndedAt: null, breaks: [] }
+    }
+  });
+  const clockMod = await import('../src/background/services/clockService.js');
+  const session = await clockMod.setSessionFromCompanion({
+    active: true, on_break: false, clocked_in_at: clockedInAt
+  });
+  assert.equal(session.breakEndedAt, null);
+});

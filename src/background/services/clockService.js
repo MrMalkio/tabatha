@@ -352,12 +352,26 @@ export async function setSessionFromCompanion(companionClock) {
     }
   }
 
+  // Koda P2 — the THIRD S5 door. This rebuild dropped `breakEndedAt`
+  // entirely, so a companion sync landing right after a local break-end
+  // erased the stamp that had just made `last_clock_event_at` monotonic, and
+  // the published event time fell back to `clockedInAt`. The companion payload
+  // has no break-end concept of its own, so: carry forward whatever the local
+  // session already knew, and if the companion is reporting the END of a break
+  // we were locally still holding, stamp that transition now.
+  const { clockSession: priorSession } = await getStorage('clockSession');
+  let breakEndedAt = priorSession?.breakEndedAt || null;
+  if (!onBreak && priorSession?.onBreak && priorSession?.active && active) {
+    breakEndedAt = new Date().toISOString();
+  }
+
   const session = {
     active,
     clockedInAt,
     clockedOutAt: active ? null : (c.clocked_out_at || null),
     onBreak,
     breakStartedAt: onBreak ? (c.break_started_at || null) : null,
+    breakEndedAt,
     breaks
   };
 

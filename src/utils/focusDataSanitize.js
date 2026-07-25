@@ -104,6 +104,15 @@ export function sanitizeFocusItem(item) {
     let tagsHealed = false;
     let nextTags = item.tags;
     for (const [key, val] of Object.entries(item.tags)) {
+      // Koda review of 6.7.74 (P1): `_elapsedClamp` is a LEGITIMATE structured
+      // tag — the audit trail written when the elapsed clamp refuses an
+      // implausible value ({ at, requestedMs, appliedMs, reason, ceilingMs },
+      // see src/utils/elapsedClamp.js). It has no label/text/value/name key, so
+      // `coerceStringField` returned null and the sanitizer silently destroyed
+      // it on the very next `getFocusEngine()` read — before it could ever be
+      // pushed. That made the clamp's "never silent" guarantee false in
+      // practice. Exempt by name; it is written only by the clamp.
+      if (key === '_elapsedClamp') continue;
       if (isCorruptObject(val)) {
         if (nextTags === item.tags) nextTags = { ...item.tags };
         // Tag values are free-form strings/numbers/booleans in every current

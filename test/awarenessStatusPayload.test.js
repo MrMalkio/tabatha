@@ -179,3 +179,72 @@ test('S5: while ON break the published event is the break start', async () => {
   assert.equal(row.on_break_since, breakStartedAt);
   assert.equal(row.last_clock_event_at, breakStartedAt);
 });
+
+// ── Koda P2: a PAUSED focus's timer deadline must not slide ───────
+//
+// `focus_timer_ends_at` is an absolute instant derived from `now + remaining`.
+// Once focus_elapsed_ms moved into the 60s heartbeat refresh, recomputing the
+// deadline alongside it slid it forward 60s per heartbeat — so a paused timer
+// rendered as counting UP (OtherProfilesStrip.jsx, TeamActivityPanel.jsx).
+
+test('P2: the heartbeat refresh does NOT move focus_timer_ends_at while paused', async () => {
+  const engine = {
+    activeFocusId: 'f_p2_paused',
+    items: {
+      f_p2_paused: {
+        id: 'f_p2_paused', label: 'Paused with a timer', focusState: 'paused',
+        elapsedMs: 5 * M, lastResumedAt: null,
+        createdAt: isoAgo(3 * H), startedAt: isoAgo(3 * H), timerMinutes: 25
+      }
+    }
+  };
+  const { sb, awareness } = await publish({ focusEngine: engine, clockSession: null });
+
+  await awareness.notifyStateChange();
+  await settle();
+
+  const updates = sb.recorded.updates.filter(u => u.table === 'browser_profile_status');
+  assert.equal(updates.length, 1, 'the cheap heartbeat path ran');
+  assert.ok('focus_elapsed_ms' in updates[0].payload, 'elapsed is still refreshed');
+  assert.ok(!('focus_timer_ends_at' in updates[0].payload),
+    'a paused timer deadline must NOT be recomputed — that made it count up');
+});
+
+test('P2: a RUNNING focus does still refresh focus_timer_ends_at', async () => {
+  const engine = {
+    activeFocusId: 'f_p2_run',
+    items: {
+      f_p2_run: {
+        id: 'f_p2_run', label: 'Running with a timer', focusState: 'active',
+        elapsedMs: 2 * M, lastResumedAt: isoAgo(1 * M),
+        createdAt: isoAgo(3 * H), startedAt: isoAgo(3 * H), timerMinutes: 25
+      }
+    }
+  };
+  const { sb, awareness } = await publish({ focusEngine: engine, clockSession: null });
+
+  await awareness.notifyStateChange();
+  await settle();
+
+  const updates = sb.recorded.updates.filter(u => u.table === 'browser_profile_status');
+  assert.equal(updates.length, 1);
+  assert.ok('focus_timer_ends_at' in updates[0].payload,
+    'a live countdown must keep its deadline fresh');
+});
+
+test('P2: the internal _focusRunning flag never reaches the database row', async () => {
+  const engine = {
+    activeFocusId: 'f_p2_leak',
+    items: {
+      f_p2_leak: {
+        id: 'f_p2_leak', label: 'Leak check', focusState: 'active',
+        elapsedMs: 0, lastResumedAt: isoAgo(1 * M),
+        createdAt: isoAgo(1 * H), startedAt: isoAgo(1 * H), timerMinutes: null
+      }
+    }
+  };
+  const { sb } = await publish({ focusEngine: engine, clockSession: null });
+  const row = lastStatusWrite(sb);
+  assert.ok(!Object.keys(row).includes('_focusRunning'), 'it is non-enumerable');
+  assert.ok(!('_focusRunning' in JSON.parse(JSON.stringify(row))), 'and never serialised');
+});

@@ -345,7 +345,10 @@ function addElapsedSinceResume(item, engine) {
     const accrued = accrueElapsed({
       storedMs: before,
       lastResumedAt: item.lastResumedAt,
-      createdAt: item.createdAt || item.startedAt,
+      // K1: BOTH anchors — the clamp takes the earliest. Passing
+      // `createdAt || startedAt` took the later one and destroyed backdated work.
+      createdAt: item.createdAt,
+      startedAt: item.startedAt,
       now
     });
     item.elapsedMs = accrued.elapsedMs;
@@ -372,8 +375,12 @@ function addElapsedSinceResume(item, engine) {
       });
     }
 
-    // Plan 031: Sub-intent parent tick — propagate elapsed to parent focus
-    const delta = accrued.deltaMs;
+    // Plan 031: Sub-intent parent tick — propagate elapsed to parent focus.
+    // Koda P3: credit what the CHILD actually banked (post-clamp total minus
+    // its prior total), not the raw run delta. When the structural clamp
+    // trimmed the child's total, `deltaMs` alone would over-credit the parent
+    // by exactly the amount the child was denied.
+    const delta = Math.max(0, accrued.elapsedMs - before);
     if (item.parentFocusId && engine?.items?.[item.parentFocusId]) {
       const parent = engine.items[item.parentFocusId];
       if (parent.focusState !== 'completed') {
@@ -424,10 +431,39 @@ export function adoptRemoteActive(item, engine, remoteStartedAtIso) {
   const startIso = remoteStartedAtIso || new Date().toISOString();
   item.focusState = 'active';
   item.funnelStage = (item.funnelStage === 'todo' || item.funnelStage === 'unsorted') ? 'focus' : item.funnelStage;
-  item.lastResumedAt = startIso;
-  item.elapsedMs = 0;
+
+  // Koda review of 6.7.74 (K2, reproduced data loss). This used to set
+  // `lastResumedAt = startIso; elapsedMs = 0`, which made `now - lastResumedAt`
+  // read as a single continuous RUN — but `startIso` is the remote's
+  // `tags._startedAt`, which is BACK-DATED by the focus's whole accumulated
+  // elapsed (that is the entire 6.7.71/6.7.73 fix). So the value handed to the
+  // clamp was a LIFETIME dressed up as a run: a Sidecar intent worked 14 h
+  // across a week, adopted here and paused five minutes later, got clamped to
+  // 12 h — destroying 2 h 05 m of real cross-surface work, and making the
+  // browser read 12 h while the phone read 14 h, the exact disagreement S9
+  // exists to kill.
+  //
+  // The fix is to stop overloading `lastResumedAt`: bank the remote's
+  // accumulated time as `elapsedMs` (what it actually is) and start a genuine
+  // run at now. Then the ceiling only ever sees real continuous run time and
+  // needs no special-casing or offset.
+  //
+  // This is push-identical, so the non-ping-pong invariant is untouched:
+  // `buildFocusRows` back-dates `_startedAt = lastResumedAt - elapsedMs`
+  // = now - (now - startIso) = startIso — byte for byte what we adopted.
+  const startMs = new Date(startIso).getTime();
+  const nowMs = Date.now();
+  const adoptedBaselineMs = Number.isFinite(startMs) ? Math.max(0, nowMs - startMs) : 0;
+  item.lastResumedAt = new Date(nowMs).toISOString();
+  item.elapsedMs = adoptedBaselineMs;
   item.pausedAt = null;
-  if (!item.startedAt) item.startedAt = startIso;
+  // The structural clamp measures life from the earliest anchor, so `startedAt`
+  // must not sit AFTER the run we just adopted or it would clamp this baseline
+  // straight back off again.
+  const existingStartMs = item.startedAt ? new Date(item.startedAt).getTime() : NaN;
+  if (!item.startedAt || (Number.isFinite(startMs) && (!Number.isFinite(existingStartMs) || startMs < existingStartMs))) {
+    item.startedAt = startIso;
+  }
   engine.activeFocusId = item.id;
 
   chrome.alarms.clear(`focus-timer-${item.id}`);
@@ -1100,7 +1136,9 @@ export function liveElapsed(item) {
   return liveElapsedClamped({
     storedMs: item?.elapsedMs || 0,
     lastResumedAt: item?.lastResumedAt,
-    createdAt: item?.createdAt || item?.startedAt
+    // K1: both anchors — earliest wins, so a backdated startedAt is honoured.
+    createdAt: item?.createdAt,
+    startedAt: item?.startedAt
   });
 }
 
