@@ -54,3 +54,73 @@ OD carried the run — but it's dead weight in the fleet until the key is fixed.
 **Needs you:** either re-add OD's public key to PS's `authorized_keys`, or confirm you'd rather PS
 stay out of the fleet. (Related known issue from earlier: PS's `gh` token is invalid too, so even
 once SSH works it's compute-only, not a push target, until you re-auth `gh` on it interactively.)
+
+---
+
+## Cross-surface sync forensics (Sable) — 6 observation questions
+
+Full audit: `docs/audits/2026-07-24-sync-forensics.md`. Headline: "sync feels off" is **not** one bug —
+it's two structural root causes, two independent data-integrity bugs, and **one fix that was built but
+never actually ran**. Each question below is one line to answer and each one changes the fix ranking.
+
+1. **Reload check (do this first).** Open `chrome://extensions`, confirm Tabatha reads **6.7.73**, click
+   **Reload**. Then watch phone vs browser for ~10 min: **does the elapsed number still disagree?**
+   We measured a live **47-minute** gap at 03:22Z, and proved the running service worker predates the
+   6.7.73 back-date fix (the `dist` has it; Chrome never reloaded it). If the gap *survives* a reload,
+   the fix is wrong rather than merely unshipped — that changes everything.
+2. **"Tabby work", 2026-07-23 ~14:31.** You started "Turning over 60 North" on the phone then. **Was the
+   browser closed / machine asleep between 2026-07-22 01:17 and that moment?** That action silently
+   billed **37 h 14 m** of focus time to "Tabby work" (arithmetic matches to within 80 ms).
+3. **The pause-that-came-back.** When you've paused/backburnered something from your phone and it
+   reappeared — **was that intent originally created in the browser, or on the phone?** We predict
+   browser-created ones bounce and phone-created ones stick. If phone-created ones *also* bounce,
+   there's a second mechanism we haven't found.
+4. **Break-end.** After ending a break in the browser, **has the app ever put you back on break by
+   itself** within a minute or two?
+5. **"Deskview on OD"** has been heartbeating `online: true` for **12.9 h** with no clock state. **Is that
+   screen actually running, or is it a ghost?**
+6. **Shift hours.** Do you trust the Work Shifts totals? 2026-07-21 is stored as **~12 h across five
+   duplicate rows** for a single ~4.9 h shift. If you've been mentally discounting those numbers,
+   that's independent confirmation.
+
+**Gate flagged:** items 6 and the `focus_elapsed_ms` defect both sit directly under **org-hours v1** (T1).
+Shipping that UI before they're fixed will render inflated hours to org members.
+
+## ⭐ TOP OF LIST — one click, and it may explain a lot
+
+**Reload the extension at `chrome://extensions`.**
+
+Sable proved tonight that your `dist` **is** 6.7.73 and **does** contain the elapsed-drift fix — but
+Chrome never reloaded the service worker, so **that fix has never once executed on your machine.**
+Live capture at 03:22:27Z, one focus, three surfaces, three different numbers at the same instant:
+
+| Surface | Elapsed |
+|---|---|
+| Extension (internal) | ~451 min |
+| Sidecar / Context View | 201.9 min |
+| `browser_profile_status` | 249.2 min |
+
+`tags._startedAt` was being written *without* the 6.7.73 back-date correction, which is only possible
+if the old worker is still running. So an unknown share of what you've experienced as "sync is off"
+may simply be **a shipped fix that isn't running**. Reloading distinguishes "we haven't fixed it"
+from "it was never live" — please do that before judging the sync work.
+
+(Agents cannot do this for you: `claude-in-chrome` is blocked from `chrome://extensions` by Chrome's
+own isolation guard — see OPERATIONS §5.y.)
+
+## ORG-HOURS — needs your decision, not a patch
+
+Koda REJECTED it and I revoked execute on both RPCs (leak closed — details in the Asana umbrella).
+Two things make this a redesign rather than a fix:
+
+1. **An aggregate over a 3-person org is not anonymous.** Any member computes `aggregate − their own
+   hours`. The UI shipped that subtraction *as a labelled feature*, so declining to share is what
+   exposes you.
+2. **The underlying hours are wrong anyway** — Sable's bug #6: clock adoption duplicates shifts and
+   inflates totals ~2.5×. 2026-07-21 is stored as ~12 h across five duplicate rows for one ~4.9 h
+   shift. Shipping the UI would have shown your team inflated numbers.
+
+**Options:** (a) org-level totals only, no per-person anything, no subtraction affordance; (b) explicit
+mutual opt-in — hours visible only between members who have BOTH opted in; (c) shelve until the
+#221 Lanes/shared-focus model lands and do it properly there. My recommendation: **(c), with (a) as
+an interim if you need something now** — the data isn't trustworthy until #6 is fixed regardless.
