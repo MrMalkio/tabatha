@@ -18,3 +18,22 @@ Two failure modes bit us; both are now rules.
 
 Historical note: migration `029` is applied in prod with no file in any known worktree — a
 pre-existing gap, not reproducible from the repo. Flagged, not fixed (needs Malkio's history).
+
+### 5.y Live-testing tool constraints (learned 2026-07-25, save future runs the time)
+
+- **claude-in-chrome cannot access another extension's pages.** Any `chrome-extension://<other-id>/*`
+  URL (and `chrome://extensions` itself) returns *"Cannot access a chrome-extension:// URL of
+  different extension"*. This is a deliberate isolation guard — there is no flag or workaround.
+  It also fires when the page loads itself via `chrome_url_overrides.newtab`.
+  **Consequence:** the extension's own UI (home / sidebar / settings / popup) cannot be E2E-tested
+  through the browser tools against a real install.
+  **Workaround that works:** serve the same entry points from the Vite dev server
+  (`npm run dev` → `http://localhost:5173/home.html` etc.) with a `chrome.*` shim providing fixture
+  data, and test layout/structure/logic there. Be explicit in reports that shimmed data ≠ real data.
+- **`navigate()` force-prepends `https://`** onto already-schemed `chrome-extension://` / `chrome://`
+  strings — a separate tool bug; don't waste time thinking it's a typo on your end.
+- **Content scripts ARE testable** on ordinary web pages — the gatekeeper / InBar / BlockGate
+  overlays can be exercised for real. That's where browser-driven regression testing pays off.
+- **Respect a live human.** If test tabs get closed moments after opening, the user is at the
+  keyboard: stop opening tabs in their browser, switch to localhost, and never resolve a real
+  focus-gatekeeper modal on their behalf.
