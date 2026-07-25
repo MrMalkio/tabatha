@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion } from 'framer-motion';
 import '../styles/global.css';
-import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStorage';
+import { useChromeStorage, sendMessage, useTheme, useIntentHistory, useIntentPresets } from '../hooks/useChromeStorage';
 import { FlipClock, CLOCK_DEFAULTS } from '../components/clock/FlipClock';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PopButton } from '../components/ui/PopButton';
@@ -631,8 +631,10 @@ function Settings() {
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [skippedDomains, setSkippedDomains] = useChromeStorage('skippedDomains', []);
-  const [intentHistory] = useChromeStorage('intentHistory', []);
-  const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
+  // 6.7.76 (gatekeeper-sanitize-gap): sanitized + self-healing — see
+  // useIntentHistory/useIntentPresets in hooks/useChromeStorage.js.
+  const [intentHistory] = useIntentHistory();
+  const [intentPresets, setIntentPresets] = useIntentPresets();
   const [blockedSites, setBlockedSites] = useChromeStorage('blockedSites', []);
   const [urlRules, setUrlRules] = useChromeStorage('urlRules', []);
   const installIdentity = useInstallIdentity();
