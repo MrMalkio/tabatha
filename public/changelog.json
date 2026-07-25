@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.75",
+      "title": "Close the S5 adoption hole: clock adoption reconstructs breakEndedAt",
+      "date": "2026-07-24",
+      "intro": "> Self-review of 6.7.74 found the S5 break-end regression sneaking back in through a second door. `clockService.applyRemoteClockState` rebuilds a local `clockSession` from a remote status row, and the remote row carries no `breakEndedAt` of its own — so an adopted `clocked_in` session derived its event time as plain `clockedInAt`, the exact backwards jump 6.7.74 fixed on the break path. It also broke stated invariant 1 (non-ping-pong, audit §1.2): adoption must carry the remote's own timestamp so the adopter's next push reproduces the identical value it read, otherwise the remote row stays permanently strictly-newer and re-signals adoption every cycle. Fixed by reconstructing `breakEndedAt` when the remote's `last_clock_event_at` is later than its `clocked_in_at` — which can only mean a break-end, since a break-start would have left the row `on_break`. 3 regression tests covering post-break, plain-clock-in (no phantom break invented) and on-break adoption. [tour: none]",
+      "sections": []
+    },
+    {
       "version": "6.7.74",
       "title": "Sync integrity cluster: clamp elapsed, monotonic clock events, freshness cutoff, live published elapsed",
       "date": "2026-07-24",

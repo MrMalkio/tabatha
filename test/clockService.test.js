@@ -231,3 +231,74 @@ test('hardPauseActiveFocus pauses the active focus and accrues elapsed', async (
   assert.ok(engine.items.f1.elapsedMs > 1000); // accrued the ~1 min
   assert.equal(engine.items.f1.lastResumedAt, null);
 });
+
+// ── S5 / bug #5: clock adoption must not reintroduce the break-end regression ──
+//
+// applyRemoteClockState rebuilds a local clockSession from a remote status row.
+// The remote row has no `breakEndedAt` of its own, so before this fix an
+// adopted `clocked_in` session derived its event time as just `clockedInAt` —
+// the same backwards jump S5 is about, arriving through the adoption path.
+// It also broke stated invariant 1 (non-ping-pong): the adopter's next push
+// must reproduce the exact timestamp it read, or the remote row stays
+// permanently strictly-newer and re-signals adoption every cycle.
+test('S5: adopting a post-break remote state preserves the remote event time', async () => {
+  installChromeMock({ store: {} });
+  const clockMod = await import('../src/background/services/clockService.js');
+  const { deriveLocalClockEvent } = await import('../src/utils/liveIngestArbitration.js');
+
+  const clockedInAt = new Date(Date.now() - 5 * 3600_000).toISOString(); // 09:00
+  const breakEndedAt = new Date(Date.now() - 30 * 60_000).toISOString(); // 13:30
+
+  // Remote install: clocked in at 09:00, took a break, resumed at 13:30.
+  const remoteRow = {
+    clock_state: 'clocked_in',
+    clocked_in_at: clockedInAt,
+    on_break_since: null,
+    last_clock_event_at: breakEndedAt
+  };
+
+  const session = await clockMod.applyRemoteClockState(remoteRow);
+  assert.equal(session.breakEndedAt, breakEndedAt,
+    'the break-end must be reconstructed from the remote event time');
+
+  const derived = deriveLocalClockEvent(session);
+  assert.equal(derived.last_clock_event_at, breakEndedAt,
+    'pre-fix this derived clockedInAt — S5 sneaking back in via adoption');
+  assert.notEqual(derived.last_clock_event_at, clockedInAt);
+});
+
+test('S5: adopting a plain clock-in (no break yet) records no phantom break-end', async () => {
+  installChromeMock({ store: {} });
+  const clockMod = await import('../src/background/services/clockService.js');
+  const { deriveLocalClockEvent } = await import('../src/utils/liveIngestArbitration.js');
+
+  const clockedInAt = new Date(Date.now() - 2 * 3600_000).toISOString();
+  const session = await clockMod.applyRemoteClockState({
+    clock_state: 'clocked_in',
+    clocked_in_at: clockedInAt,
+    on_break_since: null,
+    last_clock_event_at: clockedInAt // last event IS the clock-in
+  });
+
+  assert.equal(session.breakEndedAt, null, 'no break happened; do not invent one');
+  assert.equal(deriveLocalClockEvent(session).last_clock_event_at, clockedInAt);
+});
+
+test('S5: adopting an on_break remote state keeps the break start as the event', async () => {
+  installChromeMock({ store: {} });
+  const clockMod = await import('../src/background/services/clockService.js');
+  const { deriveLocalClockEvent } = await import('../src/utils/liveIngestArbitration.js');
+
+  const clockedInAt = new Date(Date.now() - 4 * 3600_000).toISOString();
+  const onBreakSince = new Date(Date.now() - 10 * 60_000).toISOString();
+  const session = await clockMod.applyRemoteClockState({
+    clock_state: 'on_break',
+    clocked_in_at: clockedInAt,
+    on_break_since: onBreakSince,
+    last_clock_event_at: onBreakSince
+  });
+
+  assert.equal(session.onBreak, true);
+  assert.equal(session.breakEndedAt, null);
+  assert.equal(deriveLocalClockEvent(session).last_clock_event_at, onBreakSince);
+});
