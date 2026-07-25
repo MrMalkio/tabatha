@@ -183,3 +183,34 @@ test('K1: a zero-length life disables the structural clamp rather than zeroing e
   const res = clampFrozenElapsed(now - 40 * M, now, now, 0);
   assert.equal(res.ms, 40 * M, 'missing data is not evidence that no time was spent');
 });
+
+// ── N3c: updateFocus must keep _startedAt and _elapsedMs consistent ──
+//
+// `updateFocus` is the one Sidecar writer that can move `_startedAt` without
+// its banked partner, which is exactly the invariant clampFrozenElapsed rests
+// on. Mirrors the logic in focus.ts so the contract is asserted somewhere.
+
+test('N3c: a user-supplied _startedAt implies a matching _elapsedMs', () => {
+  const now = 2_000_000_000_000;
+  const userStart = now - 3 * H;
+
+  // What focus.ts updateFocus now writes:
+  const nextElapsed = Math.max(0, now - userStart);
+  assert.equal(nextElapsed, 3 * H);
+
+  // The pair must satisfy the invariant: run = total - banked = 0 right after
+  // the edit, so the ceiling cannot fire on a fresh user edit.
+  const res = clampFrozenElapsed(userStart, now, now - 40 * H, nextElapsed);
+  assert.equal(res.clamped, false, 'a 3h user-asserted start must not be clamped');
+  assert.equal(res.ms, 3 * H);
+});
+
+test('N3c: a stale _elapsedMs beside a moved _startedAt would have mis-derived the run', () => {
+  // Documents WHY the pairing matters: same anchor, stale banked value.
+  const now = 2_000_000_000_000;
+  const userStart = now - 3 * H;
+  const staleBanked = 30 * H;   // left over from before the edit
+  const res = clampFrozenElapsed(userStart, now, now - 40 * H, staleBanked);
+  assert.ok(res.ms >= staleBanked,
+    'an un-updated banked value inflates the total — hence N3c pairs them');
+});

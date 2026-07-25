@@ -467,7 +467,21 @@ export function useFocus(
       if (u.timerMinutes != null) updates.timer_minutes = u.timerMinutes;
       if (u.funnelStage != null) updates.funnel_stage = u.funnelStage;
       const nextTags = { ...(cur?.tags || {}), ...(u.tags || {}) };
-      if (u.startedAt) nextTags._startedAt = u.startedAt;
+      if (u.startedAt) {
+        nextTags._startedAt = u.startedAt;
+        // Koda N3: this is the ONE Sidecar writer that can move `_startedAt`
+        // without its banked partner, breaking the invariant `clampFrozenElapsed`
+        // relies on (`_startedAt` back-dated by exactly `_elapsedMs`). Left
+        // alone, a user-supplied start would leave a stale `_elapsedMs` behind
+        // and the derived run would be wrong in either direction.
+        //
+        // Setting the user's chosen start means "this focus has been running
+        // since then", so the whole implied span becomes banked and the current
+        // run restarts from now — which keeps the pair mutually consistent and
+        // keeps elapsed ticking correctly from the new value.
+        const impliedMs = Date.now() - new Date(u.startedAt).getTime();
+        if (Number.isFinite(impliedMs)) nextTags._elapsedMs = Math.max(0, impliedMs);
+      }
       updates.tags = nextTags;
       return patch(id, updates);
     },
