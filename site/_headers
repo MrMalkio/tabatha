@@ -56,8 +56,19 @@
 #     convention used by the desktop/enterprise update paths)
 # Overrides the global connect-src for this path only; every other directive
 # is unchanged from the site-wide policy above.
+#
+# `! Content-Security-Policy` is required here — Pages does NOT let a more
+# specific rule replace a header a broader rule already set; both values are
+# sent and browsers enforce the intersection of all matching CSP headers
+# (confirmed live 2026-07-24: with both headers present, connect-src
+# collapsed to the global rule's bare 'self', so the invite-check fetch was
+# silently CSP-blocked for every visitor — no console/network trace, just
+# "Could not reach the check right now" — see docs/audits/2026-07-24-live-web-e2e.md).
+# The `!` unsets the inherited value from `/*` before this block sets its own.
 /download
+  ! Content-Security-Policy
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://mtdgoahskcibjbhfvofx.supabase.co https://raw.githubusercontent.com; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'; object-src 'none'
 
 /download.html
+  ! Content-Security-Policy
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://mtdgoahskcibjbhfvofx.supabase.co https://raw.githubusercontent.com; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'; object-src 'none'
