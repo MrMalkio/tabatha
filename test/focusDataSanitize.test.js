@@ -20,6 +20,10 @@ import {
   sanitizeFocusEngine,
   sanitizeTabContext,
   sanitizeTabsMap,
+  sanitizeIntentHistoryEntry,
+  sanitizeIntentHistory,
+  sanitizeIntentPreset,
+  sanitizeIntentPresets,
 } from '../src/utils/focusDataSanitize.js';
 import { escapeHtml } from '../src/utils/escapeHtml.js';
 
@@ -224,4 +228,141 @@ test('focusService.getFocusEngine(): a clean engine round-trips with no extra wr
   const engine = await getFocusEngine();
   assert.equal(engine.items.f_1.label, 'Already clean');
   assert.deepEqual(chrome._storage.focusEngine.items.f_1, cleanEngine.items.f_1);
+});
+
+// ── 6.7.76 (gatekeeper-sanitize-gap) — intentHistory / intentPresets ──
+//
+// gatekeeper.js's direct `chrome.storage.local.get(['intentHistory',
+// 'intentPresets', 'settings'])` (~line 160) bypassed every sanitize-on-read
+// path the above tests already prove for focusEngine/tabs — intentHistory
+// and intentPresets are a wholly separate chrome.storage.local key. An
+// agent observed "[object Object]" through exactly this path in a live
+// gate (docs/audits/2026-07-24-live-extension-e2e.md, Round 2 — Wren).
+
+test('sanitizeIntentHistoryEntry: REPRO — an object-valued context is exactly what produces "[object Object]" through escapeHtml today', () => {
+  const corrupted = { action: 'change', context: { label: 'Ship it' }, timestamp: new Date().toISOString() };
+  // Prove the symptom: rendering the RAW corrupted entry is exactly the bug
+  // (this is what gatekeeper.js's "recent from history" build would have
+  // pushed straight into `recentIntents`, then into an escapeHtml()'d
+  // preset row).
+  assert.equal(String(corrupted.context), '[object Object]');
+  assert.equal(escapeHtml(corrupted.context), '[object Object]');
+
+  // Prove the fix: sanitizing first yields a clean string that escapeHtml
+  // renders faithfully as text, never "[object Object]".
+  const { entry, healed } = sanitizeIntentHistoryEntry(corrupted);
+  assert.equal(healed, true);
+  assert.equal(typeof entry.context, 'string');
+  assert.equal(entry.context, 'Ship it');
+  assert.equal(escapeHtml(entry.context), 'Ship it');
+});
+
+test('sanitizeIntentHistoryEntry: heals context/oldContext/newContext/oldIntent/newIntent independently', () => {
+  const corrupted = {
+    action: 'change',
+    context: { text: 'A' },
+    oldContext: { value: 'B' },
+    newContext: { name: 'C' },
+    oldIntent: { label: 'D' },
+    newIntent: {}, // no usable inner string -> falls back to null
+  };
+  const { entry, healed } = sanitizeIntentHistoryEntry(corrupted);
+  assert.equal(healed, true);
+  assert.equal(entry.context, 'A');
+  assert.equal(entry.oldContext, 'B');
+  assert.equal(entry.newContext, 'C');
+  assert.equal(entry.oldIntent, 'D');
+  assert.equal(entry.newIntent, null);
+});
+
+test('sanitizeIntentHistoryEntry: clean entry is left untouched (healed:false, same reference)', () => {
+  const clean = { action: 'continue', context: 'Writing docs', timestamp: new Date().toISOString() };
+  const { entry, healed } = sanitizeIntentHistoryEntry(clean);
+  assert.equal(healed, false);
+  assert.equal(entry, clean); // same reference — no unnecessary copy
+});
+
+test('sanitizeIntentHistoryEntry: non-object / nullish entries pass through safely', () => {
+  assert.deepEqual(sanitizeIntentHistoryEntry(null), { entry: null, healed: false });
+  assert.deepEqual(sanitizeIntentHistoryEntry(undefined), { entry: undefined, healed: false });
+});
+
+test('sanitizeIntentHistory: heals only the corrupted entries in a mixed array, preserves order and clean entries', () => {
+  const history = [
+    { action: 'continue', context: 'Fine already' },
+    { action: 'change', newContext: { label: 'Recovered' } },
+    { action: 'nevermind', context: null },
+  ];
+  const { history: next, healed } = sanitizeIntentHistory(history);
+  assert.equal(healed, true);
+  assert.equal(next.length, 3);
+  assert.equal(next[0].context, 'Fine already');
+  assert.equal(next[1].newContext, 'Recovered');
+  assert.equal(next[2].context, null);
+});
+
+test('sanitizeIntentHistory: fully-clean array reports healed:false with the SAME reference (no thrash)', () => {
+  const history = [{ action: 'continue', context: 'Clean' }];
+  const { history: next, healed } = sanitizeIntentHistory(history);
+  assert.equal(healed, false);
+  assert.equal(next, history);
+});
+
+test('sanitizeIntentHistory: non-array input passes through unchanged', () => {
+  assert.deepEqual(sanitizeIntentHistory(null), { history: null, healed: false });
+  assert.deepEqual(sanitizeIntentHistory(undefined), { history: undefined, healed: false });
+});
+
+test('sanitizeIntentHistory: idempotent — sanitizing a healed history again is a no-op', () => {
+  const corrupted = [{ action: 'change', context: { value: 'Round two' } }];
+  const once = sanitizeIntentHistory(corrupted).history;
+  const twice = sanitizeIntentHistory(once);
+  assert.equal(twice.healed, false);
+  assert.equal(twice.history[0].context, 'Round two');
+});
+
+test('sanitizeIntentPreset: REPRO — an object-valued label is exactly what produces "[object Object]" for a persistent InPop preset', () => {
+  const corrupted = { label: { label: 'Deep Work' } };
+  assert.equal(String(corrupted.label), '[object Object]');
+  assert.equal(escapeHtml(corrupted.label), '[object Object]');
+
+  const { preset, healed } = sanitizeIntentPreset(corrupted);
+  assert.equal(healed, true);
+  assert.equal(preset.label, 'Deep Work');
+  assert.equal(escapeHtml(preset.label), 'Deep Work');
+});
+
+test('sanitizeIntentPreset: unusable object falls back to "Untitled preset"; clean preset untouched', () => {
+  const { preset: healedPreset, healed: h1 } = sanitizeIntentPreset({ label: {} });
+  assert.equal(h1, true);
+  assert.equal(healedPreset.label, 'Untitled preset');
+
+  const clean = { label: 'Deep Work' };
+  const { preset, healed } = sanitizeIntentPreset(clean);
+  assert.equal(healed, false);
+  assert.equal(preset, clean);
+});
+
+test('sanitizeIntentPresets: heals persistent presets in place, preserves clean ones and non-array shapes safely', () => {
+  const presets = {
+    persistent: [
+      { label: 'Fine already' },
+      { label: { text: 'Recovered preset' } },
+    ],
+  };
+  const { presets: next, healed } = sanitizeIntentPresets(presets);
+  assert.equal(healed, true);
+  assert.equal(next.persistent[0].label, 'Fine already');
+  assert.equal(next.persistent[1].label, 'Recovered preset');
+});
+
+test('sanitizeIntentPresets: fully-clean store reports healed:false with the SAME reference; missing/malformed `persistent` is a no-op', () => {
+  const presets = { persistent: [{ label: 'Clean' }] };
+  const { presets: next, healed } = sanitizeIntentPresets(presets);
+  assert.equal(healed, false);
+  assert.equal(next, presets);
+
+  assert.deepEqual(sanitizeIntentPresets({}), { presets: {}, healed: false });
+  assert.deepEqual(sanitizeIntentPresets(null), { presets: null, healed: false });
+  assert.deepEqual(sanitizeIntentPresets(undefined), { presets: undefined, healed: false });
 });

@@ -2,6 +2,13 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.76",
+      "title": "Close the gatekeeper's [object Object] sanitize gap (intentHistory/intentPresets)",
+      "date": "2026-07-25",
+      "intro": "> The 6.7.69 self-heal fixed `label`/`funnelStage`/`context` corruption on the focusEngine/tabs store, but `gatekeeper.js`'s own direct `chrome.storage.local.get(['intentHistory', 'intentPresets', 'settings'])` (~line 160) reads a wholly separate storage key that was never wired into any of that fix's sanitize-on-read paths — an agent saw `[object Object]` in a live gate again tonight through exactly this hole (docs/audits/2026-07-24-live-extension-e2e.md, Round 2 — Wren). Fixed with the same self-healing contract: gatekeeper.js now sanitizes `intentHistory` entries' `context`/`oldContext`/`newContext`/`oldIntent`/`newIntent` and `intentPresets.persistent[].label` on every read and writes the repair back, so a corrupted install heals itself on its next gate open. The coercion logic is duplicated inline (not imported) — gatekeeper.js is a standalone classic content-script Rollup entry, and importing `focusDataSanitize.js` there empirically pulled it into a separate chunk with a real `import` statement, which Chrome cannot resolve for a classic script (same documented constraint as `escapeHtml`). New `sanitizeIntentHistoryEntry`/`sanitizeIntentHistory`/`sanitizeIntentPreset`/`sanitizeIntentPresets` helpers added to `src/utils/focusDataSanitize.js` and reused (real imports, no chunk-splitting risk) by two sibling React read-sites of the same two keys that were also unsanitized and worse than cosmetic — `settings/index.jsx`'s Persistent Presets/Recent History panels and `home/index.jsx`'s IntentsPanel both either threw `TypeError` (`entry.context.toLowerCase()` on an object) or crashed the render (`Objects are not valid as a React child`) on the exact same corrupted data; both now go through new `useIntentHistory()`/`useIntentPresets()` sanitized+self-healing hooks in `hooks/useChromeStorage.js`. A full sweep of every other direct `chrome.storage.local.get` read in the extension found no further sites carrying this corruption class into rendered HTML (companion/desktop-session data, logs, tokens, and settings reads are a different subsystem with no legacy writer of this shape). 11 new unit tests in `test/focusDataSanitize.test.js`, including a red→green case proving an object-valued `intentHistory` context renders as text instead of `[object Object]`. [tour: none]",
+      "sections": []
+    },
+    {
       "version": "6.7.73",
       "title": "Harden buildFocusRows against a malformed timestamp (Koda review of 6.7.71)",
       "date": "2026-07-24",
