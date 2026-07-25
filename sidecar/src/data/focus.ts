@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { getDeviceId } from '../lib/device';
 import { insertFocusEvent } from './events';
+import { clampFrozenElapsed, clampStamp } from './elapsedClamp';
 
 export type FocusItem = {
   id: string;
@@ -40,6 +41,28 @@ export function startedAtOf(f: FocusItem): number {
   const t = new Date(iso).getTime();
   return Number.isFinite(t) ? t : Date.now();
 }
+export function createdAtOf(f: FocusItem): number | null {
+  const t = f?.created_at ? new Date(f.created_at).getTime() : NaN;
+  return Number.isFinite(t) ? t : null;
+}
+
+/**
+ * S4/#4 — the tags object to write when freezing a focus's elapsed on pause.
+ *
+ * Single definition shared by `pause` and `pauseOtherActives`, which had two
+ * copies of the same unclamped `Date.now() - startedAtOf(f)` expression. When
+ * the clamp fires, the value the old code would have written is preserved in
+ * `_elapsedClamp` so nothing is silently lost.
+ */
+export function frozenTagsFor(f: FocusItem, now: number = Date.now()): Record<string, any> {
+  const res = clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f));
+  const tags: Record<string, any> = { ...(f?.tags || {}), _elapsedMs: res.ms };
+  if (res.clamped) {
+    tags._elapsedClamp = clampStamp(res.requestedMs, res.ms, res.reason, now);
+  }
+  return tags;
+}
+
 // Elapsed run-time, continuing across pauses. While active it's derived from the
 // (pause-shifted) start; while paused it's frozen at tags._elapsedMs.
 export function elapsedMsOf(f: FocusItem, now: number): number {
@@ -47,9 +70,16 @@ export function elapsedMsOf(f: FocusItem, now: number): number {
   // drifted focus is still running in the extension, so freezing its elapsed
   // at `_elapsedMs` here made the phone's timer stall while the browser's
   // kept counting.
-  if (isRunning(f)) return Math.max(0, now - startedAtOf(f));
+  //
+  // S4/#4: clamped with the same ceiling the pause path banks, so a focus with
+  // a stuck anchor shows a disbelieved-but-bounded number on the phone instead
+  // of counting up to 37 hours — and so the displayed value never contradicts
+  // the value that gets stored the moment it is paused.
+  if (isRunning(f)) return clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f)).ms;
   const frozen = f.tags?._elapsedMs;
-  return Number.isFinite(frozen) ? Math.max(0, frozen) : Math.max(0, now - startedAtOf(f));
+  return Number.isFinite(frozen)
+    ? Math.max(0, frozen)
+    : clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f)).ms;
 }
 function snoozedUntil(f: FocusItem): number {
   const t = f.tags?._snoozeUntil ? new Date(f.tags._snoozeUntil).getTime() : 0;
@@ -244,12 +274,13 @@ export function useFocus(
     async (excludeId?: string | null) => {
       const others = items.filter((f) => f.focus_state === 'active' && f.id !== excludeId);
       for (const f of others) {
+        // S4/#4: this line is the one that billed 37h14m to "Tabby work" when
+        // an intent was created on the phone (audit §S4). It froze a raw
+        // wall-clock span, so any focus left `active` while nobody was there
+        // banked the whole absence. Now clamped, and never silently.
         await supabase
           .from('focus_items')
-          .update({
-            focus_state: 'paused',
-            tags: { ...(f.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f)) },
-          })
+          .update({ focus_state: 'paused', tags: frozenTagsFor(f) })
           .eq('id', f.id);
         if (f.client_id) insertFocusEvent(profileId, f.client_id, 'pause');
       }
@@ -336,9 +367,10 @@ export function useFocus(
     pause: (id: string) => {
       const f = items.find((i) => i.id === id);
       if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'pause');
+      // S4/#4: same unclamped freeze as pauseOtherActives above.
       return patch(id, {
         focus_state: 'paused',
-        tags: { ...(f?.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f as FocusItem)) },
+        tags: frozenTagsFor(f as FocusItem),
       });
     },
     resume: (id: string) => {
