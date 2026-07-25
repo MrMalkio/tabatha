@@ -238,6 +238,14 @@ async function mintDeviceCode(deviceLabel) {
       if (response.status === 401 || /unauthor/i.test(out?.error || '')) {
         return { error: 'Session expired — sign out and back in (Settings → Sync & Account), then generate again.' };
       }
+      // Distinguish "we broke" from "you did something wrong". Collapsing
+      // these sent users hunting for a bad code when the backend was down.
+      if (response.status === 429) {
+        return { error: 'Too many attempts — wait a few minutes and try again.' };
+      }
+      if (response.status >= 500) {
+        return { error: 'Pairing service problem — try again in a moment. Your account is fine.' };
+      }
       return { error: out?.error || `pairing code failed (${response.status})` };
     }
     return { success: true, code: out.code, expiresInSeconds: out.expiresInSeconds || 300 };

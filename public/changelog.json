@@ -97,6 +97,13 @@
       "sections": []
     },
     {
+      "version": "6.7.74",
+      "title": "Pairing codes are no longer burned by a backend hiccup + real brute-force limiting on redeem",
+      "date": "2026-07-25",
+      "intro": "> Two fixes in one change, because fixing the first activates the second. **(1) The bug.** \"The pairing code expires instantly\" was never expiry: `pair-watch` redeem set `consumed_at` BEFORE minting the session, so any failure in the mint path (the project's ES256 JWT-signing-key migration produced a window of 403 `bad_jwt`) spent the code permanently, and the retry matched no unconsumed row and reported \"invalid or expired\". Codes were BURNED, not expired. Replaced with a two-phase claim (migration 061): `claim_pairing_code` takes a short atomic lease (`UPDATE ... RETURNING`, so single-use stays race-proof), the session is minted, and only then does `consume_pairing_code` spend it; every failure path calls `release_pairing_code`, and a crash mid-flight resolves itself when the 30s lease expires. A backend problem can no longer cost a user their code. **(2) The vulnerability it exposes** (Koda F-EDGE-1, High). Redeem is unauthenticated by design, the 6-digit code IS the credential, and success returns `access_token` + `refresh_token` — full account takeover. The documented `attempts >= 5` lock was dead code: lookup is by SHA-256 hash, so a wrong guess matches no row, falls into `!row`, and increments nothing — 10^6 codes over a 300s window is ~3,400 req/s to exhaust, a commodity attack. Redeem now counts failures whether or not a row matched, in a new `tabatha.pair_redeem_attempts` ledger keyed by a SHA-256 fingerprint of the caller IP (never the IP itself, swept at 24h): 10 failures / 15 min per source, plus a 500 / 5 min global circuit breaker for the distributed variant, a per-code cap of 10 claims, `429` with `Retry-After`, and a gate that FAILS CLOSED — if the limiter can't be evaluated, redeem is refused rather than waved through. Every 500 branch now logs with diagnosable context and failed redeems are logged at all (previously an attack in progress was completely invisible). Also restores the Chrome Web Store extension id to the function's CORS allow-list — it exists in the deployed function but was missing from source, so a clean redeploy would have broken pairing for every store install. Client side, the extension's mint path now separates 429 and 5xx from \"bad code\" instead of collapsing them. [tour: none]",
+      "sections": []
+    },
+    {
       "version": "6.7.73",
       "title": "Harden buildFocusRows against a malformed timestamp (Koda review of 6.7.71)",
       "date": "2026-07-24",
