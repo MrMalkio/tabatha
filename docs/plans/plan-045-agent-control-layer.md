@@ -24,6 +24,16 @@ The efferent half of Cortex: let agents **read, write, and coordinate through Ta
 ## Test strategy
 Pure protocol/permission logic TDD in `src/utils/` + companion Rust tests for the endpoint; MCP contract tests via a harness client; every write path proven reversible in tests.
 
+## Addendum 2026-07-25 — expanded scope requested (Malkio)
+
+Malkio re-raised this program unprompted ("I think we need a CLI / API / MCP for Tabatha… so that we can have a skill/plugin in harnesses like Codex or Claude Code") **plus four capabilities beyond T1–T5**, now specced in `docs/features/220-session-aggregation-auto-updates.md`:
+1. Unified **work surfaces** — tabs, OS windows, and harness *sessions* as one addressable kind attachable to a focus/sub-focus.
+2. **Headbox session plugin** (identity) + companion-hosted session registry on the `:9147` bridge (hosting).
+3. **Checkpoint→agent hook** — the checkpoint prompt trigger emits `CHECKPOINT_REQUEST` to a background harness agent (45s timeout → falls back to the human prompt), answers attributed via C11a/#219.
+4. **Autonomous agent self-reporting** through the same path.
+
+#220 proposes carrying these as a sibling plan (next free number, 047+) gated behind this plan's T1–T2, since they change focus-item shape and the checkpoint alarm path, which this plan's parallelability review assumed untouched. **Open decision for Malkio:** whether to pull T1 (read-only MCP/CLI) forward from the post-Cortex back-burner gate.
+
 ## Parallelability Review
 - **Zones:** companion (endpoint host), new MCP/CLI package (own tree), background services (message surface already exists — read-mostly).
 - **Shared files:** none heavy; `background.js` untouched (existing router reused).

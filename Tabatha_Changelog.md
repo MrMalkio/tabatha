@@ -4,6 +4,20 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.79] - Feature intake: agent control expansion, InBar bug spec, parity + voice audits - _2026-07-25_
+
+> Docs-only. No extension code changed. (6.7.77/6.7.78 are the clamp-saga remediation line shipped from its own worktree.)
+
+### Added
+
+- **Feature spec #220 — Session Aggregation & Auto-Updates** (`docs/features/220-session-aggregation-auto-updates.md`): unified work-surfaces model (tab | OS window | harness session) attachable to a focus/sub-focus; Headbox session plugin + companion-hosted session registry; checkpoint-prompt → background-agent hook (`CHECKPOINT_REQUEST`, 45s timeout → human fallback); autonomous agent self-reporting. Extends Plan 045 (addendum added to `docs/plans/plan-045-agent-control-layer.md`).
+- **Bug spec B09 — InBar edit/assign inconsistency** (`docs/features/B09-inbar-edit-assign-inconsistency.md`): root-caused — focus-list click sends only SWITCH_FOCUS (never saves typed name); Save triggers autoQueueFromIntent which severs the just-made link and spawns a queued sub-focus. Fix shape + acceptance criteria included.
+- **Surface parity audit** (`docs/audits/2026-07-19-surface-parity.md`): sidebar → companion 20 gaps, sidecar → companion 18 gaps, 16 recommended companion additions (top: off-computer toggle, checkpoint note, backburner, focus card, lifecycle controls). Also tracked the 2026-07-24 sync-forensics and live-e2e audit artifacts.
+
+### Changed
+
+- **#218/#219**: C11a references corrected — merged to staging, no longer branch-only.
+
 ## [v6.7.76] - Close the gatekeeper's [object Object] sanitize gap (intentHistory/intentPresets) - _2026-07-25_
 
 > The 6.7.69 self-heal fixed `label`/`funnelStage`/`context` corruption on the focusEngine/tabs store, but `gatekeeper.js`'s own direct `chrome.storage.local.get(['intentHistory', 'intentPresets', 'settings'])` (~line 160) reads a wholly separate storage key that was never wired into any of that fix's sanitize-on-read paths — an agent saw `[object Object]` in a live gate again tonight through exactly this hole (docs/audits/2026-07-24-live-extension-e2e.md, Round 2 — Wren). Fixed with the same self-healing contract: gatekeeper.js now sanitizes `intentHistory` entries' `context`/`oldContext`/`newContext`/`oldIntent`/`newIntent` and `intentPresets.persistent[].label` on every read and writes the repair back, so a corrupted install heals itself on its next gate open. The coercion logic is duplicated inline (not imported) — gatekeeper.js is a standalone classic content-script Rollup entry, and importing `focusDataSanitize.js` there empirically pulled it into a separate chunk with a real `import` statement, which Chrome cannot resolve for a classic script (same documented constraint as `escapeHtml`). New `sanitizeIntentHistoryEntry`/`sanitizeIntentHistory`/`sanitizeIntentPreset`/`sanitizeIntentPresets` helpers added to `src/utils/focusDataSanitize.js` and reused (real imports, no chunk-splitting risk) by two sibling React read-sites of the same two keys that were also unsanitized and worse than cosmetic — `settings/index.jsx`'s Persistent Presets/Recent History panels and `home/index.jsx`'s IntentsPanel both either threw `TypeError` (`entry.context.toLowerCase()` on an object) or crashed the render (`Objects are not valid as a React child`) on the exact same corrupted data; both now go through new `useIntentHistory()`/`useIntentPresets()` sanitized+self-healing hooks in `hooks/useChromeStorage.js`. A full sweep of every other direct `chrome.storage.local.get` read in the extension found no further sites carrying this corruption class into rendered HTML (companion/desktop-session data, logs, tokens, and settings reads are a different subsystem with no legacy writer of this shape). 11 new unit tests in `test/focusDataSanitize.test.js`, including a red→green case proving an object-valued `intentHistory` context renders as text instead of `[object Object]`. [tour: none]

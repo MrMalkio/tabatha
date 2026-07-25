@@ -2,6 +2,22 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.79",
+      "title": "Feature intake: agent control expansion, InBar bug spec, parity + voice audits",
+      "date": "2026-07-25",
+      "intro": "> Docs-only. No extension code changed. (6.7.77/6.7.78 are the clamp-saga remediation line shipped from its own worktree.)",
+      "sections": [
+        {
+          "label": "Added",
+          "body": "- **Feature spec #220 — Session Aggregation & Auto-Updates** (`docs/features/220-session-aggregation-auto-updates.md`): unified work-surfaces model (tab | OS window | harness session) attachable to a focus/sub-focus; Headbox session plugin + companion-hosted session registry; checkpoint-prompt → background-agent hook (`CHECKPOINT_REQUEST`, 45s timeout → human fallback); autonomous agent self-reporting. Extends Plan 045 (addendum added to `docs/plans/plan-045-agent-control-layer.md`).\n- **Bug spec B09 — InBar edit/assign inconsistency** (`docs/features/B09-inbar-edit-assign-inconsistency.md`): root-caused — focus-list click sends only SWITCH_FOCUS (never saves typed name); Save triggers autoQueueFromIntent which severs the just-made link and spawns a queued sub-focus. Fix shape + acceptance criteria included.\n- **Surface parity audit** (`docs/audits/2026-07-19-surface-parity.md`): sidebar → companion 20 gaps, sidecar → companion 18 gaps, 16 recommended companion additions (top: off-computer toggle, checkpoint note, backburner, focus card, lifecycle controls). Also tracked the 2026-07-24 sync-forensics and live-e2e audit artifacts."
+        },
+        {
+          "label": "Changed",
+          "body": "- **#218/#219**: C11a references corrected — merged to staging, no longer branch-only."
+        }
+      ]
+    },
+    {
       "version": "6.7.76",
       "title": "Close the gatekeeper's [object Object] sanitize gap (intentHistory/intentPresets)",
       "date": "2026-07-25",
