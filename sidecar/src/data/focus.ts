@@ -57,17 +57,6 @@ function snoozedUntil(f: FocusItem): number {
 }
 
 /**
- * Cross-surface current-focus arbitration (binding rule, 2026-07-20 fix
- * batch — the extension is being taught the identical rule in a parallel
- * build): the account's current focus is the `active` row with the latest
- * `tags._startedAt`, ANY source. Switching/starting anywhere pauses ALL
- * other actives regardless of source (see `pauseOtherActives` in
- * `useFocus`). This comparator is the pure, source-agnostic half of that
- * rule — used to resolve `currentFocus` below — and is exported/mirrored in
- * `tests/arbitration.test.mjs` so the selection logic itself is covered,
- * not just the elapsed-ms math around it.
- */
-/**
  * States that mean "this focus is RUNNING" (0.13.10, sync forensics S2 —
  * docs/audits/2026-07-24-sync-forensics.md).
  *
@@ -90,6 +79,18 @@ export function isRunning(f: FocusItem): boolean {
   return (RUNNING_STATES as readonly string[]).includes(f.focus_state);
 }
 
+/**
+ * Cross-surface current-focus arbitration (binding rule, 2026-07-20 fix
+ * batch — the extension is being taught the identical rule in a parallel
+ * build): the account's current focus is the RUNNING row (see
+ * `RUNNING_STATES` above — `active` or `drifted`) with the latest
+ * `tags._startedAt`, ANY source. Switching/starting anywhere pauses ALL
+ * other actives regardless of source (see `pauseOtherActives` in
+ * `useFocus`). This comparator is the pure, source-agnostic half of that
+ * rule — used to resolve `currentFocus` below — and is exported/mirrored in
+ * `tests/arbitration.test.mjs` so the selection logic itself is covered,
+ * not just the elapsed-ms math around it.
+ */
 export function pickMostRecentActive<T extends FocusItem>(items: T[]): T | null {
   const actives = items.filter(isRunning);
   if (!actives.length) return null;
