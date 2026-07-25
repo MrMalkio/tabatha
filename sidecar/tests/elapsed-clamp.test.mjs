@@ -35,7 +35,7 @@ test('S4 incident replay: pauseOtherActives no longer freezes 37h14m (real times
   assert.ok(Math.abs((pausedAt - startedAt) - buggyElapsed) < 200,
     'the raw span must reproduce the value the audit measured');
 
-  const res = clampFrozenElapsed(startedAt, pausedAt, createdAt);
+  const res = clampFrozenElapsed(startedAt, pausedAt, createdAt, 0);
   assert.equal(res.clamped, true);
   assert.equal(res.reason, CLAMP_REASON.CEILING);
   assert.equal(res.ms, MAX_CONTINUOUS_RUN_MS);
@@ -52,7 +52,7 @@ test('does not clamp the longest credible real sessions observed in prod', () =>
     ['Tabatha walkthrough with Po', 4.93], ['BvB support', 4.85],
   ]) {
     const span = Math.round(hours * H);
-    const res = clampFrozenElapsed(now - span, now, now - span - 1000);
+    const res = clampFrozenElapsed(now - span, now, now - span - 1000, 0);
     assert.equal(res.clamped, false, `"${label}" (${hours}h) must NOT be clamped`);
     assert.equal(res.ms, span);
   }
@@ -100,7 +100,7 @@ test('clampRunDelta: non-numeric input degrades to 0, never NaN', () => {
 test('structural clamp: elapsed can never exceed the row wall-clock life', () => {
   const now = 2_000_000_000_000;
   // Anchor claims a 5h run but the row was only created 30 min ago.
-  const res = clampFrozenElapsed(now - 5 * H, now, now - 30 * M);
+  const res = clampFrozenElapsed(now - 5 * H, now, now - 30 * M, 0);
   assert.equal(res.clamped, true);
   assert.equal(res.reason, CLAMP_REASON.WALL_CLOCK);
   assert.equal(res.ms, 30 * M);
@@ -108,13 +108,13 @@ test('structural clamp: elapsed can never exceed the row wall-clock life', () =>
 
 test('structural clamp alone would NOT catch the 37h case — the ceiling is load-bearing', () => {
   const now = 2_000_000_000_000;
-  const res = clampFrozenElapsed(now - 37.24 * H, now, now - 76.22 * H, Number.MAX_SAFE_INTEGER);
+  const res = clampFrozenElapsed(now - 37.24 * H, now, now - 76.22 * H, 0, Number.MAX_SAFE_INTEGER);
   assert.equal(res.clamped, false, 'a 76h-old row lets a 37h span through the life check');
 });
 
 test('a null created_at leaves the ceiling in force', () => {
   const now = 2_000_000_000_000;
-  const res = clampFrozenElapsed(now - 30 * H, now, null);
+  const res = clampFrozenElapsed(now - 30 * H, now, null, 0);
   assert.equal(res.clamped, true);
   assert.equal(res.ms, MAX_CONTINUOUS_RUN_MS);
 });
@@ -126,4 +126,60 @@ test('clampStamp: shape matches the extension so both surfaces write one format'
   assert.deepEqual(Object.keys(s).sort(), ['appliedMs', 'at', 'ceilingMs', 'reason', 'requestedMs']);
   assert.equal(s.reason, 'continuous_run_ceiling');
   assert.equal(s.ceilingMs, MAX_CONTINUOUS_RUN_MS);
+});
+
+// ══════════════════════════════════════════════════════════════════
+// K2 — found reviewing this file's OWN first cut (0.13.12)
+//
+// The first version applied the 12h continuous-run ceiling straight to
+// `now - startedAtOf(f)`. But `_startedAt` is BACK-DATED by accumulated
+// elapsed (`switchTo`/`resume` write `Date.now() - el`), so that quantity is
+// the LIFETIME TOTAL, not a run — capping it truncated every focus with more
+// than 12h accumulated across sessions. Same defect Koda reproduced on the
+// extension, on the surface where the original 37h incident actually fired.
+// ══════════════════════════════════════════════════════════════════
+
+test('K2: a focus with 14h banked and 5 min running keeps 14h05m', () => {
+  const now = 2_000_000_000_000;
+  const banked = Math.round(14 * H);
+  const run = 5 * M;
+  // resume() back-dated the anchor by the banked total.
+  const startedAt = now - banked - run;
+
+  const res = clampFrozenElapsed(startedAt, now, now - 7 * 24 * H, banked);
+  assert.equal(res.clamped, false, '14h accumulated across a week is real work');
+  assert.equal(res.ms, banked + run);
+  assert.ok(res.ms > MAX_CONTINUOUS_RUN_MS,
+    'and it must exceed the ceiling — capping it here was the data loss');
+});
+
+test('K2: the ceiling still catches a stuck anchor with nothing banked', () => {
+  const now = 2_000_000_000_000;
+  const res = clampFrozenElapsed(now - Math.round(37.24 * H), now, now - Math.round(76.22 * H), 0);
+  assert.equal(res.clamped, true);
+  assert.equal(res.ms, MAX_CONTINUOUS_RUN_MS);
+});
+
+test('K2: the ceiling still catches a stuck anchor even WITH banked time', () => {
+  // 2h legitimately banked, then the anchor got stuck 30h ago. The run is
+  // clamped to 12h; the banked 2h is added back untouched.
+  const now = 2_000_000_000_000;
+  const banked = 2 * H;
+  const res = clampFrozenElapsed(now - 32 * H, now, now - 90 * H, banked);
+  assert.equal(res.clamped, true);
+  assert.equal(res.ms, banked + MAX_CONTINUOUS_RUN_MS, 'banked time is never confiscated');
+});
+
+test('K2: an anchor implying LESS than what is banked yields a zero run, never a giveback', () => {
+  const now = 2_000_000_000_000;
+  const banked = 6 * H;
+  const res = clampFrozenElapsed(now - 1 * H, now, now - 40 * H, banked);
+  assert.equal(res.ms, banked, 'a stale anchor must not reduce banked time');
+  assert.equal(res.clamped, false);
+});
+
+test('K1: a zero-length life disables the structural clamp rather than zeroing elapsed', () => {
+  const now = 2_000_000_000_000;
+  const res = clampFrozenElapsed(now - 40 * M, now, now, 0);
+  assert.equal(res.ms, 40 * M, 'missing data is not evidence that no time was spent');
 });

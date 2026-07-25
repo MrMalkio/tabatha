@@ -86,23 +86,59 @@ export function clampRunDelta(deltaMs: number, ceilingMs: number = MAX_CONTINUOU
 /**
  * The elapsed value to freeze into `tags._elapsedMs` when pausing.
  *
- * @param startedAtMs the (pause-shifted) run anchor, i.e. `startedAtOf(f)`
- * @param createdAtMs the row's `created_at`, for the structural clamp —
- *        elapsed can never exceed the focus's own wall-clock life. Pass null
- *        when unavailable; the ceiling still applies.
+ * ── K2, found in review of this file's own first cut (0.13.12) ──────────
+ *
+ * The first version applied the continuous-run ceiling directly to
+ * `now - startedAtOf(f)`. That is WRONG on this surface, and in exactly the
+ * way Koda's K2 describes for the extension: `_startedAt` is BACK-DATED by
+ * the focus's accumulated elapsed — `switchTo` and `resume` both write
+ * `_startedAt = Date.now() - el` (focus.ts) — so `now - _startedAt` is the
+ * LIFETIME TOTAL, not a run. Capping it at 12 h would have silently truncated
+ * every focus with more than 12 h accumulated across sessions. That is real
+ * work destroyed, which is worse than the bug the clamp is for.
+ *
+ * The run is recoverable, though, precisely because of that back-dating:
+ *
+ *     total  = now - _startedAt        (elapsed including everything banked)
+ *     banked = tags._elapsedMs         (frozen at the last pause)
+ *     run    = total - banked          (this continuous stretch)
+ *
+ * So the ceiling is applied to `run` only and the banked portion is added
+ * back untouched — mirroring the extension's `storedMs + clampRunDelta(...)`
+ * model exactly. A focus with 14 h banked and 5 min running keeps 14 h 05 m;
+ * a focus with a stuck anchor and nothing banked is still caught.
+ *
+ * @param startedAtMs the back-dated anchor, i.e. `startedAtOf(f)`
+ * @param bankedMs    `tags._elapsedMs` from the last pause (0 if never paused)
+ * @param createdAtMs the row's `created_at`, for the structural clamp
  */
 export function clampFrozenElapsed(
   startedAtMs: number,
   now: number = Date.now(),
   createdAtMs: number | null = null,
+  bankedMs: number = 0,
   ceilingMs: number = MAX_CONTINUOUS_RUN_MS
 ): ClampResult {
-  const run = clampRunDelta(now - startedAtMs, ceilingMs);
-  let { ms, clamped, requestedMs, reason } = run;
+  const bankedRaw = Number(bankedMs);
+  const banked = Number.isFinite(bankedRaw) ? Math.max(0, bankedRaw) : 0;
 
+  const totalRaw = Math.max(0, now - startedAtMs);
+  // If the anchor implies LESS than what was already banked (a stale or
+  // rewritten `_startedAt`), the run is zero — never negative, and never a
+  // reason to give back banked time.
+  const run = clampRunDelta(Math.max(0, totalRaw - banked), ceilingMs);
+
+  let ms = banked + run.ms;
+  let clamped = run.clamped;
+  let requestedMs = banked + run.requestedMs;
+  let reason = run.reason;
+
+  // Structural clamp: the total can never exceed the row's own wall-clock
+  // life. `life > 0` guard mirrors the extension's — a zero-length life is
+  // missing data, not evidence that no time was spent.
   if (createdAtMs != null && Number.isFinite(createdAtMs)) {
-    const life = Math.max(0, now - createdAtMs);
-    if (ms > life) {
+    const life = now - createdAtMs;
+    if (life > 0 && ms > life) {
       ms = life;
       clamped = true;
       reason = reason === CLAMP_REASON.CEILING ? CLAMP_REASON.CEILING : CLAMP_REASON.WALL_CLOCK;

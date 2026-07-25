@@ -47,6 +47,16 @@ export function createdAtOf(f: FocusItem): number | null {
 }
 
 /**
+ * Elapsed banked at the LAST pause (`tags._elapsedMs`), 0 if never paused.
+ * Needed to recover the current continuous run out of the back-dated anchor —
+ * see clampFrozenElapsed's K2 note.
+ */
+export function bankedMsOf(f: FocusItem): number {
+  const v = Number(f?.tags?._elapsedMs);
+  return Number.isFinite(v) ? Math.max(0, v) : 0;
+}
+
+/**
  * S4/#4 — the tags object to write when freezing a focus's elapsed on pause.
  *
  * Single definition shared by `pause` and `pauseOtherActives`, which had two
@@ -55,7 +65,7 @@ export function createdAtOf(f: FocusItem): number | null {
  * `_elapsedClamp` so nothing is silently lost.
  */
 export function frozenTagsFor(f: FocusItem, now: number = Date.now()): Record<string, any> {
-  const res = clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f));
+  const res = clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f), bankedMsOf(f));
   const tags: Record<string, any> = { ...(f?.tags || {}), _elapsedMs: res.ms };
   if (res.clamped) {
     tags._elapsedClamp = clampStamp(res.requestedMs, res.ms, res.reason, now);
@@ -75,11 +85,11 @@ export function elapsedMsOf(f: FocusItem, now: number): number {
   // a stuck anchor shows a disbelieved-but-bounded number on the phone instead
   // of counting up to 37 hours — and so the displayed value never contradicts
   // the value that gets stored the moment it is paused.
-  if (isRunning(f)) return clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f)).ms;
+  if (isRunning(f)) return clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f), bankedMsOf(f)).ms;
   const frozen = f.tags?._elapsedMs;
   return Number.isFinite(frozen)
     ? Math.max(0, frozen)
-    : clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f)).ms;
+    : clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f), 0).ms;
 }
 function snoozedUntil(f: FocusItem): number {
   const t = f.tags?._snoozeUntil ? new Date(f.tags._snoozeUntil).getTime() : 0;
