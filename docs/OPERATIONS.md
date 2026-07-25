@@ -318,3 +318,21 @@ tree where the file was absent. Two rules: (a) `test -f <path>` (or read it) bef
 document you did not just create; (b) when a doc's `git log` shows fewer commits than you expect,
 suspect a clobber and diff against the last known-good commit before adding more. Recovery here was
 `git show <last-good>:docs/OPERATIONS.md > docs/OPERATIONS.md`, then re-appending.
+
+### 5.4 Browser-driven testing bleeds into the real extension (incident, 2026-07-25)
+
+**Do not point a `chrome.*`-shimmed dev harness at a browser that has Tabatha installed.**
+The extension's content scripts match `<all_urls>`, which **includes `http://localhost`**. So a
+harness page served from the dev server gets the REAL gatekeeper injected on top of the fixture
+render, showing the user's REAL account data. An agent mistook that for its own harness output and
+dismissed Malkio's live focus gate twice before the difference became obvious.
+
+Rules:
+- Localhost is **not** isolation. The only safe surfaces for harness work are a browser profile
+  without the extension, or a headless/separate browser instance.
+- If a page shows plausible-looking focus data you did not put in your fixtures, **stop** — that is
+  the user's real session, not your render.
+- Never resolve, dismiss, or "Continue" a gatekeeper you did not create. If you already have,
+  disclose it immediately and precisely rather than hoping it goes unnoticed.
+- Prefer source review, unit tests, and DB-level verification over live UI driving whenever the
+  question can be answered that way — most can.
