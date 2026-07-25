@@ -32,7 +32,15 @@ Malkio re-raised this program unprompted ("I think we need a CLI / API / MCP for
 3. **Checkpoint→agent hook** — the checkpoint prompt trigger emits `CHECKPOINT_REQUEST` to a background harness agent (45s timeout → falls back to the human prompt), answers attributed via C11a/#219.
 4. **Autonomous agent self-reporting** through the same path.
 
-#220 proposes carrying these as a sibling plan (next free number, 047+) gated behind this plan's T1–T2, since they change focus-item shape and the checkpoint alarm path, which this plan's parallelability review assumed untouched. **Open decision for Malkio:** whether to pull T1 (read-only MCP/CLI) forward from the post-Cortex back-burner gate.
+#220 proposes carrying these as a sibling plan (next free number — **047**, since 046 went to the UI/UX Overhaul on 2026-07-21) gated behind this plan's T1–T2, since they change focus-item shape and the checkpoint alarm path, which this plan's parallelability review assumed untouched. **Open decision for Malkio:** whether to pull T1 (read-only MCP/CLI) forward from the post-Cortex back-burner gate.
+
+### The OpenAI/Codex voice payoff — a second, independent argument for T1
+
+Malkio asked (2026-07-25) for an integration with "the new GPT Voice that is in Codex/gptwork." Research finding: **ChatGPT Voice (powered by GPT-Live, shipped into the ChatGPT desktop app 2026-07-23) has no API, SDK, or third-party extension point** — and GPT-Live is not an available API model. But the ChatGPT desktop app, Codex CLI, and the Codex IDE extension **share one MCP configuration** (`~/.codex/config.toml`, stdio or Streamable HTTP, with per-tool allowlists) — see https://learn.chatgpt.com/docs/extend/mcp.
+
+So the integration Malkio wants is **not built against OpenAI at all**: T1's MCP server is the integration. Once it exists, registering it in `config.toml` (T5 already says exactly this) gives ChatGPT Voice access to Tabatha — and simultaneously gives it to Claude Code, Cursor, and every future MCP-aware agent. Building a Tabatha-native voice stack instead would cost more and do less, since it would also need its own reasoning layer where this borrows the harness's.
+
+**Verify before relying on it:** no first-party doc confirms that a *voice-started* Codex thread can invoke *locally* configured MCP tools (the inference is strong; only a secondary source asserts it). Cheap test — register any trivial MCP server in `~/.codex/config.toml` and ask ChatGPT Voice to use it. Also note ChatGPT **Work** accepts only plugin-supplied *remote* MCP tools, so local-only reach stops at Codex.
 
 ## Parallelability Review
 - **Zones:** companion (endpoint host), new MCP/CLI package (own tree), background services (message surface already exists — read-mostly).

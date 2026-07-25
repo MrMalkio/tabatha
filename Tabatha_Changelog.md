@@ -4,6 +4,18 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.80] - Feature intake: clock backdate/recovery spec + GPT Voice integration research - _2026-07-25_
+
+> Docs-only. No extension code changed.
+
+### Added
+
+- **Feature spec #221 — Clock Backdate & Recovery** (`docs/features/221-clock-backdate-and-recovery.md`). Confirms there is currently **no way to fix a missed clock-in**: `clockIn()`/`clockOut()` take no arguments and hardcode `new Date()`, the `CLOCK_IN`/`CLOCK_OUT` handlers ignore any payload, no `EDIT_SHIFT` handler exists, and Work Shifts' "✏️ Edit Shift" is a disabled stub. Specs backdated clock-in, real shift editing, and an evidence-ranked start-time proposal (companion OS activity → first focus → capture frame → tab activity → calendar) presented as confirm-or-adjust. Flags that shift-row sync IDs are hashed from the clock times, so editing times would insert a duplicate row (sync Root Cause D) unless an immutable session id lands first.
+
+### Changed
+
+- **Plan 045 addendum** gains the OpenAI/Codex voice finding: ChatGPT Voice (GPT-Live, desktop app, shipped 2026-07-23) exposes **no API or third-party extension point**, but the ChatGPT desktop app, Codex CLI, and Codex IDE extension share one MCP config — so Plan 045's T1 MCP server *is* the integration, and it serves every MCP-aware agent rather than just OpenAI's. Records the unverified assumption (voice-started threads invoking locally-configured MCP tools) and the cheap test for it. Also corrects the sibling-plan number to **047**.
+
 ## [v6.7.79] - Feature intake: agent control expansion, InBar bug spec, parity + voice audits - _2026-07-25_
 
 > Docs-only. No extension code changed. (6.7.77/6.7.78 are the clamp-saga remediation line shipped from its own worktree.)
