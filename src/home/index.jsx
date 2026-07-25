@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/global.css';
-import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStorage';
+import { useChromeStorage, sendMessage, useTheme, useIntentHistory } from '../hooks/useChromeStorage';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { useOtherProfiles } from '../hooks/useOtherProfiles';
 import { OtherProfilesStrip } from '../components/OtherProfilesStrip';
@@ -1744,7 +1744,12 @@ function Home() {
   const THEMES = ['pop-art', 'corporate', 'midnight', 'matcha', 'terminal', 'sakura', 'blueprint', 'neo-brutalism', 'glass-ocean', 'retro-pixel', 'solarized-warm', 'high-contrast-dark'];
   const THEME_ICONS = { 'pop-art':'🎨', corporate:'🏢', midnight:'🌙', matcha:'🍵', terminal:'💻', sakura:'🌸', blueprint:'📐', 'neo-brutalism':'🟨', 'glass-ocean':'🌊', 'retro-pixel':'👾', 'solarized-warm':'📖', 'high-contrast-dark':'⚫' };
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
-  const [intentHistory] = useChromeStorage('intentHistory', []);
+  // 6.7.76 (gatekeeper-sanitize-gap): sanitized + self-healing — see
+  // useIntentHistory in hooks/useChromeStorage.js. Raw intentHistory here
+  // fed IntentsPanel's `entry.context.toLowerCase()` (TypeError crash on a
+  // legacy object-valued context) and getIntentContext()'s bare JSX render
+  // ("Objects are not valid as a React child" crash).
+  const [intentHistory] = useIntentHistory();
   const intentChangeLog = useMemo(
     () => (intentHistory || []).filter(isIntentChangeEntry),
     [intentHistory]

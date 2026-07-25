@@ -1,39 +1,338 @@
+# Tabatha — Operations Runbook
 
-### 5.x Migration-ledger hygiene (rule added 2026-07-25 after real drift)
+The authoritative "how do we ship this" doc for every surface in the Tabatha
+family, plus the convention for where that activity gets recorded. Every
+claim below is verified against a real script or doc as of 2026-07-21 — file
+paths are cited inline so drift is checkable. Read `AGENTS.md` first for the
+Chrome load-unpacked build/load constraint (still in force, §5); this doc is
+the release/maintenance layer on top of it.
 
-Two failure modes bit us; both are now rules.
+---
 
-1. **Applying a migration via the Management API `/database/query` endpoint does NOT record it
-   in `supabase_migrations.schema_migrations`.** The SQL runs, the effects are live, but the
-   CLI ledger still shows a gap — so `supabase migration list` reports it as "not applied" and a
-   later `db push` would re-run it. If you apply that way, INSERT the version into the ledger in
-   the same session (`insert into supabase_migrations.schema_migrations (version) values ('NNN')
-   on conflict do nothing`), and only ever apply idempotent SQL that way.
-2. **A migration applied to prod from a feature worktree must land on the canonical line
-   (`staging`) immediately** — not "when the branch merges." Migrations 059 and 060 were live in
-   production while their only files sat on unmerged branches (`short-invite-tokens`,
-   `org-hours-v1`), making prod's schema unreproducible from the canonical repo. Copy the file to
-   `staging/supabase/migrations/` and commit it the moment the migration is applied; the feature
-   branch keeps its copy until merge.
+## 1. Surfaces & versions
 
-Historical note: migration `029` is applied in prod with no file in any known worktree — a
-pre-existing gap, not reproducible from the repo. Flagged, not fixed (needs Malkio's history).
+| Surface | Version file(s) | Current pipeline | Prod target |
+|---|---|---|---|
+| **Chrome extension** | `public/manifest.json` (source of truth; `npm run version:sync` propagates to `package.json`, `AGENTS.md` header, changelog) | `staging` → `main` via PR/human approval | Google Workspace force-install + staff self-hosted update channel (§2.2); CWS private/domain listing in progress (§2.3) |
+| **Tabby Sidecar (PWA)** | `sidecar/app.json` (`version`) **and** `sidecar/src/lib/device.ts` (`SIDECAR_VERSION` literal — bumped by hand alongside `app.json`, no sync script exists for this pair, unlike the extension's `version:sync`) | Own `0.x` line, ships straight from a feature/worktree branch | Cloudflare Worker `tabby-sidecar`, route `tabatha.pondocean.co/sidecar*` (straight-to-prod, no staging slot) |
+| **Desktop companion** | `tabatha-desktop/src-tauri/tauri.conf.json` | Own `0.x` line, private repo `MrMalkio/tabatha-desktop` | Windows installer via GitHub release + Supabase Storage manifest (§2.4) |
+| **Tabby Watch** | `tabatha-watch/app/build.gradle.kts` (`versionName`/`versionCode`) | Own `0.x` line, separate repo | Sideload (Galaxy Watch / Wear OS), pre-store |
+| **Marketing / showcase site** | Stamped with the extension's version at deploy time (`site/` in this repo) | `npm run site:deploy` (`site:build` + `wrangler pages deploy`) | Cloudflare Pages project `tabatha` (root of `tabatha.pondocean.co`) |
+| **Supabase backend** | Migration number = highest file in `supabase/migrations/` (currently `050`; see §5 for the numbering-registry gap) | `supabase db push --linked` against project `mtdgoahskcibjbhfvofx`, schema `tabatha` | Single hosted prod project — there is no staging Supabase project |
 
-### 5.y Live-testing tool constraints (learned 2026-07-25, save future runs the time)
+---
+
+## 2. Release steps per surface
+
+### 2.1 Tabby Sidecar (PWA)
+
+Source: `sidecar/scripts/build-web.mjs` (read in full).
+
+1. Work in a **clean temporary worktree checked out at the committed tip**
+   (never deploy from a dirty tree — this sidecar worktree has repeatedly
+   taken cross-agent commit sweeps, `docs/progress.md` 2026-07-20 PM), with
+   `node_modules` junctioned in from the main checkout (worktrees don't
+   share it; same technique as the extension's Build→Load constraint in
+   `AGENTS.md`).
+2. `node scripts/build-web.mjs --export` — now **always** passes
+   `expo export -p web --clear` (script lines 15-22). Load-bearing: Metro's
+   cache in `node_modules/.cache` is shared across worktrees via the
+   junction, and a concurrent `expo start` can poison it into a "routeless
+   1.1MB skeleton bundle" that still reports export success (real
+   2026-07-18 v0.6.1 incident, in the script's own comment and
+   `docs/progress.md` "Incidents").
+3. **Local bundle preflight** — before deploying, confirm the exported
+   entry bundle under `dist/_expo/static/js/web/` isn't the poisoned
+   skeleton (grep it for a known route/screen string; a routeless build is
+   a fraction of the real size). Still tribal knowledge, not a script — gap
+   noted in §5.
+4. `build-web.mjs` (no flag) injects PWA `<head>` tags into
+   `dist/index.html` (lines 24-42) and mirrors `dist/` into
+   `deploy/public/sidecar/` (lines 44-47, nested for the `/sidecar` base).
+5. `cd deploy && npx wrangler deploy` — ships CF Worker `tabby-sidecar` on
+   route `tabatha.pondocean.co/sidecar*`. The Pages root site is a separate
+   target; don't touch it here.
+6. **Edge verify**: load `/sidecar` live, confirm a known UI string matches
+   what shipped, and that `/` (root Pages site) still serves — the Worker
+   route is path-scoped but has shadowed root before.
+7. Remove the `node_modules` junction (`cmd /c rmdir`, never
+   `Remove-Item -Recurse` — deletes the junction's *target*, same warning
+   as `AGENTS.md`) and clean up the temp worktree.
+
+### 2.2 Extension — staff self-hosted update channel
+
+Source: `scripts/publish-update.mjs` (staging branch, read in full).
+
+```
+npm run publish:update            # build + zip + GitHub release + latest.json
+npm run publish:update -- --no-build   # package the existing dist/ instead
+```
+
+- Builds **with** the pinned `key` in `manifest.json` (distinct from the
+  CWS path, §2.3) — every staff install keeps the same extension id
+  (`hoknmoclnhccpgofpdihmiadmnmejjod`) release over release so Cloud Sync
+  never orphans.
+- Zips `dist/` → `store-assets/tabatha-<version>.zip`, computes SHA-256.
+- Publishes/updates a GitHub Release tagged `ext-v<version>` (not
+  `v<version>`, reserved for the project's own tag scheme) on
+  `MrMalkio/tabatha`, with the zip attached.
+- Writes `latest.json` (`{version, zipUrl, sha256, published}`) and commits
+  it to the **orphan `update-channel` branch**, served forever at
+  `raw.githubusercontent.com/MrMalkio/tabatha/update-channel/latest.json`.
+  Uses `git commit --no-verify` **only on this branch** — it holds nothing
+  but `latest.json`, so the shared pre-commit hook (`sync-version.mjs
+  --check`) has nothing to resolve and would fail every time otherwise.
+- Requires `gh` CLI authenticated with push access.
+
+### 2.2b Extension — Workspace enterprise force-install channel (the jbdka line)
+
+Undocumented until 2026-07-21 (found by archaeology; nothing in `scripts/`
+builds it). This is the channel behind the Google Admin force-install entry
+`jbdkacccpknbiphigeabcdojemnhacjj` — a PACKED CRX, self-hosted on the marketing
+site under `site/enterprise/`. The ID comes from the OUTER CRX signature (the
+standalone signing key at
+`C:\Users\mrmal\.tabatha-secrets\tabatha-extension-signing-key.pem`), NOT the
+manifest `key` (which stays pinned inside the package, harmless).
+
+Release steps (proven 6.7.22 → 6.7.50, 2026-07-21):
+
+1. Build the release dist in a clean worktree at the release commit.
+2. Pack: `chrome.exe --pack-extension="<dist-copy>" --pack-extension-key="<pem>"`
+   (copy the dist to a scratch dir first — Chrome writes `<dir>.crx` next to it).
+3. **Verify before publishing**: parse the CRX3 header (protobuf field
+   `0x0a 0x10` = 16-byte crx_id, nibble→a-p alphabet) and assert the id equals
+   `jbdka…` and the inner manifest version equals the release. A wrong-key pack
+   silently changes the id and the fleet would ignore the update.
+4. Drop `site/enterprise/tabatha-<version>.crx` (`git add -f` — `*.crx` is
+   gitignored) and point `site/enterprise/update.xml` `codebase` + `version` at
+   it. Keep the previous crx in place for rollback.
+5. Deploy the site (`wrangler pages deploy site --project-name=tabatha
+   --branch=main`) and live-verify: update.xml shows the new version and the crx
+   URL serves the `Cr24` magic bytes.
+6. Managed Chromes poll the policy update URL on Chrome's own cadence (hours);
+   no user action needed.
+
+This channel retires once the CWS item (§2.3) is published and the Workspace
+force-install is repointed to store id `piopncjacohahbkkmockjnpenhdbmmbc`.
+
+### 2.3 Extension — Chrome Web Store
+
+Sources: `scripts/build-store-zip.mjs`, `scripts/cws-publish.mjs`,
+`docs/CWS-PUBLISHING.md` (all staging branch, read in full).
+
+```
+npm run build:store    # dist/ → staged copy, strip pinned "key", validate, zip
+npm run cws:upload      # first release: npm run cws:upload -- --new (writes CWS_APP_ID)
+npm run cws:publish     # publishTarget defaults to trustedTesters
+node scripts/cws-publish.mjs --status   # check draft item status any time
+```
+
+- `build-store-zip.mjs` validates the staged payload before zipping:
+  manifest parses, `manifest_version === 3`, every referenced entry file
+  exists, no `*.map` files, no dotfiles.
+- `cws-publish.mjs` reads `CWS_CLIENT_ID`/`CWS_CLIENT_SECRET`/
+  `CWS_REFRESH_TOKEN` from `deploy-creds.local` (written by the one-time
+  interactive `npm run cws:auth` — never trigger unattended) and mints a
+  short-lived access token per run; never prints token values.
+- Live app id `piopncjacohahbkkmockjnpenhdbmmbc` (confirmed in
+  `supabase/functions/{connect-asana,device-signout,feedback-to-asana,
+  pair-watch}/index.ts` CORS allowlists, dated 2026-07-21) is **different**
+  from the pinned staff-channel id in §2.2 — CWS strips the pinned key and
+  mints its own.
+- **First-publish visibility and listing content are dashboard-set, not
+  API-set** — `docs/CWS-PUBLISHING.md` §2d: Visibility, description,
+  screenshots, privacy URL, category are console-only.
+
+### 2.4 Desktop companion
+
+Source: `tabatha-desktop/docs/RELEASING.md` (read in full). Two independent
+publish targets — **skipping either leaves the release invisible or
+undownloadable**:
+
+1. **Stop the running companion exe** before `npm run tauri build` (build
+   output overwrites the same binary path the running process holds open —
+   practiced step, not yet written into `RELEASING.md`; see §5).
+2. `npm run tauri build` → NSIS `-setup.exe` + `.msi` under
+   `src-tauri/target/release/bundle`.
+3. `gh release create desktop-vX.Y.Z <exe> <msi> --repo MrMalkio/tabatha
+   --title "Tabatha Desktop Companion X.Y.Z (Windows)" --notes "…"` — tag
+   `desktop-vX.Y.Z`, distinct from the extension's `ext-vX.Y.Z` on the same
+   mirror repo. Source stays private (`MrMalkio/tabatha-desktop`); only
+   built artifacts reach the public mirror.
+4. **Publish `companion-latest.json`** to the Supabase Storage
+   `extension-updates` bucket — what `update_check.rs`'s background checker
+   (startup + every 6h) reads; a GitHub release with no manifest update is
+   invisible to every installed companion. Schema, the `required:true`
+   freeze-gate semantics, and the PowerShell REST-PUT command (`supabase
+   storage cp` 404s on this project) are in `RELEASING.md` §2 verbatim —
+   including the UTF-8 gotcha (`[System.IO.File]::ReadAllBytes`, not
+   `Get-Content -Raw`, or non-ASCII in `notes` gets mangled).
+5. Restart the companion; confirm the tray "Update Companion App" item
+   flips to `⬆ Update available` (`RELEASING.md` §3).
+
+### 2.5 Marketing / public site
+
+`package.json` (staging) `site:deploy` script:
+```
+npm run site:build && npx wrangler@4 pages deploy site --project-name=tabatha --branch=main
+```
+`site:build` = `build-privacy.mjs` + `build-search-index.mjs`.
+The `--branch=main` flag is now **in the script** (TR-16, 2026-07-23): without
+it `wrangler pages deploy` infers the branch from the current git ref, and
+agents routinely run this from a feature/worktree branch — omitting the flag
+risked a Cloudflare Pages *preview* deploy instead of production. The script and
+the safe command now match; no manual flag addition is required anymore.
+
+### 2.6 Supabase migrations
+
+Standard: `supabase link --project-ref mtdgoahskcibjbhfvofx` (one-time), then
+`npx supabase db push --linked` (`docs/superpowers/specs/epic3-deploy-notes.md`
+§1). When local `supabase/migrations/` has a gap against what's actually
+applied remotely (common — unmerged branches apply migrations out from
+under `staging`; this worktree branched with 022-029 remote-only, never
+landing locally), the fix recorded in `docs/progress.md` (2026-07-17) is
+**placeholder-then-repair**: `supabase migration repair` marks the
+remote-only numbers as applied locally so CLI state matches reality, then
+`db push` only the genuinely new files. Add `--include-all` when the local
+set is out of order vs. what the CLI thinks is applied. Migration-**number**
+registry discipline (a related, separate problem) is in §5.
+
+## 3. Standing automation inventory
+
+| Job | Cadence | What it does | Evidence lands |
+|---|---|---|---|
+| **Hermes SYSTEM-MAP daily survey** (`argus` profile) | ~07:30 ET daily (watcher through first 3 runs) | Refreshes `docs/system-map/SYSTEM-MAP.md` §2/§3/§5 (versions, ground truths, per-branch table); stamps the header | The file's §8 log (one line/day) + a delta comment on Asana `1216678592681467`. **Not in the local `scheduled-tasks` registry** (§5 — trigger mechanism unconfirmed from this machine). |
+| `anasa-orchestrator-daily` | 07:03/13:03/19:03 ET (cron `0 7,13,19 * * *`) | Reviews Anasa roadmap progress, holds gates, dispatches next wave | Asana task activity (Anasa roadmap project) |
+| `anasa-ticket-reconciler` | Every 2h at :45 (cron `45 */2 * * *`) | Reconciles Anasa-T tickets vs. overnight lane progress | Asana comments on tracked tickets |
+| `po-security-follow-ups` | Mon-Sat 04:05/14:05 (cron `0 4,14 * * 1-6`) | Progress pass over open security/PR tasks; nudges Po/Malkio/none; self-disables when done | Local state log + Asana comments (`enabled: true`) |
+| **Companion update-check** | Startup + every 6h (`RELEASING.md` §3) | Polls `companion-latest.json`; flips tray to `⬆ Update available`/`🛑 Update required` | `%APPDATA%\Tabatha Desktop\logs\` |
+| `scripts/mirror-extension.ps1` (staging) | "At logon, before Chrome validates extensions" (script's own doc comment — a Windows Scheduled Task) | Self-heals a stable load path (`%LOCALAPPDATA%\Tabatha\extension`) from `dist/`, atomically | **Not yet the live load path** — SYSTEM-MAP (2026-07-21) still shows Chrome pointed at `C:\Users\mrmal\Le Dev\Tabatha\dist` directly; treat as shipped-but-not-cut-over. |
+
+## 4. Where activity is tracked (the convention)
+
+Five places carry the record of maintenance/CI-CD/release activity today —
+none optional, all cited above as real, populated locations:
+
+1. **Asana — Flux Development board** (project GID `1214031898449333`,
+   <https://app.asana.com/1/9526911872029/project/1214031898449333/>).
+   Fleet task GIDs + comments (start/done, per this task's own convention)
+   + project status updates on `checkpoint`.
+2. **`docs/progress.md`** — the session log (`## Session — <date> (<title>)`:
+   Agent, Branch, Goal, What Was Done, Key Decisions/Findings, Next Steps,
+   Artifacts). Where deploy incidents (Metro cache poisoning, migration
+   drift, worktree collisions) get their permanent post-mortem.
+3. **`Tabatha_Changelog.md`** (Keep-a-Changelog format) — human-readable
+   version history; `scripts/build-changelog.mjs` (staging) compiles it into
+   `public/changelog.json` for the in-app "What's New" modal and Settings →
+   About. `changelog:check` is wired into `prebuild` alongside
+   `sync-version.mjs` — a build fails if the changelog is stale.
+4. **`docs/system-map/SYSTEM-MAP.md`** — daily cross-surface snapshot (§3).
+5. **GitHub Releases per artifact** — `ext-vX.Y.Z` (staff channel zip),
+   `desktop-vX.Y.Z` (companion installers), both on the public
+   `MrMalkio/tabatha` mirror repo.
+
+**The convention:** every deploy, release, or migration MUST land in
+**(a)** a Conventional Commit (`{type}({scope}): {description}`, `AGENTS.md`
+Global Rule 2), **(b)** `Tabatha_Changelog.md` when it carries a version
+bump, and **(c)** an Asana comment or status update when it's part of
+tracked fleet work — a release that's only a commit, with no changelog
+entry and no Asana trace, is not considered done.
+
+---
+
+## 5. Known gotchas
+
+- **Shared Metro cache poisoning.** `node_modules/.cache` is shared across
+  sidecar worktrees via junctions; a concurrent `expo start` can poison it
+  into a routeless skeleton bundle that still reports "export succeeded."
+  Fixed by `--clear` (unconditional in `build-web.mjs --export`) **plus**
+  the manual local-bundle-preflight grep before deploy (§2.1 step 3) — the
+  preflight is still tribal knowledge, not codified into the script.
+- **Worktree collisions.** The shared sidecar worktree has taken multiple
+  cross-agent commit sweeps (`docs/progress.md`, 2026-07-20 PM). Default to
+  per-agent worktrees for anything that writes; use explicit per-file
+  `git add` (never `-A`/`.`) to avoid sweeping another agent's change.
+- **`asana-cli` single-line comments.** `comment add <task_gid> --text "..."`
+  — keep comments to one line. Use `--as <profile>` for persona identity
+  (`asana-cli auth list` enumerates profiles, e.g. `rook`, `argus`, `ceecee`).
+- **Orphan `update-channel` branch pre-commit false positive.** That branch
+  holds only `latest.json`; the shared pre-commit hook (`sync-version.mjs
+  --check`) has nothing to resolve there and fails every commit. `--no-verify`
+  is scoped to commits on **that branch only** — never use it elsewhere
+  without a specific, understood reason (`AGENTS.md`/global git safety rules
+  still apply everywhere else).
+- **Network flakiness.** `git fetch --all --prune` intermittently fails here
+  with `getaddrinfo() thread failed to start` (hit live during this doc's
+  own research) — retry once before concluding a remote is unreachable.
+- **`dist/` path is pinned for Chrome load-unpacked** (`AGENTS.md`): only
+  `C:\Users\mrmal\Le Dev\Tabatha\dist` is re-validated; building in the main
+  dir stamps staging's version into it (looks like a downgrade if a feature
+  worktree is ahead). `scripts/mirror-extension.ps1`'s stable-path
+  alternative exists on `staging` but per SYSTEM-MAP is not yet cut over —
+  verify there before assuming it's live.
+- **Migration-number registry discipline.** Parallel plan branches claim
+  migration ranges as *placeholders* before writing SQL (Plan 043 → 051-052,
+  Plan 044 → 053-055, Plan 045 → 056-057, Olympus → 046-049, 050 explicitly
+  left unclaimed by Fix Wave 3) — always `ls supabase/migrations` right
+  before writing a new file to re-verify the next-free number; two branches
+  landing the same number is a silent-until-`db push` collision.
+- **Sidecar's version is two hand-synced files, no sync script** — see §1.
+
+### 5.1 Migration-ledger hygiene (added 2026-07-25 after real drift)
+
+1. **Applying a migration via the Management API `/database/query` endpoint does NOT record it in
+   `supabase_migrations.schema_migrations`.** The SQL runs and the effects are live, but the CLI
+   ledger still shows a gap, so `supabase migration list` reports "not applied" and a later
+   `db push` would re-run it. If you apply that way, INSERT the version into the ledger in the same
+   session (`insert into supabase_migrations.schema_migrations (version) values ('NNN') on conflict
+   do nothing`), and only ever apply idempotent SQL that way.
+2. **A migration applied to prod from a feature worktree must land on `staging` immediately** — not
+   "when the branch merges." Migrations 059 and 060 were live in production while their only files
+   sat on unmerged branches, making prod's schema unreproducible from the canonical repo.
+3. Historical note: migration `029` is applied in prod with no file in any known worktree — a
+   pre-existing gap, flagged not fixed.
+
+### 5.2 Live-testing tool constraints (learned 2026-07-25)
 
 - **claude-in-chrome cannot access another extension's pages.** Any `chrome-extension://<other-id>/*`
-  URL (and `chrome://extensions` itself) returns *"Cannot access a chrome-extension:// URL of
-  different extension"*. This is a deliberate isolation guard — there is no flag or workaround.
-  It also fires when the page loads itself via `chrome_url_overrides.newtab`.
-  **Consequence:** the extension's own UI (home / sidebar / settings / popup) cannot be E2E-tested
-  through the browser tools against a real install.
-  **Workaround that works:** serve the same entry points from the Vite dev server
-  (`npm run dev` → `http://localhost:5173/home.html` etc.) with a `chrome.*` shim providing fixture
-  data, and test layout/structure/logic there. Be explicit in reports that shimmed data ≠ real data.
+  URL (and `chrome://extensions`) returns *"Cannot access a chrome-extension:// URL of different
+  extension"* — a deliberate isolation guard with no workaround. The extension's own UI (home /
+  sidebar / settings / popup) therefore cannot be E2E-tested against a real install, and **a human
+  must perform extension reloads.**
+  *Workaround:* serve the same entry points from the Vite dev server (`npm run dev` →
+  `http://localhost:5173/home.html`) with a `chrome.*` shim providing fixtures. Say plainly in
+  reports that shimmed data ≠ real data.
 - **`navigate()` force-prepends `https://`** onto already-schemed `chrome-extension://` / `chrome://`
-  strings — a separate tool bug; don't waste time thinking it's a typo on your end.
-- **Content scripts ARE testable** on ordinary web pages — the gatekeeper / InBar / BlockGate
-  overlays can be exercised for real. That's where browser-driven regression testing pays off.
+  strings — a tool bug, not your typo.
+- **Content scripts ARE testable** on ordinary web pages — gatekeeper / InBar / BlockGate overlays
+  can be exercised for real.
 - **Respect a live human.** If test tabs get closed moments after opening, the user is at the
   keyboard: stop opening tabs in their browser, switch to localhost, and never resolve a real
   focus-gatekeeper modal on their behalf.
+
+### 5.3 Never append to a file you have not confirmed exists (added 2026-07-25, learned the hard way)
+
+`cat >> path` **creates** the file when it is missing. On 2026-07-25 that silently replaced this
+279-line runbook with a 39-line stub containing only the new sections, because the append ran in a
+tree where the file was absent. Two rules: (a) `test -f <path>` (or read it) before appending to any
+document you did not just create; (b) when a doc's `git log` shows fewer commits than you expect,
+suspect a clobber and diff against the last known-good commit before adding more. Recovery here was
+`git show <last-good>:docs/OPERATIONS.md > docs/OPERATIONS.md`, then re-appending.
+
+### 5.4 Browser-driven testing bleeds into the real extension (incident, 2026-07-25)
+
+**Do not point a `chrome.*`-shimmed dev harness at a browser that has Tabatha installed.**
+The extension's content scripts match `<all_urls>`, which **includes `http://localhost`**. So a
+harness page served from the dev server gets the REAL gatekeeper injected on top of the fixture
+render, showing the user's REAL account data. An agent mistook that for its own harness output and
+dismissed Malkio's live focus gate twice before the difference became obvious.
+
+Rules:
+- Localhost is **not** isolation. The only safe surfaces for harness work are a browser profile
+  without the extension, or a headless/separate browser instance.
+- If a page shows plausible-looking focus data you did not put in your fixtures, **stop** — that is
+  the user's real session, not your render.
+- Never resolve, dismiss, or "Continue" a gatekeeper you did not create. If you already have,
+  disclose it immediately and precisely rather than hoping it goes unnoticed.
+- Prefer source review, unit tests, and DB-level verification over live UI driving whenever the
+  question can be answered that way — most can.

@@ -162,12 +162,85 @@
     strictMode = stored.settings?.inpopStrictMode !== false; // default true
     blurStrength = stored.settings?.inpopBlurStrength ?? 10;
 
+    // 6.7.76 (gatekeeper-sanitize-gap) fix: this is a DIRECT
+    // chrome.storage.local read — it bypasses every sanitize-on-read path
+    // the 6.7.69 "[object Object]" fix wired in (focusService.js /
+    // storageService.js's getFocusEngine()/getTabData(), dataRehydrate.js,
+    // liveIngestArbitration.js). Those all cover the focusEngine/tabs
+    // store; intentHistory/intentPresets are a wholly separate storage
+    // key this gate has always read raw, so a corrupted install could
+    // still hand the InPop an object-valued context/label right here —
+    // the exact symptom seen live again 2026-07-25 (see
+    // docs/audits/2026-07-24-live-extension-e2e.md, Round 2 — Wren).
+    //
+    // Sanitize inline (same coercion rules as sanitizeIntentHistoryEntry/
+    // sanitizeIntentPreset in src/utils/focusDataSanitize.js — NOT
+    // imported: gatekeeper.js is a standalone classic content-script
+    // Rollup entry, and importing that shared module here pulls it into
+    // a separate chunk with a real `import` statement that Chrome cannot
+    // resolve for a classic script — verified empirically against this
+    // build (see escapeHtml() above for the same documented constraint).
+    // Keep this block's coercion behavior in sync with
+    // focusDataSanitize.js if either changes; test/gatekeeperSanitize
+    // parity is asserted in test/focusDataSanitize.test.js) and write the
+    // repaired value back so a corrupted store heals itself on this very
+    // read — no reinstall, no data loss, same self-healing contract as
+    // 6.7.69.
+    const coerceLabel = (value, fallback) => {
+      if (typeof value === 'string') return value;
+      if (value === null || value === undefined) return value;
+      if (Array.isArray(value)) return fallback;
+      if (typeof value === 'object') {
+        for (const key of ['label', 'text', 'value', 'name']) {
+          if (typeof value[key] === 'string' && value[key].trim()) return value[key];
+        }
+        return fallback;
+      }
+      return String(value);
+    };
+    const isCorruptObj = (value) => typeof value === 'object' && value !== null;
+
+    let intentHistory = stored.intentHistory;
+    if (Array.isArray(intentHistory)) {
+      let historyHealed = false;
+      const nextHistory = intentHistory.map((entry) => {
+        if (!entry || typeof entry !== 'object') return entry;
+        let next = entry;
+        for (const key of ['context', 'oldContext', 'newContext', 'oldIntent', 'newIntent']) {
+          if (isCorruptObj(entry[key])) {
+            if (next === entry) next = { ...entry };
+            next[key] = coerceLabel(entry[key], null);
+            historyHealed = true;
+          }
+        }
+        return next;
+      });
+      if (historyHealed) {
+        intentHistory = nextHistory;
+        chrome.storage.local.set({ intentHistory: nextHistory }).catch(() => {});
+      }
+    }
+
+    let intentPresets = stored.intentPresets;
+    if (intentPresets && Array.isArray(intentPresets.persistent)) {
+      let presetsHealed = false;
+      const nextPersistent = intentPresets.persistent.map((preset) => {
+        if (!preset || typeof preset !== 'object' || !isCorruptObj(preset.label)) return preset;
+        presetsHealed = true;
+        return { ...preset, label: coerceLabel(preset.label, 'Untitled preset') };
+      });
+      if (presetsHealed) {
+        intentPresets = { ...intentPresets, persistent: nextPersistent };
+        chrome.storage.local.set({ intentPresets }).catch(() => {});
+      }
+    }
+
     // Build recent from history (unique by context, today only, max 5)
-    if (stored.intentHistory) {
+    if (intentHistory) {
       const today = new Date().toDateString();
       const seen = new Set();
       const activeLabels = new Set(focusItems.map(f => f.label.toLowerCase()));
-      for (const entry of stored.intentHistory) {
+      for (const entry of intentHistory) {
         const context = entry.context ?? entry.newContext;
         if (context && new Date(entry.timestamp).toDateString() === today && !seen.has(context.toLowerCase()) && !activeLabels.has(context.toLowerCase())) {
           seen.add(context.toLowerCase());
@@ -177,10 +250,10 @@
       }
     }
     // Persistent presets
-    if (stored.intentPresets?.persistent) {
+    if (intentPresets?.persistent) {
       const activeLabels = new Set(focusItems.map(f => f.label.toLowerCase()));
       const recentLabels = new Set(recentIntents.map(r => r.toLowerCase()));
-      persistentIntents = stored.intentPresets.persistent
+      persistentIntents = intentPresets.persistent
         .filter(p => !activeLabels.has(p.label.toLowerCase()) && !recentLabels.has(p.label.toLowerCase()))
         .map(p => p.label);
     }

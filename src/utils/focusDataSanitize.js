@@ -195,3 +195,123 @@ export function sanitizeTabsMap(tabs) {
 
   return { tabs: nextTabs, healed: true, healedIds };
 }
+
+// ------------------------------------------------------------------
+// 6.7.76 (gatekeeper-sanitize-gap) — intentHistory / intentPresets
+//
+// Same corruption class as sanitizeFocusItem's label/funnelStage/context:
+// legacy writes could leave these object-valued, and NOTHING before this
+// fix ever sanitized them on read — intentHistory/intentPresets are a
+// wholly separate chrome.storage.local key from the focusEngine/tabs store
+// the 6.7.69 wiring covered (focusService.getFocusEngine(),
+// storageService.getFocusEngine()/getTabData(), dataRehydrate,
+// liveIngestArbitration). gatekeeper.js's direct
+// `chrome.storage.local.get(['intentHistory', 'intentPresets', ...])`
+// (line ~160) walked right past all of that, so an install already healed
+// by 6.7.69 for its focus items could still hand the InPop an
+// object-valued `entry.context`/`p.label` here — the exact "[object
+// Object]" symptom seen again live 2026-07-25 (see
+// docs/audits/2026-07-24-live-extension-e2e.md, Round 2 — Wren).
+//
+// intentHistory entries (see tabService.js/tabTrackingService.js/
+// bootstrap.js writers): { action, context, oldContext, newContext,
+// oldIntent, newIntent, timestamp, url, focusId }. `context`/`oldContext`/
+// `newContext` are the free-text intent labels a user typed into InPop;
+// `oldIntent`/`newIntent` get the same treatment for symmetry (every
+// current writer only ever assigns null or a plain string there too, but
+// nothing stops a legacy write from being an object).
+//
+// intentPresets is `{ persistent: [{ label, ... }] }` — pinned InPop
+// presets (settings/index.jsx's "Persistent Presets" section, read raw by
+// gatekeeper.js at the same call site). No current writer populates
+// `persistent` at all (dead feature path), which is exactly how corrupted
+// legacy data survives indefinitely with no fresh writes to dilute it.
+// ------------------------------------------------------------------
+
+const INTENT_HISTORY_STRING_FIELDS = ['context', 'oldContext', 'newContext', 'oldIntent', 'newIntent'];
+
+/**
+ * Sanitize one intentHistory entry's label-ish fields. Returns the SAME
+ * reference when the entry was already clean.
+ *
+ * @param {object} entry
+ * @returns {{ entry: object, healed: boolean }}
+ */
+export function sanitizeIntentHistoryEntry(entry) {
+  if (!entry || typeof entry !== 'object') return { entry, healed: false };
+
+  let healed = false;
+  let next = entry;
+
+  for (const key of INTENT_HISTORY_STRING_FIELDS) {
+    if (isCorruptObject(entry[key])) {
+      if (next === entry) next = { ...entry };
+      next[key] = coerceStringField(entry[key], null);
+      healed = true;
+    }
+  }
+
+  return { entry: next, healed };
+}
+
+/**
+ * Sanitize an entire intentHistory array. Returns the SAME array reference
+ * when nothing needed healing (idempotent — safe to call on every read).
+ *
+ * @param {Array} history
+ * @returns {{ history: Array, healed: boolean }}
+ */
+export function sanitizeIntentHistory(history) {
+  if (!Array.isArray(history)) return { history, healed: false };
+
+  let healedAny = false;
+  const next = history.map((entry) => {
+    const { entry: nextEntry, healed } = sanitizeIntentHistoryEntry(entry);
+    if (healed) healedAny = true;
+    return nextEntry;
+  });
+
+  if (!healedAny) return { history, healed: false };
+  return { history: next, healed: true };
+}
+
+/**
+ * Sanitize one intentPreset ({ label, ... }). Same treatment as
+ * sanitizeFocusItem's label field.
+ *
+ * @param {object} preset
+ * @returns {{ preset: object, healed: boolean }}
+ */
+export function sanitizeIntentPreset(preset) {
+  if (!preset || typeof preset !== 'object' || !isCorruptObject(preset.label)) {
+    return { preset, healed: false };
+  }
+  return {
+    preset: { ...preset, label: coerceStringField(preset.label, 'Untitled preset') },
+    healed: true,
+  };
+}
+
+/**
+ * Sanitize the intentPresets store ({ persistent: [...] }). Returns the
+ * SAME reference when nothing needed healing, or when `persistent` isn't
+ * an array (nothing to walk — callers should treat this as "unchanged").
+ *
+ * @param {object} presets
+ * @returns {{ presets: object, healed: boolean }}
+ */
+export function sanitizeIntentPresets(presets) {
+  if (!presets || typeof presets !== 'object' || !Array.isArray(presets.persistent)) {
+    return { presets, healed: false };
+  }
+
+  let healedAny = false;
+  const nextPersistent = presets.persistent.map((preset) => {
+    const { preset: nextPreset, healed } = sanitizeIntentPreset(preset);
+    if (healed) healedAny = true;
+    return nextPreset;
+  });
+
+  if (!healedAny) return { presets, healed: false };
+  return { presets: { ...presets, persistent: nextPersistent }, healed: true };
+}
