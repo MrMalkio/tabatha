@@ -1128,3 +1128,58 @@ Fleet outcomes (all verified by CeeCee before ship):
 **NOT deployed** — new user-facing rows can't be visually smoke-checked headless (Sidecar sign-in = Malkio-only credential gate). Same consent-first call as TR-14b.
 
 **Next steps:** Malkio — visual smoke-check ▶/⏸ rows on `/sidecar`, then one `wrangler deploy` (Sidecar 0.13.8 prod). Full detail: `docs/taskrun/2026-07-23-morning-report.md`.
+
+---
+
+## 2026-07-25/26 — Nightly bug-fix TaskRun (CeeCee night-shift, direct execution)
+
+**Queue: empty, verified.** `docs/taskrun/nightly-bugfix-queue.md` doesn't exist because the
+6-hourly triage agent writes nothing when nothing is new. Confirmed against Asana directly:
+the only feedback submission since the last triage is `1216867448639741` ("[E2E test] Vail
+platform review"), an agent-generated test from last night's own run. TR-01–TR-19 closed
+2026-07-23; TR-20 closed 2026-07-23/24. Charter says skip quietly — so this was a short run
+on the one genuinely unworked leftover (TR-19's version-drift half) plus one find.
+
+**HEADLINE — the fleet had silently rolled back to 6.7.76.** Last night's report stated
+6.7.78 was live on the fleet channel. It was, then a later site deploy from the `staging`
+tree reverted it. Cache-busted baseline taken *before* any deploy of mine proves the
+rollback predates tonight: `update.xml` read 6.7.76 and `tabatha-6.7.78.crx` returned the
+404 HTML fallback, while the staff channel was still correctly 6.7.78 — the two channels
+disagreed all day. So the Koda-cleared clamp/elapsed fixes were not reaching managed Chromes.
+
+- **Root cause is structural:** the jbdka channel's state is files in the site tree and
+  `site:deploy` publishes a FULL snapshot, so deploying from any tree predating the newest
+  release downgrades the fleet with nothing failing and nothing logged. The 6.7.78 release
+  was cut from the `fix/sync-integrity-cluster` worktree; `staging` never carried those files.
+- **Restored + live-verified** (`c429abe`): `update.xml` → 6.7.78, crx serves `Cr24` at
+  556,353 bytes (byte-identical to the branch artifact), 6.7.76 retained for rollback.
+  Re-ran OPERATIONS §2.2b step 3 before publishing: crx_id `jbdkacccpknbiphigeabcdojemnhacjj`,
+  inner manifest version 6.7.78. Binaries only — the SOURCE merge is Malkio's call (Q1).
+- **Guard shipped:** `scripts/check-enterprise-channel.mjs`, wired into `site:deploy`,
+  fail-closed on dangling crx / non-CRX3 / wrong signing id / inner-version mismatch /
+  publishing a LOWER version than live. Proved against the real incident, not asserted:
+  simulating the staging tree with 6.7.78 live yields `✘ ROLLBACK …` and exit 1.
+  Hazard + guard documented in OPERATIONS §2.2b (`06b1122`).
+
+**TR-19 slice — `/show` badge drift automated** (`4b5bd4a`): `site/docs` was automated
+2026-07-24, but `site/show` stayed hand-maintained — `9ee9039` hand-synced 19 badges to
+v6.7.73 that night and they were stale a day later. `stamp-docs-version.mjs` now scans
+docs + show, the 12 nav badges carry the marker, and an unmarked badge now FAILS the build
+(the exact silent-drift mode). Live: `/show/` v6.7.73 → v6.7.76; `/docs/` unchanged;
+`/`, `/download`, `/sidecar/` 200; `/download`'s single-CSP invite-gate fix intact after the
+`_headers` redeploy. Deliberately NOT stamped: showcase mock UI (period-accurate props) and
+the curated "brand-faithful to vX" footer (Q2).
+
+**Also:** committed last night's untracked pair-watch evidence artifacts (`4ef6155`) after
+verifying they carry no secrets (env-var names only).
+
+**No version bump on any of the four commits** — all site/ops only, per the `9ee9039`
+precedent; a bump would also mint a 6.7.77 colliding with the unmerged clamp line and make
+the public badge advertise a version with no CRX behind it.
+
+**Gates:** 768/768 tests, `site:build` green, two deploys live-verified, tree clean, no
+`Co-Authored-By`, nothing pushed to protected remotes.
+
+**Next steps:** Malkio — Q1 merge `fix/sync-integrity-cluster` (6.7.78 source) into staging
+so the source line can rebuild what the fleet runs; Q2 the "brand-faithful" wording.
+Full detail: `docs/taskrun/2026-07-25-morning-report.md`, `docs/taskrun/2026-07-25-questions.md`.
