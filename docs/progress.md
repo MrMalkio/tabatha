@@ -1159,7 +1159,7 @@ disagreed all day. So the Koda-cleared clamp/elapsed fixes were not reaching man
   fail-closed on dangling crx / non-CRX3 / wrong signing id / inner-version mismatch /
   publishing a LOWER version than live. Proved against the real incident, not asserted:
   simulating the staging tree with 6.7.78 live yields `✘ ROLLBACK …` and exit 1.
-  Hazard + guard documented in OPERATIONS §2.2b (`06b1122`).
+  Hazard + guard documented in OPERATIONS §2.2b (`afbfcd0`).
 
 **TR-19 slice — `/show` badge drift automated** (`4b5bd4a`): `site/docs` was automated
 2026-07-24, but `site/show` stayed hand-maintained — `9ee9039` hand-synced 19 badges to

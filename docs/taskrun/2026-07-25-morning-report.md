@@ -58,7 +58,7 @@ tree at 6.7.76 with 6.7.78 live produces
 | **Fleet channel restored to 6.7.78** | cache-busted `update.xml` = 6.7.78; crx `Cr24` 556,353 bytes (byte-identical to the branch artifact); 6.7.76 kept | `c429abe` |
 | **Enterprise preflight guard** | passes clean on the real tree; blocks the simulated rollback with exit 1 | `c429abe` |
 | **`/show` version badge automated** | live `/show/` badge moved v6.7.73 → v6.7.76; `/docs/` unchanged; `/`, `/download`, `/sidecar/` all 200 | `4b5bd4a` |
-| **Ops runbook: rollback hazard + guard** | §2.2b | `06b1122` |
+| **Ops runbook: rollback hazard + guard** | §2.2b | `afbfcd0` |
 | **Pair-watch evidence artifacts committed** | untracked from last night; no secrets (env-var names only, verified) | `4ef6155` |
 
 Re-verified before publishing, per OPERATIONS §2.2b step 3: crx_id
