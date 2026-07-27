@@ -124,6 +124,59 @@ Ships as one Headbox-installable bundle per harness (Claude Code, Codex), wrappi
 5. Trust boundary: Headbox plugins run inside harnesses the user installs but does not author. Does the plugin get its own token/scope distinct from the user's CLI token (045 T4)?
 6. If a session and a tab attached to the *same* focus disagree (agent says "done", human still browsing), which wins for focus state transitions?
 
+---
+
+## Addendum 2026-07-26 — harness hooks, reverse-channel notifications, agent backburner (Malkio)
+
+> "Another feature is leveraging hooks of Claude and Codex to update Tabatha with things such as backburner items, receiving notifications of complete runs or responses inside Tabatha instead of inside from the desktop. Proper tracking of where activity is or was and so on. This can be direct or be leveraged with our Headbox system being the bridge, which in terms of adopting our ecosystems I like the most."
+> — User, 2026-07-26
+
+**§2's open recommendation is now a decision.** Malkio explicitly prefers the Headbox bridge, which is what §2 recommended (option **(b)** for identity, companion for hosting). Treat the Headbox session plugin as the chosen transport, not one of two candidates. The direct harness→Tabatha path stays as a documented fallback for harnesses Headbox does not manage, but it is not the design centre.
+
+This addendum adds **three capabilities §1–§5 do not cover**:
+
+### A. Harness hooks as the event source (not just the checkpoint trigger)
+
+§3 treats the harness as something that *answers* a Tabatha-initiated `CHECKPOINT_REQUEST`. Both Claude Code and Codex expose **lifecycle hooks** that fire on their own schedule (session start/end, turn completion, tool use, notification events). Those hooks are the richer source: they let Tabatha learn what happened **without polling and without a request/response round trip**.
+
+| Harness event | Tabatha effect | Notes |
+|---|---|---|
+| session start | create/attach `session` work surface (§1); open C11a span | resolves Open Question 1 in favour of hook-driven attach |
+| turn/run complete | **reverse-channel notification** (§B) + optional auto-checkpoint | the "my run finished" signal |
+| agent asks a question / awaits input | reverse-channel notification, higher salience | this is the one that currently pulls the user to the desktop |
+| session end | close span, write a session summary checkpoint | feeds C10a reconciliation |
+| explicit agent call | backburner / intent / focus writes (§C) | via Plan 045 T2 tools |
+
+Implementation note: hook payload shapes differ per harness and change between versions. The Headbox plugin **normalizes** them into the `CHECKPOINT_REQUEST`-sibling envelope already defined in §3, so Tabatha never parses a harness-specific format. This is the main argument for the Headbox bridge beyond ecosystem preference — it is the version-drift shock absorber.
+
+### B. Reverse channel — agent notifications surface *inside* Tabatha
+
+Today a finished run notifies via the OS/desktop, pulling attention out of the browser. Tabatha already owns the in-browser attention surfaces (InBar, InPop, toasts, home) and already knows whether the user is heads-down. Route agent notifications through them instead.
+
+| Concern | Behaviour |
+|---|---|
+| Delivery surface | InBar badge + toast by default; InPop for "agent is blocked on you"; home/sidebar list for the backlog of unread agent events |
+| Focus-awareness | Notifications respect the **existing** gates — snooze, off-device, Let Me Cook, break state. An agent finishing a run must not puncture a protected focus block unless it is blocking-on-input |
+| Grouping | Events group by `session` surface → focus, so "3 runs finished on *Tabatha refactor*" is one row, not three toasts |
+| Attribution | Every event is `actor: 'agent:{sessionId}'` per #219 and excluded from human analytics |
+| Escalation | If unacknowledged past a threshold, optionally forward to Sidecar push (the phone path already exists) rather than the desktop |
+
+This is a genuinely new surface: #220 §3 writes *checkpoints* (a work record); §B delivers *notifications* (an attention event). They share attribution and the session surface, and nothing else.
+
+### C. Agent-created backburner items
+
+Plan 045 T2's write list does not include backburner. Add `backburner_focus` / `backburner_item` as attributed write tools so an agent can say "I'm blocked waiting on CI — backburner this focus for 20 minutes and tell me when it's up," which is precisely the existing backburner semantics (#207, InBar 🔥) driven from the harness rather than the InBar. Note this composes with the extension-side gap found on 2026-07-19: backburner is currently reachable only for the *active* focus via the InBar, so the agent-facing tool and the human-facing sidebar/home action want the same new per-focus handler underneath.
+
+### Scope impact
+
+All three land inside the proposed **Plan 047** rather than expanding Plan 045: §A extends the Headbox plugin already scoped in §2/§5, §B is new UI in existing extension surfaces, §C is one write handler plus a T2 tool. §B is the only piece with a genuinely new user-visible surface and could ship independently of the checkpoint hook.
+
+### New open questions
+
+7. Does a "run complete" notification write a checkpoint automatically, or only notify? Auto-writing keeps the CPN stream honest but risks a checkpoint per turn on chatty sessions — likely needs a debounce or a "significant turn" heuristic.
+8. Reverse-channel notifications imply Tabatha is running for the user to see them. What happens to events that arrive while Chrome is closed — queue in the companion and replay, or drop?
+9. Do harness hooks require the user's harness config to be modified by Headbox (install-time), and does that conflict with the Rule-3 "never push directly" posture for machine-level config changes?
+
 ## Related Features
 
 - **Plan 045 / Agent Control Layer program** — the CLI/MCP substrate this rides on

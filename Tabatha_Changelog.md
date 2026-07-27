@@ -4,6 +4,20 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.81] - Feature intake: Notes system (#222) + harness-hook addendum to #220 - _2026-07-27_
+
+> Docs-only. No extension code changed.
+
+### Added
+
+- **Feature spec #222 — Notes System** (`docs/features/222-notes-system.md`). A real free-standing notepad blending Google Keep (fast capture, colours, pinning), Obsidian (markdown, links), Evernote (tags, search) and Apple Notes (frictionless sync) — deliberately a **flat stream, not a filing hierarchy**, to avoid a second taxonomy competing with Contexts/realms. The central design answer to "may or may not be connected to the current focus" is **two fields**: an immutable `contextStamp` (what focus/tab/shift was active at capture, recorded always, ownership claimed never) plus an optional user-set `linkedFocusId` promoted with one click — so resolving a focus can never bury a note. V1 surfaces: extension sidebar + desktop companion. `updated_at`, per-note upsert and tombstones are mandatory from migration one, so notes do not repeat sync Root Cause A. **Status check finding:** every existing note surface (InBar quick note, checkpoints, pause sticky, parked-tab notes) is anchored to a tab/focus/checkpoint — there is no free-standing note anywhere today, and break notes are a `SOON` stub with zero persistence.
+- **Mimir integration, designed as opt-in and non-blocking.** Mimir (the ecosystem's beyond-second-brain layer) is live as a loopback-only Fastify daemon with a real `POST /capture` surface. Notes push to it **through the desktop companion's existing bridge rather than the extension**, so MV3 gains no loopback host permission and a missing Mimir is a no-op rather than an error. Tabatha **refuses rather than clamps**: Mimir v1 hard-caps classification at `internal`, so a note marked private is never pushed.
+
+### Changed
+
+- **#220 addendum (2026-07-26)** — Malkio chose the Headbox bridge, resolving §2's open recommendation into a decision. Adds three capabilities the spec did not cover: harness **lifecycle hooks as the event source** (not just answering Tabatha-initiated checkpoint requests), a **reverse channel** delivering agent run-complete / blocked-on-you notifications inside Tabatha instead of the desktop — gated by the existing snooze/off-device/Let-Me-Cook/break rules so a finished run cannot puncture a protected focus block — and **agent-created backburner** writes.
+- **ROADMAP.md** gains a Phase 3.5 (Notes V1) and a Phase 5 Mimir Connector entry; `docs/features.md` registers #220, #221 and #222.
+
 ## [v6.7.80] - Feature intake: clock backdate/recovery spec + GPT Voice integration research - _2026-07-25_
 
 > Docs-only. No extension code changed.
