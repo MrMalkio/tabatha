@@ -1183,3 +1183,59 @@ the public badge advertise a version with no CRX behind it.
 **Next steps:** Malkio — Q1 merge `fix/sync-integrity-cluster` (6.7.78 source) into staging
 so the source line can rebuild what the fleet runs; Q2 the "brand-faithful" wording.
 Full detail: `docs/taskrun/2026-07-25-morning-report.md`, `docs/taskrun/2026-07-25-questions.md`.
+
+---
+
+## 2026-07-26/27 — Nightly TaskRun: registry + feature-number drift (CeeCee)
+
+**Goal:** work the vetted nightly-bugfix queue; skip quietly if empty.
+
+**Queue: empty, verified.** `docs/taskrun/nightly-bugfix-queue.md` absent again. Did not
+treat the missing file as proof — checked Asana directly: the newest task in Flux
+Development is `2026-07-25T21:06:21Z`, which *predates* last night's run, and no new
+feedback-widget submissions exist. `2026-07-22-queue.md` remains fully worked
+(TR-01–TR-19 closed 07-23, TR-20 fixed 07-25).
+
+**Channels re-verified first** (cache-busted), since last night found a silent rollback:
+fleet `update.xml` **6.7.78**, CRX `Cr24` at **556,353 bytes** (byte-identical to the
+recorded artifact), staff `update-channel/latest.json` **6.7.78**, and `/`, `/show/`,
+`/download`, `/docs/`, `/sidecar/` all 200. The preflight guard shipped last night is
+holding. Recorded so it isn't re-investigated: `/enterprise/latest.json` returning HTML is
+**not** a defect — that path never existed; the staff manifest lives on the
+`update-channel` branch. Companion manifest still 0.2.1 = known open item T1c.
+
+**Shipped — `6362467` (docs-only).** Chore `1216904312614852`: four feature numbers were
+each used by two docs. Earlier file keeps the number; later one reassigned via `git mv`:
+`184-persistent-focuses`→**225**, `185-focus-auto-resume-queue`→**226**,
+`186-asana-focus-linking`→**227**, `215-body-doubling`→**228**. Chose 225–228 because
+#220/#221/#224 are already claimed by open Asana tasks and the #160 gap may be a withdrawn
+feature. Every cross-reference re-pointed only after confirming which of the two features
+it meant.
+
+Koda's review caught a real contradiction: `FEATURES-REFERENCE.md` had one row covering
+both features under a single **WORKING** verdict whose evidence is entirely CPN, which
+would have contradicted the registry's `#225 unassigned` in the same commit. Split into
+#184 CPN (WORKING) and #225 Persistent Focuses (NOT FOUND) — confirmed no ongoing /
+"done for today" lifecycle exists in `src/`; plans 025 and 031 shipped the CPN half only.
+
+Plan registry: stray plan-046 row moved into the table, `Next available number` **046→047**
+(unblocks the sync-architecture plan). New standalone lint `npm run check:docs`
+(`scripts/check-doc-registry.mjs`) fails on duplicate feature numbers and a stale pointer;
+proved by injecting each failure and restoring. Deliberately **not** wired into `prebuild`.
+
+**Key finding (new, beyond the chore):** plan numbers **039, 040 and 041 are each used
+twice** — Cortex program/phase1/phase2 vs Sidecar-mobile / Sidecar-voice / Tabby-Watch.
+A Headbox Rule 9 violation nobody had flagged. Renumbering is a judgment call about which
+line's identity is cheaper to move, so it went to morning questions, not code; the lint
+prints it as `KNOWN DRIFT` (warn, exit 0) so it can't quietly persist.
+
+**No version bump** — docs-only, and a staging bump would mint a 6.7.77 colliding with the
+unmerged 6.7.77 on `fix/sync-integrity-cluster`. Same reasoning as last night.
+
+**Gates:** 768/768 tests, `check:docs` green, tree clean, no `Co-Authored-By`, nothing
+pushed to protected remotes.
+
+**Next steps:** Malkio — Q1 (new) decide which line keeps plan numbers 039/040/041;
+Q2 merge `fix/sync-integrity-cluster` into staging (still open); Q3 `/show`
+"brand-faithful" wording (still open). Full detail:
+`docs/taskrun/2026-07-26-morning-report.md`, `docs/taskrun/2026-07-26-questions.md`.
