@@ -1,4 +1,4 @@
-# Feature #185 — Focus Auto-Resume Control & Queue-for-Later
+# Feature #226 — Focus Auto-Resume Control & Queue-for-Later
 
 > **Status:** 📋 Planned · **Version:** v0.2.0  
 > **Depends On:** #122 Focus Queue  

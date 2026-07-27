@@ -578,9 +578,9 @@
   2. Start it now (pauses Sidecar work)
   3. Fold only the Anasa-vs-Asana review into Plan 040 Epic 3 (already planned)
 
-## 2026-07-18 — Body doubling plugin (#215)
+## 2026-07-18 — Body doubling plugin (#228)
 - **Noticed while:** Plan 040 feature intake (voice transcript)
-- **What:** Queue + one-click pairing of live Tabatha users for co-working (BYO Meet/Twitch/Kick/YT-Live links; Tabatha = pairing/presence/frame). Spec: docs/features/215-body-doubling.md
+- **What:** Queue + one-click pairing of live Tabatha users for co-working (BYO Meet/Twitch/Kick/YT-Live links; Tabatha = pairing/presence/frame). Spec: docs/features/228-body-doubling.md
 - **Why it matters:** human-powered accountability sibling of #182; potential community/network feature
 - **Options:**
   1. Keep parked until the Plan 040 epic stack lands ← **suggested (owner's call)**

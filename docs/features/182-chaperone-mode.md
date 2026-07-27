@@ -123,5 +123,5 @@ The full Chaperone is Flux-tier, but a v0 ships on rails that exist **today**:
 ### Also related
 - #210 Priority Challenge & Accountability Interrupts (text-modal sibling)
 - #211 Audio Input & Voice Control (the inbound half; #182 is outbound)
-- #215 Body Doubling (the human-powered variant of the same accountability need)
-- Plan 040 Epic 10 (v0 slice scheduling); body-doubling science research task in #215
+- #228 Body Doubling (the human-powered variant of the same accountability need)
+- Plan 040 Epic 10 (v0 slice scheduling); body-doubling science research task in #228
