@@ -1239,3 +1239,49 @@ pushed to protected remotes.
 Q2 merge `fix/sync-integrity-cluster` into staging (still open); Q3 `/show`
 "brand-faithful" wording (still open). Full detail:
 `docs/taskrun/2026-07-26-morning-report.md`, `docs/taskrun/2026-07-26-questions.md`.
+
+## 2026-07-27/28 — Nightly bug-fix TaskRun: skip-quietly night (CeeCee)
+
+Third consecutive quiet night. **No product code touched, no builders dispatched, no Asana
+umbrella created** — the charter's skip-quietly path, taken deliberately rather than by
+default.
+
+**Queue emptiness proven three ways**, not inferred from the missing
+`nightly-bugfix-queue.md` (an absent file is ambiguous between "nothing filed" and "triage
+never ran"): (1) Asana queried directly — all 8 Flux Development tasks created since
+2026-07-25T21:00Z accounted for, and the only two newer than last night's run are Malkio's
+own intake specs #222 Notes System (`1216922774878600`) and the #220 harness-hook addendum
+(`1216922197879721`), both architectural and self-scoped to a proposed Plan 047, therefore
+out of scope for a small-safe-fixes mandate; no new feedback-widget submissions.
+(2) `2026-07-22-queue.md` TR-01–TR-19 re-verified from primary records — including TR-03,
+whose Koda BLOCK (unconditional dim for gatekeeper-disabled users; no SW round-trip timeout,
+strictly worse than pre-fix; top-level `const` throwing on re-injection) is closed at v6.7.68
+`c3681e9` — plus TR-01's dedup artifacts at `69c076e`; TR-18/19 are Malkio-gated questions,
+not unworked items. (3) `feedback-review-2026-07-23.md` TR-20 done and live (`218279c` is an
+ancestor of the deployed Sidecar line).
+
+**Release channels re-verified** (runs nightly regardless of queue state, since this check
+caught the silent fleet rollback on 07-25): fleet `update.xml` 6.7.78, fleet CRX `Cr24` /
+556,353 bytes byte-identical to the prior two nights, staff `latest.json` 6.7.78
+(sha256 `ce140fb4…`), all 5 site routes 200. Companion `/desktop/latest.json` still 0.2.1 =
+already-tracked T1c (lost signing key), not a new find.
+
+**Two environment gotchas recorded so they aren't re-debugged:** `curl` from the Bash tool
+returns exit `000` for every host — the Bash sandbox has no network; PowerShell
+`Invoke-WebRequest` works and carried all verification. And `asana-cli request --query-json`
+could not receive valid JSON through either shell's native-arg quoting; the Asana MCP read
+path worked, `asana-cli` stays correct for comment writes.
+
+**One known gap, stated as a choice:** the 07-22 queue file carries no inline done-markers;
+closure lives in the morning reports. Not retro-annotated — recording other agents' work
+from my reading of their reports would add hearsay to the record, not remove it.
+
+**No version bump** — nothing to bump, and a staging bump would still mint a 6.7.77
+colliding with the unmerged 6.7.77 on `fix/sync-integrity-cluster`. Committed on `staging`
+from a temporary worktree so the `docs/intake-2026-07-25-agent-layer-bugs` checkout was
+never moved off its branch.
+
+**Next steps:** Malkio — no new questions. The standing three are unchanged: plan-number
+collision 039/040/041 (`1216900494891551`), companion signing key (T1c), production
+promotion (still NO-GO from 07-24). Detail:
+`docs/taskrun/2026-07-27-morning-report.md`, `docs/taskrun/2026-07-26-questions.md`.
