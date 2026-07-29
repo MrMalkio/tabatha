@@ -4,6 +4,15 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.82] - Normalize manifest.json back to 2-space indent - _2026-07-29_
+
+> Formatting only. No functional change — `manifest.json` parses to the identical
+> object before and after (verified key-by-key), and no extension code changed.
+
+### Fixed
+
+- **`public/manifest.json` restored to 2-space indent.** The 6.7.79–6.7.81 intake commits re-serialized the file at 4-space, rewriting all 98 lines. Because `manifest.json` is the version source of truth and Headbox Rule 10 bumps it on **every** commit, it is the repo's highest-contention shared file — a whole-file reformat on `staging` would have forced a 98-line conflict onto the **20 active worktree branches** currently sitting at 2-space (including the newest lines: 6.7.78 `sync-integrity`, 6.7.76 `gatekeeper-sanitize-gap`, 6.7.75 `org-hours-v1`, 6.7.74 `pair-watch-hardening`). Reverting shrinks this PR's `manifest.json` diff from 182 lines to 1. Note `scripts/sync-version.mjs` writes JSON at 2-space (`JSON.stringify(obj, null, 2)`), so 2-space is the format the tooling already agrees on.
+
 ## [v6.7.81] - Feature intake: Notes system (#222) + harness-hook addendum to #220 - _2026-07-27_
 
 > Docs-only. No extension code changed.
