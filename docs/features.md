@@ -288,6 +288,9 @@
 | 217 | Intent Tab Grouping Suite (counts UI, multi-group per intent, multi-select icon menu, consolidate-into-N-windows) | Tabs | 📋 | v0.5.0 | #209, #186, #218 | [concept](../../docs/features/217-intent-tab-grouping-suite.md) |
 | 218 | Agent Browsing Detection (classify agent-created groups, InPop-Agent variant, no Sugar Box/Side Quest for agents) | Agentic | 📋 | v0.5.0 | #180, #217, C11a | [concept](../../docs/features/218-agent-browsing-detection.md) |
 | 219 | Agent vs Human History (actor attribution, per-agent audit view, analytics exclusion) | Agentic | 📋 | v0.5.0 | #218, C11a, #171, #172 | [concept](../../docs/features/219-agent-vs-human-history.md) |
+| 220 | Session Aggregation & Automatic Progress Updates (agent-answered checkpoints, harness hooks, reverse-channel notifications) | Agentic | 📋 | v0.5.0 | Plan 045, C11a, #218, #219 | [concept](../../docs/features/220-session-aggregation-auto-updates.md) |
+| 221 | Clock Backdate & Recovery (backdated clock-in, real shift editing, evidence-based start proposal) | Time | 📋 | v0.5.0 | #195, NB-09 | [concept](../../docs/features/221-clock-backdate-and-recovery.md) |
+| 222 | Notes System (standalone notepad; Keep/Obsidian/Evernote/Apple blend; optional focus linkage; Mimir sink) | Notes | 📋 | v0.5.0 | #165, #211, Mimir | [concept](../../docs/features/222-notes-system.md) |
 | **— BUG FIXES (Logged 2026-05-26)** |
 | B07 | Cannot resolve paused active focus from sidebar top spot | Focus | 🔧 | v0.2.0 | — | [concept](../../docs/features/B07-resolve-paused-focus.md) |
 | B08 | Autopause triggers while user is active on PC (non-browser) | Time | 🔧 | v0.2.0 | B05, #117 | [concept](../../docs/features/B08-autopause-false-trigger.md) |

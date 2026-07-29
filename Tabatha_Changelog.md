@@ -4,6 +4,55 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.82] - Normalize manifest.json back to 2-space indent - _2026-07-29_
+
+> Formatting only. No functional change — `manifest.json` parses to the identical
+> object before and after (verified key-by-key), and no extension code changed.
+
+### Fixed
+
+- **`public/manifest.json` restored to 2-space indent.** The 6.7.79–6.7.81 intake commits re-serialized the file at 4-space, rewriting all 98 lines. Because `manifest.json` is the version source of truth and Headbox Rule 10 bumps it on **every** commit, it is the repo's highest-contention shared file — a whole-file reformat on `staging` would have forced a 98-line conflict onto the **20 active worktree branches** currently sitting at 2-space (including the newest lines: 6.7.78 `sync-integrity`, 6.7.76 `gatekeeper-sanitize-gap`, 6.7.75 `org-hours-v1`, 6.7.74 `pair-watch-hardening`). Reverting shrinks this PR's `manifest.json` diff from 182 lines to 1. Note `scripts/sync-version.mjs` writes JSON at 2-space (`JSON.stringify(obj, null, 2)`), so 2-space is the format the tooling already agrees on.
+
+## [v6.7.81] - Feature intake: Notes system (#222) + harness-hook addendum to #220 - _2026-07-27_
+
+> Docs-only. No extension code changed.
+
+### Added
+
+- **Feature spec #222 — Notes System** (`docs/features/222-notes-system.md`). A real free-standing notepad blending Google Keep (fast capture, colours, pinning), Obsidian (markdown, links), Evernote (tags, search) and Apple Notes (frictionless sync) — deliberately a **flat stream, not a filing hierarchy**, to avoid a second taxonomy competing with Contexts/realms. The central design answer to "may or may not be connected to the current focus" is **two fields**: an immutable `contextStamp` (what focus/tab/shift was active at capture, recorded always, ownership claimed never) plus an optional user-set `linkedFocusId` promoted with one click — so resolving a focus can never bury a note. V1 surfaces: extension sidebar + desktop companion. `updated_at`, per-note upsert and tombstones are mandatory from migration one, so notes do not repeat sync Root Cause A. **Status check finding:** every existing note surface (InBar quick note, checkpoints, pause sticky, parked-tab notes) is anchored to a tab/focus/checkpoint — there is no free-standing note anywhere today, and break notes are a `SOON` stub with zero persistence.
+- **Mimir integration, designed as opt-in and non-blocking.** Mimir (the ecosystem's beyond-second-brain layer) is live as a loopback-only Fastify daemon with a real `POST /capture` surface. Notes push to it **through the desktop companion's existing bridge rather than the extension**, so MV3 gains no loopback host permission and a missing Mimir is a no-op rather than an error. Tabatha **refuses rather than clamps**: Mimir v1 hard-caps classification at `internal`, so a note marked private is never pushed.
+
+### Changed
+
+- **#220 addendum (2026-07-26)** — Malkio chose the Headbox bridge, resolving §2's open recommendation into a decision. Adds three capabilities the spec did not cover: harness **lifecycle hooks as the event source** (not just answering Tabatha-initiated checkpoint requests), a **reverse channel** delivering agent run-complete / blocked-on-you notifications inside Tabatha instead of the desktop — gated by the existing snooze/off-device/Let-Me-Cook/break rules so a finished run cannot puncture a protected focus block — and **agent-created backburner** writes.
+- **ROADMAP.md** gains a Phase 3.5 (Notes V1) and a Phase 5 Mimir Connector entry; `docs/features.md` registers #220, #221 and #222.
+
+## [v6.7.80] - Feature intake: clock backdate/recovery spec + GPT Voice integration research - _2026-07-25_
+
+> Docs-only. No extension code changed.
+
+### Added
+
+- **Feature spec #221 — Clock Backdate & Recovery** (`docs/features/221-clock-backdate-and-recovery.md`). Confirms there is currently **no way to fix a missed clock-in**: `clockIn()`/`clockOut()` take no arguments and hardcode `new Date()`, the `CLOCK_IN`/`CLOCK_OUT` handlers ignore any payload, no `EDIT_SHIFT` handler exists, and Work Shifts' "✏️ Edit Shift" is a disabled stub. Specs backdated clock-in, real shift editing, and an evidence-ranked start-time proposal (companion OS activity → first focus → capture frame → tab activity → calendar) presented as confirm-or-adjust. Flags that shift-row sync IDs are hashed from the clock times, so editing times would insert a duplicate row (sync Root Cause D) unless an immutable session id lands first.
+
+### Changed
+
+- **Plan 045 addendum** gains the OpenAI/Codex voice finding: ChatGPT Voice (GPT-Live, desktop app, shipped 2026-07-23) exposes **no API or third-party extension point**, but the ChatGPT desktop app, Codex CLI, and Codex IDE extension share one MCP config — so Plan 045's T1 MCP server *is* the integration, and it serves every MCP-aware agent rather than just OpenAI's. Records the unverified assumption (voice-started threads invoking locally-configured MCP tools) and the cheap test for it. Also corrects the sibling-plan number to **047**.
+
+## [v6.7.79] - Feature intake: agent control expansion, InBar bug spec, parity + voice audits - _2026-07-25_
+
+> Docs-only. No extension code changed. (6.7.77/6.7.78 are the clamp-saga remediation line shipped from its own worktree.)
+
+### Added
+
+- **Feature spec #220 — Session Aggregation & Auto-Updates** (`docs/features/220-session-aggregation-auto-updates.md`): unified work-surfaces model (tab | OS window | harness session) attachable to a focus/sub-focus; Headbox session plugin + companion-hosted session registry; checkpoint-prompt → background-agent hook (`CHECKPOINT_REQUEST`, 45s timeout → human fallback); autonomous agent self-reporting. Extends Plan 045 (addendum added to `docs/plans/plan-045-agent-control-layer.md`).
+- **Bug spec B09 — InBar edit/assign inconsistency** (`docs/features/B09-inbar-edit-assign-inconsistency.md`): root-caused — focus-list click sends only SWITCH_FOCUS (never saves typed name); Save triggers autoQueueFromIntent which severs the just-made link and spawns a queued sub-focus. Fix shape + acceptance criteria included.
+- **Surface parity audit** (`docs/audits/2026-07-19-surface-parity.md`): sidebar → companion 20 gaps, sidecar → companion 18 gaps, 16 recommended companion additions (top: off-computer toggle, checkpoint note, backburner, focus card, lifecycle controls). Also tracked the 2026-07-24 sync-forensics and live-e2e audit artifacts.
+
+### Changed
+
+- **#218/#219**: C11a references corrected — merged to staging, no longer branch-only.
+
 ## [v6.7.76] - Close the gatekeeper's [object Object] sanitize gap (intentHistory/intentPresets) - _2026-07-25_
 
 > The 6.7.69 self-heal fixed `label`/`funnelStage`/`context` corruption on the focusEngine/tabs store, but `gatekeeper.js`'s own direct `chrome.storage.local.get(['intentHistory', 'intentPresets', 'settings'])` (~line 160) reads a wholly separate storage key that was never wired into any of that fix's sanitize-on-read paths — an agent saw `[object Object]` in a live gate again tonight through exactly this hole (docs/audits/2026-07-24-live-extension-e2e.md, Round 2 — Wren). Fixed with the same self-healing contract: gatekeeper.js now sanitizes `intentHistory` entries' `context`/`oldContext`/`newContext`/`oldIntent`/`newIntent` and `intentPresets.persistent[].label` on every read and writes the repair back, so a corrupted install heals itself on its next gate open. The coercion logic is duplicated inline (not imported) — gatekeeper.js is a standalone classic content-script Rollup entry, and importing `focusDataSanitize.js` there empirically pulled it into a separate chunk with a real `import` statement, which Chrome cannot resolve for a classic script (same documented constraint as `escapeHtml`). New `sanitizeIntentHistoryEntry`/`sanitizeIntentHistory`/`sanitizeIntentPreset`/`sanitizeIntentPresets` helpers added to `src/utils/focusDataSanitize.js` and reused (real imports, no chunk-splitting risk) by two sibling React read-sites of the same two keys that were also unsanitized and worse than cosmetic — `settings/index.jsx`'s Persistent Presets/Recent History panels and `home/index.jsx`'s IntentsPanel both either threw `TypeError` (`entry.context.toLowerCase()` on an object) or crashed the render (`Objects are not valid as a React child`) on the exact same corrupted data; both now go through new `useIntentHistory()`/`useIntentPresets()` sanitized+self-healing hooks in `hooks/useChromeStorage.js`. A full sweep of every other direct `chrome.storage.local.get` read in the extension found no further sites carrying this corruption class into rendered HTML (companion/desktop-session data, logs, tokens, and settings reads are a different subsystem with no legacy writer of this shape). 11 new unit tests in `test/focusDataSanitize.test.js`, including a red→green case proving an object-valued `intentHistory` context renders as text instead of `[object Object]`. [tour: none]

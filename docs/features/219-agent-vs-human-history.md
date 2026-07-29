@@ -1,7 +1,7 @@
 # Feature #219 — Agent History vs Human History (Actor-Attributed Records)
 
 > **Status:** 📋 Planned · **Version:** v0.5.0
-> **Depends On:** C11a Agent Interaction Surfaces (agent sessions — shipped on `claude/tabatha-ai-integration-layer-91903b`, commit `8100859`), #218 Agent-Tab Classification, #171 Log Interaction Tracking, #172 History Queue Recovery
+> **Depends On:** C11a Agent Interaction Surfaces (agent sessions — shipped — now merged to `staging`, commit `8100859`), #218 Agent-Tab Classification, #171 Log Interaction Tracking, #172 History Queue Recovery
 > **Created:** 2026-07-16
 > **Source:** User, 2026-07-16
 > **Category:** Attribution / History / Analytics
