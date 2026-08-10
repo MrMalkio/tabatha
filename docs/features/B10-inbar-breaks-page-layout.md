@@ -54,12 +54,23 @@ then confirm: fixed elements stay viewport-anchored with InBar shown, no horizon
 off-screen content, layout identical to InBar-hidden, and no regression to whatever the transform was
 originally added for.
 
-## Open questions for Malkio
+## CONFIRMED REPRO (Malkio, 2026-08-10, with paired screenshots)
 
-- Which sites break? Even two or three examples make this fast to verify — the failure depends on the
-  host page's `<body>` geometry.
-- Top or bottom InBar position when you see it (both code paths set the transform, but the margin
-  differs).
+**app.asana.com** — e.g. `https://app.asana.com/1/9526911872029/project/1211839349340120/task/1217155161118393`
+
+Side-by-side evidence, same page, InBar shown vs hidden:
+- **Shown:** the entire app shell is displaced left — the global left nav (Work/Agents/Strategy rail
+  and the project sidebar) is pushed off the left edge, the board column is clipped, and the task
+  detail panel runs past the right edge. Content is unusable.
+- **Hidden:** renders normally — full sidebar, correct column widths, panel inside the viewport.
+
+This is textbook confirmation of the diagnosis. Asana's web app is a fixed-position shell: the nav
+rail, sidebar, and detail pane are all `position: fixed` against the viewport. Once `<body>` carries a
+`transform`, they re-anchor to `<body>` and inherit its offset/width, so the whole chrome slides.
+
+**Severity is higher than "some sites":** Asana is Malkio's primary daily surface, so this has been
+degrading his main workspace continuously — and any comparable fixed-shell SPA (Linear, Notion,
+Gmail, Slack web) is likely affected the same way.
 
 ## Related
 
