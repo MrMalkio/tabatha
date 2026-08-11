@@ -1,6 +1,7 @@
 # Bug B10 — InBar shifts/breaks host-page layout on some sites
 
-> **Status:** 📋 Specced, not started · **Reported:** 2026-08-10 (Malkio, live use)
+> **Status:** 🔒 Root cause settled — **blocked on one product decision from Malkio** (see "Fix
+> directions (revised)"). Not started. · **Reported:** 2026-08-10 (Malkio, live use)
 > **Affects:** `src/content/inbar.js` (~L150-163) · **Severity:** HIGH (breaks third-party sites)
 
 ## Symptoms
@@ -29,23 +30,67 @@ that reparenting moves those elements horizontally — left, right, or completel
 whose `<body>` happens to fill the viewport at origin look fine, which is exactly why it's
 site-dependent.
 
-The comment above the line says the transform exists to beat pages that `!important`-reset margins,
-i.e. it was added as a paint/stacking workaround. It fixes one class of site by breaking another.
-
 Secondary contributor: `margin-top/bottom !important` on `<body>` also fights layouts that assume a
 zero-margin body (and CSS `100vh` shells, which don't account for the added margin).
 
-## Fix directions (evaluate, don't assume)
+## ⚠️ Root-cause premise CORRECTED (2026-08-11, nightly TaskRun — CeeCee)
 
-1. **Drop the `transform` entirely.** Verify what it was actually fixing — if it's a repaint issue,
-   `will-change`, `contain`, or forcing reflow another way avoids creating a containing block.
-2. **Stop resizing the page at all** — render the bar as a viewport-fixed overlay in its own shadow
-   host and let it float over content (optionally with a small safe-area inset), instead of pushing
-   `<body>`. Removes the whole class of conflict.
+**The paragraph originally here was wrong, and its conclusion was dangerous.** It said the transform
+"was added as a paint/stacking workaround", implying it could simply be deleted. The source history
+says the opposite.
+
+`git blame` puts the transform at commit **`8aa2d0b`** (Malkio, 2026-07-16, merge "showcase mobile
+responsiveness + honest companion state", **v6.7.20**). The comment it shipped with — still in the
+file at `src/content/inbar.js:149-154` — states the containing-block behaviour **is the intended
+mechanism, deliberately chosen**:
+
+> Plain body margin only reflows document flow — it does nothing for the host page's own
+> position:fixed headers/footers (very common on SPA shells) […] Setting a transform on `<body>`
+> makes body the containing block for its fixed descendants, **so they move down/up with the pushed
+> content instead of staying pinned under the bar**.
+
+So the transform was added *precisely* to fix fixed-position SPA shells — the same class of site
+B10 now breaks. It is not vestigial and it is not a repaint hack.
+
+**Consequence: "drop the transform" is not a free win.** It would reintroduce exactly the bug
+`8aa2d0b` was written to fix — host-page sticky headers/nav sitting *underneath* the InBar, hidden.
+The real shape of B10 is a **genuine trade-off between two broken states**, both on fixed-shell SPAs:
+
+| Option | Asana-class sites (fixed shell, offset body) | Sites `8aa2d0b` was fixing (fixed header) |
+|---|---|---|
+| Transform ON (today) | ❌ whole shell displaced / off-screen | ✅ header moves with content |
+| Transform OFF (doc's old option 1) | ✅ shell correct | ❌ header hidden under the bar |
+
+That is why this was **not** auto-fixed on the 2026-08-11 unattended run: picking a side is a product
+decision, and a one-line 3am change would have silently traded a HIGH bug for a different HIGH bug on
+overlapping sites, unverifiable without cross-site browser testing. Escalated as a morning decision.
+
+**Teardown claim also corrected:** the original item 4 suspected the properties leak on hide. They
+largely don't — the collapse path calls `pushPage(0)` (`inbar.js:1190`), which removes `transform`
+and sets the margin to `0px`. Residue is cosmetic only: `transition: margin …!important` and a
+`margin-*: 0px !important` declaration stay on `<body>`. Worth tidying, but it is **not** the reported
+defect and fixing it alone changes nothing for B10.
+
+## Fix directions (revised — option 1 struck)
+
+1. ~~**Drop the `transform` entirely.**~~ **Rejected** — see the corrected root cause above; this
+   regresses the fixed-header class of site that `8aa2d0b` deliberately fixed.
+2. **Stop resizing the page at all** ← **recommended.** Render the bar as a viewport-fixed overlay in
+   its own shadow host and let it float over content (optionally with a small safe-area inset),
+   instead of pushing `<body>`. This is the only direction that resolves *both* broken states rather
+   than trading between them, because it stops mutating host layout entirely. Cost: the bar overlaps
+   ~28px of page content instead of displacing it, and any host element that is itself pinned to the
+   same edge will sit under it.
 3. If the page must be pushed, prefer `html { padding-* }` or a wrapper element over mutating
-   `<body>`'s `transform`/`margin`.
-4. **Restore cleanly on hide/unload** — confirm every property set is removed (transform is removed,
-   margin/transition currently are not obviously restored on teardown).
+   `<body>`'s `transform`/`margin` — `padding` on `<html>` does not create a containing block for
+   fixed descendants, so it avoids B10, but it also does **not** reposition the host's fixed headers,
+   so it inherits `8aa2d0b`'s original problem. Strictly a middle ground, not a resolution.
+4. **Per-site opt-out** (allowlist/denylist of hosts that get the transform). Rejected as a primary
+   fix — unbounded maintenance, and it fails silently on every site not yet catalogued.
+
+**The decision Malkio owes this bug:** accept option 2's overlap trade-off (bar floats over content,
+no host layout mutation ever), or keep pushing the page and accept that one of the two site classes
+stays broken. Everything else above is settled.
 
 ## Verification
 
