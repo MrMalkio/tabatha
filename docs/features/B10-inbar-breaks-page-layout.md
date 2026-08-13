@@ -117,6 +117,25 @@ rail, sidebar, and detail pane are all `position: fixed` against the viewport. O
 degrading his main workspace continuously — and any comparable fixed-shell SPA (Linear, Notion,
 Gmail, Slack web) is likely affected the same way.
 
+### Second confirmed repro — dashboard.stripe.com (Malkio, paired screenshots)
+
+Stripe's billing/customer view, same page, InBar shown vs hidden:
+- **Shown:** the entire left navigation (Duckandshark switcher, Home, Balances, Transactions,
+  Customers, Product catalog, Shortcuts, Products) is **gone from the viewport**; page content is
+  displaced left; the "Pause payment collection" modal is pushed down and clipped at the bottom edge
+  with its action buttons (Cancel / Pause) out of reach.
+- **Hidden:** full sidebar renders, modal is centred and complete with buttons visible.
+
+Same mechanism, and it escalates the impact class: here the transform doesn't merely shift chrome —
+it puts a **modal's confirm/cancel buttons off-screen**, i.e. the user cannot complete or safely
+abandon a billing action. Two independent products (Asana, Stripe), both fixed-shell SPAs, both
+broken the same way, confirms this is the general case for that architecture rather than a
+site-specific quirk.
+
+**Prediction worth testing during the fix:** any host page that both (a) pins chrome with
+`position: fixed` and (b) does not have `<body>` filling the viewport at origin. Linear, Notion,
+Gmail, Slack web, GitHub's newer views, and most admin consoles fit that description.
+
 ## Related
 
 - B09 (InBar edit-dropdown save vs assign) — same file, unrelated defect.
