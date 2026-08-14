@@ -136,6 +136,26 @@ site-specific quirk.
 `position: fixed` and (b) does not have `<body>` filling the viewport at origin. Linear, Notion,
 Gmail, Slack web, GitHub's newer views, and most admin consoles fit that description.
 
+## Interim workarounds (source-verified 2026-08-14, nightly TaskRun — CeeCee)
+
+The Stripe repro means a user can be stranded at a billing modal whose Cancel/Pause buttons are
+off-screen. Two escape hatches already exist in shipped code, so nobody is actually stuck while the
+fix direction is being decided. Both were read out of source, not assumed:
+
+| Workaround | Mechanism | Limit |
+|---|---|---|
+| **Collapse the bar to its nub** (click the collapse control; the nub re-expands it) | `collapse()` at `src/content/inbar.js:1181` calls `pushPage(0)` at :1189, which hits the `else` branch of `pushPage` and **removes the `transform` outright** plus zeroes the margin → host layout fully restored, immediately | **Not persisted.** `isCollapsed` is a per-injection local (`src/content/inbar.js:72`, initialised `false`), so it resets on every page load and every SPA re-injection. This is a per-pageview click, not a standing setting. |
+| **Turn the bar off globally** — Settings → Intent Bar (InBar) → "Show Intent Bar on pages" | `inbarEnabled` toggle, `src/settings/index.jsx:1637-1639` | Durable, but all-or-nothing: removes InBar on every site, not just the broken ones. |
+
+**Negative finding worth recording:** switching `inbarPosition` between top and bottom does **not**
+help. `pushPage` sets the `transform` at `src/content/inbar.js:156-157`, *before* the
+top/bottom branch, so the containing-block side-effect is identical in both positions. The obvious
+"just move it to the bottom" guess is a dead end.
+
+This is a mitigation note only — it does not touch the open decision below, and no code was changed
+to produce it. The gap it exposes (no per-site disable, and collapse doesn't survive navigation) is
+worth folding into whichever fix direction is chosen.
+
 ## Related
 
 - B09 (InBar edit-dropdown save vs assign) — same file, unrelated defect.
