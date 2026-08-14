@@ -4,7 +4,9 @@
 **Umbrella task:** none — empty-queue run per the charter. **Product code touched:** none.
 
 Short by design. The 08-12 report settled *why* the queue is empty and the 08-13 report re-verified
-it; this run adds only what is genuinely new. One small deliverable came out of it (§3).
+it; this run adds only what is genuinely new — a small B10 deliverable (§3) and one real blocker
+found in passing (§3b: **Asana writes are globally locked down fleet-wide**, which is the one thing
+here worth reading first).
 
 ---
 
@@ -63,7 +65,41 @@ folding into whichever fix direction you pick.
 
 ---
 
-## 4. Morning questions — all four carried forward, none answered
+## 3b. NEW BLOCKER — Asana writes are globally locked down (fleet-wide, not just this run)
+
+Found while trying to post this run's B10 comment. **Every automated Asana write is being rejected**:
+
+```
+error: MUTATION_PAUSED: Global lockdown activated.
+```
+
+Verified, not inferred:
+
+| Evidence | Detail |
+|---|---|
+| Attempted under two profiles | `ceecee` @ 15:20:25Z and `dex` @ 15:21:24Z — both rejected identically |
+| `asana-cli doctor --as ceecee` | `status: LOCKED_DOWN`, `safety_frozen: true` (the no-profile `doctor` misleadingly reports `OK` / `safety_frozen: false` — check it **with** a profile or you'll think it's healthy) |
+| **Reads are unaffected** | `stories list`, `task search`, `task get` all succeeded this run under `ceecee` and `aegis` |
+| Last successful write | `2026-08-12T02:10:44Z` (dex, `comment add`) — the 08-12 nightly run's own comment. Nothing has written since. |
+| Pending-approval queue | 8 items backed up, oldest `2026-06-28`, newest today `15:20:33Z` (koda/codex). My rejected comment did **not** queue — it was refused outright. |
+
+**Why this matters beyond tonight:** every fleet agent that reports to Asana — Aegis triage, the
+Anasa reconciler, the nightly runs — is writing into a wall. Reads still work, so those agents will
+look healthy and report success while producing **no Asana trace**. If the lockdown has been on
+since ~08-12, roughly two days of automated Asana reporting is missing. Worth checking against what
+you expected to see land on the board.
+
+**I did not clear it.** `asana-cli unfreeze` / `resume --all` exists and would take one command, but
+a global safety lockdown is a standing safety control — clearing it unattended is exactly the §1.2
+class (new standing config / bypassing a safety control), and it may well have been switched on
+deliberately by you. Likewise I left all 8 queued items alone: they are other agents' writes and one
+is a `DELETE`, so approving or flushing them is yours, not mine.
+
+→ **This is morning question Q5** (below).
+
+---
+
+## 4. Morning questions — five now; the original four still unanswered
 
 Verified, not assumed: no human reply on any of the four tasks since the last run. Malkio's B10
 commit is evidence, not an answer to Q1.
@@ -77,6 +113,10 @@ commit is evidence, not an answer to Q1.
   untouched in your tree; the `||` markdown corruption and unverified migration-ledger rows wait
   behind it. *(`1216900494891551`)*
 - **Q4 — tester onboarding.** Ship `1216785813352945`, or accept empty nights by design until you do?
+- **Q5 — Asana write lockdown (NEW, §3b).** Was the global mutation lockdown deliberate? If not,
+  `asana-cli unfreeze` restores fleet Asana reporting; if it was, say so and I'll stop treating the
+  missing comments as a fault. Separately: 8 items sit in the pending-approval queue (one a
+  `DELETE`) awaiting your `queue approve` / `queue drop` — untouched by me.
 
 Both product bugs remain fully specced with root cause, file/line pointers and acceptance criteria.
 Neither is buildable unattended: each needs a design decision, and both have acceptance criteria
@@ -101,9 +141,11 @@ charter §1.2 it is **yours to make, not mine** — flagged, not done. Answering
 - **Proof standard:** every §3 claim is a line-number citation read out of source this run, not
   inference. No claim of live-browser behaviour is made — that verification is still Malkio's.
 - **Koda interventions:** none — no browser or authed-UI work required.
-- **Asana:** no new comment posted. Everything true tonight is already on the four task threads;
-  a 5th "still empty" comment would be noise. The §3 workaround note is the one new thing and it
-  lives in the B10 doc where the fix work will start.
+- **Asana:** the B10 workaround comment was **written and attempted, then rejected** by the global
+  mutation lockdown (§3b) — under both `ceecee` and `dex`. It is not queued and will not post
+  itself; the full content is preserved in §3 and in the B10 doc, so re-post it (or just read it
+  there) once the lockdown question is settled. The charter's "final Asana comment" is therefore
+  **not delivered tonight** — blocked, not skipped.
 - **Left untouched deliberately:** `.headbox/plan-registry.md`, `.headbox/config.md` (uncommitted,
   gated behind Q3); `atlas/` (untracked, unrelated); all Asana board state.
 
