@@ -8,7 +8,9 @@ Current versions: extension source 6.7.82; shipped staff/enterprise extension 6.
 
 Work only in `C:/Users/mrmal/le dev/Tabatha-reconcile-20260923`, branch `Koda/reconcile-20260923`, initially based on origin/staging 166c1f6. Preserve the five original worktrees and branch histories. Original dirty and staged patches plus the seven-file Atlas directory were backed up under `C:/Users/mrmal/le dev/Tabatha/.git/reconciliation-backups/2026-09-23` before any reconciliation.
 
-## Deliverables (5/7 complete; publication and final ledger pending)
+## Deliverables (6/7 complete; authenticated rollout/backend validation remains gated)
+
+Deliverables 1–5 and 7 are complete. Deliverable 6 is partial: the ready extension/site surfaces are published and verified; Sidecar already matches live. CWS accepted 6.7.83 for trusted testers, but client availability is not independently verified. Authenticated cross-device regression, current backend ACL inspection, and the separately held pairing/Asana changes remain open. This plan does not claim every recovered change is safe or deployed.
 
 1. Inventory every dirty worktree and all local branches; classify unique, already-integrated, generated, rejected, and deployment-only work with commit evidence.
 2. Recover current documentation history and local staging safeguards. In particular, c429abe prevents a full-site deploy from silently downgrading enterprise Chrome; 6362467 preserves feature-number repairs.

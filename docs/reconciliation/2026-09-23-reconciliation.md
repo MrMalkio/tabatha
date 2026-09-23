@@ -45,3 +45,52 @@ Atlas validation: 128 unique nodes, 201 edges, 9 clusters, no dangling edges, Co
 - CWS existing item `piopncjacohahbkkmockjnpenhdbmmbc`; use existing trusted-testers audience. Authentication requires Node system CA trust in this environment; TLS verification remains enabled.
 
 Rollback uses the previous Pages deployment and preserved artifact pointers; clients already upgraded may require a higher-version corrective build. Never reset/drop production data to roll back application code.
+
+## Published results
+
+Release source: `333d99a34966134cc9ff310948e3c9f96c126ee8`. [PR 39](https://github.com/MrMalkio/tabatha/pull/39) merged the reviewed integration into staging; [PR 40](https://github.com/MrMalkio/tabatha/pull/40) promoted staging to main. No direct push to either protected source branch.
+
+| Surface | Confirmed result | Limit |
+| --- | --- | --- |
+| Staff extension | [ext-v6.7.83](https://github.com/MrMalkio/tabatha/releases/tag/ext-v6.7.83), tag points to release source; live channel advertises 6.7.83 | Individual installations were not all inspected. |
+| Enterprise extension | Live update.xml offers 6.7.83; signed CRX3 preserves ID `jbdkacccpknbiphigeabcdojemnhacjj` | Chrome controls client update timing; do not replace its identity or uninstall to force an update. |
+| Website | Pages deployment `ad355e83-9f8a-4a0a-9a1e-73dd1617b750`, source metadata 333d99a; root/docs/download/show return 200 | `commit_dirty=true` is recorded by Pages. Inspected deployed content matches source; a concurrent temporary publisher worktree is a possible, unproven cause of that metadata flag. |
+| Chrome Web Store | Existing item `piopncjacohahbkkmockjnpenhdbmmbc`: upload SUCCESS, trustedTesters publish OK; independent status returns HTTP 200, crxVersion 6.7.83, publicKey present | Draft uploadState NOT_FOUND after publication does not establish completed review or tester install availability; this API response exposes neither. |
+| Sidecar | Live 0.13.14 bundle unchanged and byte-identical to the recovered original worktree bundle | Already deployed, not redundantly republished. Authenticated cross-device behavior remains unverified in this session. |
+| Supabase | No function, migration, grant, or secret changed | Management credential 401; unsafe pairing/Asana recovery and current org-hours ACL verification remain held. |
+
+Artifact SHA-256 values:
+
+- Staff ZIP, 554,947 bytes: `482d6e77d679419cdeb01a94982ac02416a49fef2697db96a47b66a7283474af`.
+- Enterprise CRX, 559,528 bytes: `b64cc0d1f3b6a34a9e2e4e1326aa9dc6f92b1bcb4f2504c0ed248236d5121748`.
+- Live Sidecar entry bundle, 2,425,812 bytes: `ac0df37e82dbe0010e8f6adb22fca3a3a0ce6535a8e5269bc9202bd64cf7dbe2`.
+- Tested and locally mirrored extension background bundle: `0fead2e483d1f1bd711715c42a286eeb591d62232abcd4c14860448b39848c82`.
+
+Independent live comparison: root, docs, showcase, update.xml match the release working-copy bytes and normalized committed text; CRX matches the committed binary exactly. Download page differs only by Cloudflare email obfuscation and its decoding script. Final combined extension/guard suite: 846/846 passed, including 13 fail-closed enterprise guard regressions; Sidecar: 166/166 passed. Real Chrome smoke details and limits are in `2026-09-23-browser-smoke.md`.
+
+## Local installation and open gates
+
+The original checkout's uncommitted Headbox/Atlas snapshot was committed as 0162e59 before merging released source at d91fc3a. Original runtime source now matches the release; the only additional tracked content is a historical registry note. The tested dist was copied into a fresh sibling directory and atomically swapped into the fixed `C:/Users/mrmal/le dev/Tabatha/dist` path. Its predecessor is backed up under `.git/reconciliation-backups/2026-09-23/dist-before-local-release`.
+
+This disk update does not prove the user's running Chrome instance updated. A real-profile read showed an older enterprise Tabatha page; interaction stopped when the desktop tool detected user input. No extension was removed or reinstalled and no real-profile storage was modified. The user should check the installed version, allow the enterprise update (or reload the existing unpacked entry, if that is the entry in use), and run a signed-in cross-device smoke test.
+
+Next gates, kept open rather than silently shipped:
+
+1. Verify the installed extension is 6.7.83 and smoke-test real account synchronization with Sidecar.
+2. Provide a valid Supabase management credential through the existing local secret mechanism; inspect deployed functions, migration ledger and current org-hours permissions without replaying migrations wholesale.
+3. Repair and test pairing fail-closed consumption/attempt accounting and lease ownership before proposing that deployment. Do not deploy archived SQL 061 as-is.
+4. Define caller-to-Asana-resource authorization before enabling the rescued shared-PAT action/widget work.
+5. Confirm CWS trusted-tester availability separately; accepted publication is not proof that every installation has updated.
+
+The historical branches/worktrees and rejected work are retained, not deleted. All five original worktrees are now clean. Their substantive dirty snapshots were independently compared with the pre-work backups before committing:
+
+| Recovery ref pushed to origin | Commit | Preserved work |
+| --- | --- | --- |
+| Koda/recovery-main-20260923 | d91fc3a (includes snapshot 0162e59) | Original Headbox/Atlas edit, followed by verified release merge |
+| Koda/recovery-home-header-20260923 | 6d4b0fb | Historical generated 6.7.49 changelog entry; not a new release candidate |
+| Koda/recovery-docs-stamp-20260923 | de6273e | Historical docs 6.7.73 badge; not deployed over 6.7.83 |
+| Koda/recovery-sidecar-history-20260923 | 4c9a956 | Exact original SYSTEM-MAP history; complete body already preserved in canonical source |
+
+Pair-code-expiry needed no commit: working file, index and HEAD had the same blob; refreshing the index cleared its stat-only dirty marker. No user content was discarded. Original backups remain local; recovery refs provide a second copy on the existing GitHub remote.
+
+Do not deploy an old worktree merely because its Git status is clean. The enterprise rollback preflight now blocks unverifiable live versions, but it can only protect releases that use the checked deployment command.
