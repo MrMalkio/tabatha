@@ -16,6 +16,8 @@ import { formatTime } from '../utils/formatTime';
 import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
 import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
+import DevicePausedBanner from '../components/DevicePausedBanner';
+import FeedbackWidget from '../components/FeedbackWidget';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -404,6 +406,8 @@ function Sidebar() {
             <Tooltip text="Open settings">
               <button onClick={() => chrome?.runtime?.openOptionsPage?.()} style={{ background:'none', border:'none', fontSize:'12px', cursor:'pointer', padding:'0 2px', color:'var(--color-text-muted)' }}>⚙️</button>
             </Tooltip>
+            {/* TR-14a: settings-adjacent, non-intrusive feedback affordance */}
+            <FeedbackWidget surface="sidebar" variant="inline" />
             <Tooltip text="Work Shifts">
               <button onClick={() => chrome?.tabs?.create?.({ url: chrome.runtime.getURL('workshifts.html') })} style={{ background:'none', border:'none', fontSize:'12px', cursor:'pointer', padding:'0 2px', color:'var(--color-text-muted)' }}>⏱️</button>
             </Tooltip>
@@ -412,6 +416,10 @@ function Sidebar() {
             </Tooltip>
           </div>
         </div>
+
+        {/* Feature #222: soft self-rescue if THIS install got paused —
+            never a hard block. */}
+        <DevicePausedBanner compact />
 
         {/* Clock status — compact */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'3px 0 5px' }}>
@@ -510,6 +518,8 @@ function Sidebar() {
                     ) : activeFocus.focusState === 'paused' ? (
                       <Tooltip text="Resume focus"><button onClick={() => actions.resumeFocus(activeFocus.id)} style={btn('#66bb6a')}>▶ Resume</button></Tooltip>
                     ) : null}
+                    {/* TR-08 (#207 parity): Backburner — same message InBar sends */}
+                    <Tooltip text="Backburner — put focus aside while waiting for something"><button onClick={() => actions.backburnerFocus(activeFocus.id)} style={btn('#ff9800')}>🔥</button></Tooltip>
                     <Tooltip text="+5 minutes"><button onClick={() => actions.extendTimer(activeFocus.id,5)} style={btn('var(--color-accent-primary)')}>+5m</button></Tooltip>
                     <Tooltip text="Edit focus details"><button onClick={openEdit} style={btn('var(--color-text-muted)')}>✏️</button></Tooltip>
                     <Tooltip text="Checkpoint note"><button onClick={() => setShowCheckpoint(p => !p)} style={btn(isCheckpointStale ? '#ffa726' : 'var(--color-text-muted)')}>📋{isCheckpointStale ? '🟠' : ''}</button></Tooltip>

@@ -45,9 +45,9 @@ Planned-column anchors: `docs/features/NNN-*.md` specs and [Plan 040](superpower
 | Data-driven current focus (paused ≠ gone) | — | 📋 | 📋 | — | — | — | [Plan 040 B2] — pin is device-local today |
 | Focus start/stop event log (`focus_events`) | 📋 | 📋 | 📋 | — | — | — | [Plan 040 §3] shared foundation (time-worked, timeline start-nodes) |
 | Personality interrupts / Chaperone slice ([#182](features/182-chaperone-mode.md)) | 📋 | 📋 | 📋 | — | — | — | [Plan 040 E10] audio-pack v0 on the `focusAway` rail |
-| Body doubling ([#215](features/215-body-doubling.md)) | 📋 | 📋 | — | — | — | — | Parked by owner's call |
+| Body doubling ([#228](features/228-body-doubling.md)) | 📋 | 📋 | — | — | — | — | Parked by owner's call |
 | Timer-expired / welcome-back popups, popup harmony ([#185](features/185-popup-harmony.md)) | ✅ | 🚧 | — | — | — | — | Sidecar: timer-expiry push only |
-| Persistent / recurring focuses ([#184b](features/184-persistent-focuses.md), [#174](features/174-recurring-focuses-tasks.md)) | 📋 | 📋 | — | — | — | — | Spec'd, not built |
+| Persistent / recurring focuses ([#225](features/225-persistent-focuses.md), [#174](features/174-recurring-focuses-tasks.md)) | 📋 | 📋 | — | — | — | — | Spec'd, not built |
 | Backdate-overlap clamp fix | 🚧 `(?)` | — | — | — | — | — | On `fix/backdate-overlap-clamp` (6.7.23), merge state unverified |
 
 ## 2. Clock / Shifts
@@ -81,7 +81,7 @@ Planned-column anchors: `docs/features/NNN-*.md` specs and [Plan 040](superpower
 | Task ↔ intent linking (LinkMergeModal) | ✅ | — | — | — | — | — | |
 | Funnel-stage editing on tasks | ✅ | — | — | — | — | — | |
 | Org hierarchy (clients / projects / initiatives / operations) | ✅ | — | — | — | — | — | `tabathaOrg`, synced (mig 008) |
-| Asana task pull + mutation sync ([#186](features/186-asana-focus-linking.md)) | 🚧 `(?)` | 📋 | — | — | — | 🚧 | Sidecar = [Plan 040 E3] (PAT/REST, Anasa review pending). Widget reads/writes time entries only. Ext Asana infra from Plan 018 — extent unverified on prod line |
+| Asana task pull + mutation sync ([#227](features/227-asana-focus-linking.md)) | 🚧 `(?)` | 📋 | — | — | — | 🚧 | Sidecar = [Plan 040 E3] (PAT/REST, Anasa review pending). Widget reads/writes time entries only. Ext Asana infra from Plan 018 — extent unverified on prod line |
 | Subtasks as sub-intents (1:1 name/desc/deps/blockers) | 📋 | 📋 | 📋 | — | — | — | [Plan 040 E3 + Addendum 4 contract] |
 | Recurring tasks ([#174](features/174-recurring-focuses-tasks.md)) | 📋 | 📋 | — | — | — | — | |
 | Priority matrix / lazy priority ([#214](features/214-priority-matrix-lazy-priority.md)) | 📋 | 📋 | — | — | — | — | |
@@ -207,7 +207,7 @@ Concretely:
 
 1. **Extension 6.6.0–6.7.22 delta:** this worktree's base is 6.5.0 and `Tabatha_Changelog.md` documents through 6.5.0, but prod is 6.7.22 (per Plan 040 Addendum 2). What shipped in 6.6.x–6.7.x (companion updater/release work, backdate-overlap clamp, anything else) needs a changelog backfill and matrix pass from the `feat/companion-*` / `fix/*` branches.
 2. **Asana widget deploy state:** `flux-asana-widget/` passed e2e locally (2026-04-29) but Asana Developer Console registration and production hosting were "next steps" — is the widget actually usable inside Asana today? Also: Addendum 4 says it's tangled in the 6.8.2 branch and needs its own version line.
-3. **Extension Asana infra (Plan 018):** how much Asana linking ([#186](features/186-asana-focus-linking.md)) is live on the prod extension line vs. spec-only? Marked 🚧 `(?)`.
+3. **Extension Asana infra (Plan 018):** how much Asana linking ([#227](features/227-asana-focus-linking.md)) is live on the prod extension line vs. spec-only? Marked 🚧 `(?)`.
 4. **`feedback-to-asana` edge function:** referenced by Plan 040 E7 as existing — deploy state unverified from this worktree.
 5. **Site `/show` exact contents:** the showcase skill and site source live on the main line/site repo, not this worktree; the Site column is sourced from session-log summaries (homepage sign-in button, `/show` tiles + roadmap). A quick pass against the live site would firm those cells up.
 6. **Sidecar version header:** task brief said 0.2.0; repo shows v0.2.1 shipped 2026-07-18 (phone-away red). Matrix uses 0.2.1 — confirm that's the intended baseline.

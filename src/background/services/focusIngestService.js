@@ -159,7 +159,10 @@ async function pullClockCandidates(supabase, profileId, selfBrowserProfileId) {
   const { data, error } = await supabase
     .schema('tabatha')
     .from('browser_profile_status')
-    .select('browser_profile_id, clock_state, clocked_in_at, on_break_since, last_clock_event_at')
+    // S7/#7: `last_heartbeat_at` is now part of the payload — without it the
+    // ingest had no way to tell a live install from a corpse, and a device
+    // that died months ago while `clocked_in` won arbitration forever.
+    .select('browser_profile_id, clock_state, clocked_in_at, on_break_since, last_clock_event_at, last_heartbeat_at')
     .eq('profile_id', profileId);
   if (error) return [];
   return (data || []).filter(r => r.browser_profile_id !== selfBrowserProfileId);

@@ -4,7 +4,15 @@
 
 (async () => {
   // 1. Check if this domain is blocked
-  const response = await chrome.runtime.sendMessage({ type: 'CHECK_BLOCKED_SITE' });
+  let response;
+  try {
+    response = await chrome.runtime.sendMessage({ type: 'CHECK_BLOCKED_SITE' });
+  } catch (e) {
+    // Extension context invalidated (or messaging failed) — fail CLOSED.
+    // We can't confirm this site isn't blocked, so keep the gate up rather
+    // than silently letting a blocked site through.
+    response = { blocked: true };
+  }
   if (!response || !response.blocked) return;
 
   // 2. Create Shadow DOM Overlay

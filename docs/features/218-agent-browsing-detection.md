@@ -1,7 +1,7 @@
 # Feature #218 — Agent Browsing Detection (Who Created This Group/Tab?)
 
 > **Status:** 📋 Planned · **Version:** v0.5.0
-> **Depends On:** #180 InPop Variants, C11a Agent Interaction Surfaces (`agentSessionService.js` on `claude/tabatha-ai-integration-layer-91903b`), `groupService.js` tab-group listeners, #217 Intent Tab Grouping Suite (docs/features/217-intent-tab-grouping-suite.md)
+> **Depends On:** #180 InPop Variants, C11a Agent Interaction Surfaces (`agentSessionService.js` — now merged to `staging`), `groupService.js` tab-group listeners, #217 Intent Tab Grouping Suite (docs/features/217-intent-tab-grouping-suite.md)
 > **Created:** 2026-07-16
 > **Source:** User, 2026-07-16
 > **Category:** Attribution / Overlays
@@ -19,7 +19,7 @@
 
 Classifies every newly created tab group (and its tabs) as **agent-created** or **human-created** at creation time, using a scored heuristic stack plus the C11a agent-session service as the authoritative signal. Classified-agent tabs get distinct InPop behavior (suppressed or an `InPop-Agent` variant), never receive Sugar Box / Side Quest affordances, and their groups remain assignable to intents by the human (#217).
 
-**Builds on C11a, does not duplicate it.** C11a (commit `8100859`, branch `claude/tabatha-ai-integration-layer-91903b`) already ships the *declared* half: `agentSessionService.js` (`START_AGENT_SESSION` / `ANNOUNCE_AGENT_SESSION` / `END_AGENT_SESSION` / `LIST_AGENT_SESSIONS`), pure span store `agentSessionStore.js` (tab/window/machine scopes), the InBar 🤖 toggle + violet `AGENT` badge (`agentActive` / `agent-mode`), the InPop "Who's working?" control, and ledger `controller: 'ai-agent'` stamping. #218 adds the *inferred* half — per-group/per-tab classification from creation-time signals — and feeds its verdicts back through the same span model (`source: 'inferred'`).
+**Builds on C11a, does not duplicate it.** C11a (commit `8100859`, now merged to `staging`) already ships the *declared* half: `agentSessionService.js` (`START_AGENT_SESSION` / `ANNOUNCE_AGENT_SESSION` / `END_AGENT_SESSION` / `LIST_AGENT_SESSIONS`), pure span store `agentSessionStore.js` (tab/window/machine scopes), the InBar 🤖 toggle + violet `AGENT` badge (`agentActive` / `agent-mode`), the InPop "Who's working?" control, and ledger `controller: 'ai-agent'` stamping. #218 adds the *inferred* half — per-group/per-tab classification from creation-time signals — and feeds its verdicts back through the same span model (`source: 'inferred'`).
 
 ## Signal Inventory (Honest Assessment)
 

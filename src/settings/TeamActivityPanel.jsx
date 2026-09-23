@@ -13,9 +13,19 @@
 // ============================================================
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { dataClient, createInviteToken, deleteInviteToken } from '../services/supabaseClient';
+// TR-13 (2026-07-23) — a flooded account (extension-side local_id
+// regeneration bug produced ~650 dupe rows for ONE Chrome install on one
+// account, per Rook's forensics) rendered a wall of duplicate "chrome · no
+// status" chips here — one per raw browser_profiles row, no grouping and no
+// revoked filtering. groupRows/deriveName/deviceKindOf/relTime are the same
+// helpers DevicesPanel.jsx already uses for the single-user Devices panel;
+// reusing them here collapses each member's installs to one chip per
+// physical device instead of re-deriving the rules a second time.
+import { deriveName, deviceKindOf, DEVICE_KINDS, groupRows, relTime } from '../utils/deviceGrouping';
 
 const CLASSIFICATION_ICON = { business: '💼', professional: '👔', work: '🏗', personal: '🏠' };
 const BROWSER_ICON = { desktop_companion: '💻', mobile_ios: '📱', mobile_android: '📱', tabatha_web: '🌐' };
+const KIND_ICON = Object.fromEntries(DEVICE_KINDS.map(k => [k.value, k.label.split(' ')[0]]));
 const ROLE_OPTIONS = ['user', 'sub_manager', 'manager', 'read_only'];
 
 function formatRemaining(timerEndsAt) {
@@ -112,16 +122,30 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
       if (profErr) throw profErr;
       const profileById = new Map((profileRows || []).map(p => [p.id, p]));
 
-      // 3. Pull browser_profiles per member
+      // 3. Pull browser_profiles per member. Extended select (local_id,
+      // machine_id, revoked_at, device_settings) feeds groupRows/deriveName/
+      // deviceKindOf below (TR-13) — same fields DevicesPanel.jsx pulls via
+      // deviceService for the single-user Devices panel. Revoked rows are
+      // filtered in-query, mirroring deviceService.js's LIST_DEVICES query,
+      // so a signed-out install never becomes a group's representative.
       const { data: installRows, error: installErr } = await dataClient
         .schema('tabatha')
         .from('browser_profiles')
-        .select('id, profile_id, browser, profile_name, classification, last_seen_at')
-        .in('profile_id', memberIds);
+        .select('id, profile_id, browser, profile_name, display_name, classification, last_seen_at, local_id, machine_id, device_settings, revoked_at')
+        .in('profile_id', memberIds)
+        .is('revoked_at', null)
+        // groupRows() picks the first row per group as the representative —
+        // it relies on this order to mean "most recently seen", same
+        // contract as deviceService.js's LIST_DEVICES query.
+        .order('last_seen_at', { ascending: false, nullsFirst: false });
       if (installErr) throw installErr;
       const byProfile = {};
       for (const r of installRows || []) {
         (byProfile[r.profile_id] = byProfile[r.profile_id] || []).push(r);
+      }
+      // One chip per physical device instead of one per raw row.
+      for (const pid of Object.keys(byProfile)) {
+        byProfile[pid] = groupRows(byProfile[pid]);
       }
 
       // 4. Pull all status rows for those members
@@ -307,10 +331,11 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
                       const s = statuses[inst.id];
                       const stale = s?.last_heartbeat_at && (Date.now() - new Date(s.last_heartbeat_at).getTime() > 5 * 60 * 1000);
                       const dim = !s?.online || stale;
+                      const readableName = deriveName(inst);
                       return (
                         <div
                           key={inst.id}
-                          title={`${inst.profile_name || 'Install'} · ${inst.classification || '?'}${stale ? ' · offline (>5m)' : ''}`}
+                          title={`${readableName} · ${inst.classification || deviceKindOf(inst)}${stale ? ' · offline (>5m)' : ''} · last seen ${relTime(inst.last_seen_at)}`}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -323,10 +348,10 @@ export function TeamActivityPanel({ orgs, teams, sectionLabelStyle, fieldRowStyl
                             opacity: dim ? 0.6 : 1
                           }}
                         >
-                          <span>{BROWSER_ICON[inst.browser] || CLASSIFICATION_ICON[inst.classification] || '🖥'}</span>
-                          <span style={{ fontWeight: 500 }}>{inst.profile_name || inst.browser || 'install'}</span>
+                          <span>{BROWSER_ICON[inst.browser] || CLASSIFICATION_ICON[inst.classification] || KIND_ICON[deviceKindOf(inst)] || '🖥'}</span>
+                          <span style={{ fontWeight: 500 }}>{readableName}</span>
                           <span style={{ color: 'var(--color-text-muted)' }}>·</span>
-                          {s ? <StatusChip status={s} /> : <span style={{ color: 'var(--color-text-muted)' }}>no status</span>}
+                          {s ? <StatusChip status={s} /> : <span style={{ color: 'var(--color-text-muted)' }}>last seen {relTime(inst.last_seen_at)}</span>}
                         </div>
                       );
                     })}

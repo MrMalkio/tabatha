@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { logger } from '../services/logger';
+import { sanitizeIntentHistory, sanitizeIntentPresets } from '../utils/focusDataSanitize';
 
 /**
  * useChromeStorage – Reactive hook for chrome.storage.local
@@ -85,6 +86,47 @@ export function sendMessage(type, payload = {}) {
       resolve({ error: err.message });
     }
   });
+}
+
+/**
+ * useIntentHistory / useIntentPresets — 6.7.76 (gatekeeper-sanitize-gap).
+ *
+ * Sanitized wrappers around useChromeStorage('intentHistory'/'intentPresets')
+ * for the React surfaces that read these keys directly (settings/index.jsx,
+ * home/index.jsx). Both keys carry the same legacy-corruption risk the
+ * 6.7.69 InPop fix addressed for focusEngine/tabs (see
+ * src/utils/focusDataSanitize.js's header) but were never wired into that
+ * fix — they're a wholly separate storage key. Left raw, a corrupted entry
+ * doesn't just render "[object Object]" here: home/index.jsx's IntentsPanel
+ * calls `context.toLowerCase()` on `entry.context`, and settings/index.jsx
+ * renders `p.label`/`getIntentContext(entry)` as a bare JSX child — both
+ * throw (TypeError / "Objects are not valid as a React child") on an
+ * object-valued field, so this is a crash risk, not just a display bug.
+ *
+ * Same self-healing contract as the rest of focusDataSanitize.js:
+ * sanitize on every read, and write the repaired value back so a corrupted
+ * install heals itself the next time either panel renders.
+ */
+export function useIntentHistory() {
+  const [raw, setRaw] = useChromeStorage('intentHistory', []);
+  const { history, healed } = useMemo(() => sanitizeIntentHistory(raw), [raw]);
+
+  useEffect(() => {
+    if (healed) setRaw(history);
+  }, [healed, history, setRaw]);
+
+  return [history, setRaw];
+}
+
+export function useIntentPresets() {
+  const [raw, setRaw] = useChromeStorage('intentPresets', { persistent: [] });
+  const { presets, healed } = useMemo(() => sanitizeIntentPresets(raw), [raw]);
+
+  useEffect(() => {
+    if (healed) setRaw(presets);
+  }, [healed, presets, setRaw]);
+
+  return [presets, setRaw];
 }
 
 /**

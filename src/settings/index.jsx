@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion } from 'framer-motion';
 import '../styles/global.css';
-import { useChromeStorage, sendMessage, useTheme } from '../hooks/useChromeStorage';
+import { useChromeStorage, sendMessage, useTheme, useIntentHistory, useIntentPresets } from '../hooks/useChromeStorage';
 import { FlipClock, CLOCK_DEFAULTS } from '../components/clock/FlipClock';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PopButton } from '../components/ui/PopButton';
@@ -15,6 +15,8 @@ import { useSyncStatus } from '../hooks/useSyncStatus';
 import { getLogs, clearLogs } from '../services/logger';
 import UrlRulesSection from './UrlRulesSection';
 import ContextViewPanel from './ContextViewPanel';
+import DevicesPanel from './DevicesPanel';
+import AsanaPanel from './AsanaPanel';
 import CortexPanel from './CortexPanel';
 import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
@@ -87,6 +89,7 @@ const SECTIONS = [
   { id: 'appearance', label: '🎨 Appearance' },
   { id: 'clock', label: '🕐 FlipClock' },
   { id: 'contextview', label: '📺 Context View' },
+  { id: 'devices', label: '📟 Devices' },
   { id: 'focus', label: '🎯 Focus Engine' },
   { id: 'lifecycle', label: '🧠 Focus Lifecycle' },
   { id: 'intent', label: '🚪 Intent-Popup' },
@@ -628,8 +631,10 @@ function Settings() {
   const [parkedTabs] = useChromeStorage('parkedTabs', []);
   const [sugarBox] = useChromeStorage('sugarBox', []);
   const [skippedDomains, setSkippedDomains] = useChromeStorage('skippedDomains', []);
-  const [intentHistory] = useChromeStorage('intentHistory', []);
-  const [intentPresets, setIntentPresets] = useChromeStorage('intentPresets', { persistent: [] });
+  // 6.7.76 (gatekeeper-sanitize-gap): sanitized + self-healing — see
+  // useIntentHistory/useIntentPresets in hooks/useChromeStorage.js.
+  const [intentHistory] = useIntentHistory();
+  const [intentPresets, setIntentPresets] = useIntentPresets();
   const [blockedSites, setBlockedSites] = useChromeStorage('blockedSites', []);
   const [urlRules, setUrlRules] = useChromeStorage('urlRules', []);
   const installIdentity = useInstallIdentity();
@@ -1516,6 +1521,13 @@ function Settings() {
               </div>
             )}
 
+            {activeSection === 'devices' && (
+              <div data-search-id="section-devices">
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Devices</h2>
+                <DevicesPanel isSignedIn={isSignedIn} />
+              </div>
+            )}
+
             {activeSection === 'focus' && (
               <div data-search-id="section-focus">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>Focus Engine</h2>
@@ -1998,12 +2010,20 @@ function Settings() {
                   Connect Tabatha to external services for enhanced time tracking and project management.
                 </p>
 
-                {/* Asana */}
+                {/* Asana PAT parity — Task Sync connect card (mirrors the Tabby
+                    Sidecar). Distinct from the legacy "Asana Time Tracking"
+                    widget card below it: this one pulls Asana tasks INTO
+                    Tabatha via a Personal Access Token + connect-asana edge
+                    function; the widget card below pushes clock time entries
+                    OUT via a locally-run Flux Widget Server. */}
+                <AsanaPanel isSignedIn={isSignedIn} />
+
+                {/* Asana (legacy time-tracking widget) */}
                 <GlassCard style={{ padding: '16px', marginBottom: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }} data-search-id="integrations-asana">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '16px' }}>📋</span>
-                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Asana</span>
+                      <span style={{ fontWeight: 600, fontSize: '13px' }}>Asana Time Tracking (widget)</span>
                     </div>
                     <span style={{
                       fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
@@ -2203,6 +2223,22 @@ function Settings() {
               </div>
               <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
                 {activeSection === 'about' ? 'Tabatha — Attention Operating System' : 'Preview available when components are active'}
+              </div>
+            </div>
+          )}
+
+          {/* 6.7.60 — TR-12: generic fallback for sections that previously
+              rendered a fully blank Live Preview pane (no mockup, no message).
+              Context View / Blocked Sites intentionally stay fallback-only
+              here — real mockups for those are OVERHAUL-scoped. */}
+          {(activeSection === 'contextview' || activeSection === 'devices' || activeSection === 'lifecycle' ||
+            activeSection === 'blocked' || activeSection === 'workclock' || activeSection === 'followthrough' ||
+            activeSection === 'sync' || activeSection === 'webhooks' || activeSection === 'desktop' ||
+            activeSection === 'integrations' || activeSection === 'developer') && (
+            <div style={{ width: '100%', textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔍</div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Preview available when components are active
               </div>
             </div>
           )}

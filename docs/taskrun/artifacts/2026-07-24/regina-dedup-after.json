@@ -1,0 +1,201 @@
+{
+  "captured_at": "2026-07-25T03:15:39.416Z",
+  "script": "scripts/regina-device-dedup-2026-07-23.sql",
+  "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+  "display_name": "regina",
+  "regina_total_after": 19,
+  "all_profiles_total_after": 135,
+  "distinct_profile_ids_after": 3,
+  "regina_remaining_flood_rows_no_machine_id": 15,
+  "backup_table_row_count": 18,
+  "backup_table_name": "tabatha.browser_profiles_backup_20260723_regina",
+  "other_profiles_total_before": 116,
+  "other_profiles_total_after": 116,
+  "regina_remaining_rows": [
+    {
+      "id": "6517d512-07ba-48b5-954d-75ce16ac359f",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "057a48f4-e8f2-4ee8-ae86-7a6e1a5705d6",
+      "created_at": "2026-07-20T14:37:42.191145+00:00",
+      "last_seen_at": "2026-07-20T14:57:42.837+00:00"
+    },
+    {
+      "id": "95c1f217-3d79-435e-b978-cd58faca5fb2",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "tabatha_web",
+      "machine_id": "sidecar-9c242e47-0c91-4c78-a979-248dae573540",
+      "local_id": "sidecar-tabatha_web",
+      "created_at": "2026-07-20T14:42:30.528764+00:00",
+      "last_seen_at": "2026-07-20T14:42:31.091+00:00"
+    },
+    {
+      "id": "f4e692f9-f5bf-4f0c-80c9-112230a46844",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "cf68a92a-508d-437f-8714-1dd0b9de2428",
+      "created_at": "2026-07-20T15:11:04.888322+00:00",
+      "last_seen_at": "2026-07-20T15:12:54.073+00:00"
+    },
+    {
+      "id": "7b30fd65-8ab5-48f5-8b14-d8881393c52c",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "9fd76bfb-a85b-4d9d-80a2-6a8759a436d6",
+      "created_at": "2026-07-20T15:32:33.544808+00:00",
+      "last_seen_at": "2026-07-20T15:39:03.181+00:00"
+    },
+    {
+      "id": "f33d8ddf-d53a-470b-b441-4d1e850147d4",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "362dc494-6de5-4742-9ca2-e3fa3d77ded5",
+      "created_at": "2026-07-20T16:07:55.739036+00:00",
+      "last_seen_at": "2026-07-20T16:30:08.291+00:00"
+    },
+    {
+      "id": "14c9ee5f-a58e-4f98-8751-f25508d572f7",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "b736db82-df08-411b-8f94-0a9447eb6f85",
+      "created_at": "2026-07-20T16:50:29.357795+00:00",
+      "last_seen_at": "2026-07-20T18:30:26.433+00:00"
+    },
+    {
+      "id": "ec83eff3-300b-4fed-9390-a3460d6ac87b",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "8906e217-8f02-4663-b76d-21dbeef8de5d",
+      "created_at": "2026-07-20T18:32:11.220001+00:00",
+      "last_seen_at": "2026-07-20T18:32:10.512+00:00"
+    },
+    {
+      "id": "a4b4e49c-b682-402d-8a83-3ca9ee3e7570",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "38f47ccd-5578-4d12-8a1c-227e14bb5156",
+      "created_at": "2026-07-20T19:49:39.184408+00:00",
+      "last_seen_at": "2026-07-20T20:00:33.941+00:00"
+    },
+    {
+      "id": "d9dbd679-6e39-43f1-97b5-a1841ea7aa31",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "3d65cc4d-398c-45b9-9e97-308d9666b9dd",
+      "created_at": "2026-07-20T20:01:01.08964+00:00",
+      "last_seen_at": "2026-07-20T20:05:28.421+00:00"
+    },
+    {
+      "id": "b7c20275-55cd-41ca-8473-a942d94ee5fb",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "fb84e656-e536-47bc-a60a-7237312c9d47",
+      "created_at": "2026-07-20T20:06:57.25895+00:00",
+      "last_seen_at": "2026-07-21T15:18:54.695+00:00"
+    },
+    {
+      "id": "0cd5257b-8a89-4d80-8cd2-2f783bdb7b79",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "38495445-4dfc-45b5-b503-b2059393c266",
+      "created_at": "2026-07-21T15:23:29.866439+00:00",
+      "last_seen_at": "2026-07-21T15:40:39.655+00:00"
+    },
+    {
+      "id": "11820794-a120-4ea3-9eb2-dde35db16ecd",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "d53c5e65-c4c2-4ca7-a9c8-7d07e97e6fdf",
+      "created_at": "2026-07-21T15:40:56.710041+00:00",
+      "last_seen_at": "2026-07-21T16:52:47.414+00:00"
+    },
+    {
+      "id": "1d7ef6dd-9e20-4dd0-889e-22adc54797d6",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "61f5bc60-172b-4225-bdd8-4e8777da87e2",
+      "created_at": "2026-07-21T19:51:17.906119+00:00",
+      "last_seen_at": "2026-07-21T19:52:54.786+00:00"
+    },
+    {
+      "id": "3e8041ca-c8d7-4f69-b350-50fcb0764243",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "852c7039-c9d8-4279-b3bc-8cdf3986a00d",
+      "created_at": "2026-07-21T19:53:09.665518+00:00",
+      "last_seen_at": "2026-07-21T20:34:03.533+00:00"
+    },
+    {
+      "id": "e37a13f9-e899-4c10-8d48-386ff644fb67",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "ab804526-2ad9-4e32-b21f-98aacc0a565b",
+      "created_at": "2026-07-21T20:39:18.835942+00:00",
+      "last_seen_at": "2026-07-22T16:25:45.059+00:00"
+    },
+    {
+      "id": "d19c9260-e9e9-44da-8345-6cb34e4e9aa5",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": null,
+      "local_id": "3717975f-8030-465c-9d6d-0fa2a85c0363",
+      "created_at": "2026-07-22T16:27:14.843282+00:00",
+      "last_seen_at": "2026-07-22T16:27:42.13+00:00"
+    },
+    {
+      "id": "8a531d2a-ea8c-415a-8305-4426a7a30668",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "desktop_companion",
+      "machine_id": null,
+      "local_id": null,
+      "created_at": "2026-07-22T16:30:04.375985+00:00",
+      "last_seen_at": "2026-07-24T14:38:17.012+00:00"
+    },
+    {
+      "id": "1a3d6cd2-88ce-475a-a9f0-9f049aeb2762",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": "8a531d2a-ea8c-415a-8305-4426a7a30668",
+      "local_id": "570850d1-bbfe-4be6-8d88-c4379142a8a8",
+      "created_at": "2026-07-22T16:31:09.344629+00:00",
+      "last_seen_at": "2026-07-22T16:34:24.897+00:00"
+    },
+    {
+      "id": "2dd58c47-93be-4bcd-ba34-a520bbd8eaf5",
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "browser": "chrome",
+      "machine_id": "8a531d2a-ea8c-415a-8305-4426a7a30668",
+      "local_id": "9dbc57a8-5542-4d3c-8b0f-f911b74df3ec",
+      "created_at": "2026-07-22T16:35:10.502306+00:00",
+      "last_seen_at": "2026-07-24T21:21:48.329+00:00"
+    }
+  ],
+  "per_profile_counts_after": [
+    {
+      "profile_id": "07466c2e-ba6c-4a89-b701-1a550544a44e",
+      "row_count": 19
+    },
+    {
+      "profile_id": "4abda377-a63c-45cc-991c-99bd5153b767",
+      "row_count": 115
+    },
+    {
+      "profile_id": "554ab69a-2e14-433b-99ec-3d96d2904f9b",
+      "row_count": 1
+    }
+  ]
+}

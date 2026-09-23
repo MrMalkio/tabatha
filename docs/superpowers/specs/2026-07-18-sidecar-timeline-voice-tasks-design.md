@@ -251,7 +251,7 @@ The user's Asana PAT is already available on this machine (asana-cli credential 
   Full agentic Chaperone (TTS, context interpolation, "click to engage" with
   Hermes-first/OpenClaw engine + Flux context) stays Flux-track; enrichment
   recorded in `docs/features/182-chaperone-mode.md`.
-- **#215 Body Doubling** — created and **parked by owner's call** ("own thing,
+- **#228 Body Doubling** — created and **parked by owner's call** ("own thing,
   down the timeline"): queue + one-click pairing of live-working users, BYO
   Meet/Twitch/Kick/YouTube link, Tabatha provides pairing/presence/frame. First
   step when picked up: research the science of body doubling.

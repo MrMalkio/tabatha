@@ -63,7 +63,15 @@ export default function PairWatchCard() {
         body: JSON.stringify({ action: 'mint', deviceLabel }),
       });
       const body = await res.json();
-      if (!res.ok || !body.code) throw new Error(body.error || 'Pairing service unavailable');
+      if (!res.ok || !body.code) {
+        // Same honesty rule as CodeSignIn: don't hand the user a raw backend
+        // string ("mint failed") or imply they did something wrong when the
+        // pairing service is the thing that's down.
+        if (res.status === 401) throw new Error('Your session expired — sign out and back in, then try again.');
+        if (res.status === 429) throw new Error('Too many attempts — wait a few minutes and try again.');
+        if (res.status >= 500) throw new Error('Pairing service problem — try again in a moment.');
+        throw new Error(body.error || 'Could not create a pairing code');
+      }
       setCode(body.code);
       setLeft(body.expiresInSeconds || 300);
       if (timer.current) clearInterval(timer.current);

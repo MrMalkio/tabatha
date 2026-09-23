@@ -15,6 +15,7 @@ import { bootstrapOrgRegistry, isBootstrapNeeded } from './bootstrapPull.js';
 import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
 import { getCompanionBrowserProfileId } from './companionInstallService.js';
 import { runLiveIngestAfterPush } from './focusIngestService.js';
+import { clampStoredElapsed } from '../../utils/elapsedClamp.js';
 
 let deps = {};
 let syncTimeout = null;
@@ -118,6 +119,23 @@ async function readProfile(supabase, authUserId) {
   return { profile: minimal.data ? { ...minimal.data, default_org_id: null, default_team_id: null } : null, partial: true };
 }
 
+// GoTrue session id (`session_id` claim) of the current access token —
+// stable across token refreshes within one session, changes only on a real
+// re-sign-in. This is what makes reclaim-on-sign-in distinguishable from a
+// surviving revoked session (see ensureBrowserProfileRow). Returns null when
+// signed out or the token is unparsable.
+async function currentSessionId(supabase) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.session_id || null;
+  } catch {
+    return null;
+  }
+}
+
 function syncScope(profileId, orgId, teamId, browserProfileId) {
   return {
     profile_id: profileId,
@@ -148,16 +166,37 @@ async function ensureBrowserProfileRow(supabase, profileId) {
     extension_installed: true,
     last_seen_at: new Date().toISOString()
   };
+  // 6.7.54 — session-aware reclaim (hardens 6.7.53, which cleared revoked_at
+  // UNCONDITIONALLY every sync cycle: since device-signout's GoTrue session
+  // revocation is best-effort, a surviving revoked session could silently
+  // un-revoke its own row 15 minutes after an admin signed it out — audit
+  // finding, 2026-07-21). Rule: a row may only reclaim (revoked_at → null)
+  // when the CURRENT session is a different GoTrue session (session_id
+  // claim) than the one stamped on the row — i.e. the user actually signed
+  // in again after the revocation. Same-session ⇒ stays revoked. Legacy
+  // rows with no stamped session id do NOT reclaim via sync (conservative);
+  // every path below now stamps auth_session_id so rows converge, and an
+  // explicit re-sign-in mints a new sid that then differs.
+  const sid = await currentSessionId(supabase);
+  if (sid) payload.auth_session_id = sid;
+  const reclaimAllowed = (row) =>
+    !!(row?.revoked_at && sid && row?.auth_session_id && row.auth_session_id !== sid);
 
   try {
     if (identity.supabaseId) {
       // Legacy / known install: keep its single existing row and adopt
       // local_id onto it (the row predates this column). Do NOT upsert here
       // or a NULL-local_id row would fail the conflict target and duplicate.
+      const { data: currentRow } = await supabase
+        .schema('tabatha')
+        .from('browser_profiles')
+        .select('revoked_at, auth_session_id')
+        .eq('id', identity.supabaseId)
+        .maybeSingle();
       const { error } = await supabase
         .schema('tabatha')
         .from('browser_profiles')
-        .update(payload)
+        .update(reclaimAllowed(currentRow) ? { ...payload, revoked_at: null } : payload)
         .eq('id', identity.supabaseId)
         .eq('profile_id', profileId);
       if (error) {
@@ -183,7 +222,7 @@ async function ensureBrowserProfileRow(supabase, profileId) {
     let adoptQuery = supabase
       .schema('tabatha')
       .from('browser_profiles')
-      .select('id, local_id')
+      .select('id, local_id, revoked_at, auth_session_id')
       .eq('profile_id', profileId)
       .eq('browser', 'chrome')
       .order('last_seen_at', { ascending: false })
@@ -192,10 +231,12 @@ async function ensureBrowserProfileRow(supabase, profileId) {
     const { data: adoptable } = await adoptQuery.maybeSingle();
     if (adoptable?.id) {
       await recordDiagnostic('browser_profile_adopted_existing', { id: adoptable.id });
+      const adoptPayload = { ...payload, local_id: adoptable.local_id || payload.local_id };
+      if (reclaimAllowed(adoptable)) adoptPayload.revoked_at = null;
       const { error: adoptErr } = await supabase
         .schema('tabatha')
         .from('browser_profiles')
-        .update({ ...payload, local_id: adoptable.local_id || payload.local_id })
+        .update(adoptPayload)
         .eq('id', adoptable.id)
         .eq('profile_id', profileId);
       if (!adoptErr) {
@@ -346,7 +387,29 @@ async function upsertRows(supabase, table, rows, onConflict, diagnosticKind) {
   });
 }
 
-function buildFocusRows(engine, scope) {
+// Koda N2: the item's own FROZEN reference instant for the structural clamp.
+// Never `Date.now()` — a moving reference made the published anchor recede on
+// every sync cycle (see clampStoredElapsed). While active, the run began at
+// `lastResumedAt`, so the banked total must fit the life before that instant.
+// Once paused, everything froze at `pausedAt`.
+function frozenNowFor(item) {
+  if (item.focusState === 'active' && item.lastResumedAt) return item.lastResumedAt;
+  return item.pausedAt || item.endedAt || item.completedAt || null;
+}
+
+// Koda P2 (6.7.74 review): the banked elapsed a push should publish. Pure
+// function of frozen fields only — see clampStoredElapsed's note on why
+// `now - lastResumedAt` must never enter a pushed anchor.
+function clampedStored(item) {
+  return clampStoredElapsed({
+    storedMs: item.elapsedMs || 0,
+    createdAt: item.createdAt,
+    startedAt: item.startedAt,
+    now: frozenNowFor(item)
+  });
+}
+
+export function buildFocusRows(engine, scope) {
   const byId = new Map();
   for (const item of Object.values(engine?.items || {})) {
     if (item?.id && !byId.has(item.id)) byId.set(item.id, item);
@@ -377,18 +440,64 @@ function buildFocusRows(engine, scope) {
     // convention (sidecar/src/data/focus.ts) — so the cross-surface live
     // ingest arbitration (extension AND Sidecar) can compare an
     // extension-authored row against a Sidecar-authored one on equal terms.
-    // _startedAt while active = lastResumedAt (the current run's start,
-    // matching the Sidecar's back-dated semantics); while paused it stays
-    // frozen at whatever it already was (falls back to startedAt/createdAt
-    // the first time a paused item is ever pushed).
+    //
+    // fix/sync-drift (v6.7.73): the extension's own resume paths
+    // (switchFocus/resumeFocus/adoptRemoteActive) use a two-field local model
+    // — elapsedMs (accumulated across prior pauses) + lastResumedAt (raw,
+    // NEVER back-dated wall-clock resume time) — which is fine internally,
+    // but pushing lastResumedAt verbatim as tags._startedAt silently dropped
+    // elapsedMs from the cross-surface signal. The Sidecar (and Context View,
+    // and any other extension install) compute elapsed as
+    // `now - tags._startedAt`; without back-dating that undercounts an
+    // active item's TRUE elapsed time by exactly its prior accumulated
+    // elapsedMs — worse with every pause/resume cycle. Back-dating
+    // (lastResumedAt - elapsedMs) mirrors the Sidecar's own resume math
+    // exactly (sidecar/src/data/focus.ts: `Date.now() - accumulatedElapsed`)
+    // and is stable across repeated pushes while the item stays active (both
+    // lastResumedAt and elapsedMs are frozen until the next pause), so it
+    // introduces no new "now" timestamp and can't cause adoption ping-pong.
+    // While paused it stays frozen at whatever it already was (falls back to
+    // startedAt/createdAt the first time a paused item is ever pushed).
     tags: {
       ...(item.tags || {}),
       ...(item.parentFocusId ? { _parent: item.parentFocusId } : {}),
       _backburner: !!item.backburnered,
-      _startedAt: item.focusState === 'active' && item.lastResumedAt
-        ? item.lastResumedAt
-        : (item.tags?._startedAt || item.startedAt || item.createdAt || null),
-      ...(item.focusState !== 'active' ? { _elapsedMs: item.elapsedMs || 0 } : {})
+      _startedAt: (() => {
+        // Back-date the anchor by accumulated elapsedMs so `now - _startedAt`
+        // reproduces TOTAL elapsed on any reading surface (Sidecar parity).
+        // Guard against a malformed lastResumedAt: `new Date(NaN).toISOString()`
+        // throws RangeError, which — uncaught inside this .map() — would abort
+        // the whole sync cycle (Koda review 2026-07-24). Degrade to the same
+        // fallback the paused branch uses instead of throwing.
+        // Koda P2 (6.7.74 review): back-date by the CLAMPED banked total, not
+        // the raw one. Publishing a raw `_elapsedMs` while
+        // `browser_profile_status.focus_elapsed_ms` publishes a clamped value
+        // put two contradictory numbers for the same quantity into one push.
+        // `clampStoredElapsed` is a pure function of frozen fields (never
+        // `now - lastResumedAt`), so the anchor stays stable across repeated
+        // pushes while active and cannot reopen adoption ping-pong.
+        if (item.focusState === 'active' && item.lastResumedAt) {
+          const anchorMs = new Date(item.lastResumedAt).getTime() - clampedStored(item);
+          if (Number.isFinite(anchorMs)) return new Date(anchorMs).toISOString();
+        }
+        return item.tags?._startedAt || item.startedAt || item.createdAt || null;
+      })(),
+      // Koda N1: publish `_elapsedMs` ALWAYS, not only while paused. The
+      // Sidecar recovers the current continuous run as
+      // `(now - _startedAt) - _elapsedMs`, so omitting it on active rows made
+      // banked read as 0 and the run degenerate to the whole lifetime —
+      // re-creating K2 across the wire on the 37-of-38 extension-authored row
+      // population. Measured: a 14h-banked active item pushed a 14h05m
+      // back-dated `_startedAt` with no `_elapsedMs`, so the phone computed a
+      // 14.08h "run", the ceiling fired, and pausing from the phone froze 12h
+      // — destroying 2.08h.
+      //
+      // Publishing both makes `_startedAt` and `_elapsedMs` mutually
+      // consistent BY CONSTRUCTION rather than by luck. Blast radius checked:
+      // `_elapsedMs` is not read by `focusRowStartedAtMs`, so arbitration is
+      // untouched, and `reconcileKnownFocusRow` only applies tag keys from
+      // Sidecar-sourced rows, so no extension row ingests it back.
+      _elapsedMs: clampedStored(item)
     },
     created_at: isoOrNow(item.createdAt || item.startedAt),
     completed_at: isoOrNull(item.completedAt || item.endedAt),

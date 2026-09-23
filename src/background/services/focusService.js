@@ -8,6 +8,9 @@ import { archiveBeforeCap } from './archiveService.js';
 import { broadcastAll, broadcastToExtension } from './notificationService.js';
 import { logAudit } from './activityAuditService.js';
 import { validateStartTime } from '../../utils/focusTimeValidation.js';
+import { sanitizeFocusEngine } from '../../utils/focusDataSanitize.js';
+import { accrueElapsed, liveElapsedClamped, clampStamp } from '../../utils/elapsedClamp.js';
+import { logger } from '../../services/logger.js';
 
 let injectedDeps = {};
 let focusAlarmsRegistered = false;
@@ -283,6 +286,22 @@ export async function getFocusEngine() {
   const engine = focusEngine ? { ...focusEngine } : { ...DEFAULT_FOCUS_ENGINE };
   if (!engine.items) engine.items = {};
   if (!engine.history) engine.history = [];
+
+  // 2026-07-23 self-heal (InPop "[object Object]" fix): a legacy/historical
+  // write left some installs with object-valued label/funnelStage on one or
+  // more items. No current writer produces this, but nothing sanitizes an
+  // already-corrupted value either, so it survives every reconcile/rehydrate
+  // pass indefinitely (reconcileKnownFocusRow returns non-Sidecar-sourced
+  // items untouched; dataRehydrate's newest-wins merge only overwrites when
+  // the cloud ref time is >=). Sanitize on every read and persist the repair
+  // immediately so the very next read (including the gatekeeper's own
+  // GET_FOCUS_ENGINE round trip) is clean — no reinstall, no data loss.
+  const { engine: healedEngine, healed, healedIds } = sanitizeFocusEngine(engine);
+  if (healed) {
+    logger.warn('DATA_SANITIZE', 'Healed corrupted focus-engine item(s) (object-valued label/funnelStage/context/tags)', { healedIds });
+    await setStorage({ focusEngine: healedEngine });
+    return healedEngine;
+  }
   return engine;
 }
 
@@ -310,13 +329,58 @@ async function applyDefaultRealm(tags = {}) {
   return tags;
 }
 
+// Sync forensics S4 / bug #4 — this used to bank `Date.now() - lastResumedAt`
+// with no ceiling, so a focus left `active` while the browser was closed or
+// the machine asleep billed the entire absence to one intent (measured: 37 h
+// 14 m on `f_1784676002315_yo37y`). It now routes through the shared clamp in
+// src/utils/elapsedClamp.js, which both this surface and the Sidecar use.
+//
+// NOTE the clamped delta — not the raw one — is what propagates to a parent
+// sub-intent. Clamping the child but crediting the parent the raw span would
+// have re-introduced the same inflation one level up.
 function addElapsedSinceResume(item, engine) {
   if (item?.lastResumedAt) {
-    const delta = Date.now() - new Date(item.lastResumedAt).getTime();
-    item.elapsedMs = (item.elapsedMs || 0) + delta;
+    const now = Date.now();
+    const before = item.elapsedMs || 0;
+    const accrued = accrueElapsed({
+      storedMs: before,
+      lastResumedAt: item.lastResumedAt,
+      // K1: BOTH anchors — the clamp takes the earliest. Passing
+      // `createdAt || startedAt` took the later one and destroyed backdated work.
+      createdAt: item.createdAt,
+      startedAt: item.startedAt,
+      now
+    });
+    item.elapsedMs = accrued.elapsedMs;
     item.lastResumedAt = null;
 
-    // Plan 031: Sub-intent parent tick — propagate elapsed to parent focus
+    if (accrued.clamped) {
+      // Never silent: keep the number the old path would have written, next
+      // to the one we actually wrote, so this is auditable and reversible.
+      item.tags = {
+        ...(item.tags || {}),
+        _elapsedClamp: clampStamp({
+          requestedMs: accrued.requestedMs,
+          appliedMs: accrued.elapsedMs,
+          reason: accrued.reason,
+          now
+        })
+      };
+      logger.warn('FOCUS_ELAPSED', 'Clamped implausible elapsed accrual', {
+        focusId: item.id,
+        label: item.label,
+        requestedMs: accrued.requestedMs,
+        appliedMs: accrued.elapsedMs,
+        reason: accrued.reason
+      });
+    }
+
+    // Plan 031: Sub-intent parent tick — propagate elapsed to parent focus.
+    // Koda P3: credit what the CHILD actually banked (post-clamp total minus
+    // its prior total), not the raw run delta. When the structural clamp
+    // trimmed the child's total, `deltaMs` alone would over-credit the parent
+    // by exactly the amount the child was denied.
+    const delta = Math.max(0, accrued.elapsedMs - before);
     if (item.parentFocusId && engine?.items?.[item.parentFocusId]) {
       const parent = engine.items[item.parentFocusId];
       if (parent.focusState !== 'completed') {
@@ -367,15 +431,57 @@ export function adoptRemoteActive(item, engine, remoteStartedAtIso) {
   const startIso = remoteStartedAtIso || new Date().toISOString();
   item.focusState = 'active';
   item.funnelStage = (item.funnelStage === 'todo' || item.funnelStage === 'unsorted') ? 'focus' : item.funnelStage;
-  item.lastResumedAt = startIso;
-  item.elapsedMs = 0;
+
+  // Koda review of 6.7.74 (K2, reproduced data loss). This used to set
+  // `lastResumedAt = startIso; elapsedMs = 0`, which made `now - lastResumedAt`
+  // read as a single continuous RUN — but `startIso` is the remote's
+  // `tags._startedAt`, which is BACK-DATED by the focus's whole accumulated
+  // elapsed (that is the entire 6.7.71/6.7.73 fix). So the value handed to the
+  // clamp was a LIFETIME dressed up as a run: a Sidecar intent worked 14 h
+  // across a week, adopted here and paused five minutes later, got clamped to
+  // 12 h — destroying 2 h 05 m of real cross-surface work, and making the
+  // browser read 12 h while the phone read 14 h, the exact disagreement S9
+  // exists to kill.
+  //
+  // The fix is to stop overloading `lastResumedAt`: bank the remote's
+  // accumulated time as `elapsedMs` (what it actually is) and start a genuine
+  // run at now. Then the ceiling only ever sees real continuous run time and
+  // needs no special-casing or offset.
+  //
+  // This is push-identical, so the non-ping-pong invariant is untouched:
+  // `buildFocusRows` back-dates `_startedAt = lastResumedAt - elapsedMs`
+  // = now - (now - startIso) = startIso — the same INSTANT we adopted (the
+  // string may re-serialise, e.g. 09:00:00Z -> 09:00:00.000Z; arbitration
+  // parses to ms so that is equivalent, but it is not byte-identical).
+  const startMs = new Date(startIso).getTime();
+  const nowMs = Date.now();
+  if (!Number.isFinite(startMs)) {
+    // Koda N3: a malformed remote `_startedAt` must NOT be rewritten into a
+    // fresh `now` anchor. Doing so would publish a brand-new timestamp for a
+    // focus whose real start we simply don't know — inventing elapsed time and
+    // handing arbitration a spuriously-recent anchor. The pre-K2 code degraded
+    // to a stable passthrough here; preserve that. Whatever `lastResumedAt`
+    // and `elapsedMs` the item already had stay untouched.
+    item.pausedAt = null;
+    if (!item.startedAt) item.startedAt = new Date(nowMs).toISOString();
+  } else {
+  const adoptedBaselineMs = Math.max(0, nowMs - startMs);
+  item.lastResumedAt = new Date(nowMs).toISOString();
+  item.elapsedMs = adoptedBaselineMs;
   item.pausedAt = null;
-  if (!item.startedAt) item.startedAt = startIso;
+    // The structural clamp measures life from the earliest anchor, so
+    // `startedAt` must not sit AFTER the run we just adopted or it would clamp
+    // this baseline straight back off again.
+    const existingStartMs = item.startedAt ? new Date(item.startedAt).getTime() : NaN;
+    if (!item.startedAt || !Number.isFinite(existingStartMs) || startMs < existingStartMs) {
+      item.startedAt = startIso;
+    }
+  }
   engine.activeFocusId = item.id;
 
   chrome.alarms.clear(`focus-timer-${item.id}`);
   const totalTimerMs = (item.timerMinutes || 0) * 60 * 1000;
-  const elapsedNow = Math.max(0, Date.now() - new Date(startIso).getTime());
+  const elapsedNow = Number.isFinite(startMs) ? Math.max(0, nowMs - startMs) : (item.elapsedMs || 0);
   const remaining = totalTimerMs - elapsedNow;
   if (remaining > 0) {
     chrome.alarms.create(`focus-timer-${item.id}`, { delayInMinutes: remaining / 60000 });
@@ -1034,11 +1140,19 @@ async function idlePromptResponse(message) {
 // Plan 037 — Focus Time Editing
 // ════════════════════════════════════════════
 
-// Total displayed elapsed = stored elapsedMs + (active ? now - lastResumedAt : 0).
-function liveElapsed(item) {
-  let ms = item.elapsedMs || 0;
-  if (item.lastResumedAt) ms += Date.now() - new Date(item.lastResumedAt).getTime();
-  return ms;
+// Total displayed elapsed = stored elapsedMs + (active ? now - lastResumedAt : 0),
+// run through the same clamp the pause path will apply when this run is banked
+// (S4/#4). Sharing one definition is the point: S9 existed precisely because
+// the published number and the internal number were computed two different
+// ways. Exported so awarenessService publishes the identical value.
+export function liveElapsed(item) {
+  return liveElapsedClamped({
+    storedMs: item?.elapsedMs || 0,
+    lastResumedAt: item?.lastResumedAt,
+    // K1: both anchors — earliest wins, so a backdated startedAt is honoured.
+    createdAt: item?.createdAt,
+    startedAt: item?.startedAt
+  });
 }
 
 // Wall-clock ceiling: a focus can never have more active time than has elapsed

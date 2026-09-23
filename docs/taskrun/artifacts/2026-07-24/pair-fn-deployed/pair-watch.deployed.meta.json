@@ -1,0 +1,12 @@
+{
+  "id": "a3ee6399-5a65-4b9c-83ae-e95894e959f0",
+  "slug": "pair-watch",
+  "name": "pair-watch",
+  "version": 4,
+  "status": "ACTIVE",
+  "verify_jwt": false,
+  "entrypoint_path": "file:///Users/mrmal/le%20dev/Tabatha/.claude/worktrees/tabby-sidecar-mobile-46c612/supabase/functions/pair-watch/index.ts",
+  "import_map": false,
+  "created_at": 1784399751973,
+  "updated_at": 1784654306472
+}

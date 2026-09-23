@@ -12,6 +12,8 @@ export {
 } from '../constants.js';
 
 import { DEFAULT_SETTINGS, BUILT_IN_CATEGORIES, DEFAULT_FOCUS_ENGINE } from '../constants.js';
+import { sanitizeFocusEngine, sanitizeTabsMap } from '../../utils/focusDataSanitize.js';
+import { logger } from '../../services/logger.js';
 
 // ── Chrome storage wrappers ──
 
@@ -63,7 +65,23 @@ export async function getSettings() {
 
 export async function getTabData() {
   const { tabs } = await getStorage('tabs');
-  return tabs || {};
+  if (!tabs) return {};
+
+  // 2026-07-23 self-heal (InPop "[object Object]" fix, defense-in-depth): a
+  // legacy/historical write left some installs with an object-valued
+  // `context` on one or more tabs. Because handleTabCreated copies
+  // `inheritedContext = parent.context` verbatim to every child tab opened
+  // from a corrupted parent, one bad ancestor tab can spread the object to
+  // every descendant — this is exactly what surfaced as "[object Object]"
+  // in the InPop's inherited-context input value. Sanitize on every read and
+  // persist the repair so it's healed for good, not just for this call.
+  const { tabs: healedTabs, healed, healedIds } = sanitizeTabsMap(tabs);
+  if (healed) {
+    logger.warn('DATA_SANITIZE', 'Healed corrupted tab context field(s) (object-valued context)', { healedIds });
+    await setStorage({ tabs: healedTabs });
+    return healedTabs;
+  }
+  return tabs;
 }
 
 export async function getSubGroups() {
@@ -93,7 +111,22 @@ export async function getTimeTracking() {
 
 export async function getFocusEngine() {
   const { focusEngine } = await getStorage('focusEngine');
-  return focusEngine || { ...DEFAULT_FOCUS_ENGINE };
+  if (!focusEngine) return { ...DEFAULT_FOCUS_ENGINE };
+
+  // 2026-07-23 self-heal (InPop "[object Object]" fix). This is the raw
+  // accessor used by dataRehydrate.js's rehydrate-on-sign-in path — a
+  // separate read of the SAME chrome.storage.local `focusEngine` key that
+  // focusService.js's own getFocusEngine() also sanitizes. Both must heal
+  // independently so whichever one happens to read first never re-persists
+  // (or forwards into a merge) a still-corrupted item. See
+  // src/utils/focusDataSanitize.js for the full root-cause writeup.
+  const { engine: healedEngine, healed, healedIds } = sanitizeFocusEngine(focusEngine);
+  if (healed) {
+    logger.warn('DATA_SANITIZE', 'Healed corrupted focus-engine item(s) via raw storageService accessor', { healedIds });
+    await setStorage({ focusEngine: healedEngine });
+    return healedEngine;
+  }
+  return focusEngine;
 }
 
 export async function setFocusEngine(engine) {

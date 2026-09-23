@@ -359,6 +359,13 @@ allow_dynamic_registration = false
 [functions.asana-webhook]
 verify_jwt = false
 
+# Download page tester gate (site/download.html): a first-time visitor has no
+# Supabase session, so the platform default JWT gate would 401 the check
+# before it ever ran. The function itself only ever SELECTs invite_tokens
+# (never consumes) — see supabase/functions/invite-check/index.ts.
+[functions.invite-check]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

@@ -118,9 +118,12 @@ export default function UnifiedTimeline({ compact = false, selectedDate = null }
   }, []);
 
   // Process sessions into timeline segments — filtered, merged, with breaks
+  // TR-06: this used to bail out with an all-empty result whenever there were
+  // no companion sessions, which threw away clock-in/out markers and break
+  // segments for anyone who never connected the desktop companion. Those are
+  // computed independent of `sessions` below, so we no longer early-return
+  // on `!sessions.length` here.
   const { segments, timeRange, categoryTotals, switchCount, clockMarkers } = useMemo(() => {
-    if (!sessions.length) return { segments: [], timeRange: null, categoryTotals: {}, switchCount: 0, clockMarkers: [] };
-
     // Parse day start time setting (e.g. "09:00")
     const [startH, startM] = (dayStartTime || '00:00').split(':').map(Number);
     
@@ -234,7 +237,28 @@ export default function UnifiedTimeline({ compact = false, selectedDate = null }
       completed.sort((a, b) => a.startMs - b.startMs);
     }
 
-    if (!completed.length) return { segments: [], timeRange: null, categoryTotals: {}, switchCount: rawSwitchCount, clockMarkers: [] };
+    if (!completed.length) {
+      // No app sessions and no breaks — but the user may still be clocked
+      // in/out. Fall back to the clock session's own span so a bare
+      // clock-in marker isn't silently dropped for companion-less users.
+      if (clockSession?.clockedInAt) {
+        const cinMs = new Date(clockSession.clockedInAt).getTime();
+        if (cinMs >= todayStart && cinMs < todayEnd) {
+          const coutMs = clockSession.clockedOutAt ? new Date(clockSession.clockedOutAt).getTime() : Date.now();
+          const span = Math.max(coutMs - cinMs, 60000);
+          const markers = [{ pos: 0, type: 'in', time: clockSession.clockedInAt }];
+          if (clockSession.clockedOutAt) markers.push({ pos: 100, type: 'out', time: clockSession.clockedOutAt });
+          return {
+            segments: [],
+            timeRange: { earliest: cinMs, latest: coutMs, totalSpan: span },
+            categoryTotals: {},
+            switchCount: rawSwitchCount,
+            clockMarkers: markers,
+          };
+        }
+      }
+      return { segments: [], timeRange: null, categoryTotals: {}, switchCount: rawSwitchCount, clockMarkers: [] };
+    }
 
     const earliest = completed[0].startMs;
     const latest = Math.max(...completed.map(s => s.endMs || s.startMs + s.durationMs));
@@ -315,14 +339,31 @@ export default function UnifiedTimeline({ compact = false, selectedDate = null }
     setTooltipPos({ x: e.clientX, y: e.clientY });
   }, []);
 
-  // Don't render if companion is not connected and no cached data
-  if (!connected && sessions.length === 0) {
-    return null;
-  }
-
-  // No sessions yet (companion connected but no activity)
-  if (sessions.length === 0 || segments.length === 0) {
-    if (!connected) return null;
+  // TR-06: previously this bailed to `null` (fully blank) whenever there
+  // were no companion sessions, even for users with clock-in/out markers or
+  // breaks (which are folded into `segments`/`clockMarkers` above
+  // independent of companion connection). Only treat this as "nothing to
+  // show" when there is truly nothing at all — no app sessions, no breaks,
+  // no clock markers.
+  if (segments.length === 0 && clockMarkers.length === 0) {
+    if (connected) {
+      // Companion connected but no activity recorded yet.
+      return (
+        <div style={{
+          padding: compact ? '8px' : '12px 16px',
+          marginBottom: compact ? '8px' : '12px',
+          borderRadius: 'var(--radius-md, 8px)',
+          background: 'var(--color-surface, rgba(255,255,255,0.03))',
+          border: '1px solid var(--color-border, rgba(255,255,255,0.06))',
+          fontSize: '12px',
+          color: 'var(--color-text-muted, #5a6270)',
+          textAlign: 'center',
+        }}>
+          🖥️ Desktop companion connected — waiting for activity...
+        </div>
+      );
+    }
+    // Genuinely empty: no companion, no clock-in, no breaks yet today.
     return (
       <div style={{
         padding: compact ? '8px' : '12px 16px',
@@ -334,7 +375,7 @@ export default function UnifiedTimeline({ compact = false, selectedDate = null }
         color: 'var(--color-text-muted, #5a6270)',
         textAlign: 'center',
       }}>
-        🖥️ Desktop companion connected — waiting for activity...
+        📭 No activity yet today — clock in or connect the desktop companion to see it here.
       </div>
     );
   }
