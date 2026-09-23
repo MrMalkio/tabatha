@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Last updated** | 2026-07-24 |
+| **Last updated** | 2026-09-23 |
 | **Updated by** | Hermes (`argus` profile) — automated daily survey, Asana task 1216678592681467 |
 | **Verified against** | live git refs (post `git fetch --all --prune`), per-branch `public/manifest.json`, local `dist/`, sibling repos, GitHub PR list |
 | **Scope** | Survey + proposals only. No merges, prunes, pushes, or deploys were executed. |
@@ -138,31 +138,11 @@ Ahead/behind measured against **local `staging`** (6.7.8) for the 6.7.x line and
 
 | Path (under `Tabatha/`) | Branch | Ver | Disposition |
 |--------------------------|--------|-----|-------------|
-| *(main dir)* | `staging` | sidecar 0.11.0 | auto-detected |
-| `.claude/worktrees/agent-a769362145b11a118` | `claude/sidecar-lane-a-contextview` | sidecar 0.2.1 | auto-detected |
-| `.claude/worktrees/agent-a7c7478af863b70d4` | `feat/sidecar-voice-chaperone-v0` | sidecar 0.2.1 | auto-detected |
-| `.claude/worktrees/backdate-fix` | `fix/backdate-overlap-clamp` | 6.7.23 | auto-detected |
-| `.claude/worktrees/cws-api` | `feat/cws-activation` | sidecar 0.8.2 | auto-detected |
-| `.claude/worktrees/epic3-asana-sync` | `claude/epic3-asana-sync` | sidecar 0.4.0 | auto-detected |
-| `.claude/worktrees/epic8-nudges` | `claude/epic8-nudges` | sidecar 0.5.0 | auto-detected |
-| `.claude/worktrees/epic9-extension-cv` | `feat/companion-hello` | sidecar 0.2.1 | auto-detected |
-| `.claude/worktrees/ext-device-mgmt` | `feat/ext-device-management` | sidecar 0.11.0 | auto-detected |
-| `.claude/worktrees/ext-live-ingest` | `feat/ext-live-ingest` | sidecar 0.11.0 | auto-detected |
-| `.claude/worktrees/ext-roundtrip` | `feat/ext-roundtrip-parity` | sidecar 0.8.2 | auto-detected |
+| *(main dir)* | `docs/intake-2026-07-25-agent-layer-bugs` | sidecar 0.11.0 | auto-detected |
 | `.claude/worktrees/home-header-fix` | `fix/home-header-layout` | sidecar 0.11.0 | auto-detected |
-| `.claude/worktrees/integrate-6750` | `integrate/6.7.50` | sidecar 0.11.0 | auto-detected |
-| `.claude/worktrees/logo-rollout` | `feat/logo-rollout` | sidecar 0.11.0 | auto-detected |
-| `.claude/worktrees/privacy` | `fix/privacy-accuracy` | 6.7.20 | auto-detected |
-| `.claude/worktrees/responsive` | `feat/showcase-responsive` | 6.7.19 | auto-detected |
-| `.claude/worktrees/rook-sidecar-feedback` | `feat/sidecar-feedback-epic7-rook` | sidecar 0.2.1 | auto-detected |
-| `.claude/worktrees/showcase-expand` | `feat/showcase-expand` | 6.7.16 | auto-detected |
-| `.claude/worktrees/showcase-family` | `feat/showcase-family` | 6.7.18 | auto-detected |
-| `.claude/worktrees/sidecar-lane-a-chunk2` | `claude/sidecar-lane-a-chunk2` | sidecar 0.3.1 | auto-detected |
-| `.claude/worktrees/sidecar-notes-simple` | `claude/sidecar-notes-simple` | sidecar 0.3.0 | auto-detected |
-| `.claude/worktrees/site` | `feat/public-site` | 6.7.17 | auto-detected |
-| `.claude/worktrees/site-milestone-v040` | `feat/site-milestone-v040` | sidecar 0.2.1 | auto-detected |
-| `.claude/worktrees/tabby-sidecar-mobile-46c612` | `claude/tabby-sidecar-mobile-46c612` | sidecar 0.13.8 | auto-detected |
-| `.claude/worktrees/teaser` | `feat/teaser-site` | 6.7.19 | auto-detected |
+| `.claude/worktrees/pair-code-expiry` | `fix/pair-code-expiry` | sidecar 0.11.0 | auto-detected |
+| `.claude/worktrees/reconcile-6770` | `reconcile/6.7.70` | sidecar 0.11.0 | auto-detected |
+| `.claude/worktrees/tabby-sidecar-mobile-46c612` | `claude/tabby-sidecar-mobile-46c612` | sidecar 0.13.14 | auto-detected |
 
 ---
 
@@ -249,3 +229,64 @@ in `.headbox/parking_lot.md`, main dir).
 - **2026-07-22** — 25 worktrees swept (4 new, 0 removed); dist MISMATCH (dist=6.7.56 vs main=sidecar 0.11.0).
 - **2026-07-23** — 25 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.56 vs main=sidecar 0.11.0).
 - **2026-07-24** — 25 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.69 vs main=sidecar 0.11.0).
+- **2026-07-25** — 37 worktrees swept (12 new, 0 removed); dist MISMATCH (dist=6.7.78 vs main=sidecar 0.11.0).
+- **2026-07-26** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.78 vs main=sidecar 0.11.0).
+- **2026-07-27** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.76 vs main=sidecar 0.11.0).
+- **2026-07-28** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.76 vs main=sidecar 0.11.0).
+- **2026-07-29** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.76 vs main=sidecar 0.11.0).
+- **2026-07-30** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-07-31** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-01** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-02** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-03** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-04** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-05** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-06** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-07** — 37 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-08** — 10 worktrees swept (0 new, 27 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-09** — 5 worktrees swept (0 new, 5 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-10** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-11** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-12** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-13** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-14** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-15** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-16** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-17** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-18** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-19** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-20** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-21** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-22** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-23** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-24** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-25** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-26** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-27** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-28** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-29** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-30** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-08-31** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-01** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-02** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-03** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-04** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-05** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-06** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-07** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-08** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-09** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-10** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-11** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-12** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-13** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-14** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-15** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-16** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-17** — 0 worktrees swept (0 new, 5 removed); dist MISMATCH (dist=6.7.82 vs main=None).
+- **2026-09-18** — 5 worktrees swept (5 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-19** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-20** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-21** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-22** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
+- **2026-09-23** — 5 worktrees swept (0 new, 0 removed); dist MISMATCH (dist=6.7.82 vs main=sidecar 0.11.0).
