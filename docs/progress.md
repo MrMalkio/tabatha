@@ -1128,3 +1128,19 @@ Fleet outcomes (all verified by CeeCee before ship):
 **NOT deployed** — new user-facing rows can't be visually smoke-checked headless (Sidecar sign-in = Malkio-only credential gate). Same consent-first call as TR-14b.
 
 **Next steps:** Malkio — visual smoke-check ▶/⏸ rows on `/sidecar`, then one `wrangler deploy` (Sidecar 0.13.8 prod). Full detail: `docs/taskrun/2026-07-23-morning-report.md`.
+
+---
+
+## 2026-08-11 — Nightly bug-fix TaskRun (CeeCee night-shift) — queue empty; B10 root cause corrected; no product code
+
+**Queue:** empty, verified three ways. `docs/taskrun/nightly-bugfix-queue.md` **has never existed** in git history, so absence was not treated as proof: (1) Asana queried directly (Rook, read-only) — 9 tasks since 2026-07-27, none from a triage agent; (2) `2026-07-22-queue.md` TR-01–TR-20 all closed; (3) feedback-widget `🐛/💡` items are Sidecar QA test data. **The nightly triage agent has produced no artifact since 2026-07-27T02:12Z (14 days)** — third run in a row hand-rolling the queue.
+
+**Headline — B10's written root cause was wrong and its recommended fix was dangerous.** The doc called the `transform: translateZ(0)` on `<body>` a "paint/stacking workaround" and recommended deleting it. `git blame` puts it at **`8aa2d0b`** (Malkio, 2026-07-16, v6.7.20); its in-file comment (`src/content/inbar.js:149-154`) states the containing-block behaviour is the **deliberate mechanism** — added so host-page fixed headers move with the pushed content instead of hiding under the bar. Dropping it would reintroduce exactly that bug, i.e. swap the Asana-class HIGH bug for the fixed-header HIGH bug on an overlapping set of sites. **Not auto-fixed** — picking a side is a product decision and a 3am one-liner would have shipped an unverifiable silent regression. Option 1 struck, trade-off table + recommendation (option 2: float the bar, never mutate host layout) written into the doc. Teardown claim also corrected — `pushPage(0)` (`inbar.js:1190`) does remove the transform and zero the margin; residue is cosmetic only.
+
+**⚠️ Uncommitted work left deliberately untouched:** `.headbox/plan-registry.md` + `config.md` (modified ~2026-08-08, not mine) carry (a) a **markdown corruption** — doubled leading pipe `||` on ~25 rows, breaking the plan table and the entire migration ledger — and (b) a **unilateral renumbering of plans 039/040/041 → 047/048/049**, which silently answers open Asana DECISION `1216900494891551`. Fixing (a) would have committed (b), so both were left alone. This also blocked Asana `1217173340445344` (registry collisions + stale migration table), the night's cleanest small-fix candidate — same file, same pending decision.
+
+**Shipped:** docs only — `docs/features/B10-inbar-breaks-page-layout.md` + `docs/taskrun/2026-08-11-morning-report.md`, commit `f2d020d`. No version bump (matches precedent for `docs(bugs):`/`docs(taskrun):` commits; `version:check` green at 6.7.82). No product code, no builds, no deploys, no Koda interventions.
+
+**Tooling defect found:** `asana-cli --query-json` is broken through its `.cmd`→PowerShell→python arg chain (embedded quotes mangled before `json.loads`), which blocks `opt_fields` and pagination — so Asana recon is a targeted spot-check, not an exhaustive enumeration, while >100 incomplete tasks exist.
+
+**Next steps (2 decisions, both prepared):** Malkio — **Q1** yes/no on B10 option 2 (float the bar; ~28px overlap trade-off); **Q2** plan-number collision 039/040/041, then the `||` fix and remote-verification of migration rows 025–060. Also worth deciding whether to repair or retire the silent triage agent. Full detail: `docs/taskrun/2026-08-11-morning-report.md`.

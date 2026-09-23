@@ -223,3 +223,26 @@ automatically; treat any task carrying the marker as done, full stop, for automa
 6. Inline-fix items → append a hand-off block (§5) to `docs/taskrun/feedback-review-<date>.md`.
 7. Propose-only items → post a human-readable comment + stage/tag flag on the Asana task itself.
 8. Mark every task processed this run with the `[feedback-review:actioned]` comment (§6).
+
+---
+
+## Appendix A — Read channel (added 2026-08-24, Aegis)
+
+**`asana-cli.cmd` is not a usable read channel while the Asana lockdown is armed.** Step 1 of the
+checklist above fails with `error: MUTATION_PAUSED` — on *reads*, not just writes (write lockdown
+armed 2026-08-14T15:20Z, read lockdown 2026-08-20T06:51Z). Because §3 of the charter says an empty
+result means "end quietly", a total read failure and a genuinely quiet night produced identical
+output, and this agent reported "nothing new" blind for eight consecutive passes (2026-08-20 →
+2026-08-23). CeeCee caught it in the 2026-08-23 night report.
+
+**Use the Asana MCP channel instead** — it is unaffected by the CLI lockdown. Equivalent step-1 query:
+
+- `asana_search_tasks` with `workspace=9526911872029`, `projects_any=1214031898449333`,
+  `modified_at_after=<last run>`, `opt_fields=name,created_at,modified_at,completed,notes`.
+- Census / belt-and-braces sweep across all projects: same tool with `text="Submitted from Tabatha"`,
+  which catches a submission that landed outside the expected project (e.g. after a secret rotation).
+
+**Always run a control query before reporting an empty window.** A filter that returns zero is only
+evidence if the same filter returns non-zero when widened. If the CLI is the only channel available
+and it returns `MUTATION_PAUSED`, report the blindness explicitly — do not end quietly, because in
+that state "quiet" is not a finding.
