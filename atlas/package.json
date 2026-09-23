@@ -1,0 +1,6 @@
+{
+  "name": "tabatha-atlas",
+  "private": true,
+  "type": "commonjs",
+  "description": "Scope marker only. The parent Tabatha repo declares \"type\": \"module\", which breaks the CommonJS sync-data.js that Atlas init-instance.mjs scaffolds. This file re-scopes just this directory back to CommonJS so `node sync-data.js` runs. Do not add dependencies here."
+}

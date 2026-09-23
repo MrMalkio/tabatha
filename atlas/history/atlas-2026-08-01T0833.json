@@ -1,0 +1,3630 @@
+{
+ "ts": "2026-08-01T08:33:47.742Z",
+ "label": "v0.1.0",
+ "data": {
+  "version": "v0.1.0",
+  "engine": "0.0.8",
+  "name": "Tabatha",
+  "paths": {
+   "data": "C:\\Users\\mrmal\\le dev\\Tabatha\\atlas\\atlas-data.json",
+   "guide": "C:\\Users\\mrmal\\le dev\\Tabatha\\atlas\\ATLAS-UPDATE-GUIDE.md (or the atlas-update skill)",
+   "sync": "node \"C:\\Users\\mrmal\\le dev\\Tabatha\\atlas\\sync-data.js\"",
+   "html": "C:\\Users\\mrmal\\le dev\\Tabatha\\atlas\\atlas.html",
+   "asana": "Tabatha instance task in the sys-atlas project"
+  },
+  "summary": "Tabatha is a cross-platform attention operating system — one product across five surfaces sharing a single Supabase spine. Reality is far ahead of every document that describes it: the workspace portfolio claims 'extension v4.x shipped, desktop v0.1.0, mobile in progress', but git HEAD is extension 6.7.82 (614 commits, 364 of them in July 2026 alone), the desktop companion is a shipped Tauri app at 0.3.10, and there is a Wear OS watch at 0.2.2 that no portfolio doc mentions at all. The mobile story is the biggest correction: BOTH standalone mobile repos are dead — tabatha-mobile (Expo, 19 commits, all May 2026) and tabatha-mobile-2 (native Android, 6 commits, all on one day, 2026-05-30, and it is now a Google AI Studio design lab in the `com.example` package, not a shipping app). The live phone surface is Tabby Sidecar, an Expo app living INSIDE the main repo at `sidecar/`, deployed as a PWA to tabatha.pondocean.co/sidecar. Distribution is the real bottleneck: two self-hosted channels (staff GitHub-release channel and an enterprise CRX force-install line) are both live at 6.7.78, four versions behind HEAD, while the Chrome Web Store item exists as a DRAFT that has never been published — the listing doc still reads 'NOT submitted' and the publishing credentials were never provisioned on this machine. Flux is not a sibling: Tabatha's entire backend IS the Supabase project literally named 'Flux' (ref mtdgoahskcibjbhfvofx), and Tabatha's tracker home is the 'Flux Development' Asana project, not the near-empty 'Tabatha Development' one. The wounds are concentrated and known: ~23 unescaped innerHTML sinks across gatekeeper.js and inbar.js that are cross-user reachable today via manager RLS scoping, an RLS gap letting a revoked device un-revoke itself, and two named sync arbitration root causes (A: recency-based arbitration; D: clock adoption duplicating shifts) that have a plan number reserved (047) and nothing built. The engineering machine itself is unusually strong — 40 live worktrees, 63 unit-test files, a version-sync pre-commit gate, a daily automated Asana status survey — which is exactly why the docs drift: the code moves faster than anything written about it.",
+  "nodes": [
+   {
+    "id": "gatekeeper",
+    "label": "Gatekeeper",
+    "type": "feature",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: 6.7.76 closed the [object Object] sanitize gap on gatekeeper's own intentHistory/intentPresets read — self-healing repair-on-read now writes corrected data back.",
+    "blurb": "The intentional-friction layer and Tabatha's founding idea: before you can consume a page you must declare why you are there. Contrary to the portfolio's description it is NOT the new-tab override (that is home.html) — it is an all-URLs content script at document_start that intercepts navigation to any page, rendering a closed shadow-DOM gate. Complete and heavily hardened: a synchronous dim placeholder goes up before any await so the page cannot render underneath the gate, and a 2500ms timeout tears it down rather than trapping the user.",
+    "deep": "Files: src/content/gatekeeper.js (679 lines, single IIFE, closed shadow DOM). Decision logic lives in src/background/services/tabService.js checkContextNeeded() at ~L473.\\n\\nStates: (1) double-injection guard on #tabatha-gatekeeper-host; (2) fast local pre-check of settings.gatekeeperEnabled — a missing or unreadable setting FAILS TOWARD GATING; (3) indeterminate — synchronous dim placeholder with pointerEvents none so clicks still pass through; (4) CHECK_CONTEXT_NEEDED round-trip under withTimeout 2500ms; (5) confirmed — backdrop 0.85 strict / 0.6 relaxed, backdropFilter blur per settings.inpopBlurStrength, body overflow hidden in strict mode.\\n\\nBypass rules: chrome:// and chrome-extension:// URLs; a tab whose contextSource is already 'user' or 'url_rule'; Asana task URLs auto-derive context from page title (contextSource 'asana_auto', stores asanaTaskGid); a URL matching a parkedTabs entry restores its context and consumes the park; domains in skippedDomains.",
+    "links": {
+     "md": "src/content/gatekeeper.js",
+     "web": {
+      "url": "https://tabatha.pondocean.co/show/gatekeeper.html",
+      "label": "Gatekeeper frame on the live /show showcase"
+     }
+    },
+    "sources": [
+     "src/content/gatekeeper.js code read",
+     "Tabatha_Changelog.md v6.7.76"
+    ]
+   },
+   {
+    "id": "gate-friction",
+    "label": "Friction Exits",
+    "type": "feature",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/21: extension UX audit flagged the 8+-choice wall as contradicting the product's own Progressive Simplicity principle — promoted to an OVERHAUL theme, not a bug.",
+    "blurb": "The seven distinct ways out of the gate, each a different classification of the impulse rather than a yes/no block. Continue, Side Quest (5 min timeboxed), Sugar Box (stash the craving, close the tab), Park, Later, Nevermind (close, logged as a focus win), and Dismiss (relaxed mode only) — plus a per-domain skip. Every exit emits LOG_INTENT_ACTION, so the friction layer is also the primary data source for the intent model.",
+    "links": {
+     "md": "src/content/gatekeeper.js"
+    },
+    "sources": [
+     "src/content/gatekeeper.js code read",
+     "docs/audits/2026-07-21-extension-ux-audit.md"
+    ]
+   },
+   {
+    "id": "context-inheritance",
+    "label": "Context Inheritance",
+    "type": "capability",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-24",
+    "activity": "7/24: cross-surface elapsed-drift fix (6.7.71) corrected the _startedAt back-dating that every other surface reads to compute elapsed time.",
+    "blurb": "The Context Engine the concept doc promises: tabs inherit context from the parent intent declaration, and context propagates through browsing chains so a session can be reconstructed later. Active focuses are offered as inheritable presets in the gate (capped by settings.inheritItemCount). This is what turns declared intent into a running attention model rather than a one-shot prompt.",
+    "links": {
+     "md": "Tabatha_Concept.md"
+    },
+    "sources": [
+     "src/content/gatekeeper.js",
+     "Tabatha_Concept.md"
+    ]
+   },
+   {
+    "id": "blockgate",
+    "label": "BlockGate",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: audit found its first sendMessage has no try/catch — an invalidated extension context throws unhandled and the block silently FAILS OPEN. One-line fix, still open.",
+    "blurb": "The harder sibling of the Gatekeeper: a separate blocked-domain overlay that demands a 50+ character intent and a timer before it will let you through. Unlike the Gatekeeper it fails CLOSED on messaging failure by design. Backed by blockgateService.js, which also owns temporary unblocks and the Sugar Box stash.",
+    "links": {
+     "md": "src/content/blockgate.js"
+    },
+    "sources": [
+     "src/content/blockgate.js",
+     "docs/audits/2026-07-21-SYNTHESIS.md"
+    ]
+   },
+   {
+    "id": "inbar",
+    "label": "InBar",
+    "type": "surface",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: B09 root-caused and specced — focus-list click sends only SWITCH_FOCUS and never saves the typed name. Not yet fixed.",
+    "blurb": "The persistent in-page intent bar (1685 lines, the largest content script) — pause, sticky-note, inline notes, and voice-announced timer/drift overlays on every page. It is the only surface carrying the Backburner button that the spec promised on three surfaces. Partial because it hosts seven distinct auto-triggered overlays with no cooldown between them and no Escape-to-dismiss anywhere, and because B09 is open.",
+    "links": {
+     "md": "src/content/inbar.js",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216832543077901",
+      "label": "🐛 [bug] Pauses resumes everything that happens should be in the timeline log"
+     }
+    },
+    "comments": 4,
+    "lastComment": "2026-07-25",
+    "sources": [
+     "src/content/inbar.js",
+     "docs/features/B09-inbar-edit-assign-inconsistency.md"
+    ]
+   },
+   {
+    "id": "url-rules",
+    "label": "URL Rules & Domain Intelligence",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-20",
+    "activity": "Plan 038 shipped — domain history store drives auto-context so known domains skip the gate.",
+    "blurb": "A rules engine that assigns context to URLs automatically, letting known domains bypass the gate with contextSource 'url_rule'. This is the pressure valve that keeps intentional friction from becoming intentional misery, and it is the substrate the smart-categorization roadmap item builds on.",
+    "links": {
+     "md": "docs/plans/plan-038-url-rules-intelligence.md"
+    },
+    "sources": [
+     "docs/plans/plan-038-url-rules-intelligence.md",
+     "src/background/services/domainHistoryService.js"
+    ]
+   },
+   {
+    "id": "agent-human-toggle",
+    "label": "Agent-vs-Human Gate",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-20",
+    "activity": "7/20: intake #218/#219 merged to staging — agent browsing detection and agent-vs-human history specced; the gate's 🤖 toggle exists, the history split does not.",
+    "blurb": "A segmented control in the gate declaring whether a human or an agent is driving, firing START_AGENT_SESSION scoped to the tab. The toggle and session spans (C11a) are built; separating agent from human browsing in history and analytics is specced (#218/#219) but unbuilt. Matters more than it sounds — Malkio's own agents browse constantly, and unlabelled agent traffic poisons the attention data.",
+    "links": {
+     "md": "docs/features/218-agent-browsing-detection.md"
+    },
+    "sources": [
+     "docs/features/218-agent-browsing-detection.md",
+     "src/background/services/agentSessionService.js"
+    ]
+   },
+   {
+    "id": "inpop-header",
+    "label": "InPop Intent Dropdown",
+    "type": "feature",
+    "status": "planned",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: audit confirmed #212 unbuilt despite the InBar plumbing it would reuse already existing.",
+    "blurb": "Feature #212 — an intent dropdown header for the intent popup. Confirmed unbuilt by the 2026-07-21 parity audit, which noted the reusable InBar plumbing is already there. Small, cheap, and still sitting in the backlog.",
+    "links": {
+     "md": "docs/features/212-inpop-intent-dropdown-header.md"
+    },
+    "sources": [
+     "docs/features/212-inpop-intent-dropdown-header.md"
+    ]
+   },
+   {
+    "id": "bug-xss-sinks",
+    "label": "23 Unescaped HTML Sinks",
+    "type": "bug",
+    "status": "broken",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: Koda's synthesis re-verified and found it WORSE than reported — ~23 sinks not ~12, and cross-user reachable TODAY, not contingent on a future feature.",
+    "blurb": "No escapeHtml() helper exists anywhere in src/. About 23 distinct unescaped innerHTML sites across gatekeeper.js (4) and inbar.js (~19), including notes rendered raw inside a textarea and nine auto-triggered overlay sites. The exploitability was re-classified upward: focus_items.label already syncs to Supabase and is already readable cross-user through the manager/team RLS scoping in migration 012, so a malicious label set on one device renders unescaped in a manager's browser. This is the single highest-ranked NOW item in the audit and it is still open.",
+    "links": {
+     "md": "docs/audits/2026-07-21-SYNTHESIS.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #1"
+    ]
+   },
+   {
+    "id": "bug-gatekeeper-race",
+    "label": "Gate Render Race",
+    "type": "bug",
+    "status": "killed",
+    "updatedAt": "2026-07-25",
+    "activity": "Fixed — gatekeeper.js now attaches a synchronous dim placeholder before any await, so the page cannot paint under the gate.",
+    "blurb": "The page could render before the intent gate appeared, because the overlay was built only after awaiting CHECK_CONTEXT_NEEDED plus two storage round-trips. Undermined the core 'declare intent before browsing' guarantee. Resolved by the synchronous placeholder pattern now visible in the code.",
+    "links": {
+     "md": "src/content/gatekeeper.js"
+    },
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #12",
+     "src/content/gatekeeper.js current code"
+    ]
+   },
+   {
+    "id": "bug-objectobject",
+    "label": "[object Object] Corruption",
+    "type": "bug",
+    "status": "killed",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: 6.7.76 closed the last hole — gatekeeper's own storage keys now sanitize and self-heal on read. 11 new unit tests.",
+    "blurb": "Corrupted intentHistory and intentPresets rendered as literal '[object Object]' in a live gate, and crashed two React panels outright with 'Objects are not valid as a React child'. Fixed with a self-healing repair-on-read contract across gatekeeper.js and two sibling React read sites. A full sweep of every other direct storage read found no further sites in this corruption class.",
+    "links": {
+     "md": "src/utils/focusDataSanitize.js"
+    },
+    "sources": [
+     "Tabatha_Changelog.md v6.7.76",
+     "docs/audits/2026-07-24-live-extension-e2e.md"
+    ]
+   },
+   {
+    "id": "goal-intentional-friction",
+    "label": "GOAL: Friction That Survives Contact",
+    "type": "goal",
+    "status": "in-progress",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: the audit's OVERHAUL theme 7 (content-script modal discipline) is the current shape of this goal — 7 overlays, no cooldown, no Escape, an 8-choice wall.",
+    "blurb": "The product bet: deliberate friction between impulse and action is a feature, not a bug — but only if users keep it switched on. The open work is discipline, not capability: seven auto-triggered overlays with no cooldown, no Escape-to-dismiss anywhere, and a gate offering 8+ choices that contradicts the project's own Progressive Simplicity principle.",
+    "links": {
+     "md": "Tabatha_Concept.md"
+    },
+    "sources": [
+     "Tabatha_Concept.md",
+     "docs/audits/2026-07-21-SYNTHESIS.md OVERHAUL theme 7"
+    ]
+   },
+   {
+    "id": "focus-engine",
+    "label": "Focus Engine",
+    "type": "capability",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-24",
+    "activity": "7/24: 6.7.73 hardened buildFocusRows against a malformed timestamp that could black out an entire install's sync cycle.",
+    "blurb": "The 1798-line heart of the product — focus lifecycle, funnel transitions, and intent-to-focus linking. Every surface (extension, sidecar, watch, companion) is ultimately a view onto this engine's state. Its blast radius is the widest in the system: a throw inside its row-builder silently aborts the whole sync cycle, which is exactly the regression 6.7.73 fixed.",
+    "links": {
+     "md": "src/background/services/focusService.js"
+    },
+    "sources": [
+     "src/background/services/focusService.js",
+     "Tabatha_Changelog.md v6.7.73"
+    ]
+   },
+   {
+    "id": "focus-lifecycle",
+    "label": "Focus Lifecycle",
+    "type": "feature",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-24",
+    "activity": "Start / pause / resume / resolve / +5m extend, with funnel stages Unsorted → Todo → Focus → Addressing → Roadblocked → Resolved. Timer freezes on pause and rebases on resume, identically on all four surfaces.",
+    "blurb": "The verbs of the system, and the one thing implemented consistently everywhere — the watch's TimerEngine is a pure Kotlin port that deliberately mirrors the Sidecar's focus.ts freeze-on-pause / rebase-on-resume math. Reaching that consistency took the 6.7.71 and 6.7.73 elapsed-drift fixes.",
+    "links": {
+     "md": "docs/features.md"
+    },
+    "sources": [
+     "src/background/services/focusService.js",
+     "tabatha-watch/README.md"
+    ]
+   },
+   {
+    "id": "checkpoints",
+    "label": "Checkpoint Progress Notes",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-24",
+    "activity": "Live on extension, sidecar and watch. Five canned progress levels; staleness dot after 30 minutes; a checkpoint added on the wrist appears everywhere within a second.",
+    "blurb": "Structured mid-focus check-ins — a note plus one of five progress levels (None / Little / A lot / Almost / Stuck). This is the highest-value capture moment in the product and the clearest proof that cross-surface sync works, since it round-trips watch → cloud → browser in about a second.",
+    "links": {
+     "md": "supabase/migrations/032_focus_checkpoints.sql"
+    },
+    "sources": [
+     "supabase/migrations/032_focus_checkpoints.sql",
+     "tabatha-watch/README.md"
+    ]
+   },
+   {
+    "id": "backburner",
+    "label": "Backburner",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: B1 promoted — the spec promises the button on InBar, Home and Sidebar; only InBar ever got it. Backend is already generic; this is UI wiring only.",
+    "blurb": "Send a focus to the back burner and pull it back later with resume / snooze / dismiss. Feature #207's own spec says it is 'Available on InBar, Homepage, and Sidebar' — two of the three surfaces never got the button. The message (BACKBURNER_FOCUS) and the data layer are already generic, so the gap is purely presentational.",
+    "links": {
+     "md": "docs/features/207-backburner.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216900393591509",
+      "label": "Backburner ANY focus from extension home/sidebar queue rows (UI wiring only — backend already generic)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "docs/features/207-backburner.md",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #11"
+    ]
+   },
+   {
+    "id": "focus-queue",
+    "label": "Focus Queue & Priority",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: fuzzy search across all queue items from the new-intent box requested for both sidebar and sidecar — not built.",
+    "blurb": "The ranked list of what is not being worked on right now, with P1–P5 priority selection and switch-to / resolve actions. Present on extension sidebar, home, and sidecar. Migration 021 added focus item priority server-side so the ordering survives across devices.",
+    "links": {
+     "md": "supabase/migrations/021_add_focus_item_priority.sql",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216897421024781",
+      "label": "Fuzzy search of ALL queue items from the new-intent box (sidebar + sidecar)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "supabase/migrations/021_add_focus_item_priority.sql",
+     "docs/audits/2026-07-19-surface-parity.md"
+    ]
+   },
+   {
+    "id": "sub-intents",
+    "label": "Sub-Intents",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-17",
+    "activity": "Shipped to the Sidecar in v0.1.0 alongside checkpoints and backburner; nested queue rendering exists on the extension sidebar.",
+    "blurb": "Nested focuses — break a focus into children that carry their own timers and appear in a nested queue. Data-layer complete and Sidecar-native; the parity audit flags that the extension renders them but does not offer the full CRUD the Sidecar does.",
+    "links": {
+     "md": "docs/audits/2026-07-19-surface-parity.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-19-surface-parity.md"
+    ]
+   },
+   {
+    "id": "clock-shifts",
+    "label": "Clock & Work Shifts",
+    "type": "feature",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: #221 confirms there is NO way to fix a missed clock-in — clockIn()/clockOut() take no arguments and hardcode new Date().",
+    "blurb": "Clock in / out / break with stint tracking, concurrent-shift guards, and abandoned-stint reconciliation across devices — the layer that turns attention data into billable hours. Partial for a blunt reason: the times cannot be edited. Work Shifts' 'Edit Shift' is a disabled stub, no EDIT_SHIFT handler exists, and the handlers ignore any payload passed to them.",
+    "links": {
+     "md": "src/background/services/clockService.js"
+    },
+    "sources": [
+     "src/background/services/clockService.js",
+     "docs/features/221-clock-backdate-and-recovery.md"
+    ]
+   },
+   {
+    "id": "surface-workshifts",
+    "label": "Work Shifts Page",
+    "type": "surface",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "Five controls ship as disabled buttons wearing a 'SOON' badge: Edit Shift, Delete, Export Week, Export PDF Timesheet, Sync to Cloud.",
+    "blurb": "A dedicated page for shifts, schedules and the Live Stints panel that reconciles ghost sessions across installs. Honest about its gaps — five of its actions are explicitly badged as stubs rather than pretending to work, which is the pattern the one genuinely dishonest control (Break Notes) fails to follow.",
+    "links": {
+     "md": "src/workshifts/index.jsx"
+    },
+    "sources": [
+     "src/workshifts/index.jsx L262-485"
+    ]
+   },
+   {
+    "id": "surface-activity",
+    "label": "Activity & Backdating Editor",
+    "type": "surface",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "Drag/split/merge of time blocks, custom activity logs, and the retroactive-revision approval flow all carry 'Coming soon' copy.",
+    "blurb": "The retroactive time-editing surface — where a day's tracked blocks get corrected after the fact. The viewer works; the editing verbs that make it useful (drag, split, merge) are unbuilt, which is why #221 treats clock recovery as an unsolved problem rather than a UI wiring job.",
+    "links": {
+     "md": "src/activity/index.jsx"
+    },
+    "sources": [
+     "src/activity/index.jsx L345,L382"
+    ]
+   },
+   {
+    "id": "unified-timeline",
+    "label": "Unified Timeline",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: H7 — the timeline early-returns empty whenever sessions.length === 0, so anyone without the optional desktop companion sees a blank Context Activity with no explanation.",
+    "blurb": "The single chronological view folding browser context, OS window sessions, and clock markers into one strip. It is the payoff for running every surface — and it is also the clearest example of the companion being treated as mandatory in code while being optional in product: users without it lose even their own clock markers.",
+    "links": {
+     "md": "docs/audits/2026-07-21-SYNTHESIS.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #9"
+    ]
+   },
+   {
+    "id": "auto-focus",
+    "label": "Auto-Focus & Drift Detection",
+    "type": "capability",
+    "status": "live",
+    "updatedAt": "2026-07-20",
+    "activity": "Plan 036 shipped (v6.3.3–6.3.6); drift state now drives voice-announced overlays and push notifications.",
+    "blurb": "Detects when attention has drifted from the declared focus and when a new focus should be inferred automatically. Drift is the signal that feeds the nudge system, the InBar amber state, and the drifted push notification — making it the connective tissue between passive tracking and active intervention.",
+    "links": {
+     "md": "docs/plans/plan-037-time-editing.md",
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/pull/21",
+      "label": "PR #21 — Intelligent Focus Lifecycle + Time Editing + URL Rules Domain Store (v6.3.3)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "GitHub PR #21",
+     "src/background/services/autoFocusService.js"
+    ]
+   },
+   {
+    "id": "off-device",
+    "label": "Off-Computer Toggle",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-19",
+    "activity": "7/19: parity audit calls its absence from the desktop companion an 'ironic gap' — the companion is the authority on whether you are at the computer, and cannot say so.",
+    "blurb": "Marks a focus as continuing away from the machine so idle detection stops penalising it. Live on the extension sidebar and the Sidecar. The companion — which literally owns the idle and window signal that should drive it — has no such toggle, and the audit ranks adding it as the single highest-value companion addition.",
+    "links": {
+     "md": "docs/audits/2026-07-19-surface-parity.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-19-surface-parity.md Table 2"
+    ]
+   },
+   {
+    "id": "bug-break-notes",
+    "label": "Break Notes Never Persist",
+    "type": "bug",
+    "status": "broken",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: promoted as 'the one place in the whole audit where the UI actively lies about whether input was saved'.",
+    "blurb": "BreakNotes saves to local React state only — the code comment literally reads 'In production this would persist via sendMessage.' Unlike its correctly-badged 'SOON' siblings it presents as a working input. Cheapest possible fix is the same stub badge used elsewhere; the real fix is a save handler into clockService.",
+    "links": {
+     "md": "docs/audits/2026-07-21-SYNTHESIS.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #10"
+    ]
+   },
+   {
+    "id": "bug-b09-inbar",
+    "label": "B09 — InBar Edit/Assign Inconsistency",
+    "type": "bug",
+    "status": "broken",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: root-caused and specced in the 6.7.79 intake batch, with fix shape and acceptance criteria. Not yet implemented.",
+    "blurb": "Clicking a focus in the InBar edit dropdown sends only SWITCH_FOCUS and never saves the name the user typed; pressing Save instead triggers autoQueueFromIntent, which severs the link just made and spawns a stray queued sub-focus. Two paths, two different wrong outcomes, on the surface users touch most often.",
+    "links": {
+     "md": "docs/features/B09-inbar-edit-assign-inconsistency.md",
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/pull/38",
+      "label": "PR #38 — docs(intake): 2026-07-25 batch — #220 agent session aggregation, B09 InBar root cause, parity/sync/voice audits (6.7.79)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "docs/features/B09-inbar-edit-assign-inconsistency.md",
+     "GitHub PR #38"
+    ]
+   },
+   {
+    "id": "bug-clock-backdate",
+    "label": "Missed Clock-In Is Unfixable",
+    "type": "bug",
+    "status": "broken",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: #221 spec confirms no EDIT_SHIFT handler exists at all, and warns that editing times would insert a DUPLICATE row because shift sync IDs are hashed from the clock times.",
+    "blurb": "Forget to clock in and the hours are simply gone — clockIn()/clockOut() hardcode new Date() and ignore any payload. Worse, the naive fix is booby-trapped: shift-row sync IDs are hashed from the clock times, so editing a time creates a duplicate row rather than updating one (this is sync Root Cause D). An immutable session id has to land first.",
+    "links": {
+     "md": "docs/features/221-clock-backdate-and-recovery.md"
+    },
+    "sources": [
+     "docs/features/221-clock-backdate-and-recovery.md"
+    ]
+   },
+   {
+    "id": "plan-221-clock",
+    "label": "#221 Clock Backdate & Recovery",
+    "type": "plan",
+    "status": "planned",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: specced in 6.7.80 — backdated clock-in, real shift editing, and an evidence-ranked start-time proposal presented as confirm-or-adjust.",
+    "blurb": "The spec that fixes the missed clock-in hole. Its cleverest part is the evidence ladder for proposing when you actually started: companion OS activity → first focus → capture frame → tab activity → calendar, offered as a confirmation rather than a guess. Also carries the consent model that Org Hours depends on.",
+    "links": {
+     "md": "docs/features/221-clock-backdate-and-recovery.md"
+    },
+    "sources": [
+     "Tabatha_Changelog.md v6.7.80"
+    ]
+   },
+   {
+    "id": "bug-elapsed-drift",
+    "label": "Cross-Surface Elapsed Drift",
+    "type": "bug",
+    "status": "killed",
+    "updatedAt": "2026-07-24",
+    "activity": "Fixed in 6.7.71 by back-dating _startedAt to mirror the Sidecar's resume math; 6.7.73 then hardened the same code against a malformed timestamp.",
+    "blurb": "An active focus's elapsed time was undercounted by exactly its accumulated pause time on every surface but the extension, worsening with each pause/resume cycle — a concrete slice of Malkio's 'syncing between surfaces still a little off'. Fixed, with a red-to-green unit test, and then immediately re-hardened when adversarial review found the fix could throw.",
+    "links": {
+     "md": "Tabatha_Changelog.md"
+    },
+    "sources": [
+     "Tabatha_Changelog.md v6.7.71 and v6.7.73"
+    ]
+   },
+   {
+    "id": "sw-background",
+    "label": "MV3 Service Worker",
+    "type": "service",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-29",
+    "activity": "Reduced from a monolith to a 337-line entry by Plan 023; a single alarm router and a single auth owner now sit behind it.",
+    "blurb": "The extension's spine. Everything the content scripts, pages and companion bridge do routes through this worker. Its known operational hazard is documented in CLAUDE.md as a hard rule: a stale worker running against swapped assets makes every sendMessage hang, which has already been root-caused as the cause of an apparent whole-product outage.",
+    "links": {
+     "md": "src/background/background.js"
+    },
+    "sources": [
+     "src/background/background.js",
+     "CLAUDE.md build/load constraint"
+    ]
+   },
+   {
+    "id": "bg-services",
+    "label": "37 Background Services",
+    "type": "capability",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-29",
+    "activity": "Output of Plan 023's decomposition (PRs #1–#12, May 2026) — the monolith became 37 named services with a router skeleton.",
+    "blurb": "The decomposed service layer: focus, sync, clock, tab, companion, capture, awareness, device, calendar, cortex and 27 more. This refactor is why the July velocity was possible — 364 commits in one month across 40 worktrees only works because the zones are separable. Plan 023 is the highest-leverage engineering decision in the repo's history.",
+    "links": {
+     "md": "docs/architecture/service-map.md",
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/pull/11",
+      "label": "PR #11 — refactor(background): Plan 023 router finalization"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "src/background/services/ (37 files)",
+     "GitHub PRs #1-#12"
+    ]
+   },
+   {
+    "id": "surface-home",
+    "label": "Home / New Tab",
+    "type": "surface",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: header layout fix shipped (clock spacing, greeting cutoff, icon bunching, pill overlap).",
+    "blurb": "The actual new-tab override (home.html) and the product's dashboard — FlipClock, Context Activity timeline, intents, initiatives, projects/clients, analytics and the activity heatmap in 2481 lines. Note this is what the manifest overrides; the Gatekeeper is a separate all-URLs intercept, a distinction every portfolio doc gets wrong.",
+    "links": {
+     "md": "src/home/index.jsx",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216767827238609",
+      "label": "Home header layout fix: clock spacing, greeting cutoff, icon bunching, pill overlap"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "public/manifest.json chrome_url_overrides",
+     "src/home/index.jsx"
+    ]
+   },
+   {
+    "id": "surface-sidebar",
+    "label": "Sidebar (Side Panel)",
+    "type": "surface",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-19",
+    "activity": "7/19: parity audit made this the reference surface — 20 of its options are missing from the desktop companion.",
+    "blurb": "The always-accessible command centre: five panels (focus, tasks, tabs, groups, stash) reachable on Ctrl+Shift+S. It is the de-facto specification of what a complete Tabatha surface looks like — every parity audit measures the companion, sidecar and watch against it.",
+    "links": {
+     "md": "src/sidebar/index.jsx"
+    },
+    "sources": [
+     "src/sidebar/index.jsx",
+     "docs/audits/2026-07-19-surface-parity.md"
+    ]
+   },
+   {
+    "id": "surface-popup",
+    "label": "Popup / Quick Switch",
+    "type": "surface",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: B9 — the search placeholder advertises Ctrl+Space while the real shortcut is Ctrl+Shift+E. One-line fix, open.",
+    "blurb": "The toolbar popup for fast intent switching and tab search. Small and functional, but it tells users the wrong keyboard shortcut — a trivially fixable trust leak on the fastest path into the product.",
+    "links": {
+     "md": "src/popup/index.jsx"
+    },
+    "sources": [
+     "src/popup/index.jsx",
+     "docs/audits/2026-07-21-SYNTHESIS.md"
+    ]
+   },
+   {
+    "id": "surface-settings",
+    "label": "Settings",
+    "type": "surface",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-24",
+    "activity": "7/24: 6.7.72 added the Asana PAT connect card, reaching parity with the Sidecar's Epic 3 integration.",
+    "blurb": "24 sections with search, live preview, and the panels for devices, org/team activity, Cortex, Asana and URL rules. Partial because 11 of the 24 live-preview panes render blank with no fallback message, and the information architecture is an explicit OVERHAUL theme — Cortex is buried under 'Privacy & Capture' and Team Activity sits at a different altitude from Devices.",
+    "links": {
+     "md": "src/settings/index.jsx"
+    },
+    "sources": [
+     "src/settings/index.jsx",
+     "docs/audits/2026-07-21-SYNTHESIS.md OVERHAUL theme 1"
+    ]
+   },
+   {
+    "id": "settings-live-preview",
+    "label": "Settings Live Preview",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: 11 of 24 sections render a blank preview pane with no fallback message. The cheap half (add the existing generic fallback string) is a NOW item.",
+    "blurb": "A preview pane that shows what a setting will actually do before you commit to it — a genuinely good idea, half-delivered. Building real mockups for Context View and Blocked Sites is overhaul-scoped, but simply printing the existing fallback string everywhere it is missing is a same-day fix.",
+    "links": {
+     "md": "src/settings/index.jsx"
+    },
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md"
+    ]
+   },
+   {
+    "id": "feedback-widget",
+    "label": "In-App Feedback → Asana",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-23",
+    "activity": "7/23: feedback-review agent protocol doc opened as TR-15; the pipeline itself is proven by live QA probes landing as Asana tasks.",
+    "blurb": "A feedback widget that files bugs and ideas straight into the Asana intake board via an edge function, with a graceful fallback to a prefilled GitHub issue when unconfigured. Genuinely closed-loop: several tasks in the tracker are visibly the output of this widget, including QA probes.",
+    "links": {
+     "md": "supabase/functions/feedback-to-asana/index.ts",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216808364241653",
+      "label": "TR-15 feedback-review agent protocol doc"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "supabase/functions/feedback-to-asana/index.ts",
+     "functions/api/feedback.js"
+    ]
+   },
+   {
+    "id": "hotkeys",
+    "label": "Hotkey Coverage",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "Two commands registered in the manifest (Ctrl+Shift+S side panel, Ctrl+Shift+E tab list). #215 asks for comprehensive coverage; unbuilt.",
+    "blurb": "Rapid intent declaration without touching the mouse — named in the roadmap's original feature backlog and still only two shortcuts deep. For a product whose whole thesis is reducing the cost of declaring intent, this is a conspicuously thin surface.",
+    "links": {
+     "md": "docs/features/215-comprehensive-hotkey-coverage.md"
+    },
+    "sources": [
+     "public/manifest.json commands",
+     "docs/features/215-comprehensive-hotkey-coverage.md"
+    ]
+   },
+   {
+    "id": "notes-system",
+    "label": "#222 Notes System",
+    "type": "feature",
+    "status": "planned",
+    "updatedAt": "2026-07-27",
+    "activity": "7/27: specced in 6.7.81 and filed to the tracker. Status check found there is no free-standing note anywhere in the product today.",
+    "blurb": "A real notepad — a flat stream rather than a filing hierarchy, deliberately avoiding a second taxonomy competing with Contexts. The design answer to 'may or may not be connected to the current focus' is two fields: an immutable contextStamp recorded always, plus an optional one-click linkedFocusId, so resolving a focus can never bury a note. V1 targets the extension sidebar and the desktop companion.",
+    "links": {
+     "md": "docs/features/222-notes-system.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216922774878600",
+      "label": "#222 Notes System — standalone notepad (sidebar + companion V1), optional focus linkage, Mimir opt-in sink"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "docs/features/222-notes-system.md",
+     "Tabatha_Changelog.md v6.7.81"
+    ]
+   },
+   {
+    "id": "test-suite",
+    "label": "Test Suite",
+    "type": "capability",
+    "status": "partial",
+    "updatedAt": "2026-07-29",
+    "activity": "63 test files on Node's built-in node:test, plus chromeMock and supabaseFake fixtures. No React component tests, no E2E, no browser automation.",
+    "blurb": "Strong where it counts and absent where it hurts. Pure helpers and service logic — sync resilience, attribution, outbox, sanitizers, schedule model, org permissions, migration lint — are well covered. UI verification is entirely manual, which is why the audits keep finding rendering-layer bugs (XSS sinks, blank preview panes, [object Object]) that no test could have caught.",
+    "links": {
+     "md": "test/"
+    },
+    "sources": [
+     "package.json test script",
+     "test/ (63 files)"
+    ]
+   },
+   {
+    "id": "supabase-backend",
+    "label": "Supabase Backend (project \"Flux\")",
+    "type": "infra",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-08-01",
+    "activity": "8/1: probed live — REST and auth endpoints both answer 401 'No API key found', i.e. the API is up and correctly rejecting unauthenticated calls. Controls example.com and supabase.com both 200.",
+    "blurb": "The single spine every surface shares — and the hardest evidence that Tabatha is a Flux child rather than a sibling: the linked project is literally NAMED 'Flux' (ref mtdgoahskcibjbhfvofx). Postgres with a dedicated `tabatha` schema, Auth, Realtime, Storage, Edge Functions and pg_cron. One production project, no staging.",
+    "links": {
+     "web": {
+      "url": "https://mtdgoahskcibjbhfvofx.supabase.co",
+      "label": "Supabase project mtdgoahskcibjbhfvofx (named \"Flux\")"
+     }
+    },
+    "sources": [
+     "supabase/.temp/linked-project.json",
+     "live curl probe 2026-08-01"
+    ]
+   },
+   {
+    "id": "schema-tabatha",
+    "label": "tabatha Schema (71 migrations)",
+    "type": "infra",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-29",
+    "activity": "Migrations 001 → 060, with gaps at 029, 046-049 and 051-057 — the sequence jumps 045 → 050 → 058.",
+    "blurb": "Roughly 40 tables and 34 SECURITY DEFINER functions covering focus items, checkpoints, events, clock sessions, desktop activity, calendars, orgs/teams, invites, devices, push and the Cortex ledger. Three migrations carry dedicated lint tests. The numbering gaps are worth noting: they mean migrations were drafted and abandoned, so the file list is not a reliable record of what was ever considered.",
+    "links": {
+     "md": "supabase/migrations/"
+    },
+    "sources": [
+     "supabase/migrations/ (71 files)"
+    ]
+   },
+   {
+    "id": "rls-policies",
+    "label": "RLS & Manager Scoping",
+    "type": "capability",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: migration 015 fixed a recursion bug and 016 restored write RLS, but the revoke guard is still missing; 045 explicitly notes no policy change was made for its new columns.",
+    "blurb": "Row-level security is what makes a single shared project safe for org/team scoping — and it is also the layer through which the XSS bug becomes cross-user. Migration 012's manager/team scoping means one user's focus label is readable in another user's browser, which is exactly why the unescaped-sinks bug was reclassified upward from self-XSS.",
+    "links": {
+     "md": "supabase/migrations/016_restore_browser_profiles_write_rls.sql"
+    },
+    "sources": [
+     "supabase/migrations/012,015,016,045",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #2"
+    ]
+   },
+   {
+    "id": "edge-functions",
+    "label": "Edge Functions (11)",
+    "type": "service",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "Eleven deployed functions; three run on pg_cron (asana sync every 5 min, focus push every 1 min, schedule nudges every 5 min).",
+    "blurb": "The server-side surface: asana-webhook, connect-asana, disconnect-asana, sync-asana-tasks, cortex-proxy, device-signout, feedback-to-asana, invite-check, pair-watch, send-focus-push, send-schedule-nudges. These are what let the watch and phone work without an extension anywhere near them.",
+    "links": {
+     "md": "supabase/functions/"
+    },
+    "sources": [
+     "supabase/functions/ (11 dirs)",
+     "supabase/config.toml"
+    ]
+   },
+   {
+    "id": "fn-pair-watch",
+    "label": "pair-watch Function",
+    "type": "service",
+    "status": "live",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: Dex shipped a pair-watch fix plus brute-force hardening after the 2026-07-24 live E2E run.",
+    "blurb": "Mints and redeems the 6-digit code that lets a watch join an account without ever seeing a password. Mint is JWT-authenticated; redeem is deliberately unauthenticated (verify_jwt=false) because the watch has no session yet — which is precisely why it needed brute-force hardening.",
+    "links": {
+     "md": "supabase/functions/pair-watch/index.ts",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216867648342595",
+      "label": "[Dex] pair-watch fix + brute-force hardening — 2026-07-24"
+     }
+    },
+    "comments": 3,
+    "lastComment": "2026-07-25",
+    "sources": [
+     "supabase/functions/pair-watch/index.ts",
+     "supabase/migrations/040_watch_pairing_codes.sql"
+    ]
+   },
+   {
+    "id": "fn-push",
+    "label": "Web Push Functions",
+    "type": "service",
+    "status": "partial",
+    "updatedAt": "2026-07-25",
+    "activity": "send-focus-push covers timer_expired, drifted, checkpoint_stale and focus_away. send-schedule-nudges only does the clock-in nudge — its blockStart and idleNudge paths are marked v2/v3 and are NOT built.",
+    "blurb": "VAPID Web Push driven by pg_cron, with dedup logging so a nudge cannot fire twice. This is the mechanism that makes the phone useful without the app open. Honest in its own header about what it does not yet do, which is more than most of this codebase's docs manage.",
+    "links": {
+     "md": "supabase/functions/send-focus-push/index.ts"
+    },
+    "sources": [
+     "supabase/functions/send-focus-push/index.ts",
+     "supabase/functions/send-schedule-nudges/index.ts"
+    ]
+   },
+   {
+    "id": "sync-service",
+    "label": "Sync Service (push)",
+    "type": "capability",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: sync forensics (Sable) and the sync-integrity cluster (Corin) both landed; two named root causes remain open.",
+    "blurb": "1206 lines of watermark-based push sync with a 20-row diagnostics ring and column-missing resilience. The architecture is deliberately asymmetric — mostly push-up, with only two narrow once-per-install pull-downs — which works until two devices disagree, and that disagreement is exactly Root Cause A.",
+    "links": {
+     "md": "src/background/services/syncService.js",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216882088851799",
+      "label": "[Sable] Cross-surface sync forensics — 2026-07-24"
+     }
+    },
+    "comments": 1,
+    "lastComment": "2026-07-25",
+    "sources": [
+     "src/background/services/syncService.js",
+     "docs/audits/2026-07-24-sync-forensics.md"
+    ]
+   },
+   {
+    "id": "cloud-outbox",
+    "label": "Durable Cloud Outbox",
+    "type": "capability",
+    "status": "live",
+    "updatedAt": "2026-07-24",
+    "activity": "cloudWriteService is the single auth owner; page contexts enqueue into _cloudOutbox when the service worker is unreachable, flushed by an alarm.",
+    "blurb": "The offline-and-flaky-worker safety net. Establishing 'background is the single auth owner' and routing every write through a durable queue is what stops MV3's service-worker lifecycle from silently eating user data — a real risk given the documented stale-worker failure mode.",
+    "links": {
+     "md": "src/background/services/cloudWriteService.js"
+    },
+    "sources": [
+     "src/background/services/cloudWriteService.js",
+     "src/utils/cloudOutbox.js"
+    ]
+   },
+   {
+    "id": "data-rehydrate",
+    "label": "Rehydrate & Bootstrap Pull",
+    "type": "capability",
+    "status": "partial",
+    "updatedAt": "2026-07-24",
+    "activity": "Both run ONCE per install, gated by _dataRehydratedAt and _orgRegistryBootstrappedAt. desktop_activity rehydrate is explicitly 'intentionally NOT done here for day one'.",
+    "blurb": "The only two paths that pull cloud state down into a fresh install — org registry bootstrap and a sign-in rehydrate of clock sessions, intent history and focus items. Because they are once-per-install, a device that drifts after that first pull has no repair path, which is the structural reason Root Cause A keeps producing symptoms.",
+    "links": {
+     "md": "src/background/services/dataRehydrate.js"
+    },
+    "sources": [
+     "src/background/services/dataRehydrate.js",
+     "src/background/services/bootstrapPull.js"
+    ]
+   },
+   {
+    "id": "realtime",
+    "label": "Supabase Realtime",
+    "type": "capability",
+    "status": "partial",
+    "updatedAt": "2026-07-17",
+    "activity": "Migrations 011/033/045 publish profiles, focus_items, browser_profile_status and browser_profiles to supabase_realtime. The Sidecar subscribes; the extension does NOT.",
+    "blurb": "Live cross-surface updates — the reason a checkpoint on the watch appears on the phone within a second. The asymmetry matters: the phone is a realtime client and the browser extension is not, so the extension is always the last surface to learn that something changed.",
+    "links": {
+     "md": "supabase/migrations/033_realtime_focus_status.sql"
+    },
+    "sources": [
+     "supabase/migrations/011,033,045",
+     "sidecar/src/data/focus.ts"
+    ]
+   },
+   {
+    "id": "auth-identity",
+    "label": "Auth & Session Identity",
+    "type": "capability",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "Web Locks disabled with a noop lock and a custom chrome.storage.local session adapter, so the service worker and every extension page share one session.",
+    "blurb": "Getting Supabase auth to work inside MV3 took two dedicated fix PRs (#17, #18) to defeat a Web-Locks contention cascade. The result is solid, but the SMTP is still unbranded — sign-in mails come 'from supabase.co' because custom SMTP was never configured, blocked only on an app password.",
+    "links": {
+     "md": "src/services/supabaseClient.js",
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/pull/17",
+      "label": "PR #17 — fix(auth): disable supabase-js Web Locks — fixes lock-contention abort cascade"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "src/services/supabaseClient.js",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #6"
+    ]
+   },
+   {
+    "id": "device-management",
+    "label": "Device Management",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-25",
+    "activity": "Migration 045 added the device columns; 6.7.53/6.7.54 added session-aware revoked-row reclaim in application code. The RLS half is still missing.",
+    "blurb": "A device roster with remote sign-out, built after ghost-stint chaos from installs that never died properly. The application-code fix works; the database does not enforce it, so the remote-sign-out guarantee is only as strong as the client honouring it. The audit also flags two non-cross-referencing 'your devices' systems (Devices panel vs Live Stints) as an overhaul theme.",
+    "links": {
+     "md": "supabase/migrations/045_device_management.sql"
+    },
+    "sources": [
+     "supabase/migrations/045_device_management.sql",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #2"
+    ]
+   },
+   {
+    "id": "invites",
+    "label": "Invites & Onboarding Gate",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-29",
+    "activity": "Migrations 043/044/059 — app-level invites, an invite-kinds remodel, and short invite tokens; invite-check gates the public download page without consuming the token.",
+    "blurb": "Tabatha is invite-only, and the invite system is the gate on the whole funnel: it guards the download page, mints app-level and org-level invites, and sets profile defaults on redemption. A quiet piece of infrastructure that has had four migrations of iteration, which tells you it is load-bearing.",
+    "links": {
+     "md": "supabase/migrations/059_short_invite_tokens.sql"
+    },
+    "sources": [
+     "supabase/migrations/043,044,059",
+     "supabase/functions/invite-check/index.ts"
+    ]
+   },
+   {
+    "id": "org-teams",
+    "label": "Orgs, Teams & Hours",
+    "type": "feature",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: migration 060 added get_org_hours_summary and set_share_hours_with_org — the consent-gated RPC the audit specced as NOW #5.",
+    "blurb": "The multi-tenant layer that turns a personal tool into something a business can run payroll against. Deliberately paused on consent: migration 019 computed the right aggregates but granted them to service_role only, by design, until #221 specified the opt-in shape. Default behaviour returns aggregate totals only, and personal-realm data is hard-fenced out regardless of opt-in.",
+    "links": {
+     "md": "supabase/migrations/060_org_hours_summary_rpc.sql",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216897421066930",
+      "label": "Po call (2026-07-24) privacy features — non-work window exclusion/redaction + whitelist-mode tracking + call follow-ups"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "supabase/migrations/019,026,060",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #5"
+    ]
+   },
+   {
+    "id": "bug-rls-revoke",
+    "label": "Revoked Device Can Un-Revoke Itself",
+    "type": "bug",
+    "status": "broken",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: independently confirmed STILL OPEN despite the 6.7.54 session-aware application fix — migration 016's bare WITH CHECK has no session-identity test.",
+    "blurb": "A revoked session's still-valid JWT can hit the Supabase REST API directly, bypassing the extension UI, and clear its own revoked_at. Scope is same-profile only, but it defeats the remote-sign-out guarantee for that device. Named the single highest-leverage fix in the device-lifecycle area, and it is a small one — a WITH CHECK or a BEFORE UPDATE trigger.",
+    "links": {
+     "md": "docs/audits/2026-07-21-SYNTHESIS.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #2"
+    ]
+   },
+   {
+    "id": "bug-sync-root-a",
+    "label": "Sync Root Cause A — Recency Arbitration",
+    "type": "bug",
+    "status": "broken",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: filed to the tracker together with Root Cause D, explicitly needing a new plan (#047). Nothing built.",
+    "blurb": "Cross-surface conflicts are arbitrated by recency, which means the last writer wins regardless of whether it knew anything. Combined with once-per-install pull-downs, a device that drifts never converges back. This is the architectural root beneath every 'sync is a little off' report Malkio has filed.",
+    "links": {
+     "md": "docs/audits/2026-07-24-sync-forensics.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216903467194391",
+      "label": "Sync architecture — Root Cause A (recency-based arbitration, needs plan #047) + Root Cause D (clock adoption duplicates shifts)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "docs/audits/2026-07-24-sync-forensics.md",
+     "Asana 1216903467194391"
+    ]
+   },
+   {
+    "id": "bug-sync-root-d",
+    "label": "Sync Root Cause D — Duplicate Shifts",
+    "type": "bug",
+    "status": "broken",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: filed alongside Root Cause A. Blocks #221 clock editing until an immutable session id exists.",
+    "blurb": "Shift rows are keyed by an ID hashed from their clock times, so clock adoption across devices — and any future time edit — inserts a duplicate row instead of updating the existing one. It is why the clock-backdate feature cannot simply be built: the fix has to land in the data model first.",
+    "links": {
+     "md": "docs/features/221-clock-backdate-and-recovery.md"
+    },
+    "sources": [
+     "docs/features/221-clock-backdate-and-recovery.md",
+     "Asana 1216903467194391"
+    ]
+   },
+   {
+    "id": "plan-047-sync",
+    "label": "Plan 047 — Sync Arbitration",
+    "type": "plan",
+    "status": "planned",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: number reserved and referenced from the #221 spec and the Root Cause task. No plan document exists yet in docs/plans/.",
+    "blurb": "The reserved slot for fixing sync arbitration properly. Notable for what it is not: docs/plans/ contains 037, 038, 040-045 — there is no plan-047 file. The number was minted by an addendum correction, so this is a placeholder for the most structurally important unstarted work in the system.",
+    "links": {
+     "md": "docs/plans/"
+    },
+    "sources": [
+     "Tabatha_Changelog.md v6.7.80 addendum",
+     "docs/plans/ listing"
+    ]
+   },
+   {
+    "id": "corin-sync-integrity",
+    "label": "Sync Integrity Cluster",
+    "type": "task",
+    "status": "in-progress",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: Corin's cluster covering findings #4/#5/#7/#9 from the 2026-07-24 platform review; four comments in one working session.",
+    "blurb": "The remediation batch spun out of the 24 July cross-surface sync forensics — the tactical half of the sync problem, as distinct from the architectural half that Plan 047 owns. Active work front as of the last tracker activity.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216867449144216",
+      "label": "[Corin] Sync integrity cluster #4/#5/#7/#9 — 2026-07-24"
+     }
+    },
+    "comments": 4,
+    "lastComment": "2026-07-25",
+    "sources": [
+     "Asana 1216867449144216"
+    ]
+   },
+   {
+    "id": "desktop-companion",
+    "label": "Desktop Companion (Tauri)",
+    "type": "service",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-23",
+    "activity": "7/23: v0.3.10 released to GitHub (tag desktop-v0.3.10). package.json, tauri.conf.json and Cargo.toml all agree on 0.3.10 — the portfolio's 'v0.1.0 shipped' is three minor versions stale.",
+    "blurb": "'Tabby Desk' — a Windows tray app in 8703 lines of Rust across 14 modules, and the surface that makes Tabatha an attention OS rather than a browser extension. It shipped, kept shipping, and is now on its tenth patch of the 0.3 line. Its version story is the single most misreported fact in the workspace docs.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/releases/tag/desktop-v0.3.10",
+      "label": "Release desktop-v0.3.10 — Tabatha Desktop Companion 0.3.10 (Windows)"
+     },
+     "md": "docs/system-map/COMPANION-MAP.md"
+    },
+    "comments": 0,
+    "sources": [
+     "tabatha-desktop git HEAD 28c96a0",
+     "gh release list MrMalkio/tabatha"
+    ]
+   },
+   {
+    "id": "os-focus-tracking",
+    "label": "OS-Level Focus Tracking",
+    "type": "capability",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-23",
+    "activity": "window_monitor.rs (245 lines) polls the Win32 foreground window; categorizer.rs (259 lines) maps executables to categories; activity_log.rs (901 lines) persists to bundled SQLite.",
+    "blurb": "The capability nothing else in the family has: knowing what you are doing when the browser is not in front. Active-window title and executable, idle state, and per-app time, logged locally to SQLite and bridged to the extension. This is the literal extension of the attention model past the browser's edge, and it is why the product can claim 'operating system' rather than 'tab manager'.",
+    "links": {
+     "md": "docs/system-map/COMPANION-MAP.md"
+    },
+    "sources": [
+     "tabatha-desktop/src-tauri/src/window_monitor.rs",
+     "activity_log.rs",
+     "categorizer.rs"
+    ]
+   },
+   {
+    "id": "ws-bridge",
+    "label": "Local WebSocket Bridge :9147",
+    "type": "integration",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-23",
+    "activity": "ws_server.rs is the largest Rust module at 1932 lines; the extension side is companionService.js at 759 lines.",
+    "blurb": "How the desktop app and the browser extension talk: ws://localhost:9147/tabatha. The code itself documents the risk in a comment — the socket is reachable by ANY process on the machine, including any web page that opens a WebSocket to localhost — which is precisely why the Stage-2 handshake work exists.",
+    "links": {
+     "md": "src/background/services/companionService.js"
+    },
+    "sources": [
+     "tabatha-desktop/src-tauri/src/ws_server.rs L2,25,45-46",
+     "src/background/constants.js L156"
+    ]
+   },
+   {
+    "id": "ws-handshake",
+    "label": "WS Stage-2 Handshake Auth",
+    "type": "feature",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-20",
+    "activity": "7/20: 16 comments on the Dex task, then twelve personal reminders through 7/21 and no comment since — the busiest thread in the tracker that then went quiet.",
+    "blurb": "Authenticating the localhost bridge so an arbitrary web page cannot impersonate the extension. There is a dedicated branch (feat/ws-stage2-handshake-auth) and the single most-discussed task in the tracker, but the discussion stopped on 20 July and turned into a run of self-reminders. Classic loud-then-abandoned thread on a security-relevant seam.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216679341518745",
+      "label": "Extension: companion WS HELLO handshake (Stage-2 client side) — Dex"
+     }
+    },
+    "comments": 16,
+    "lastComment": "2026-07-20",
+    "sources": [
+     "Asana 1216679341518745",
+     "tabatha-desktop branch feat/ws-stage2-handshake-auth"
+    ]
+   },
+   {
+    "id": "desktop-capture",
+    "label": "Companion Screen Capture",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-23",
+    "activity": "screen_capture.rs at 1449 lines; the extension's captureService.js marks its own C3 external-archive path as a stub because the companion is now the concrete implementation.",
+    "blurb": "OS-level screen capture with redaction, feeding the Cortex observation ledger. Moving capture out of the browser was the right call — it dodged the Save-As dialog problem entirely and gave Cortex frames from every app, not just Chrome. The extension-side stub comment is the visible seam where that handoff happened.",
+    "links": {
+     "md": "docs/cortex/DATA-MAP.md"
+    },
+    "sources": [
+     "tabatha-desktop/src-tauri/src/screen_capture.rs",
+     "src/background/services/captureService.js L203"
+    ]
+   },
+   {
+    "id": "desktop-updater",
+    "label": "Companion Auto-Update",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-23",
+    "activity": "7/23: 0.3.10 added visible update-check feedback and an out-of-date badge — the fix for an updater that used to succeed or fail silently.",
+    "blurb": "Tauri updater plus a manual check, driven by a manifest at site/desktop/latest.json. Partial because that manifest is stale: it still advertises desktop-v0.2.1 while 0.3.10 is the published release, so the in-app updater is pointing users at a version eight patches old.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216818594565452",
+      "label": "Companion update-check visible feedback + out-of-date indicator"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "site/desktop/latest.json",
+     "tabatha-desktop git log 28c96a0"
+    ]
+   },
+   {
+    "id": "desktop-code-signing",
+    "label": "Companion Code Signing",
+    "type": "task",
+    "status": "blocked",
+    "updatedAt": "2026-07-23",
+    "activity": "A feat/code-signing branch and a docs/CODE-SIGNING.md exist on the remote; not merged into the release line.",
+    "blurb": "Unsigned Windows installers mean every staff install fights SmartScreen. The branch and the runbook exist but the work never landed, which quietly taxes every companion rollout — and the companion is the surface with the most install friction already.",
+    "links": {
+     "md": "docs/system-map/COMPANION-BACKLOG.md"
+    },
+    "sources": [
+     "tabatha-desktop branch feat/code-signing",
+     "tabatha-desktop/docs/CODE-SIGNING.md"
+    ]
+   },
+   {
+    "id": "companion-parity-gap",
+    "label": "Companion Parity Backlog (16)",
+    "type": "task",
+    "status": "planned",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: filed from the 7/19 parity audit — 20 sidebar options and 18 sidecar options missing from the companion, consolidated to 16 recommended additions.",
+    "blurb": "The companion sees what app you are in but not why. It has no current-focus card, no lifecycle controls, no checkpoint capture, no backburner, no off-computer toggle — the one control it is uniquely qualified to own. Closing this turns the desk panel from a passive logger into a control surface for when the browser is closed.",
+    "links": {
+     "md": "docs/audits/2026-07-19-surface-parity.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216897420987380",
+      "label": "Companion parity backlog — 16 options from sidebar/sidecar to add to Tabby Desk (audit doc)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "docs/audits/2026-07-19-surface-parity.md",
+     "Asana 1216897420987380"
+    ]
+   },
+   {
+    "id": "bug-assign-intent-deadend",
+    "label": "Assign-to-Intent Is Cosmetic",
+    "type": "bug",
+    "status": "broken",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: escalated deliberately as a product-communication decision rather than silently patched — the auditor recommended raising it with Malkio before any announcement.",
+    "blurb": "The companion lets you assign an OS window to an intent, and it looks like it works — but the assignment never feeds time totals. A feature that appears to record work and does not is worse than a missing feature, and the audit correctly refused to treat it as a code fix.",
+    "links": {
+     "md": "docs/audits/2026-07-21-sidecar-companion-watch-ux-audit.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216808364397396",
+      "label": "TR-02 Companion 0.3.9 fix pass"
+     }
+    },
+    "comments": 1,
+    "lastComment": "2026-07-23",
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #3"
+    ]
+   },
+   {
+    "id": "sidecar-pwa",
+    "label": "Tabby Sidecar (phone PWA)",
+    "type": "surface",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-29",
+    "activity": "8/1: probed live — https://tabatha.pondocean.co/sidecar returns 200. app.json in the checked-out branch reads 0.11.0; the newest release commit references 0.13.14.",
+    "blurb": "THE live mobile surface, and the answer to 'which mobile effort is real': neither standalone repo — it is an Expo app living inside the main Tabatha repo at sidecar/, deployed as a PWA on a Cloudflare Worker. Ten screens including a landscape Context View, direct-to-Supabase data, realtime subscriptions and Web Push. It went 0.0.1 → 0.2.1 in a single 48-hour stretch in July and has been the fastest-moving surface since.",
+    "links": {
+     "web": {
+      "url": "https://tabatha.pondocean.co/sidecar",
+      "label": "Tabby Sidecar — live PWA"
+     },
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/pull/24",
+      "label": "PR #24 — feat(sidecar): v0.1.0 — full sidebar parity, PWA, unified clock, expanded push (Plan 039)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "sidecar/app.json",
+     "live curl probe 2026-08-01",
+     "GitHub PRs #23-#26"
+    ]
+   },
+   {
+    "id": "sidecar-context-view",
+    "label": "Context View (3rd screen)",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-18",
+    "activity": "Shipped in Sidecar v0.2.0 with realtime; v0.2.1 added the phone-away red accountability alert.",
+    "blurb": "A landscape, view-only display for a spare monitor or a TV: giant current focus, timer, up-next, a day countdown, and a red alert when the phone has wandered off. This is the most distinctive thing the phone surface does — turning an old device into an ambient accountability display rather than another place to poke at the app.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/pull/26",
+      "label": "PR #26 — feat(sidecar): v0.2.1 — phone-away red accountability alert on the Context View"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "GitHub PRs #25, #26",
+     "sidecar/src/app/"
+    ]
+   },
+   {
+    "id": "phone-focus-mode",
+    "label": "Phone Focus Mode",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-17",
+    "activity": "Shipped in Sidecar v0.1.0 using the Page Visibility API; feeds the 3-way phone-away heartbeat.",
+    "blurb": "Uses page visibility to detect that you have put the phone down — or picked it up mid-focus — and turns that into an accountability signal rather than a notification. Combined with the companion's idle state and the browser's own activity, it gives a three-way read on whether the human is actually working.",
+    "links": {
+     "md": "sidecar/src/components/PhoneFocusMode.tsx"
+    },
+    "sources": [
+     "sidecar/src/components/PhoneFocusMode.tsx",
+     "GitHub PR #24"
+    ]
+   },
+   {
+    "id": "watch-app",
+    "label": "Tabby Watch (Wear OS)",
+    "type": "surface",
+    "status": "partial",
+    "priority": "high",
+    "updatedAt": "2026-07-24",
+    "activity": "7/24: HEAD is 0.2.2 on branch fix/watch-0.2.1-polish, adding staleness timestamps and error/empty disambiguation. 29 Kotlin files including 5 test files.",
+    "blurb": "A Wear OS 4 companion for the Galaxy Watch 6, and the surface no portfolio document mentions at all. Real architecture, not a toy: pure unit-tested TimerEngine mirroring the Sidecar's math, hand-rolled PostgREST rather than a heavyweight SDK, Keystore-backed sessions, manual DI. Partial because its own README still claims version 0.1.0 while the build says 0.2.2, and no release artifact exists.",
+    "links": {
+     "md": "docs/audits/2026-07-21-sidecar-companion-watch-ux-audit.md",
+     "web": {
+      "url": "https://tabatha.pondocean.co/show/components-watch.html",
+      "label": "Watch components on the live /show showcase"
+     }
+    },
+    "sources": [
+     "tabatha-watch/app/build.gradle.kts versionName 0.2.2",
+     "tabatha-watch/README.md"
+    ]
+   },
+   {
+    "id": "watch-pairing",
+    "label": "Password-Free Watch Pairing",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-25",
+    "activity": "v0.2.0 shipped the Pair screen — described in its own commit as 'the missing path out of fixture mode'.",
+    "blurb": "The watch never asks for or stores a password. The phone shows a 6-digit code valid for five minutes; the watch exchanges it via the pair-watch function for its own session token, stored in the Android Keystore. Elegant, and the reason a wrist device can join a Supabase account at all.",
+    "links": {
+     "md": "supabase/migrations/040_watch_pairing_codes.sql"
+    },
+    "sources": [
+     "tabatha-watch/README.md pairing section",
+     "tabatha-watch git log dc7bcd4"
+    ]
+   },
+   {
+    "id": "watch-tile",
+    "label": "Watch Tile & Complication",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-24",
+    "activity": "7/24: 0.2.2 added a staleness timestamp on the Tile cache and disambiguated error from empty states.",
+    "blurb": "Current focus on a swipe-left card and on the watch face itself — the most glanceable surface in the family. The 0.2.2 work is telling: showing stale cached data without saying it is stale is the characteristic failure mode of a wrist surface, and it took a dedicated fix pass to admit uncertainty in the UI.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216808418576257",
+      "label": "TR-05 Watch network crash-guard 0.2.1"
+     }
+    },
+    "comments": 1,
+    "lastComment": "2026-07-23",
+    "sources": [
+     "tabatha-watch app/src FocusTileService.kt, FocusComplicationService.kt"
+    ]
+   },
+   {
+    "id": "bug-watch-crash",
+    "label": "Watch Crashed On Any Network Failure",
+    "type": "bug",
+    "status": "killed",
+    "updatedAt": "2026-07-23",
+    "activity": "Fixed in 0.2.1 — 'guard all repository calls with runCatching (no crash on network failure)'.",
+    "blurb": "Every repository call in the watch was unguarded, so any connectivity blip took the whole app down. Flagged as a ship-blocker for any watch update by the 21 July audit and fixed two days later. Worth keeping visible a moment longer as the cleanest example of the audit-to-fix loop actually closing.",
+    "links": {
+     "md": "docs/audits/2026-07-21-sidecar-companion-watch-ux-audit.md"
+    },
+    "sources": [
+     "tabatha-watch git log 5f8977f",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #4"
+    ]
+   },
+   {
+    "id": "mobile-expo-legacy",
+    "label": "tabatha-mobile (abandoned)",
+    "type": "surface",
+    "status": "killed",
+    "updatedAt": "2026-05-30",
+    "activity": "19 commits, ALL in May 2026, last on 2026-05-30. Nothing since. Working tree still dirty with 3 uncommitted files.",
+    "blurb": "The first mobile attempt — React Native / Expo with a genuinely ambitious native Android module for UsageStatsManager tracking, a foreground service, a ported categorizer and local SQLite. It got further than most abandoned efforts and then simply stopped. Its FEATURES.md still shows unchecked boxes for the focus-matching work that would have made it useful.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "git log tabatha-mobile (19 commits, all 2026-05)",
+     "tabatha-mobile/FEATURES.md"
+    ]
+   },
+   {
+    "id": "mobile-android-lab",
+    "label": "tabatha-mobile-2 (design lab)",
+    "type": "surface",
+    "status": "killed",
+    "updatedAt": "2026-05-30",
+    "activity": "6 commits, ALL on a single day (2026-05-30). Final commit: 'feat(design): pivot AI Studio to UI/UX design lab'.",
+    "blurb": "Not a competing mobile app — a Google AI Studio scaffold that lived for one day. The Kotlin is 15 generated files in the `com.example` package with an ExampleInstrumentedTest, and the README is still Google's AI Studio banner. Its lasting value is FEATURE_AUDIT_V6.md, a genuinely thorough inventory of the extension's v6 feature surface that remains the best parity reference in the workspace.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "git log tabatha-mobile-2 (6 commits, 2026-05-30)",
+     "tabatha-mobile-2/README.md",
+     "tabatha-mobile-2/app/src (com.example package)"
+    ]
+   },
+   {
+    "id": "goal-surface-parity",
+    "label": "GOAL: One OS, Every Surface",
+    "type": "goal",
+    "status": "in-progress",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/19 parity audit quantified the gap: 20 sidebar options and 18 sidecar options absent from the companion; the extension still cannot render backburner/sub-intents/checkpoints that exist data-layer-wide.",
+    "blurb": "The defining ambition: the same attention state, controllable from wherever you are — browser, desktop, phone, wrist. The data layer already achieves it; the UIs do not. Parity gaps run in BOTH directions, with the Sidecar ahead of the extension on several features the extension's own backend already supports.",
+    "links": {
+     "md": "docs/audits/2026-07-19-surface-parity.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-19-surface-parity.md",
+     "docs/audits/2026-07-21-SYNTHESIS.md OVERHAUL theme 5"
+    ]
+   },
+   {
+    "id": "site-marketing",
+    "label": "Marketing Site",
+    "type": "surface",
+    "status": "live",
+    "updatedAt": "2026-08-01",
+    "activity": "8/1: probed live — tabatha.pondocean.co returns 200. Deployed via wrangler to Cloudflare Pages project `tabatha` on branch main.",
+    "blurb": "The public face: a teaser homepage with a waitlist, privacy policy, enterprise and desktop paths. Still framed as 'Not released yet', which is accurate — the product ships through invite and force-install channels, not open signup. Carries a real CSP with no third-party origins at all.",
+    "links": {
+     "web": {
+      "url": "https://tabatha.pondocean.co",
+      "label": "tabatha.pondocean.co — live marketing site"
+     }
+    },
+    "sources": [
+     "live curl probe 2026-08-01",
+     "site/_headers",
+     "package.json site:deploy"
+    ]
+   },
+   {
+    "id": "showcase-show",
+    "label": "/show Component Showcase",
+    "type": "surface",
+    "status": "live",
+    "updatedAt": "2026-08-01",
+    "activity": "8/1: probed live — /show returns 200. 15 pages: per-surface frames plus nine components-* category pages, a roadmap, and a search index.",
+    "blurb": "A living component gallery rendered from the project's own code and tokens, with per-surface frames for gatekeeper, home, popup, sidebar, settings, workshifts and backdating, plus category pages for companion, watch, mobile, sidecar and org. It doubles as the source of the Chrome Web Store screenshots and has its own maintenance skill so updates land in every place they must.",
+    "links": {
+     "web": {
+      "url": "https://tabatha.pondocean.co/show/",
+      "label": "/show — live component showcase and roadmap"
+     }
+    },
+    "sources": [
+     "live curl probe 2026-08-01",
+     "site/show/ (15 pages)",
+     ".claude/skills/showcase-site-update"
+    ]
+   },
+   {
+    "id": "docs-site",
+    "label": "User Docs Site",
+    "type": "surface",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: version badge hardcoded to v6.7.41 and eight shipped features missing or stale. No freshness-check mechanism exists at all.",
+    "blurb": "Thirteen user-facing doc pages with their own search index, covering getting started for each surface. Partial because it drifts by construction: the version is hardcoded rather than driven from manifest.json, and there is no CI gate comparing docs against the changelog — so it is stale the moment anything ships.",
+    "links": {
+     "web": {
+      "url": "https://tabatha.pondocean.co/docs/getting-started-extension.html",
+      "label": "Tabatha user docs — getting started"
+     }
+    },
+    "sources": [
+     "site/docs/",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #7"
+    ]
+   },
+   {
+    "id": "download-page",
+    "label": "Download Page",
+    "type": "surface",
+    "status": "live",
+    "updatedAt": "2026-07-21",
+    "activity": "Invite-gated via the invite-check edge function; offers extension, companion and sidecar paths.",
+    "blurb": "The single funnel into the product, gated by a non-consuming invite check so a bad code fails before anything is spent. It points at the Chrome Web Store ID — which is the one link on it that does not yet resolve to a published listing.",
+    "links": {
+     "web": {
+      "url": "https://tabatha.pondocean.co/download.html",
+      "label": "Tabatha download page (invite-gated)"
+     }
+    },
+    "sources": [
+     "site/download.html",
+     "supabase/functions/invite-check/index.ts"
+    ]
+   },
+   {
+    "id": "waitlist",
+    "label": "Waitlist",
+    "type": "feature",
+    "status": "live",
+    "updatedAt": "2026-07-21",
+    "activity": "Migration 028 created the table with RLS on and no policies, so the service-role Pages Function is the only write path.",
+    "blurb": "Email capture on the teaser homepage, written through a Cloudflare Pages Function holding the service-role key. A tidy pattern — the table is deliberately unreachable from any client, so the function is the only door.",
+    "links": {
+     "md": "functions/api/waitlist.js"
+    },
+    "sources": [
+     "functions/api/waitlist.js",
+     "supabase/migrations/028_waitlist.sql"
+    ]
+   },
+   {
+    "id": "cf-pages-functions",
+    "label": "Pages Functions API",
+    "type": "service",
+    "status": "live",
+    "updatedAt": "2026-07-21",
+    "activity": "Two endpoints: POST /api/feedback and POST /api/waitlist. Both return 501 and degrade gracefully when their env bindings are absent.",
+    "blurb": "The site's small server-side surface, running on Cloudflare Pages alongside the static build. Notable for degrading honestly rather than failing opaquely — an unconfigured feedback endpoint falls back to a prefilled GitHub issue instead of swallowing the report.",
+    "links": {
+     "md": "functions/api/feedback.js"
+    },
+    "sources": [
+     "functions/api/",
+     "site/_headers"
+    ]
+   },
+   {
+    "id": "channel-staff",
+    "label": "Staff Self-Hosted Update Channel",
+    "type": "infra",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "8/1: probed live — latest.json advertises 6.7.78, published 2026-07-25. HEAD is 6.7.82, so the channel is FOUR versions behind the repo.",
+    "blurb": "Builds with the pinned manifest key so every staff install keeps the same extension ID release over release and Cloud Sync never orphans them. Zips to a GitHub Release tagged ext-vX.Y.Z and commits a latest.json to an orphan `update-channel` branch served from raw.githubusercontent.com. Fully automated by one npm script — and running four versions stale.",
+    "links": {
+     "web": {
+      "url": "https://raw.githubusercontent.com/MrMalkio/tabatha/update-channel/latest.json",
+      "label": "latest.json — live staff update manifest (6.7.78)"
+     },
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/releases/tag/ext-v6.7.78",
+      "label": "Release ext-v6.7.78 — Tabatha 6.7.78 (staff update channel)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "live curl probe 2026-08-01",
+     "docs/OPERATIONS.md §2.2",
+     "scripts/publish-update.mjs"
+    ]
+   },
+   {
+    "id": "channel-enterprise",
+    "label": "Enterprise CRX Force-Install Line",
+    "type": "infra",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "8/1: probed live — update.xml serves version 6.7.78 for app id jbdkacccpknbiphigeabcdojemnhacjj. Seven CRX files sit in site/enterprise/, 6.7.22 through 6.7.69.",
+    "blurb": "The channel that actually puts Tabatha on staff machines: a packed CRX self-hosted on the marketing site, force-installed via Google Workspace admin policy. Its app ID comes from the OUTER CRX signature, not the manifest key — and it was undocumented until archaeology found it on 2026-07-21, because nothing in scripts/ builds it. Retires only once the Web Store item is published.",
+    "links": {
+     "web": {
+      "url": "https://tabatha.pondocean.co/enterprise/update.xml",
+      "label": "enterprise update.xml — live force-install manifest (6.7.78)"
+     },
+     "md": "docs/OPERATIONS.md"
+    },
+    "sources": [
+     "live curl probe 2026-08-01",
+     "docs/OPERATIONS.md §2.2b",
+     "site/enterprise/"
+    ]
+   },
+   {
+    "id": "channel-cws",
+    "label": "Chrome Web Store Listing",
+    "type": "integration",
+    "status": "blocked",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: 'CWS listing fill + Workspace force-install' opened and still incomplete. The listing doc's own line 3 reads 'Status: DRAFT — prepared ahead of time, NOT submitted.'",
+    "blurb": "The one distribution path that would end the self-hosting workarounds, and the one that has not landed. The whole automation exists — auth, upload, publish and status scripts, a validated key-stripped store zip, screenshots, promo tiles — but the CWS credentials were never provisioned on this machine, first-publish visibility and listing content are console-only actions no agent can perform, and publishTarget still defaults to trustedTesters. Store ID piopncjacohahbkkmockjnpenhdbmmbc is referenced in four edge-function CORS allowlists, but the public URL resolves to an untitled page.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216763466426648",
+      "label": "CWS listing fill + Workspace force-install (browser session)"
+     },
+     "md": "docs/CWS-PUBLISHING.md"
+    },
+    "comments": 2,
+    "lastComment": "2026-07-21",
+    "sources": [
+     "docs/CWS-PUBLISHING.md §2b credential reality check",
+     "docs/CHROME-WEB-STORE-LISTING.md L3",
+     "live probe of chromewebstore.google.com 2026-08-01"
+    ]
+   },
+   {
+    "id": "cws-deployment-task",
+    "label": "CWS Deployment Push",
+    "type": "task",
+    "status": "blocked",
+    "updatedAt": "2026-07-15",
+    "activity": "7/15: five comments in a single session working the unlisted-publish approach, then silence for six weeks.",
+    "blurb": "The original push to get Tabatha onto the Web Store for guaranteed staff auto-update. It generated the whole publishing pipeline and then stalled on the parts only Malkio can do: a $5 developer registration, an OAuth client, and console-only listing fields. A loud thread that went quiet with the work 90% done.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/task/1216605548224508",
+      "label": "[Caspera] Chrome Web Store deployment — Tabatha unlisted publish (staff distro + guaranteed auto-update)"
+     }
+    },
+    "comments": 5,
+    "lastComment": "2026-07-15",
+    "sources": [
+     "Asana 1216605548224508"
+    ]
+   },
+   {
+    "id": "store-assets",
+    "label": "Store Assets",
+    "type": "infra",
+    "status": "working",
+    "updatedAt": "2026-07-21",
+    "activity": "Promo tiles, marquee, store icon and eight 1280x800 screenshots generated from /show. Newest store zip is 6.7.47 — 35 versions behind HEAD.",
+    "blurb": "A complete, professional store kit that is ready and going stale. The screenshots are generated from the live showcase, which is the right pipeline, but nothing regenerates them on release — so the assets describe a version from three weeks ago.",
+    "links": {
+     "md": "docs/CHROME-WEB-STORE-LISTING.md"
+    },
+    "sources": [
+     "store-assets/ listing",
+     "scripts/capture-screenshots.mjs"
+    ]
+   },
+   {
+    "id": "logo-redesign",
+    "label": "Logo Redesign",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: completed and marked Deployed-Live in the tracker, but the audit reports the logo-rollout branch unmerged and Sidecar PWA icons stale since v0.1.0.",
+    "blurb": "The eye mark was replaced to kill a surveillance vibe — a sound call for a product that watches everything you do. Tracker says done; the repo says the rollout branch never merged and the phone app still ships the old icons. A clean example of tracker state leading code state.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216782543496197",
+      "label": "Logo redesign: replace eye mark (surveillance vibe) + regenerate 4 store assets"
+     }
+    },
+    "comments": 5,
+    "lastComment": "2026-07-21",
+    "sources": [
+     "Asana 1216782543496197",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #8"
+    ]
+   },
+   {
+    "id": "bug-docs-stale",
+    "label": "Docs Drift, No Freshness Gate",
+    "type": "bug",
+    "status": "broken",
+    "updatedAt": "2026-07-21",
+    "activity": "7/21: hardcoded v6.7.41 badge plus eight shipped features missing from the docs. No CI, no keyword-vs-changelog gate, no docs:check script.",
+    "blurb": "The docs site cannot tell when it is wrong. The badge fix is trivial — drive it from manifest.json like everything else already does — but the deeper problem is that nothing in the pipeline fails when documentation falls behind a release, so it always will.",
+    "links": {
+     "md": "docs/audits/2026-07-21-SYNTHESIS.md"
+    },
+    "sources": [
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #7, OVERHAUL theme 6"
+    ]
+   },
+   {
+    "id": "bug-version-drift",
+    "label": "Version Drift Across Channels",
+    "type": "bug",
+    "status": "broken",
+    "priority": "high",
+    "updatedAt": "2026-08-01",
+    "activity": "8/1: five different 'current' versions coexist — repo 6.7.82, staff channel 6.7.78, enterprise CRX 6.7.78, newest store zip 6.7.47, companion updater manifest desktop-v0.2.1 against a 0.3.10 release.",
+    "blurb": "Every distribution channel advertises a different version, and the companion's own updater points eight patches behind its published release. The repo has excellent internal version discipline (manifest.json as source of truth, a pre-commit sync gate) that stops at the moment of publication — nothing verifies that what shipped matches what the channels say shipped.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "live probes 2026-08-01",
+     "docs/audits/2026-07-21-SYNTHESIS.md NOW #8",
+     "site/desktop/latest.json"
+    ]
+   },
+   {
+    "id": "goal-cws-publish",
+    "label": "GOAL: Publish to the Chrome Web Store",
+    "type": "milestone",
+    "status": "blocked",
+    "priority": "high",
+    "updatedAt": "2026-07-21",
+    "activity": "Blocked on human-only actions: developer registration, OAuth client creation, and console-only listing/visibility fields.",
+    "blurb": "The milestone that collapses three distribution channels into one and ends the self-hosted CRX archaeology. Everything an agent can build is built. What remains is a handful of clicks in two Google consoles that only Malkio can make — which is why this has sat still since mid-July while the code shipped 60 more versions.",
+    "links": {
+     "md": "docs/CWS-PUBLISHING.md"
+    },
+    "sources": [
+     "docs/CWS-PUBLISHING.md §2",
+     "Asana 1216763466426648"
+    ]
+   },
+   {
+    "id": "cortex-program",
+    "label": "Cortex Program",
+    "type": "plan",
+    "status": "in-progress",
+    "priority": "high",
+    "updatedAt": "2026-07-27",
+    "activity": "Plans 040-044 authored and largely shipped: capture I/O, dashboard, voice v0, self-correction, proactivity gate, controller attribution. Awaiting Malkio for the v7.0.0 cut.",
+    "blurb": "The ambient-intelligence layer: capture what the user actually did, observe it, and act. Fifteen C1-C15 feature specs across five phases, and the single largest body of planned work in the repo. CLAUDE.md still names it the current focus, with the v7.0.0 version bump gated on a manual regression pass Malkio has not yet run.",
+    "links": {
+     "md": "docs/cortex/00-cortex-program-spec.md"
+    },
+    "sources": [
+     "docs/cortex/",
+     "docs/plans/plan-040..044",
+     "CLAUDE.md Project State"
+    ]
+   },
+   {
+    "id": "capture-service",
+    "label": "Capture & Redaction",
+    "type": "capability",
+    "status": "live",
+    "updatedAt": "2026-07-10",
+    "activity": "701 lines: C1-C4 capture with fail-closed redaction, incognito fail-closed, window-targeted capture and partitioned Downloads writes. Confirmed working at 745 frames/day.",
+    "blurb": "Screenshot capture with redaction as the privacy floor — and it fails closed on every axis, which is the correct default for a tool that photographs your screen. The Save-As dialog problem was eliminated by routing writes through the companion or OPFS silently.",
+    "links": {
+     "md": "docs/cortex/DATA-MAP.md"
+    },
+    "sources": [
+     "src/background/services/captureService.js",
+     "CLAUDE.md session log 2026-07-10"
+    ]
+   },
+   {
+    "id": "cortex-proxy",
+    "label": "Cortex Proxy",
+    "type": "service",
+    "status": "partial",
+    "updatedAt": "2026-07-10",
+    "activity": "Function code deployed; CLAUDE.md's next-steps still list 'deploy cortex-proxy (set secret)' as outstanding.",
+    "blurb": "A server-held OpenAI key behind an edge function, so no model credential ever touches a client. Defaults to gpt-4o-mini with a 200KB payload cap. Partial because the secret provisioning is repeatedly listed as an unfinished handoff item.",
+    "links": {
+     "md": "supabase/functions/cortex-proxy/index.ts"
+    },
+    "sources": [
+     "supabase/functions/cortex-proxy/index.ts",
+     "CLAUDE.md session log"
+    ]
+   },
+   {
+    "id": "self-correction",
+    "label": "Self-Correction (C10)",
+    "type": "capability",
+    "status": "live",
+    "updatedAt": "2026-07-10",
+    "activity": "Nightly apply/revert loop shipped with context reconciliation (C10a); an Opus review caught and fixed a storage race before merge.",
+    "blurb": "The system proposing corrections to its own records overnight — mislabelled focuses, misattributed time — with an explicit revert path. Reversibility is what makes it safe to let software rewrite your timesheet.",
+    "links": {
+     "md": "docs/cortex/WHAT-REMAINS.md"
+    },
+    "sources": [
+     "src/background/services/selfCorrectionService.js",
+     "src/background/services/contextReconcileService.js"
+    ]
+   },
+   {
+    "id": "agent-sessions",
+    "label": "Agent Session Attribution (C11a)",
+    "type": "capability",
+    "status": "partial",
+    "updatedAt": "2026-07-20",
+    "activity": "7/20: intake corrected the record — C11a is merged to staging, no longer branch-only.",
+    "blurb": "Tracking which agent controller did what, so autonomous work is attributable rather than anonymous browsing noise. Shipped in core; the surfaces that would make it visible — agent-vs-human history, session aggregation — are still specs.",
+    "links": {
+     "md": "docs/features/219-agent-vs-human-history.md"
+    },
+    "sources": [
+     "src/background/services/agentSessionService.js",
+     "Tabatha_Changelog.md v6.7.79"
+    ]
+   },
+   {
+    "id": "voice-io",
+    "label": "Voice In/Out",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: voice audit ran; echo/barge-in discipline and STT provider routing filed as an open fix.",
+    "blurb": "Speak-instead-of-modal announcements, voice notes, and voice check-ins on the phone — shipped as v0 with no new permissions. Partial because the mic and the speaker fight: there is no barge-in discipline between input and TTS/chaperone output, so the system talks over itself.",
+    "links": {
+     "md": "docs/features/211-audio-input-voice-control.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216901254646179",
+      "label": "FIX Voice echo — barge-in discipline (mic vs TTS/chaperone) + STT provider routing (ElevenLabs via proxy)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "src/services/voiceOutput.js",
+     "sidecar/src/lib/speech.ts",
+     "Asana 1216901254646179"
+    ]
+   },
+   {
+    "id": "plan-045-agent",
+    "label": "Plan 045 — Agent Control Layer",
+    "type": "plan",
+    "status": "in-progress",
+    "priority": "high",
+    "updatedAt": "2026-07-27",
+    "activity": "7/26: Malkio chose the Headbox bridge, resolving the spec's open recommendation into a decision — harness lifecycle hooks as the event source, plus a reverse channel and agent-created backburner writes.",
+    "blurb": "The plan that makes Tabatha an attention OS for agents as well as humans: agent runs become tracked work surfaces, checkpoint prompts can be answered by a background agent, and run-complete notifications arrive inside Tabatha — gated by the same snooze / off-device / break rules so a finished agent run cannot puncture a protected focus block.",
+    "links": {
+     "md": "docs/plans/plan-045-agent-control-layer.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216922197879721",
+      "label": "#220 addendum: harness hooks → Tabatha (reverse-channel notifications, agent backburner, Headbox bridge DECIDED)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "docs/plans/plan-045-agent-control-layer.md",
+     "Tabatha_Changelog.md v6.7.81"
+    ]
+   },
+   {
+    "id": "mcp-server",
+    "label": "MCP Server (Plan 045 T1)",
+    "type": "plan",
+    "status": "planned",
+    "priority": "high",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: research concluded ChatGPT Voice exposes no API or extension point — but the ChatGPT desktop app, Codex CLI and Codex IDE extension share one MCP config, so the MCP server IS the integration.",
+    "blurb": "The sharpest strategic finding in the recent intake: rather than integrating with one vendor's voice product, ship an MCP server and every MCP-aware agent gets Tabatha for free. Turns a blocked vendor integration into a general capability. Records its own unverified assumption and the cheap test for it, which is unusually honest planning.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216901255842277",
+      "label": "GPT Voice / Codex integration = ship the MCP server (Plan 045 T1). No GPT Voice API exists; MCP is the surface."
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "Asana 1216901255842277",
+     "Tabatha_Changelog.md v6.7.80"
+    ]
+   },
+   {
+    "id": "plan-220-session-agg",
+    "label": "#220 Session Aggregation",
+    "type": "plan",
+    "status": "planned",
+    "updatedAt": "2026-07-27",
+    "activity": "7/25: specced — a unified work-surfaces model (tab | OS window | harness session) attachable to a focus, with a CHECKPOINT_REQUEST hook and a 45s timeout falling back to the human.",
+    "blurb": "Unifies the three things that can constitute 'working on something' — a browser tab, an OS window, and an agent harness session — into one attachable model. This is the abstraction that would let the companion, extension and agent layer stop each having their own idea of what a work surface is.",
+    "links": {
+     "md": "docs/features/220-session-aggregation-auto-updates.md"
+    },
+    "sources": [
+     "docs/features/220-session-aggregation-auto-updates.md"
+    ]
+   },
+   {
+    "id": "taskrun-platform-review",
+    "label": "TaskRun Platform Review",
+    "type": "task",
+    "status": "in-progress",
+    "priority": "high",
+    "updatedAt": "2026-07-26",
+    "activity": "7/26: ten comments across a multi-agent orchestration — Torren (extension E2E), Vail (web E2E), Sable (sync forensics), Koda (adversarial verdicts), Dex, Corin, Wren.",
+    "blurb": "The 24-25 July full-platform review: seven named agents running live end-to-end testing in parallel, with a synthesis pass that promoted twelve NOW items and killed six findings as wrong or already fixed. This is the mechanism producing nearly every open wound on this map, and it is the most credible source of state in the whole system.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216867368858873",
+      "label": "TaskRun 2026-07-24/25 — Full platform review + live E2E testing (CeeCee orchestration)"
+     },
+     "md": "docs/audits/2026-07-21-SYNTHESIS.md"
+    },
+    "comments": 10,
+    "lastComment": "2026-07-26",
+    "sources": [
+     "Asana 1216867368858873",
+     "docs/audits/ (9 audit docs)"
+    ]
+   },
+   {
+    "id": "flux-ecosystem",
+    "label": "Flux (parent ecosystem)",
+    "type": "integration",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-08-01",
+    "activity": "8/1: confirmed structurally, not just narratively — the linked Supabase project is NAMED 'Flux', and Tabatha's tracker home is the 'Flux Development' Asana project.",
+    "blurb": "The portfolio calls Flux a sibling. The evidence says parent: Tabatha's entire backend is the Supabase project literally named Flux, its Asana home is Flux Development, and its checkpoint protocol posts project updates there by rule. Flux's internals are owned elsewhere — modelled here purely as the dependency it is. The roadmap's 'Phase 5: The Flux Ecosystem' is therefore mis-sequenced: the integration is not a future phase, it is the substrate.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/",
+      "label": "Flux Development — the Asana project that is Tabatha's real tracker home"
+     }
+    },
+    "sources": [
+     "supabase/.temp/linked-project.json",
+     "CLAUDE.md Checkpoint Protocol §4",
+     "Asana project listing"
+    ]
+   },
+   {
+    "id": "asana-integration",
+    "label": "Asana Task Sync",
+    "type": "integration",
+    "status": "partial",
+    "updatedAt": "2026-07-24",
+    "activity": "7/24: 6.7.72 added the extension-side PAT connect card, reaching parity with the Sidecar. Sync remains ONE-DIRECTIONAL by design.",
+    "blurb": "Connect a Personal Access Token and Asana tasks flow into Tabatha as linkable work, with subtasks and blockers, refreshed by pg_cron every five minutes and by webhook. Partial by explicit v1 scope: the function header states there is no mutation pushback, so completing work in Tabatha does not close it in Asana. Task URLs also auto-derive gate context, which is a genuinely nice touch.",
+    "links": {
+     "md": "supabase/functions/sync-asana-tasks/index.ts",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1216275477769879/task/1216226128734333",
+      "label": "NB-06 Asana PAT integration — pull user's active/incomplete tasks, tie to intents (auto or optional)"
+     }
+    },
+    "comments": 1,
+    "lastComment": "2026-07-01",
+    "sources": [
+     "supabase/functions/sync-asana-tasks/index.ts",
+     "Tabatha_Changelog.md v6.7.72"
+    ]
+   },
+   {
+    "id": "flux-asana-widget",
+    "label": "flux-asana-widget",
+    "type": "integration",
+    "status": "partial",
+    "updatedAt": "2026-04-29",
+    "activity": "4/29: session log records 'full e2e test passing', with the next step 'Register app in Asana Developer Console' — no registration artifact exists in the repo.",
+    "blurb": "A standalone Express/HTTPS server implementing the Asana App Component protocol as an in-Asana time tracker, writing to public.flux_time_entries. Orphaned: outside the build, lint and test scope, superseded by the connect-asana / sync-asana-tasks edge functions, and it commits its own TLS private keys into the tree. The July system map recommends giving it its own 0.x version line rather than letting it ride the extension's.",
+    "links": {
+     "md": "docs/WIDGET-VERSIONING.md"
+    },
+    "sources": [
+     "flux-asana-widget/",
+     "CLAUDE.md session log 2026-04-29",
+     "docs/system-map/SYSTEM-MAP.md §7.1"
+    ]
+   },
+   {
+    "id": "mimir-connector",
+    "label": "Mimir Connector",
+    "type": "integration",
+    "status": "planned",
+    "updatedAt": "2026-07-27",
+    "activity": "7/27: designed as opt-in and non-blocking — notes push through the companion's local bridge, not the extension, so MV3 gains no loopback host permission.",
+    "blurb": "An opt-in sink pushing notes into Mimir, the ecosystem's memory layer. The design discipline is the interesting part: a missing Mimir is a no-op rather than an error, and Tabatha refuses rather than clamps — a note marked private is never pushed, because Mimir v1 hard-caps classification at internal.",
+    "links": {
+     "md": "docs/features/222-notes-system.md"
+    },
+    "sources": [
+     "Tabatha_Changelog.md v6.7.81",
+     "ROADMAP.md Phase 5"
+    ]
+   },
+   {
+    "id": "headbox",
+    "label": "Headbox (agent governance)",
+    "type": "integration",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-29",
+    "activity": "Rule 10 bumps manifest.json on EVERY commit, which is why a 6.7.82 reformat of that one file would have conflicted across 20 active worktree branches.",
+    "blurb": "The standardized agent-instruction system governing how every agent works this repo — one CLAUDE.md/AGENTS.md/GEMINI.md, a plan registry, a parking lot, sticky notes, and per-commit version discipline. It is the reason 40 parallel worktrees do not collide, and the reason a formatting change in one file is treated as a release-blocking event.",
+    "links": {
+     "md": "CLAUDE.md"
+    },
+    "sources": [
+     "CLAUDE.md",
+     ".headbox/",
+     "Tabatha_Changelog.md v6.7.82"
+    ]
+   },
+   {
+    "id": "screensaver",
+    "label": "Refocus Screensaver Clock",
+    "type": "integration",
+    "status": "killed",
+    "updatedAt": "2026-07-19",
+    "activity": "7/19: system map lists it at v2.0.0, local install only, status 'Dormant'.",
+    "blurb": "An Electron screensaver clock in the Flux family, intended to receive the current focus and display it during idle time. Roadmap Phase 5 still lists the integration as planned; the surface inventory calls it dormant with no deployment. Superseded in practice by the Sidecar's Context View, which does the same ambient-display job on hardware people already own.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "docs/system-map/SYSTEM-MAP.md surface 6"
+    ]
+   },
+   {
+    "id": "calendar-sync",
+    "label": "Calendar Sync (Plan 035)",
+    "type": "feature",
+    "status": "partial",
+    "updatedAt": "2026-07-16",
+    "activity": "Migration 014 created the calendar tables and syncService pushes events; the Google OAuth sync engine and calendar UI (Phases 2-3) remain an open, uncommented task.",
+    "blurb": "Time-blocking against a real calendar — the bridge between intended schedule and actual attention, and a prerequisite for meeting-block detection and auto-backfill. The data layer exists; the OAuth engine and the month/week/day UI do not. It also supplies the last rung of #221's evidence ladder for proposing a missed clock-in time.",
+    "links": {
+     "md": "docs/Plan-035-time-blocking-calendar.md",
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/task/1216624026202925",
+      "label": "[Tabatha] Google Calendar integration — Plan 035 Phases 2-3 (UI + OAuth sync engine)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "supabase/migrations/014_create_calendar_sync_tables.sql",
+     "Asana 1216624026202925"
+    ]
+   },
+   {
+    "id": "anasa-console",
+    "label": "Anasa Console Integration",
+    "type": "integration",
+    "status": "partial",
+    "updatedAt": "2026-07-25",
+    "activity": "7/25: T3.4a 'Tabatha display-only integration' marked complete — Tabatha appears in the Anasa console as a read-only tile.",
+    "blurb": "Tabatha surfacing inside Anasa, the workspace control plane. Display-only for now: the console can show Tabatha state but cannot drive it. A small integration whose significance is directional — it is the first time Tabatha appears as a component of something larger rather than a standalone tool.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/task/1216544708406414",
+      "label": "T3.4a - Tabatha display-only integration"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "Asana 1216544708406414",
+     "Asana 1216498577887990"
+    ]
+   },
+   {
+    "id": "system-status-map",
+    "label": "Daily System Status Survey",
+    "type": "task",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-31",
+    "activity": "7/31: still posting. 22 comments and counting — an automated daily survey by Hermes that has run every single day since 2026-07-18 and is the freshest signal in the entire workspace.",
+    "blurb": "A daily automated release/branch/surface survey across the whole Tabatha family, posting to Asana. Marked complete in the tracker yet still commenting daily, which is exactly the tell that it is a recurring job rather than a task. Its 2026-07-19 output — docs/system-map/SYSTEM-MAP.md — is the most rigorous internal account of the version tangle that this atlas is built to replace.",
+    "links": {
+     "asana": {
+      "url": "https://app.asana.com/1/9526911872029/project/1214031898449333/task/1216678592681467",
+      "label": "System Status Map — daily release/branch/surface map (Tabatha family)"
+     },
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "comments": 22,
+    "lastComment": "2026-07-31",
+    "sources": [
+     "Asana 1216678592681467",
+     "docs/system-map/SYSTEM-MAP.md"
+    ]
+   },
+   {
+    "id": "repo-tabatha",
+    "label": "MrMalkio/tabatha",
+    "type": "repo",
+    "status": "live",
+    "priority": "high",
+    "updatedAt": "2026-07-29",
+    "activity": "614 commits from 2026-02-11 to 2026-07-29. Monthly histogram: Feb 3, Apr 11, May 185, Jun 51, Jul 364 — July was by far the most productive month in the repo's life.",
+    "blurb": "The monorepo: extension, sidecar, site, supabase, functions, scripts and store assets in one tree. HEAD is 6.7.82 on branch docs/intake-2026-07-25-agent-layer-bugs with a clean working tree. The June dip and July explosion track exactly with the Cortex program landing and the multi-agent taskrun cadence starting.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha",
+      "label": "MrMalkio/tabatha — extension, sidecar, site and backend monorepo"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "git log/rev-list on C:/Users/mrmal/le dev/Tabatha"
+    ]
+   },
+   {
+    "id": "repo-desktop",
+    "label": "MrMalkio/tabatha-desktop",
+    "type": "repo",
+    "status": "live",
+    "updatedAt": "2026-07-23",
+    "activity": "40 commits, 2026-05-10 to 2026-07-23; 31 of them in July. Working tree dirty (6 files). Default remote HEAD points at feat/code-signing, not master.",
+    "blurb": "The Tauri companion's private source repo — releases are published to the public tabatha mirror instead. Seven feature branches alive at once for a 40-commit repo, which says the work is exploratory rather than trunk-based. That the remote default branch is feat/code-signing is itself a small signal that release hygiene is unsettled.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha-desktop",
+      "label": "MrMalkio/tabatha-desktop — Tauri companion source"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "git log/branch on C:/Users/mrmal/le dev/tabatha-desktop"
+    ]
+   },
+   {
+    "id": "repo-watch",
+    "label": "MrMalkio/tabatha-watch",
+    "type": "repo",
+    "status": "working",
+    "updatedAt": "2026-07-24",
+    "activity": "8 commits, 2026-07-18 to 2026-07-24 — the entire repo is six days old and then stops. Checked out on fix/watch-0.2.1-polish, not main.",
+    "blurb": "The newest surface in the family, built in under a week from nothing to a paired, tiled, unit-tested Wear OS app. Marked working rather than live because it has had no commits since 24 July, sits on an unmerged polish branch, and has no release artifact — a strong start whose second week never came.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha-watch",
+      "label": "MrMalkio/tabatha-watch — Wear OS companion"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "git log/branch on C:/Users/mrmal/le dev/tabatha-watch"
+    ]
+   },
+   {
+    "id": "repo-mobile-1",
+    "label": "MrMalkio/tabatha-mobile",
+    "type": "repo",
+    "status": "killed",
+    "updatedAt": "2026-05-30",
+    "activity": "19 commits, every one in May 2026, last 2026-05-30. Zero commits in June or July while the rest of the family shipped 400+.",
+    "blurb": "Dead for two months and counting. Its final commits — orphan session recovery, native build errors, auth debugging — read like a project fighting its toolchain rather than building features, which is usually how Expo-with-native-modules efforts end.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha-mobile",
+      "label": "MrMalkio/tabatha-mobile — abandoned Expo mobile attempt"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "git log month histogram on C:/Users/mrmal/le dev/tabatha-mobile"
+    ]
+   },
+   {
+    "id": "repo-mobile-2",
+    "label": "MrMalkio/tabatha-mobile-2",
+    "type": "repo",
+    "status": "killed",
+    "updatedAt": "2026-05-30",
+    "activity": "6 commits, all on 2026-05-30 between 13:12 and 21:51. A single-day repository.",
+    "blurb": "Born and abandoned in nine hours. Not a serious second mobile bid — an AI Studio scaffold that pivoted to a design lab by its own final commit message. Treating it as a 'competing mobile codebase' overstates it by a wide margin; the audit document it produced outlived the code.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha-mobile-2",
+      "label": "MrMalkio/tabatha-mobile-2 — one-day Android scaffold, now a design lab"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "git log on C:/Users/mrmal/le dev/tabatha-mobile-2"
+    ]
+   },
+   {
+    "id": "repo-codex",
+    "label": "Tabatha-codex (empty)",
+    "type": "repo",
+    "status": "killed",
+    "updatedAt": "2026-05-18",
+    "activity": "Directory exists and is completely empty — not a git repository, no hidden files. Last touched 2026-05-18.",
+    "blurb": "An empty husk. Listed in the July system map among 'legacy/experiment clones outside the worktree system, likely archive'. Worth a node purely so nobody wastes another hour wondering whether it holds unlanded work: it holds nothing.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "ls -la C:/Users/mrmal/le dev/Tabatha-codex"
+    ]
+   },
+   {
+    "id": "repo-sync-batch",
+    "label": "Tabatha-sync-batch-1 (dead worktree)",
+    "type": "repo",
+    "status": "killed",
+    "updatedAt": "2026-05-18",
+    "activity": "Has a .git FILE rather than a directory — a detached worktree pointer whose target no longer resolves ('fatal: not a git repository: (NULL)').",
+    "blurb": "A broken worktree left over from the May Supabase sync batch, frozen at the v4.0.0 era. Its content is superseded — migrations 008 onward all live in the monorepo now — but the directory still sits in the workspace looking like a real codebase, which is exactly the kind of thing this map exists to disarm.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "git status on C:/Users/mrmal/le dev/Tabatha-sync-batch-1"
+    ]
+   },
+   {
+    "id": "worktree-fleet",
+    "label": "40-Worktree Parallel Fleet",
+    "type": "infra",
+    "status": "working",
+    "priority": "high",
+    "updatedAt": "2026-07-29",
+    "activity": "40 worktrees under .claude/worktrees/ and 20+ local branches, spanning sidecar lanes, epics, audits, fixes and site work.",
+    "blurb": "The engine behind July's 364 commits: many agents working isolated worktrees against zone-ownership rules from the parallel-development workflow doc. It is also the single largest source of confusion in the system — the July system map's top risk was that the one dist/ folder Chrome loads had been built from an unmerged branch nobody intended to run.",
+    "links": {
+     "md": "docs/parallel-development-workflow.md"
+    },
+    "sources": [
+     ".claude/worktrees/ (40 dirs)",
+     "git branch -a",
+     "docs/system-map/SYSTEM-MAP.md §1"
+    ]
+   },
+   {
+    "id": "branch-update-channel",
+    "label": "update-channel (orphan branch)",
+    "type": "branch",
+    "status": "live",
+    "updatedAt": "2026-07-25",
+    "activity": "Holds nothing but latest.json, currently 6.7.78. Committed with --no-verify by design, since the shared pre-commit version gate has nothing to resolve there.",
+    "blurb": "An orphan branch used as a static file host — a neat, cheap CDN for the staff auto-update manifest, served forever from raw.githubusercontent.com. The one place in the repo where skipping the pre-commit hook is the correct call, and the docs explain exactly why.",
+    "links": {
+     "md": "docs/OPERATIONS.md"
+    },
+    "sources": [
+     "docs/OPERATIONS.md §2.2",
+     "git branch -a"
+    ]
+   },
+   {
+    "id": "branch-staging",
+    "label": "staging / main trunks",
+    "type": "branch",
+    "status": "partial",
+    "updatedAt": "2026-07-18",
+    "activity": "7/18: PRs #27-#31 explicitly titled 'restore' reconciled a divergence where origin/staging sat at 6.6.0 while local staging held an entire unpushed 6.7.x run.",
+    "blurb": "The trunks, and a cautionary tale. For a stretch in July GitHub was NOT the source of truth for the extension — the whole 6.6.0 to 6.7.8 run existed only locally, and it took five restore PRs in twenty minutes to put it back. Marked partial because the working line today is an intake branch, not staging.",
+    "links": {
+     "gh": {
+      "url": "https://github.com/MrMalkio/tabatha/pull/27",
+      "label": "PR #27 — restore: reconcile local staging (6.7.x extension run) with origin/staging (sidecar line)"
+     }
+    },
+    "comments": 0,
+    "sources": [
+     "GitHub PRs #27-#31",
+     "docs/system-map/SYSTEM-MAP.md §1"
+    ]
+   },
+   {
+    "id": "version-discipline",
+    "label": "Version & Changelog Gate",
+    "type": "capability",
+    "status": "live",
+    "updatedAt": "2026-07-29",
+    "activity": "manifest.json is the single source of truth; prebuild runs sync-version.mjs plus a changelog drift check, enforced by a pre-commit hook.",
+    "blurb": "Unusually strong internal release hygiene: one source of truth, a script that propagates it, and a build that refuses to proceed if the changelog has drifted. This is precisely why the external drift is so striking — the discipline is rigorous right up to the moment of publication, and then stops.",
+    "links": {
+     "md": "scripts/sync-version.mjs"
+    },
+    "sources": [
+     "package.json prebuild",
+     "scripts/sync-version.mjs",
+     "CLAUDE.md Headbox Rule 10"
+    ]
+   },
+   {
+    "id": "dist-archives",
+    "label": "Stale dist-v* Archives",
+    "type": "infra",
+    "status": "killed",
+    "updatedAt": "2026-05-29",
+    "activity": "Six checked-in build outputs: dist-v3.34.5, v4.0.0, v4.3.1, v4.3.6, v5.8.0, v6.0.0. Newest is dated 2026-05-29.",
+    "blurb": "The version ladder as sediment. These are the builds that made the workspace portfolio think the product was at v4.x — but the newest is 6.0.0 from May, two months and eighty versions behind. The July system map calls them archives to ignore and candidates for cleanup; they are load-bearing only as archaeology.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "ls -d dist-v* in C:/Users/mrmal/le dev/Tabatha",
+     "docs/system-map/SYSTEM-MAP.md §4"
+    ]
+   },
+   {
+    "id": "env-cf-pages",
+    "label": "Cloudflare Pages `tabatha`",
+    "type": "env",
+    "status": "live",
+    "updatedAt": "2026-08-01",
+    "activity": "8/1: both tabatha.pages.dev and the custom domain tabatha.pondocean.co return 200.",
+    "blurb": "Hosts the marketing site, docs, showcase, download page, enterprise CRX channel and the Pages Functions API, deployed by a single npm script pinned to the main branch. The one deploy-hygiene gap the operations doc self-flags is that the docs sub-deploy omits --branch=main, risking a preview deploy.",
+    "links": {
+     "web": {
+      "url": "https://tabatha.pondocean.co",
+      "label": "Cloudflare Pages project `tabatha` — live"
+     }
+    },
+    "sources": [
+     "live curl probes 2026-08-01",
+     "package.json site:deploy",
+     "docs/OPERATIONS.md"
+    ]
+   },
+   {
+    "id": "surface-inventory-doc",
+    "label": "SYSTEM-MAP.md (internal)",
+    "type": "plan",
+    "status": "partial",
+    "updatedAt": "2026-07-19",
+    "activity": "Generated 2026-07-19 by Hermes; already superseded on most specifics (it lists sidecar 0.2.1, companion 0.2.1, migrations at 033, extension prod 6.7.22).",
+    "blurb": "The best internal attempt at this atlas's job: a surface inventory, claimed-vs-verified table, per-branch action table and worktree map. Its method is excellent and its facts are two weeks stale, which is the exact failure mode a living map is meant to fix. Kept as a node because it is the benchmark this instance has to beat.",
+    "links": {
+     "md": "docs/system-map/SYSTEM-MAP.md"
+    },
+    "sources": [
+     "docs/system-map/SYSTEM-MAP.md"
+    ]
+   },
+   {
+    "id": "roadmap-doc",
+    "label": "ROADMAP.md (stale)",
+    "type": "plan",
+    "status": "partial",
+    "updatedAt": "2026-07-27",
+    "activity": "7/27: gained a Phase 3.5 (Notes V1) and a Mimir entry — while still listing 'Tabatha Desktop Companion (Electron/Tauri)' as unbuilt Phase 6 work at v4.0.",
+    "blurb": "Partially maintained and structurally wrong. It marks Phase 1 as 'Current' and puts the desktop companion in a future Phase 6 — a companion that has been shipping since May and is on its tenth 0.3.x patch. New entries get appended faithfully while the completed phases are never reconciled, so it reads as a plan for a product two major versions younger than the one that exists.",
+    "links": {
+     "md": "ROADMAP.md"
+    },
+    "sources": [
+     "ROADMAP.md",
+     "Tabatha_Changelog.md v6.7.81"
+    ]
+   },
+   {
+    "id": "portfolio-doc",
+    "label": "tabatha-portfolio.md (stale)",
+    "type": "plan",
+    "status": "broken",
+    "updatedAt": "2026-07-25",
+    "activity": "Describes the Gatekeeper as a new-tab intercept, claims 'React Migration Complete' as the status, lists Phase 2 as in progress, and names Flux a sibling.",
+    "blurb": "The workspace-facing portfolio entry, and the least accurate document in the set. Nearly every load-bearing claim is wrong: the Gatekeeper is not the new-tab override, Flux is not a sibling, desktop integration is not a future Phase 5, and there is no mention of the sidecar, the watch, the three distribution channels, or the org/team layer. Marked broken rather than partial because a reader would come away with a materially false model of the product.",
+    "links": {
+     "md": "tabatha-portfolio.md"
+    },
+    "sources": [
+     "C:/Users/mrmal/le dev/tabatha-portfolio.md",
+     "cross-checked against public/manifest.json and git HEAD"
+    ]
+   }
+  ],
+  "edges": [
+   {
+    "from": "gatekeeper",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "gatekeeper",
+    "to": "bg-services",
+    "kind": "depends"
+   },
+   {
+    "from": "gate-friction",
+    "to": "gatekeeper",
+    "kind": "part-of"
+   },
+   {
+    "from": "context-inheritance",
+    "to": "gatekeeper",
+    "kind": "depends"
+   },
+   {
+    "from": "context-inheritance",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "blockgate",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "blockgate",
+    "to": "bg-services",
+    "kind": "depends"
+   },
+   {
+    "from": "inbar",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "inbar",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "inbar",
+    "to": "voice-io",
+    "kind": "depends"
+   },
+   {
+    "from": "url-rules",
+    "to": "bg-services",
+    "kind": "depends"
+   },
+   {
+    "from": "url-rules",
+    "to": "gatekeeper",
+    "kind": "affects",
+    "detail": "Benign by design: a matching URL rule sets contextSource='url_rule' and the gate is skipped entirely. Severity low. First seen: Plan 038 (2026-07-20). This is the intended pressure valve, but it means a mis-scoped rule silently disables intentional friction for a whole domain with no user-visible signal that the gate was suppressed."
+   },
+   {
+    "from": "agent-human-toggle",
+    "to": "gatekeeper",
+    "kind": "part-of"
+   },
+   {
+    "from": "agent-human-toggle",
+    "to": "agent-sessions",
+    "kind": "depends"
+   },
+   {
+    "from": "inpop-header",
+    "to": "inbar",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-intentional-friction",
+    "to": "gatekeeper",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-intentional-friction",
+    "to": "inbar",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-intentional-friction",
+    "to": "blockgate",
+    "kind": "depends"
+   },
+   {
+    "from": "bug-xss-sinks",
+    "to": "gatekeeper",
+    "kind": "affects",
+    "detail": "Four unescaped innerHTML sites in gatekeeper.js (:255,:265,:274,:297 — only :297 gets quote-only escaping). Severity HIGH. First seen: 2026-07-21 audit, re-verified worse than reported. Any focus label or inherited context containing markup renders as live HTML inside the gate. Workaround: none in place — no escapeHtml() helper exists anywhere in src/."
+   },
+   {
+    "from": "bug-xss-sinks",
+    "to": "inbar",
+    "kind": "affects",
+    "detail": "About 19 unescaped sites in inbar.js, including notes and descriptions rendered raw inside a <textarea> (:564,:601), the edit-dropdown focus list (:588→594), sticky-note pause text (:680/681), and nine auto-triggered overlay sites (:1258–:1608). Severity HIGH. First seen: 2026-07-21. Workaround: none. Fixing the textarea sinks needs care to preserve legitimate newlines."
+   },
+   {
+    "from": "bug-xss-sinks",
+    "to": "rls-policies",
+    "kind": "affects",
+    "detail": "The escalation path: migration 012's manager/team RLS scoping makes focus_items.label and checkpoint notes readable cross-user TODAY, so a malicious label written on one device renders unescaped in a manager's browser. Severity HIGH — this reclassifies the bug from self-XSS to genuine cross-user XSS. First seen: reclassified 2026-07-21. Workaround: none; RLS is working as designed, the sinks are the defect."
+   },
+   {
+    "from": "bug-break-notes",
+    "to": "clock-shifts",
+    "kind": "affects",
+    "detail": "Break notes typed by the user are written to local React state only and silently discarded — the code comment says 'In production this would persist via sendMessage.' Severity MED, trust-critical: unlike its siblings this control is not badged 'SOON', so it presents as working. First seen: 2026-07-21 (Argus W1). Workaround: add the existing stub badge until real persistence lands."
+   },
+   {
+    "from": "bug-b09-inbar",
+    "to": "inbar",
+    "kind": "affects",
+    "detail": "Two broken paths on the most-used surface: clicking a focus in the edit dropdown sends only SWITCH_FOCUS and discards the typed name; pressing Save triggers autoQueueFromIntent, which severs the link just made and spawns a stray queued sub-focus. Severity MED-HIGH. First seen: root-caused 2026-07-25 (6.7.79). Workaround: none — fix shape and acceptance criteria are specced but unimplemented."
+   },
+   {
+    "from": "bug-b09-inbar",
+    "to": "focus-engine",
+    "kind": "affects",
+    "detail": "The stray sub-focus that B09 spawns is a real row in the focus tree, so the corruption outlives the InBar interaction and pollutes the queue and history. Severity MED. First seen: 2026-07-25. Workaround: manually resolve the orphan sub-focus."
+   },
+   {
+    "from": "bug-clock-backdate",
+    "to": "clock-shifts",
+    "kind": "affects",
+    "detail": "A missed clock-in cannot be corrected at all: clockIn()/clockOut() take no arguments and hardcode new Date(), the handlers ignore any payload, and no EDIT_SHIFT handler exists. Severity HIGH for anyone billing against this data — the hours are simply lost. First seen: confirmed 2026-07-25 (#221). Workaround: none."
+   },
+   {
+    "from": "bug-clock-backdate",
+    "to": "surface-workshifts",
+    "kind": "affects",
+    "detail": "Work Shifts' '✏️ Edit Shift' renders as a disabled stub with a SOON badge, so the surface that should own shift correction advertises the capability without providing it. Severity MED. First seen: 2026-07-21. Workaround: none."
+   },
+   {
+    "from": "plan-221-clock",
+    "to": "bug-clock-backdate",
+    "kind": "plans"
+   },
+   {
+    "from": "plan-221-clock",
+    "to": "clock-shifts",
+    "kind": "plans"
+   },
+   {
+    "from": "bug-elapsed-drift",
+    "to": "focus-lifecycle",
+    "kind": "affects",
+    "detail": "RESOLVED (6.7.71/6.7.73). While open, an active focus's elapsed time was undercounted by exactly its accumulated pause time on every surface except the extension, worsening with each pause/resume cycle. Severity was HIGH — it silently understated tracked work. First seen: reported by Malkio as 'syncing between surfaces still a little off'; fixed 2026-07-24 with a red-to-green unit test."
+   },
+   {
+    "from": "focus-lifecycle",
+    "to": "focus-engine",
+    "kind": "part-of"
+   },
+   {
+    "from": "checkpoints",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "checkpoints",
+    "to": "schema-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "backburner",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "focus-queue",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "sub-intents",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "clock-shifts",
+    "to": "bg-services",
+    "kind": "depends"
+   },
+   {
+    "from": "clock-shifts",
+    "to": "sync-service",
+    "kind": "depends"
+   },
+   {
+    "from": "surface-workshifts",
+    "to": "clock-shifts",
+    "kind": "depends"
+   },
+   {
+    "from": "surface-activity",
+    "to": "clock-shifts",
+    "kind": "depends"
+   },
+   {
+    "from": "unified-timeline",
+    "to": "os-focus-tracking",
+    "kind": "depends"
+   },
+   {
+    "from": "unified-timeline",
+    "to": "clock-shifts",
+    "kind": "depends"
+   },
+   {
+    "from": "auto-focus",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "auto-focus",
+    "to": "url-rules",
+    "kind": "depends"
+   },
+   {
+    "from": "off-device",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "focus-engine",
+    "to": "bg-services",
+    "kind": "part-of"
+   },
+   {
+    "from": "bg-services",
+    "to": "sw-background",
+    "kind": "part-of"
+   },
+   {
+    "from": "surface-home",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "surface-home",
+    "to": "unified-timeline",
+    "kind": "depends"
+   },
+   {
+    "from": "surface-sidebar",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "surface-sidebar",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "surface-popup",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "surface-settings",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "settings-live-preview",
+    "to": "surface-settings",
+    "kind": "part-of"
+   },
+   {
+    "from": "feedback-widget",
+    "to": "edge-functions",
+    "kind": "depends"
+   },
+   {
+    "from": "feedback-widget",
+    "to": "asana-integration",
+    "kind": "depends"
+   },
+   {
+    "from": "hotkeys",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "notes-system",
+    "to": "surface-sidebar",
+    "kind": "depends"
+   },
+   {
+    "from": "notes-system",
+    "to": "desktop-companion",
+    "kind": "depends"
+   },
+   {
+    "from": "notes-system",
+    "to": "schema-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "test-suite",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "schema-tabatha",
+    "to": "supabase-backend",
+    "kind": "part-of"
+   },
+   {
+    "from": "rls-policies",
+    "to": "schema-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "edge-functions",
+    "to": "supabase-backend",
+    "kind": "part-of"
+   },
+   {
+    "from": "fn-pair-watch",
+    "to": "edge-functions",
+    "kind": "part-of"
+   },
+   {
+    "from": "fn-push",
+    "to": "edge-functions",
+    "kind": "part-of"
+   },
+   {
+    "from": "cortex-proxy",
+    "to": "edge-functions",
+    "kind": "part-of"
+   },
+   {
+    "from": "sync-service",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "sync-service",
+    "to": "auth-identity",
+    "kind": "depends"
+   },
+   {
+    "from": "sync-service",
+    "to": "cloud-outbox",
+    "kind": "depends"
+   },
+   {
+    "from": "cloud-outbox",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "data-rehydrate",
+    "to": "sync-service",
+    "kind": "depends"
+   },
+   {
+    "from": "realtime",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "auth-identity",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "device-management",
+    "to": "rls-policies",
+    "kind": "depends"
+   },
+   {
+    "from": "device-management",
+    "to": "auth-identity",
+    "kind": "depends"
+   },
+   {
+    "from": "invites",
+    "to": "schema-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "org-teams",
+    "to": "rls-policies",
+    "kind": "depends"
+   },
+   {
+    "from": "org-teams",
+    "to": "clock-shifts",
+    "kind": "depends"
+   },
+   {
+    "from": "fn-push",
+    "to": "schema-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "bug-rls-revoke",
+    "to": "device-management",
+    "kind": "affects",
+    "detail": "A revoked session's still-valid JWT can call the Supabase REST API directly, bypassing the extension UI, and clear its own revoked_at — defeating remote sign-out for that device. Scope is same-profile only, not arbitrary cross-user. Severity HIGH. First seen: 2026-07-21, re-confirmed still open after the 6.7.54 application-code fix. Workaround: the extension honours revocation; only a direct API caller can bypass it."
+   },
+   {
+    "from": "bug-rls-revoke",
+    "to": "rls-policies",
+    "kind": "affects",
+    "detail": "Migration 016 ships a bare USING/WITH CHECK on profile_id with no session-identity test, and migration 045 explicitly notes no policy change was made for its new device columns. Severity HIGH — the guarantee lives in application code only. First seen: 2026-07-21. Workaround: none; fix is a WITH CHECK clause or a BEFORE UPDATE trigger, sized S."
+   },
+   {
+    "from": "bug-sync-root-a",
+    "to": "sync-service",
+    "kind": "affects",
+    "detail": "Cross-surface conflicts are arbitrated purely by recency, so the last writer wins regardless of whether it had current state. Severity HIGH — this is the architectural root beneath every 'sync is a little off' report. First seen: named in the 2026-07-24 sync forensics. Workaround: none; needs plan #047, which has a reserved number and no document."
+   },
+   {
+    "from": "bug-sync-root-a",
+    "to": "data-rehydrate",
+    "kind": "affects",
+    "detail": "Compounding factor: the only two cloud-to-local pulls run ONCE per install and are gated by stored timestamps, so a device that drifts after its first pull has no repair path and stays wrong indefinitely. Severity HIGH. First seen: 2026-07-24. Workaround: reinstall, which clears the gate flags."
+   },
+   {
+    "from": "bug-sync-root-d",
+    "to": "clock-shifts",
+    "kind": "affects",
+    "detail": "Shift rows are keyed by an ID hashed from their own clock times, so clock adoption across devices inserts a duplicate shift instead of updating the existing one. Severity HIGH — it double-counts hours. First seen: named 2026-07-24/25. Workaround: manually delete duplicate shift rows."
+   },
+   {
+    "from": "bug-sync-root-d",
+    "to": "plan-221-clock",
+    "kind": "affects",
+    "detail": "Hard blocker on the clock-backdate feature: editing a shift time changes the hash the sync ID is derived from, so any edit would create a duplicate row rather than update one. Severity HIGH as a sequencing constraint. First seen: flagged inside the #221 spec itself. Workaround: land an immutable session id before building any time editing."
+   },
+   {
+    "from": "plan-047-sync",
+    "to": "bug-sync-root-a",
+    "kind": "plans"
+   },
+   {
+    "from": "plan-047-sync",
+    "to": "sync-service",
+    "kind": "plans"
+   },
+   {
+    "from": "corin-sync-integrity",
+    "to": "sync-service",
+    "kind": "plans"
+   },
+   {
+    "from": "desktop-companion",
+    "to": "ws-bridge",
+    "kind": "depends"
+   },
+   {
+    "from": "desktop-companion",
+    "to": "os-focus-tracking",
+    "kind": "part-of"
+   },
+   {
+    "from": "os-focus-tracking",
+    "to": "desktop-companion",
+    "kind": "depends"
+   },
+   {
+    "from": "ws-bridge",
+    "to": "sw-background",
+    "kind": "depends"
+   },
+   {
+    "from": "ws-handshake",
+    "to": "ws-bridge",
+    "kind": "plans"
+   },
+   {
+    "from": "desktop-capture",
+    "to": "desktop-companion",
+    "kind": "part-of"
+   },
+   {
+    "from": "desktop-capture",
+    "to": "capture-service",
+    "kind": "depends"
+   },
+   {
+    "from": "desktop-updater",
+    "to": "desktop-companion",
+    "kind": "part-of"
+   },
+   {
+    "from": "desktop-code-signing",
+    "to": "desktop-companion",
+    "kind": "plans"
+   },
+   {
+    "from": "companion-parity-gap",
+    "to": "desktop-companion",
+    "kind": "plans"
+   },
+   {
+    "from": "companion-parity-gap",
+    "to": "goal-surface-parity",
+    "kind": "plans"
+   },
+   {
+    "from": "unified-timeline",
+    "to": "desktop-companion",
+    "kind": "depends"
+   },
+   {
+    "from": "sidecar-pwa",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "sidecar-pwa",
+    "to": "realtime",
+    "kind": "depends"
+   },
+   {
+    "from": "sidecar-pwa",
+    "to": "fn-push",
+    "kind": "depends"
+   },
+   {
+    "from": "sidecar-pwa",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "sidecar-context-view",
+    "to": "sidecar-pwa",
+    "kind": "part-of"
+   },
+   {
+    "from": "phone-focus-mode",
+    "to": "sidecar-pwa",
+    "kind": "part-of"
+   },
+   {
+    "from": "watch-app",
+    "to": "fn-pair-watch",
+    "kind": "depends"
+   },
+   {
+    "from": "watch-app",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "watch-pairing",
+    "to": "watch-app",
+    "kind": "part-of"
+   },
+   {
+    "from": "watch-pairing",
+    "to": "sidecar-pwa",
+    "kind": "depends"
+   },
+   {
+    "from": "watch-tile",
+    "to": "watch-app",
+    "kind": "part-of"
+   },
+   {
+    "from": "watch-app",
+    "to": "focus-lifecycle",
+    "kind": "depends"
+   },
+   {
+    "from": "checkpoints",
+    "to": "watch-app",
+    "kind": "affects",
+    "detail": "Benign, recorded for blast-radius honesty: the watch is a first-class checkpoint WRITER, so any change to checkpoint shape or the focus_checkpoints table breaks a surface that has no auto-update path and no release artifact. Severity LOW today, MED on schema change. First seen: watch 0.1.0 (2026-07-18). Workaround: treat checkpoint schema as a public contract."
+   },
+   {
+    "from": "bug-watch-crash",
+    "to": "watch-app",
+    "kind": "affects",
+    "detail": "RESOLVED in 0.2.1 (2026-07-23). While open, every repository call in SupabaseFocusRepository was unguarded, so any connectivity failure crashed the whole watch app — pause, resume, extend, resolve and checkpoint all took the process down. Severity was CRITICAL and it was named a ship-blocker for any watch release. Fixed by wrapping every call site in runCatching."
+   },
+   {
+    "from": "bug-assign-intent-deadend",
+    "to": "desktop-companion",
+    "kind": "affects",
+    "detail": "Assigning an OS window to an intent appears to work but never feeds time totals, so the companion records work that is silently discarded. Severity MED and trust-critical — a feature that looks like it tracks and does not is worse than an absent one. First seen: 2026-07-21. Workaround: none; deliberately escalated as a product-communication decision rather than silently patched."
+   },
+   {
+    "from": "bug-assign-intent-deadend",
+    "to": "clock-shifts",
+    "kind": "affects",
+    "detail": "Downstream consequence: desktop time assigned to an intent never reaches the hours that Work Shifts and Org Hours aggregate, so any total computed from companion assignments understates real work. Severity MED. First seen: 2026-07-21. Workaround: clock and focus through the extension or sidecar instead."
+   },
+   {
+    "from": "mobile-expo-legacy",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "mobile-expo-legacy",
+    "to": "repo-mobile-1",
+    "kind": "part-of"
+   },
+   {
+    "from": "mobile-android-lab",
+    "to": "repo-mobile-2",
+    "kind": "part-of"
+   },
+   {
+    "from": "sidecar-pwa",
+    "to": "mobile-expo-legacy",
+    "kind": "affects",
+    "detail": "Supersession, not degradation: Tabby Sidecar took over the phone surface in July 2026 and both standalone mobile repos have been dead since 2026-05-30. Severity LOW as a defect, HIGH as a navigation hazard — two full repos with READMEs, plans and feature backlogs sit in the workspace looking live. First seen: divergence visible from the commit histograms. Workaround: archive both repos."
+   },
+   {
+    "from": "goal-surface-parity",
+    "to": "sidecar-pwa",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-surface-parity",
+    "to": "desktop-companion",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-surface-parity",
+    "to": "watch-app",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-surface-parity",
+    "to": "surface-sidebar",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-surface-parity",
+    "to": "sync-service",
+    "kind": "depends"
+   },
+   {
+    "from": "site-marketing",
+    "to": "env-cf-pages",
+    "kind": "depends"
+   },
+   {
+    "from": "showcase-show",
+    "to": "site-marketing",
+    "kind": "part-of"
+   },
+   {
+    "from": "docs-site",
+    "to": "site-marketing",
+    "kind": "part-of"
+   },
+   {
+    "from": "download-page",
+    "to": "site-marketing",
+    "kind": "part-of"
+   },
+   {
+    "from": "download-page",
+    "to": "invites",
+    "kind": "depends"
+   },
+   {
+    "from": "waitlist",
+    "to": "cf-pages-functions",
+    "kind": "depends"
+   },
+   {
+    "from": "cf-pages-functions",
+    "to": "env-cf-pages",
+    "kind": "depends"
+   },
+   {
+    "from": "channel-staff",
+    "to": "repo-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "channel-staff",
+    "to": "branch-update-channel",
+    "kind": "depends"
+   },
+   {
+    "from": "channel-enterprise",
+    "to": "env-cf-pages",
+    "kind": "depends"
+   },
+   {
+    "from": "channel-cws",
+    "to": "store-assets",
+    "kind": "depends"
+   },
+   {
+    "from": "channel-cws",
+    "to": "repo-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "cws-deployment-task",
+    "to": "channel-cws",
+    "kind": "plans"
+   },
+   {
+    "from": "goal-cws-publish",
+    "to": "channel-cws",
+    "kind": "depends"
+   },
+   {
+    "from": "goal-cws-publish",
+    "to": "store-assets",
+    "kind": "depends"
+   },
+   {
+    "from": "logo-redesign",
+    "to": "store-assets",
+    "kind": "depends"
+   },
+   {
+    "from": "store-assets",
+    "to": "showcase-show",
+    "kind": "depends"
+   },
+   {
+    "from": "desktop-updater",
+    "to": "env-cf-pages",
+    "kind": "depends"
+   },
+   {
+    "from": "bug-docs-stale",
+    "to": "docs-site",
+    "kind": "affects",
+    "detail": "The version badge is hardcoded (v6.7.41) and eight shipped features are missing or stale across four pages — device management, extension-minted pairing codes, count direction/precision, un-resolve, phone-away heartbeat semantics, invites, TV sign-in and the PWA orientation fix. Severity MED. First seen: 2026-07-21. Workaround: none — and no freshness-check mechanism exists at all, so this recurs on every release."
+   },
+   {
+    "from": "bug-version-drift",
+    "to": "channel-staff",
+    "kind": "affects",
+    "detail": "The staff channel advertises 6.7.78 while the repo is at 6.7.82 — every staff install is four versions behind HEAD, including the 6.7.79-6.7.82 intake work. Severity MED. First seen: probed 2026-08-01. Workaround: run npm run publish:update; it is one command and fully automated."
+   },
+   {
+    "from": "bug-version-drift",
+    "to": "channel-enterprise",
+    "kind": "affects",
+    "detail": "The enterprise update.xml serves 6.7.78 to force-installed Workspace machines, so the managed fleet is also four versions behind. Severity MED. First seen: probed 2026-08-01. Workaround: the CRX pack-and-publish sequence in OPERATIONS.md §2.2b — manual, undocumented until archaeology found it, and unautomated in scripts/."
+   },
+   {
+    "from": "bug-version-drift",
+    "to": "desktop-updater",
+    "kind": "affects",
+    "detail": "site/desktop/latest.json still points at desktop-v0.2.1 while desktop-v0.3.10 is the published release — the in-app updater will not offer eight patches' worth of fixes, including the 0.3.9 confirmation dialogs and the 0.3.10 update-check feedback. Severity MED-HIGH: users who need the update-visibility fix cannot receive it through the mechanism that fix repairs. First seen: 2026-08-01. Workaround: manual download from the GitHub release."
+   },
+   {
+    "from": "bug-version-drift",
+    "to": "store-assets",
+    "kind": "affects",
+    "detail": "The newest store zip is 6.7.47, 35 versions behind HEAD, and the screenshots were generated from the showcase at roughly 6.7.18. Severity LOW while unpublished, but it becomes a launch blocker the moment the CWS item goes live. First seen: 2026-08-01. Workaround: rerun build:store and capture:showcase before submission."
+   },
+   {
+    "from": "bug-version-drift",
+    "to": "goal-cws-publish",
+    "kind": "affects",
+    "detail": "Sequencing hazard: the audit is explicit that version and logo reconciliation must happen BEFORE any store submission, not after, and that the RLS revoke gap should close first too. Severity MED as a release-gate. First seen: 2026-07-21 (NOW #8). Workaround: sequence reconciliation ahead of submission."
+   },
+   {
+    "from": "cortex-program",
+    "to": "capture-service",
+    "kind": "plans"
+   },
+   {
+    "from": "cortex-program",
+    "to": "self-correction",
+    "kind": "plans"
+   },
+   {
+    "from": "cortex-program",
+    "to": "agent-sessions",
+    "kind": "plans"
+   },
+   {
+    "from": "capture-service",
+    "to": "bg-services",
+    "kind": "depends"
+   },
+   {
+    "from": "capture-service",
+    "to": "desktop-capture",
+    "kind": "depends"
+   },
+   {
+    "from": "cortex-proxy",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "self-correction",
+    "to": "cortex-proxy",
+    "kind": "depends"
+   },
+   {
+    "from": "self-correction",
+    "to": "focus-engine",
+    "kind": "depends"
+   },
+   {
+    "from": "agent-sessions",
+    "to": "bg-services",
+    "kind": "depends"
+   },
+   {
+    "from": "voice-io",
+    "to": "cortex-proxy",
+    "kind": "depends"
+   },
+   {
+    "from": "plan-045-agent",
+    "to": "agent-sessions",
+    "kind": "plans"
+   },
+   {
+    "from": "plan-045-agent",
+    "to": "headbox",
+    "kind": "depends"
+   },
+   {
+    "from": "mcp-server",
+    "to": "plan-045-agent",
+    "kind": "part-of"
+   },
+   {
+    "from": "plan-220-session-agg",
+    "to": "plan-045-agent",
+    "kind": "part-of"
+   },
+   {
+    "from": "plan-220-session-agg",
+    "to": "unified-timeline",
+    "kind": "plans"
+   },
+   {
+    "from": "taskrun-platform-review",
+    "to": "repo-tabatha",
+    "kind": "plans"
+   },
+   {
+    "from": "supabase-backend",
+    "to": "flux-ecosystem",
+    "kind": "part-of"
+   },
+   {
+    "from": "asana-integration",
+    "to": "edge-functions",
+    "kind": "depends"
+   },
+   {
+    "from": "asana-integration",
+    "to": "surface-settings",
+    "kind": "depends"
+   },
+   {
+    "from": "flux-asana-widget",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "flux-asana-widget",
+    "to": "asana-integration",
+    "kind": "affects",
+    "detail": "Duplication hazard rather than a live failure: the widget writes public.flux_time_entries on its own Express server while the edge functions own the tabatha schema, so two independent Asana time paths exist with no reconciliation. Severity LOW while dormant, MED if it is ever restarted. First seen: superseded around 2026-07. Workaround: retire the widget or give it its own 0.x line as the system map recommends. Note it also commits TLS private keys into the tree."
+   },
+   {
+    "from": "mimir-connector",
+    "to": "notes-system",
+    "kind": "depends"
+   },
+   {
+    "from": "mimir-connector",
+    "to": "desktop-companion",
+    "kind": "depends"
+   },
+   {
+    "from": "headbox",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "calendar-sync",
+    "to": "schema-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "calendar-sync",
+    "to": "plan-221-clock",
+    "kind": "affects",
+    "detail": "Dependency gap: calendar is the last rung of #221's evidence ladder for proposing a missed clock-in time, but the Google OAuth sync engine was never built, so that rung is unavailable. Severity LOW — the higher-confidence rungs (companion OS activity, first focus, capture frame, tab activity) all exist. First seen: 2026-07-25. Workaround: rely on the earlier rungs."
+   },
+   {
+    "from": "anasa-console",
+    "to": "supabase-backend",
+    "kind": "depends"
+   },
+   {
+    "from": "screensaver",
+    "to": "flux-ecosystem",
+    "kind": "part-of"
+   },
+   {
+    "from": "sidecar-context-view",
+    "to": "screensaver",
+    "kind": "affects",
+    "detail": "Supersession: the Context View delivers the ambient focus-display job the Refocus screensaver was meant to do, on hardware the user already owns, which is why the screensaver went dormant at v2.0.0 with a local-only install. Severity LOW. First seen: Context View shipped 2026-07-18. Workaround: none needed — but ROADMAP.md Phase 5 still lists the screensaver integration as planned work, which is now misleading."
+   },
+   {
+    "from": "system-status-map",
+    "to": "repo-tabatha",
+    "kind": "plans"
+   },
+   {
+    "from": "flux-ecosystem",
+    "to": "asana-integration",
+    "kind": "depends"
+   },
+   {
+    "from": "worktree-fleet",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "branch-update-channel",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "branch-staging",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "version-discipline",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "dist-archives",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "desktop-companion",
+    "to": "repo-desktop",
+    "kind": "part-of"
+   },
+   {
+    "from": "watch-app",
+    "to": "repo-watch",
+    "kind": "part-of"
+   },
+   {
+    "from": "sidecar-pwa",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "site-marketing",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "schema-tabatha",
+    "to": "repo-tabatha",
+    "kind": "part-of"
+   },
+   {
+    "from": "env-cf-pages",
+    "to": "repo-tabatha",
+    "kind": "depends"
+   },
+   {
+    "from": "worktree-fleet",
+    "to": "version-discipline",
+    "kind": "affects",
+    "detail": "Forty concurrent worktrees all bump public/manifest.json on every commit (Headbox Rule 10), making it the repo's highest-contention shared file — a whole-file reformat would have forced a 98-line conflict onto 20 active branches, which is exactly why 6.7.82 exists as a revert. Severity MED as sustained friction. First seen: 2026-07-29. Workaround: keep the file at 2-space, the format the tooling already writes."
+   },
+   {
+    "from": "worktree-fleet",
+    "to": "bug-version-drift",
+    "kind": "affects",
+    "detail": "Root cause of the drift: with 40 worktrees each carrying its own version, 'current' is ambiguous by construction, and the single dist/ folder Chrome loads can be built from any of them. The July system map's top risk was that dist/ held 6.8.2 from an unmerged widget branch while Malkio believed he was running 6.7.22. Severity HIGH. First seen: 2026-07-19. Workaround: check git worktree list and each worktree's manifest before building, per the CLAUDE.md build/load constraint."
+   },
+   {
+    "from": "repo-sync-batch",
+    "to": "worktree-fleet",
+    "kind": "affects",
+    "detail": "A dead worktree pointer left in the workspace root: its .git is a FILE whose target no longer resolves, so git commands there fail with 'not a repository (NULL)'. Severity LOW functionally, MED as a navigation trap — it looks like a live codebase with a full source tree and changelog. First seen: stale since 2026-05-18. Workaround: archive or delete the directory."
+   },
+   {
+    "from": "surface-inventory-doc",
+    "to": "repo-tabatha",
+    "kind": "plans"
+   },
+   {
+    "from": "roadmap-doc",
+    "to": "repo-tabatha",
+    "kind": "plans"
+   },
+   {
+    "from": "portfolio-doc",
+    "to": "repo-tabatha",
+    "kind": "plans"
+   },
+   {
+    "from": "portfolio-doc",
+    "to": "gatekeeper",
+    "kind": "affects",
+    "detail": "Documentation defect with real cost: the portfolio describes the Gatekeeper as a new-tab intercept, when the new tab is overridden by home.html and the Gatekeeper is an all-URLs document_start content script. Severity MED for anyone onboarding — it inverts the product's central mechanism. First seen: portfolio predates the 6.x line entirely. Workaround: read src/content/gatekeeper.js and public/manifest.json instead."
+   },
+   {
+    "from": "portfolio-doc",
+    "to": "desktop-companion",
+    "kind": "affects",
+    "detail": "The portfolio lists 'Desktop Integration' as unstarted Phase 5 work and the workspace summary claims v0.1.0 shipped, while the companion is at 0.3.10 with 8703 lines of Rust and eleven published releases. Severity MED — it makes the most technically distinctive surface in the product invisible. First seen: 2026-08-01 cross-check. Workaround: read tabatha-desktop's git log and the GitHub release list."
+   },
+   {
+    "from": "roadmap-doc",
+    "to": "flux-ecosystem",
+    "kind": "affects",
+    "detail": "ROADMAP.md Phase 5 lists 'Flux Master Interface' integration as future work, but the Supabase project Tabatha already runs on is literally named Flux and the Asana home is Flux Development. Severity LOW-MED: it frames the substrate as an aspiration, which misdirects planning about what integration work actually remains. First seen: 2026-08-01. Workaround: treat the Flux dependency as existing infrastructure."
+   },
+   {
+    "from": "surface-inventory-doc",
+    "to": "bug-version-drift",
+    "kind": "affects",
+    "detail": "Self-inflicted staleness: the internal system map is a point-in-time snapshot dated 2026-07-19 that is now wrong on nearly every specific (sidecar 0.2.1 vs 0.13.x, companion 0.2.1 vs 0.3.10, migrations 033 vs 060, extension 6.7.22 vs 6.7.82) while still reading as authoritative. Severity MED. First seen: 2026-08-01 cross-check. Workaround: regenerate it, or use this atlas."
+   }
+  ],
+  "clusters": [
+   {
+    "id": "gate",
+    "label": "The Attention Gate",
+    "members": [
+     "gatekeeper",
+     "gate-friction",
+     "context-inheritance",
+     "blockgate",
+     "inbar",
+     "url-rules",
+     "agent-human-toggle",
+     "inpop-header",
+     "bug-xss-sinks",
+     "bug-gatekeeper-race",
+     "bug-objectobject",
+     "goal-intentional-friction"
+    ]
+   },
+   {
+    "id": "focus",
+    "label": "Focus, Time & Work Records",
+    "members": [
+     "focus-engine",
+     "focus-lifecycle",
+     "checkpoints",
+     "backburner",
+     "focus-queue",
+     "sub-intents",
+     "clock-shifts",
+     "surface-workshifts",
+     "surface-activity",
+     "unified-timeline",
+     "auto-focus",
+     "off-device",
+     "bug-break-notes",
+     "bug-b09-inbar",
+     "bug-clock-backdate",
+     "plan-221-clock",
+     "bug-elapsed-drift"
+    ]
+   },
+   {
+    "id": "surfaces",
+    "label": "Extension Surfaces & Runtime",
+    "members": [
+     "sw-background",
+     "bg-services",
+     "surface-home",
+     "surface-sidebar",
+     "surface-popup",
+     "surface-settings",
+     "settings-live-preview",
+     "feedback-widget",
+     "hotkeys",
+     "notes-system",
+     "test-suite"
+    ]
+   },
+   {
+    "id": "sync",
+    "label": "Cloud Sync & Identity Substrate",
+    "members": [
+     "supabase-backend",
+     "schema-tabatha",
+     "rls-policies",
+     "edge-functions",
+     "fn-pair-watch",
+     "fn-push",
+     "sync-service",
+     "cloud-outbox",
+     "data-rehydrate",
+     "realtime",
+     "auth-identity",
+     "device-management",
+     "invites",
+     "org-teams",
+     "bug-rls-revoke",
+     "bug-sync-root-a",
+     "bug-sync-root-d",
+     "plan-047-sync",
+     "corin-sync-integrity"
+    ]
+   },
+   {
+    "id": "companions",
+    "label": "Companion Surfaces",
+    "members": [
+     "desktop-companion",
+     "os-focus-tracking",
+     "ws-bridge",
+     "ws-handshake",
+     "desktop-capture",
+     "desktop-updater",
+     "desktop-code-signing",
+     "companion-parity-gap",
+     "bug-assign-intent-deadend",
+     "sidecar-pwa",
+     "sidecar-context-view",
+     "phone-focus-mode",
+     "watch-app",
+     "watch-pairing",
+     "watch-tile",
+     "bug-watch-crash",
+     "mobile-expo-legacy",
+     "mobile-android-lab",
+     "goal-surface-parity"
+    ]
+   },
+   {
+    "id": "dist",
+    "label": "Distribution & Web Presence",
+    "members": [
+     "site-marketing",
+     "showcase-show",
+     "docs-site",
+     "download-page",
+     "waitlist",
+     "cf-pages-functions",
+     "channel-staff",
+     "channel-enterprise",
+     "channel-cws",
+     "cws-deployment-task",
+     "store-assets",
+     "logo-redesign",
+     "bug-docs-stale",
+     "bug-version-drift",
+     "goal-cws-publish"
+    ]
+   },
+   {
+    "id": "cortex",
+    "label": "Cortex, Agents & Voice",
+    "members": [
+     "cortex-program",
+     "capture-service",
+     "cortex-proxy",
+     "self-correction",
+     "agent-sessions",
+     "voice-io",
+     "plan-045-agent",
+     "mcp-server",
+     "plan-220-session-agg",
+     "taskrun-platform-review"
+    ]
+   },
+   {
+    "id": "eco",
+    "label": "Ecosystem & Integrations",
+    "members": [
+     "flux-ecosystem",
+     "asana-integration",
+     "flux-asana-widget",
+     "mimir-connector",
+     "headbox",
+     "screensaver",
+     "calendar-sync",
+     "anasa-console",
+     "system-status-map"
+    ]
+   },
+   {
+    "id": "substrate",
+    "label": "Repos, Branches & Release Substrate",
+    "members": [
+     "repo-tabatha",
+     "repo-desktop",
+     "repo-watch",
+     "repo-mobile-1",
+     "repo-mobile-2",
+     "repo-codex",
+     "repo-sync-batch",
+     "worktree-fleet",
+     "branch-update-channel",
+     "branch-staging",
+     "version-discipline",
+     "dist-archives",
+     "env-cf-pages",
+     "surface-inventory-doc",
+     "roadmap-doc",
+     "portfolio-doc"
+    ]
+   }
+  ],
+  "sources": [
+   {
+    "name": "Tabatha monorepo (code)",
+    "what": "src/, supabase/, sidecar/, site/, functions/, scripts/, store-assets/, public/manifest.json — read directly for feature inventory, schema, edge functions and build wiring",
+    "asOf": "2026-08-01"
+   },
+   {
+    "name": "git history (5 repos)",
+    "what": "log, branches, remotes, worktrees and month-by-month commit histograms across Tabatha, tabatha-desktop, tabatha-watch, tabatha-mobile, tabatha-mobile-2 — the primary evidence for what is alive vs abandoned",
+    "asOf": "2026-08-01"
+   },
+   {
+    "name": "GitHub MrMalkio/tabatha",
+    "what": "38 PRs (all merged), 1 open issue, and the ext-v* / desktop-v* release stream used as an incident journal",
+    "asOf": "2026-08-01"
+   },
+   {
+    "name": "Asana — Flux Development project",
+    "what": "Tabatha's real tracker home (GID 1214031898449333); 40+ tasks reviewed with comment counts and newest-comment dates. The near-empty 'Tabatha Development' project is not where the work lives",
+    "asOf": "2026-08-01"
+   },
+   {
+    "name": "docs/audits/ (9 documents)",
+    "what": "The 2026-07-19 surface parity audit and the 2026-07-21 Koda synthesis of ~110 findings from three parallel auditors — the single most reliable account of current wounds",
+    "asOf": "2026-07-25"
+   },
+   {
+    "name": "docs/system-map/SYSTEM-MAP.md",
+    "what": "Hermes' 2026-07-19 automated surface/branch/version survey; method excellent, specifics now stale",
+    "asOf": "2026-07-19"
+   },
+   {
+    "name": "Tabatha_Changelog.md",
+    "what": "156KB of per-version history; the newest entries (6.7.71-6.7.82) carry root-cause narratives, not just summaries",
+    "asOf": "2026-07-29"
+   },
+   {
+    "name": "docs/features/ + docs/plans/",
+    "what": "71 numbered feature specs (#161-#222, B07-B09, D01) and 8 numbered plans (037, 038, 040-045)",
+    "asOf": "2026-07-27"
+   },
+   {
+    "name": "docs/OPERATIONS.md + CWS-PUBLISHING.md",
+    "what": "The three distribution channels, their mechanics, and the explicit credential reality-check confirming CWS was never provisioned",
+    "asOf": "2026-07-21"
+   },
+   {
+    "name": "Live health probes",
+    "what": "curl against Supabase REST/auth, tabatha.pondocean.co (site, /show, /sidecar, /enterprise/update.xml), the update-channel latest.json, and both Chrome Web Store IDs — with example.com and supabase.com as controls (both 200)",
+    "asOf": "2026-08-01"
+   },
+   {
+    "name": "tabatha-portfolio.md",
+    "what": "The workspace portfolio entry, used as the claim set this map was asked to test — and largely falsified",
+    "asOf": "2026-08-01"
+   }
+  ],
+  "updated": "2026-08-01T08:33:47.737Z"
+ }
+}

@@ -1,9 +1,9 @@
 # Headbox Config
 
 > **Headbox Version:** v0.1.0 **Inherited From Main:** v0.1.0 **Status:** active
-> **Installed:** 2026-04-27 **Uses:** 0
+> **Installed:** 2026-04-27 **Uses:** 1
 
-> **Project State:** Tabatha **v6.4.0** — shipped to production (GitHub `main`) 2026-06-30.
+> **Project State:** Tabatha **v6.7.82** — current package version in `package.json` as of 2026-08-08.
 > `MrMalkio/tabatha` is source of truth; PS == OD == GitHub. `main` = production, `staging` = dev.
 > Desktop Companion **v0.1.0** built + packaged (.msi + setup.exe). Headbox protocols replicated onto OD.
 
