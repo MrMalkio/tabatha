@@ -79,7 +79,7 @@ Next gates, kept open rather than silently shipped:
 1. Verify the installed extension is 6.7.83 and smoke-test real account synchronization with Sidecar.
 2. Provide a valid Supabase management credential through the existing local secret mechanism; inspect deployed functions, migration ledger and current org-hours permissions without replaying migrations wholesale.
 3. Repair and test pairing fail-closed consumption/attempt accounting and lease ownership before proposing that deployment. Do not deploy archived SQL 061 as-is.
-4. Define caller-to-Asana-resource authorization before enabling the rescued shared-PAT action/widget work.
+4. Define caller-to-Asana-resource authorization before enabling rescued shared-PAT task actions and extension controls; compare native widget source against live before redeployment. The already-live native widget uses Asana HMAC authentication, not the action's shared-PAT authorization model.
 5. Confirm CWS trusted-tester availability separately; accepted publication is not proof that every installation has updated.
 
 The historical branches/worktrees and rejected work are retained, not deleted. All five original worktrees are now clean. Their substantive dirty snapshots were independently compared with the pre-work backups before committing:
