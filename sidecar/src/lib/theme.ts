@@ -43,14 +43,31 @@ export function priorityColor(p: number): string {
 }
 
 // ── time formatting (mirrors extension utils) ──────────────
-export function formatElapsedMs(ms: number): string {
+// Fix Wave 3, item 1 (2026-07-20 spec): the old `formatElapsedMs` dropped
+// precision as time grew ("6h 12m" past an hour, losing seconds; "6m" past
+// a minute, losing seconds entirely) — never combined h/m/s the way the
+// countdown ring's `formatTimer` already does. Renamed to make the digit
+// contract explicit: full `h:mm:ss` / `m:ss`, never a bare unit-suffix
+// string. `precision: 'rounded_minute'` keeps the OLD coarse behavior as an
+// opt-in (Context View setting `sidecar.cv.precision`) for anyone who
+// preferred the calmer display; every other caller (FocusScreen,
+// FocusTimeline) always uses the default `'second'` digit style.
+export function formatElapsedDigits(
+  ms: number,
+  precision: 'second' | 'rounded_minute' = 'second'
+): string {
   if (!ms || ms < 0) ms = 0;
   const s = Math.floor(ms / 1000);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
+  if (precision === 'rounded_minute') {
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m`;
+    return `${s}s`;
+  }
+  const sec = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
 export function formatTimer(ms: number): string {

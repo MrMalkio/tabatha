@@ -28,6 +28,10 @@ import { PAIRED_DEVICE_NAME_KEY } from '../lib/device';
 // flow on phones, but reads clearly on a TV remote: large numeric input,
 // autofocus on expand, Enter submits.
 
+// Carries a message that is already fit to show the user, so the catch below
+// can tell "the server told us why" apart from "the fetch itself blew up".
+class PairError extends Error {}
+
 export default function CodeSignIn() {
   const [expanded, setExpanded] = useState(false);
   const [code, setCode] = useState('');
@@ -60,7 +64,25 @@ export default function CodeSignIn() {
       });
       const body = await res.json().catch(() => ({}) as unknown);
       if (!res.ok || !isValidRedeemSession(body)) {
-        throw new Error('invalid code');
+        // Be honest about WHOSE fault it is. Collapsing every non-2xx into
+        // "invalid or expired" sent people hunting for a fresh code while the
+        // backend was the thing that was broken (the 2026-07-24 pairing P1).
+        if (res.status === 429) {
+          const wait = res.headers.get('Retry-After');
+          throw new PairError(
+            wait
+              ? `Too many attempts — wait about ${Math.ceil(Number(wait) / 60)} minutes and try again.`
+              : 'Too many attempts — wait a few minutes and try again.'
+          );
+        }
+        if (res.status >= 500) {
+          throw new PairError(
+            'Pairing service problem — try again in a moment. Your code is still good.'
+          );
+        }
+        throw new PairError(
+          'That code is invalid or has already been used — get a fresh one from Settings → Pair a device on your phone.'
+        );
       }
       // Stash the pairing device's chosen name BEFORE setSession fires the
       // onAuthStateChange listener that triggers AuthContext's
@@ -78,9 +100,11 @@ export default function CodeSignIn() {
       // listener swaps this whole screen out once `session` flips, so there
       // is no local "signed in" state to reset here.
       setCode('');
-    } catch {
+    } catch (e) {
       setErr(
-        'Code invalid or expired — get a fresh one from Settings → Pair a device on your phone.'
+        e instanceof PairError
+          ? e.message
+          : 'Could not reach the pairing service — check this device’s connection and try again.'
       );
     } finally {
       setBusy(false);
