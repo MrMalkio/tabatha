@@ -112,6 +112,25 @@ Release steps (proven 6.7.22 → 6.7.50, 2026-07-21):
 6. Managed Chromes poll the policy update URL on Chrome's own cadence (hours);
    no user action needed.
 
+**Rollback hazard — any site deploy can silently downgrade the fleet.** This
+channel's entire state is files in the site tree (`update.xml` + the `.crx`), and
+`site:deploy` publishes a **full snapshot**. Deploying from a tree that predates
+the newest release therefore reverts every managed Chrome, with nothing failing
+and nothing logged. This is not theoretical: 6.7.78 shipped correctly on
+2026-07-24, and a later deploy from the `staging` tree — which had neither the
+6.7.78 crx nor its `update.xml` — put the fleet back on 6.7.76. It went unnoticed
+because the staff channel (§2.2, a GitHub release, unaffected by site deploys)
+stayed correct, so the two channels silently disagreed.
+
+Guard: `npm run site:check-enterprise`
+(`scripts/check-enterprise-channel.mjs`), wired into `site:deploy` and
+fail-closed. It rejects a missing/dangling crx, a non-CRX3 file (a 404 HTML page
+saved as `.crx` is the classic one), a wrong signing id, an inner-manifest
+version that disagrees with `update.xml`, and — the rollback case — a tree whose
+version is **lower** than what the live channel already serves. If you are
+releasing from a feature worktree, bring the crx + `update.xml` into whichever
+tree you deploy from, or the next unrelated site deploy will undo you.
+
 This channel retires once the CWS item (§2.3) is published and the Workspace
 force-install is repointed to store id `piopncjacohahbkkmockjnpenhdbmmbc`.
 

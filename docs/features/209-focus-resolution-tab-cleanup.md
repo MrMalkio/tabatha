@@ -4,7 +4,7 @@
 > **Phase:** 4 (Polish & Intelligence)  
 > **Priority:** Medium  
 > **Depends on:** Focus Engine (`focusService.js`), Tab Service (`tabService.js`), `associatedTabIds[]` tracking, Sub-Focus/parentFocusId hierarchy  
-> **Related features:** #185 (Focus Auto-Resume Queue), #202 (Session Resurrection), #207 (Backburner), #177 (Sugarbox Stash/Delete)
+> **Related features:** #226 (Focus Auto-Resume Queue), #202 (Session Resurrection), #207 (Backburner), #177 (Sugarbox Stash/Delete)
 
 ---
 
@@ -123,7 +123,7 @@ When Background Tracks are implemented, music/podcast tabs associated with a foc
 
 **Challenge:** Check each tab's `category` field. If `category === 'music'` or `category === 'media'` or the tab is tagged as a background track, exclude it from cleanup. This needs the Background Tracks feature (#163) to land first, or at minimum needs a `backgroundTrack` boolean on tab data.
 
-### 6. Timing with Auto-Resume (#185)
+### 6. Timing with Auto-Resume (#226)
 When a focus resolves, `completeFocus()` auto-resumes the next queued focus. If that next focus has its *own* associated tabs, should those tabs be foregrounded? There's a choreography problem: close old tabs → open/focus new tabs → all within milliseconds.
 
 **Challenge:** The tab cleanup should execute *after* the next focus is activated, so the user sees a clean transition: old tabs vanish, new focus's tabs come to the front.

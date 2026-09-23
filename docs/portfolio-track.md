@@ -76,4 +76,4 @@ is the **Flux/Chaperone (#182)** end-state. Engine decision: **Hermes first**
 (lighter), OpenClaw if a mix is needed — both installed. A no-AI v0 (pre-recorded
 lines on cross-device triggers) ships within Tabatha/Sidecar (Plan 040 Epic 10);
 the agentic engine + "click to engage" belongs to this parked Flux track.
-Related new feature: #215 Body Doubling (human-powered variant, parked).
+Related new feature: #228 Body Doubling (human-powered variant, parked).

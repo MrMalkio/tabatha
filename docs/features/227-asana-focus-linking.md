@@ -1,4 +1,4 @@
-# Feature #186 — Asana Task ↔ Focus Linking
+# Feature #227 — Asana Task ↔ Focus Linking
 
 > **Status:** 📋 Planned · **Version:** v0.2.0  
 > **Depends On:** #54 Asana Integration, #142 Asana URL Parsing, #122 Focus Queue  
@@ -31,7 +31,7 @@ When user navigates to an Asana task page (`app.asana.com/0/{project_gid}/{task_
 - System detects isolated task page via URL pattern
 - **Prompt:** "Create a focus for [Task Name]?" with options:
   - ✅ "Start Focus" → creates focus with Asana task linked
-  - 📋 "Queue for Later" → adds to queue (#185)
+  - 📋 "Queue for Later" → adds to queue (#226)
   - ❌ "Skip" → treats as normal browsing
 - Task name and project extracted from page or API
 
