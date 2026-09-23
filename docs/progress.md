@@ -1299,3 +1299,15 @@ never moved off its branch.
 collision 039/040/041 (`1216900494891551`), companion signing key (T1c), production
 promotion (still NO-GO from 07-24). Detail:
 `docs/taskrun/2026-07-27-morning-report.md`, `docs/taskrun/2026-07-26-questions.md`.
+
+## 2026-09-23 — Koda: Plan 050 source reconciliation and release preparation
+
+Goal: preserve all local work, reconcile source against live products, deploy only validated material. Used isolated `Koda/reconcile-20260923` worktree; all original dirty snapshots/Atlas backed up under the original repository's `.git/reconciliation-backups/2026-09-23`.
+
+Recovered current local documentation commits, local staging enterprise rollback guard/registry repairs, final shipped sync fixes, live Sidecar 0.13.14 source, preview harness, Atlas, and uncommitted SYSTEM-MAP history. Archived 22 colliding Sidecar specs with provenance. Preserved the original Headbox renumbering proposal and repaired migration rows without silently deciding historical plan identities.
+
+Key finding: 6.7.82 source was missing shipped 6.7.78 code. Reconciled candidate is 6.7.83; 833 extension tests, 166 Sidecar tests, production builds, version/changelog/docs checks and actual isolated Chrome smoke passed. Chrome smoke covers six pages, focus/clock lifecycle, storage/broadcast and reload persistence; it does not prove authenticated cross-device behavior.
+
+Security holds: pairing hardening returns tokens on consume failure and has fail-open attempt accounting/unowned leases; archived outside deployable paths. Rescued Asana actions use a shared PAT without caller-resource authorization; preserve source pending remediation. Org-hours UI remains excluded after prior privacy rejection. Supabase management credential returns 401, so no SQL/function deployment or ACL claim. Sidecar already matches live; no redundant Worker release.
+
+Next: finish release guard regression tests, commit artifacts, promote via PR, publish staff/enterprise/CWS channels and Pages, then record exact live versions/hashes and any external review delay in `docs/reconciliation/2026-09-23-reconciliation.md`.

@@ -17,7 +17,7 @@
 //   2. that file is a real CRX3 (Cr24 magic) whose crx_id is the fleet id
 //   3. its inner manifest version equals the version update.xml advertises
 //   4. the local version is not LOWER than what the live channel already serves
-//      (the rollback guard; skipped with --offline or if the network is down)
+//      (the rollback guard; skipped ONLY with explicit --offline)
 //
 // Usage:
 //   node scripts/check-enterprise-channel.mjs [--offline]
@@ -97,14 +97,24 @@ if (!existsSync(UPDATE_XML)) {
 
 // Scope to the <updatecheck> attributes — a bare /version='...'/ matches the
 // XML declaration's version='1.0' first.
-const UPDATECHECK_VERSION = /<updatecheck[^>]*\sversion='([\d.]+)'/;
+const UPDATECHECK_VERSION = /<updatecheck\b[^>]*\sversion=(['"])([^'"]*)\1/;
+
+function channelVersion(xml) {
+  const value = xml.match(UPDATECHECK_VERSION)?.[2];
+  // Chrome versions have one to four integer components, each 0..65535.
+  // Reject malformed input instead of letting NaN compare as an equal version.
+  if (!value || !/^(0|[1-9]\d*)(\.(0|[1-9]\d*)){0,3}$/.test(value)) return null;
+  const parts = value.split('.').map(Number);
+  if (parts.some(part => part > 65535) || !parts.some(part => part > 0)) return null;
+  return value;
+}
 
 const xml = readFileSync(UPDATE_XML, 'utf8');
-const declaredVersion = xml.match(UPDATECHECK_VERSION)?.[1];
+const declaredVersion = channelVersion(xml);
 const codebase = xml.match(/codebase='([^']+)'/)?.[1];
 
 if (!declaredVersion || !codebase) {
-  fail('update.xml is missing a version or codebase attribute');
+  fail('update.xml has a missing/invalid version or missing codebase attribute');
   process.exit(1);
 }
 
@@ -144,9 +154,10 @@ if (offline) {
       headers: { 'Cache-Control': 'no-cache' },
       signal: AbortSignal.timeout(15000),
     });
-    const liveVersion = (await res.text()).match(UPDATECHECK_VERSION)?.[1];
+    if (!res.ok) throw new Error(`live channel HTTP ${res.status}`);
+    const liveVersion = channelVersion(await res.text());
     if (!liveVersion) {
-      console.warn('⚠ could not read the live channel version — rollback guard inconclusive');
+      fail('missing or invalid live channel version — cannot establish rollback safety');
     } else if (cmpVersion(declaredVersion, liveVersion) < 0) {
       fail(`ROLLBACK: live fleet channel serves ${liveVersion}, this tree would publish ${declaredVersion}.`);
       console.error('   A site deploy publishes a full snapshot, so this would downgrade every managed Chrome.');
@@ -154,13 +165,15 @@ if (offline) {
     } else {
       console.log(`✓ no rollback (live ${liveVersion} → publishing ${declaredVersion})`);
     }
-  } catch {
-    console.warn('⚠ live channel unreachable — rollback guard skipped');
+  } catch (err) {
+    fail(`could not verify live channel — ${err.message}`);
   }
 }
 
 if (process.exitCode === 1) {
   console.error('\n✘ enterprise channel preflight FAILED — fix the above before deploying the site.');
 } else {
-  console.log('✓ enterprise channel preflight passed');
+  console.log(offline
+    ? '✓ enterprise channel local-only validation passed (--offline; rollback safety not checked)'
+    : '✓ enterprise channel preflight passed');
 }

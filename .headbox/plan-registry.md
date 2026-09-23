@@ -48,10 +48,13 @@
 | 040      | sidecar_voice_timeline_tasks | 2026-07-18 | Tabby Sidecar — Voice Capture, Context View timeline, Tasks↔Asana(PAT)/Anasa + subtasks-as-sub-intents, Tasks-view fixes, phone-away red. Shared foundation: focus start/stop event log (`focus_events`). Decisions: Asana REST via PAT not MCP; timeline nodes = checkpoints+starts; portfolio audit parked (docs/portfolio-track.md). docs/superpowers/specs/2026-07-18-sidecar-timeline-voice-tasks-design.md | partial (9/12) — Epics 0,B1,B2,1,2,4,5,6,7,8,9-sidecar + Addenda 6-7 (extend-tracking, voice check-ins) SHIPPED through Sidecar 0.7.0 + ext 6.7.34; remaining: Epic 3 v1.1 (due_on, workspace name), Epic 10 chaperone audio expansion, extension-side voice parity — sequence: Epic0+B1 phone-away/pause-on-leave → B2 current-focus fix + empty-state cards → Epic1 Voice (#165) → Epic7 feedback → Epic5 notes-simple+install → focus_events+Epic4 tasks → Epic2 timeline+Epic6 layout → Epic8 nudges (#194) → Epic3 Asana(PAT) → Epic9 CV customization (extension-side, MUST branch from 6.7.24+/6.8.2 line, NOT this 6.5.0-based branch); addendum 3 adds Epic10 personality-interrupts v0 (#182 pre-recorded slice) + #228 Body Doubling created+parked + Progressive Simplicity principle. Repo-reconciliation chore flagged: GitHub (staging 6.6.0/main 6.5.0) behind local 6.7.x-6.8.2 line; Chrome dist = 6.8.2 |
 | 041      | tabby_watch                 | 2026-07-18 | Tabby Watch — Wear OS 4 companion for Samsung Galaxy Watch 6 (Kotlin + Jetpack Compose for Wear OS). New repo `tabatha-watch` (github.com/MrMalkio/tabatha-watch). Glanceable current-focus + countdown ring, checkpoint quick-add (canned progress levels), extend +5, pause/resume, clock glance, phone-away awareness, Tile + complication. Direct PostgREST/Realtime against schema `tabatha` mirroring Sidecar timer semantics. Password-free pairing: phone-minted 6-digit code → `pair-watch` edge fn returns a refresh token (SPECed — CeeCee to deploy; needs `watch_pairing_codes` migration). docs/superpowers/specs/2026-07-18-tabby-watch-design.md | draft → building (Soren, Opus) — target v0.1.0. Design doc + self-review complete. Build gate: `gradlew assembleDebug` green + TimerEngine/CurrentFocus unit tests. CeeCee to apply migration + deploy `pair-watch` edge fn + Sidecar "Pair a watch" button; Malkio to sideload + pair on-device. |
 | 046      | UI/UX Overhaul               | 2026-07-21 | Full-surface audit synthesis (Argus/Cirra/Rook/Koda) -> 7 overhaul themes | draft |
+| 050 | reconcile_deploy_20260923 | 2026-09-23 | Recover all local work, reconcile shipped source, validate and deploy each ready surface. Original path: `docs/plans/plan-050-reconcile-deploy-20260923.md`. | partial (4/7) |
 
 ---
 
-> **Next available number:** 047
+> **Next available number:** 051
+>
+> 047–049 are reserved by the pre-existing uncommitted Sidecar/Watch renumbering proposal; their allocation remains pending. Historical 039/040/041 aliases remain valid until that decision is recorded.
 
 > **Note:** Plans 026 (auto_focus) and 029 (auto_pause_overhaul) are **absorbed by Plan 036** — credit their scope there; do not execute them independently.
 
@@ -176,6 +179,30 @@ Wave 0 (pre-prod gate)
 | 022      | `022_cortex_ledger.sql`                   | ✅ Applied 2026-07-10 | Cortex observations ledger + capture refs (Plan 040) |
 | 023      | `023_cortex_org_capture_policy.sql`       | ✅ Applied 2026-07-10 | Org capture mandate policy (Plan 043 T4) |
 | 024      | `024_cortex_controller_attribution.sql`   | ✅ Applied 2026-07-10 | controller/confidence/provenance columns (C11a) |
+| 025      | `025_cortex_surface_voice.sql`            | ⚪ Present on disk; remote status not verified | Cortex surface/voice follow-up |
+| 026      | `026_org_admin_helpers.sql`               | ⚪ Present on disk; remote status not verified | Org admin helpers |
+| 027      | `027_schedule_profiles_requirements.sql`  | ⚪ Present on disk; remote status not verified | Schedule/profile requirements |
+| 028      | `028_waitlist.sql`                        | ⚪ Present on disk; remote status not verified | Waitlist |
+| 030      | `030_sidecar_push_subscriptions.sql`      | ⚪ Present on disk; remote status not verified | Sidecar push subscriptions |
+| 031      | `031_sidecar_push_cron.sql`               | ⚪ Present on disk; remote status not verified | Sidecar push cron |
+| 032      | `032_focus_checkpoints.sql`               | ⚪ Present on disk; remote status not verified | Focus checkpoints |
+| 033      | `033_realtime_focus_status.sql`           | ⚪ Present on disk; remote status not verified | Realtime focus status |
+| 034      | `034_focus_events.sql`                    | ⚪ Present on disk; remote status not verified | Focus events |
+| 035      | `035_task_sync_foundation.sql`            | ⚪ Present on disk; remote status not verified | Task sync foundation |
+| 036      | `036_push_log_nudge_dedup.sql`            | ⚪ Present on disk; remote status not verified | Push log/nudge dedup |
+| 037      | `037_sidecar_schedule_nudge_cron.sql`     | ⚪ Present on disk; remote status not verified | Sidecar schedule nudge cron |
+| 038      | `038_update_profile_settings_rpc.sql`     | ⚪ Present on disk; remote status not verified | Profile settings RPC |
+| 039      | `039_focus_events_extend_kind.sql`        | ⚪ Present on disk; remote status not verified | Focus-event extend kind |
+| 040      | `040_watch_pairing_codes.sql`             | ⚪ Present on disk; remote status not verified | Watch pairing codes |
+| 041      | `041_focus_events_backburner_kinds.sql`   | ⚪ Present on disk; remote status not verified | Focus-event backburner kinds |
+| 042      | `042_redeem_creates_profile.sql`          | ⚪ Present on disk; remote status not verified | Redeem creates profile |
+| 043      | `043_app_level_invites.sql`               | ⚪ Present on disk; remote status not verified | App-level invites |
+| 044      | `044_invite_kinds_remodel.sql`            | ⚪ Present on disk; remote status not verified | Invite kinds remodel |
+| 045      | `045_device_management.sql`               | ⚪ Present on disk; remote status not verified | Device management |
+| 050      | `050_fix_invite_mint_pgcrypto.sql`        | ⚪ Present on disk; remote status not verified | Invite mint pgcrypto fix |
+| 058      | `058_browser_profiles_lifecycle_guard.sql` | ⚪ Present on disk; remote status not verified | Browser profile lifecycle guard |
+| 059      | `059_short_invite_tokens.sql`             | ⚪ Present on disk; remote status not verified | Short invite tokens |
+| 060      | `060_org_hours_summary_rpc.sql`           | ⚪ Present on disk; remote status not verified | Org hours summary RPC |
 
 > **Push command:** `$env:SUPABASE_DB_PASSWORD = '<Flux_DB_Pass>'; npx supabase db push --linked`
 > **⚠️ NOTE:** DB password rotation (P0.1) still pending — deferred per user decision.

@@ -4,6 +4,18 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.83] - Reconcile verified source and release safeguards - _2026-09-23_
+
+### Fixed
+
+- Restored the reviewed 6.7.77/6.7.78 elapsed-time and cross-device sync fixes that were already shipped but missing from the later-numbered source branch. Added their regression tests and release history to the canonical source.
+- Restored enterprise-channel checks that reject missing, mismatched, or lower-version CRX packages before website deployment.
+
+### Changed
+
+- Consolidated already-live Sidecar 0.13.14 source and its tests; Sidecar keeps its independent version.
+- Recovered the extension preview harness, Cloud Web Store origin allowlists, Atlas, and historical documentation. Pairing hardening and legacy shared-token Asana controls are archived as unshipped pending their recorded security fixes; this release does not activate them or apply database migrations.
+
 ## [v6.7.82] - Normalize manifest.json back to 2-space indent - _2026-07-29_
 
 > Formatting only. No functional change — `manifest.json` parses to the identical
