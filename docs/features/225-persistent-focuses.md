@@ -1,4 +1,4 @@
-# Feature #184 — Persistent Focuses (Ongoing / Frequent)
+# Feature #225 — Persistent Focuses (Ongoing / Frequent)
 
 > **Status:** 📋 Planned · **Version:** v0.2.0  
 > **Depends On:** #122 Focus Queue, #174 Recurring Focuses  
@@ -23,7 +23,7 @@ A new focus lifecycle model for activities that **never truly resolve** — they
 |---------|----------------|-----------|
 | **Regular Focus (#122)** | A task to be completed | Start → Work → Resolve (done forever) |
 | **Recurring Focus (#174)** | Scheduled repeating tasks | Creates new instances on a schedule |
-| **Persistent Focus (#184)** | Ongoing activities with no end date | Start → Work → "Done for today" → Resume later → ... indefinitely |
+| **Persistent Focus (#225)** | Ongoing activities with no end date | Start → Work → "Done for today" → Resume later → ... indefinitely |
 
 **Key distinction:** Recurring focuses are *scheduled* (daily standup at 9 AM). Persistent focuses are *on-demand* (click "Tabatha Features" whenever you want to brainstorm). They don't auto-create instances — the user pulls them up when they feel like it.
 

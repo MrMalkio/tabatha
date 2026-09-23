@@ -352,12 +352,26 @@ export async function setSessionFromCompanion(companionClock) {
     }
   }
 
+  // Koda P2 — the THIRD S5 door. This rebuild dropped `breakEndedAt`
+  // entirely, so a companion sync landing right after a local break-end
+  // erased the stamp that had just made `last_clock_event_at` monotonic, and
+  // the published event time fell back to `clockedInAt`. The companion payload
+  // has no break-end concept of its own, so: carry forward whatever the local
+  // session already knew, and if the companion is reporting the END of a break
+  // we were locally still holding, stamp that transition now.
+  const { clockSession: priorSession } = await getStorage('clockSession');
+  let breakEndedAt = priorSession?.breakEndedAt || null;
+  if (!onBreak && priorSession?.onBreak && priorSession?.active && active) {
+    breakEndedAt = new Date().toISOString();
+  }
+
   const session = {
     active,
     clockedInAt,
     clockedOutAt: active ? null : (c.clocked_out_at || null),
     onBreak,
     breakStartedAt: onBreak ? (c.break_started_at || null) : null,
+    breakEndedAt,
     breaks
   };
 
@@ -393,12 +407,36 @@ export async function applyRemoteClockState(row) {
   const active = state === 'clocked_in' || state === 'on_break';
   const onBreak = state === 'on_break';
 
+  // S5/#5: the remote row publishes WHEN its clock last changed, but carries
+  // no `breakEndedAt` of its own. Without reconstructing one, an adopted
+  // `clocked_in` session derives its event time as just `clockedInAt` — which
+  // is exactly the backwards jump S5 is about, sneaking back in through the
+  // adoption path instead of the break path.
+  //
+  // It also breaks stated invariant 1 (non-ping-pong): adoption must carry the
+  // remote's OWN timestamp so this install's next push reproduces the identical
+  // value it just read. Publishing the older `clockedInAt` would leave the
+  // remote row permanently strictly-newer, re-signalling adoption every cycle.
+  //
+  // If the remote's last event is later than its clock-in, that event WAS a
+  // break-end (clock-in and break-start are the only other options, and
+  // break-start would have made the row `on_break`). Recording it keeps the
+  // derived event time equal to the one adopted.
+  const remoteEventMs = row?.last_clock_event_at ? new Date(row.last_clock_event_at).getTime() : NaN;
+  const clockedInMs = row?.clocked_in_at ? new Date(row.clocked_in_at).getTime() : NaN;
+  const adoptedBreakEndedAt = (active && !onBreak
+    && Number.isFinite(remoteEventMs) && Number.isFinite(clockedInMs)
+    && remoteEventMs > clockedInMs)
+    ? row.last_clock_event_at
+    : null;
+
   const session = {
     active,
     clockedInAt: active ? (row.clocked_in_at || null) : null,
     clockedOutAt: active ? null : (row.last_clock_event_at || null),
     onBreak,
     breakStartedAt: onBreak ? (row.on_break_since || null) : null,
+    breakEndedAt: adoptedBreakEndedAt,
     // The remote row doesn't carry individual break spans (only
     // on_break_since for the CURRENT break) — this install's break-total
     // math will under-count prior breaks for an adopted session. Acceptable:

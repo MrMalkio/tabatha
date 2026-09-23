@@ -74,3 +74,6 @@ store-assets/_shot_tmp/
 # behind and `git add -A` will happily stage every one of them.
 .cap-profile
 .cap-profile-cdp
+
+# Local browser verification evidence (summary is tracked in docs/reconciliation).
+output/playwright/

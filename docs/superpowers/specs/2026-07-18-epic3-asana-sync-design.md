@@ -295,7 +295,7 @@ during this design pass (not assumed from docs):
 | `task_relations(kind='depends_on')` | `task.dependencies` | bidirectional | |
 | `task_relations(kind='blocks')` | `task.dependents` | bidirectional | mirror of `depends_on`, written atomically (§1.1) |
 | `tasks_registry.metadata.permalink` | `task.permalink_url` | pull-only | display link out to Asana |
-| `focus_items` (new row on "Start task") | — | Tabatha-only | `tags.task_id = tasks_registry.task_id`; existing `linked_intents` JSONB on the task row gets the new focus's `client_id` appended (already the #186 pattern) |
+| `focus_items` (new row on "Start task") | — | Tabatha-only | `tags.task_id = tasks_registry.task_id`; existing `linked_intents` JSONB on the task row gets the new focus's `client_id` appended (already the #227 pattern) |
 | `focus_items` (new row on "Start subtask") | — | Tabatha-only | `tags._parent = <parent focus client_id>` (existing sub-intent mechanism, `sidecar/src/data/focus.ts:199`) **and** `tags.task_id = <subtask's tasks_registry.task_id>` — Epic 3 doesn't invent a new sub-intent mechanism, it just feeds Asana subtasks into the sub-intent picker as another creation source alongside manual sub-intents |
 | `focus_events`-derived per-task time (Epic 2/4 dependency) | Asana native time tracking (`Actual Time`, Business+ tier) or a custom field/comment fallback | v3 only | gated "📱 Sidecar-tracked time" label per Addendum 5 item 2 until the extension also writes `focus_events` |
 

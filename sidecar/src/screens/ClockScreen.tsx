@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useClock } from '../data/clock';
 import { supabase } from '../lib/supabase';
 import { Btn, Card, Empty, SectionLabel } from '../ui/kit';
-import { colors, formatClock, formatElapsedMs } from '../lib/theme';
+import { colors, formatClock, formatElapsedDigits } from '../lib/theme';
 
 type OtherStatus = { profile_name: string; clock_state: string; clocked_in_at: string | null };
 
@@ -97,7 +97,7 @@ export default function ClockScreen() {
                 {new Date(h.clocked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(h.clocked_out_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </Text>
             </View>
-            <Text style={styles.shiftDur}>{formatElapsedMs(h.work_ms)}</Text>
+            <Text style={styles.shiftDur}>{formatElapsedDigits(h.work_ms)}</Text>
           </View>
         ))
       )}

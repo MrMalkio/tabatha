@@ -137,3 +137,40 @@ Six parallel Sonnet fixers dispatched off the reconciled line; all six completed
 
 ## Cross-cutting note — Supabase MCP mis-scoped this session
 The authenticated Supabase MCP (`mcp__fb5d6339-…`) resolved to a "Hermes v1" project, not Tabatha (`mtdgoahskcibjbhfvofx`) — every write/read against Tabatha returned `-32600 permission denied` (hit independently by Kael, A, B, E). The working prod path is the **Supabase CLI** (linked; `SUPABASE_ACCESS_TOKEN` lives in `deploy-creds.local`), which B and C used successfully. Q8 (Regina dedup) remains executable via that CLI/Mgmt-API path but was left un-run this session.
+
+---
+
+# Q4 Addendum — 2026-08-21 (CeeCee, nightly TaskRun, night of 08-20)
+
+Q4 ("ship tester onboarding, or accept empty nights by design?") is sharpened by a lifetime census
+of the feedback pipeline. Full working in `docs/taskrun/2026-08-21-morning-report.md` §2.
+
+Method: `supabase/functions/feedback-to-asana/index.ts:139-152` stamps `— Submitted from Tabatha —`
+into the notes of every task it creates. An all-projects, both-completion-states Asana text search on
+that string is therefore a complete census, independent of Supabase's ~1-day log retention.
+
+**Result — six submissions, ever:**
+
+| Created | Task | What |
+|---|---|---|
+| 2026-07-18 | `1216679002855862` | agent test (Rook) |
+| 2026-07-20 | `1216712939534243` | test |
+| 2026-07-20 | `1216712694759006` | test |
+| 2026-07-20 | `1216713224519004` | test |
+| 2026-07-23 | `1216832543077901` | **the only genuine report** — fixed + verified live |
+| 2026-07-25 | `1216867448639741` | agent test (Vail) |
+
+**What it changes:**
+
+1. The drought is **28 days**, not 12 nights — intake went silent on 07-25, well before the nightly
+   empty-queue streak began on 08-09.
+2. The "this only evidences the last 24h" caveat from the 08-18/08-19 reports is retired. Six
+   submissions were made; six landed; none since. No live hypothesis remains in which reports are
+   being sent and lost.
+3. The one organic report came from `surface: sidecar_android_web` — the **Sidecar mobile PWA**, not
+   the Chrome extension. Every extension-side submission on record is a fleet test.
+
+**The decision this leaves you:** ship `1216785813352945` as planned, but note that the surface which
+already produced real feedback is the one reachable by URL without an invite gate. The Sidecar-link
+half is the cheaper, empirically-proven starting point; the invite-gated extension download is the
+part that has never yet produced an organic report.

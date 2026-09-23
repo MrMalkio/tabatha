@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { getDeviceId } from '../lib/device';
 import { insertFocusEvent } from './events';
+import { clampFrozenElapsed, clampStamp } from './elapsedClamp';
 
 export type FocusItem = {
   id: string;
@@ -40,16 +41,126 @@ export function startedAtOf(f: FocusItem): number {
   const t = new Date(iso).getTime();
   return Number.isFinite(t) ? t : Date.now();
 }
+export function createdAtOf(f: FocusItem): number | null {
+  const t = f?.created_at ? new Date(f.created_at).getTime() : NaN;
+  return Number.isFinite(t) ? t : null;
+}
+
+/**
+ * Elapsed banked at the LAST pause (`tags._elapsedMs`), 0 if never paused.
+ * Needed to recover the current continuous run out of the back-dated anchor —
+ * see clampFrozenElapsed's K2 note.
+ */
+export function bankedMsOf(f: FocusItem): number {
+  const v = Number(f?.tags?._elapsedMs);
+  return Number.isFinite(v) ? Math.max(0, v) : 0;
+}
+
+/**
+ * S4/#4 — the tags object to write when freezing a focus's elapsed on pause.
+ *
+ * Single definition shared by `pause` and `pauseOtherActives`, which had two
+ * copies of the same unclamped `Date.now() - startedAtOf(f)` expression. When
+ * the clamp fires, the value the old code would have written is preserved in
+ * `_elapsedClamp` so nothing is silently lost.
+ */
+export function frozenTagsFor(f: FocusItem, now: number = Date.now()): Record<string, any> {
+  const res = clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f), bankedMsOf(f));
+  const tags: Record<string, any> = { ...(f?.tags || {}), _elapsedMs: res.ms };
+  if (res.clamped) {
+    tags._elapsedClamp = clampStamp(res.requestedMs, res.ms, res.reason, now);
+  }
+  return tags;
+}
+
 // Elapsed run-time, continuing across pauses. While active it's derived from the
 // (pause-shifted) start; while paused it's frozen at tags._elapsedMs.
 export function elapsedMsOf(f: FocusItem, now: number): number {
-  if (f.focus_state === 'active') return Math.max(0, now - startedAtOf(f));
+  // Running (active OR drifted — see RUNNING_STATES below) keeps ticking; a
+  // drifted focus is still running in the extension, so freezing its elapsed
+  // at `_elapsedMs` here made the phone's timer stall while the browser's
+  // kept counting.
+  //
+  // S4/#4: clamped with the same ceiling the pause path banks, so a focus with
+  // a stuck anchor shows a disbelieved-but-bounded number on the phone instead
+  // of counting up to 37 hours — and so the displayed value never contradicts
+  // the value that gets stored the moment it is paused.
+  if (isRunning(f)) return clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f), bankedMsOf(f)).ms;
   const frozen = f.tags?._elapsedMs;
-  return Number.isFinite(frozen) ? Math.max(0, frozen) : Math.max(0, now - startedAtOf(f));
+  return Number.isFinite(frozen)
+    ? Math.max(0, frozen)
+    : clampFrozenElapsed(startedAtOf(f), now, createdAtOf(f), 0).ms;
 }
 function snoozedUntil(f: FocusItem): number {
   const t = f.tags?._snoozeUntil ? new Date(f.tags._snoozeUntil).getTime() : 0;
   return Number.isFinite(t) ? t : 0;
+}
+
+/**
+ * States that mean "this focus is RUNNING" (0.13.10, sync forensics S2 —
+ * docs/audits/2026-07-24-sync-forensics.md).
+ *
+ * `drifted` is a first-class running state in the extension: `focusService.js`
+ * treats `'active' || 'drifted'` as running in eight places, `useFocusEngine`
+ * ticks it, and the home page renders it as THE current focus ("⚠️ DRIFTED").
+ * The Sidecar previously recognised only `'active'` in the running tier and
+ * only `'paused'` in the paused tier, so a drifted focus fell through BOTH —
+ * the moment the extension drifted the current focus, the phone and the
+ * Context View dropped it and fell back to an older paused intent, while
+ * still listing it in the queue.
+ *
+ * That is the actual cause of the "old intents in view" report (2026-07-21).
+ * The 0.13.1 fix re-ranked the AsyncStorage pin WITHIN the paused tier; it
+ * never asked why the running tier had gone empty. Drift is routine Tabatha
+ * behaviour, so this fired often.
+ */
+export const RUNNING_STATES = ['active', 'drifted'] as const;
+export function isRunning(f: FocusItem): boolean {
+  return (RUNNING_STATES as readonly string[]).includes(f.focus_state);
+}
+
+/**
+ * Cross-surface current-focus arbitration (binding rule, 2026-07-20 fix
+ * batch — the extension is being taught the identical rule in a parallel
+ * build): the account's current focus is the RUNNING row (see
+ * `RUNNING_STATES` above — `active` or `drifted`) with the latest
+ * `tags._startedAt`, ANY source. Switching/starting anywhere pauses ALL
+ * other actives regardless of source (see `pauseOtherActives` in
+ * `useFocus`). This comparator is the pure, source-agnostic half of that
+ * rule — used to resolve `currentFocus` below — and is exported/mirrored in
+ * `tests/arbitration.test.mjs` so the selection logic itself is covered,
+ * not just the elapsed-ms math around it.
+ */
+export function pickMostRecentActive<T extends FocusItem>(items: T[]): T | null {
+  const actives = items.filter(isRunning);
+  if (!actives.length) return null;
+  return actives.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0];
+}
+
+/**
+ * Paused-tier current-focus pick (0.13.1). Recency (startedAtOf) wins; the
+ * device-local pin only breaks a startedAt TIE — it must not outrank a more
+ * recently started paused focus. The pre-0.13.1 implementation put the pin
+ * first unconditionally, so with nothing active account-wide a device whose
+ * AsyncStorage pin pointed at a weeks-old paused intent kept showing it over
+ * an intent started (and paused) today — exactly the "old intents in view"
+ * report from 2026-07-21, on both the phone and the Desk View embed (each
+ * surface holds its own stale pin). Pure/exported and mirrored in
+ * tests/arbitration.test.mjs — same rule as pickMostRecentActive: the
+ * comparator IS the cross-surface contract.
+ */
+export function pickPausedCurrent<T extends FocusItem>(
+  tier: T[],
+  pinnedId: string | null
+): T | null {
+  if (!tier.length) return null;
+  const sorted = tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a));
+  const winner = sorted[0];
+  if (pinnedId) {
+    const pinned = tier.find((f) => f.id === pinnedId);
+    if (pinned && startedAtOf(pinned) === startedAtOf(winner)) return pinned;
+  }
+  return winner;
 }
 
 /**
@@ -161,6 +272,32 @@ export function useFocus(
     [items, patch]
   );
 
+  // Cross-surface arbitration (binding rule): pauses EVERY other `active`
+  // row for this profile, any source (sidecar or extension) — not just
+  // sidecar-sourced ones. Each paused row gets its elapsed frozen into
+  // `tags._elapsedMs` the same way regardless of source, so an
+  // extension-sourced focus paused from the phone resumes with correct
+  // elapsed time later (whichever surface resumes it). Shared by `switchTo`
+  // and `createIntent(active: true)` so both entry points into "this is now
+  // the one active focus" agree.
+  const pauseOtherActives = useCallback(
+    async (excludeId?: string | null) => {
+      const others = items.filter((f) => f.focus_state === 'active' && f.id !== excludeId);
+      for (const f of others) {
+        // S4/#4: this line is the one that billed 37h14m to "Tabby work" when
+        // an intent was created on the phone (audit §S4). It froze a raw
+        // wall-clock span, so any focus left `active` while nobody was there
+        // banked the whole absence. Now clamped, and never silently.
+        await supabase
+          .from('focus_items')
+          .update({ focus_state: 'paused', tags: frozenTagsFor(f) })
+          .eq('id', f.id);
+        if (f.client_id) insertFocusEvent(profileId, f.client_id, 'pause');
+      }
+    },
+    [items, profileId]
+  );
+
   const createIntent = useCallback(
     async (
       label: string,
@@ -175,11 +312,7 @@ export function useFocus(
       const active = opts.active !== false;
 
       if (active) {
-        const toPause = items.filter(
-          (f) => f.focus_state === 'active' && isSidecarSourced(f)
-        );
-        for (const f of toPause)
-          await supabase.from('focus_items').update({ focus_state: 'paused' }).eq('id', f.id);
+        await pauseOtherActives(null);
       }
 
       const parentClient = opts.parentId
@@ -218,22 +351,16 @@ export function useFocus(
       load();
       return data?.id || null;
     },
-    [profileId, browserProfileId, items, load, persistCurrent]
+    [profileId, browserProfileId, items, load, persistCurrent, pauseOtherActives]
   );
 
   const actions = {
     switchTo: async (id: string) => {
-      // Pause the currently-active one, freezing its elapsed so it can continue later.
-      const others = items.filter(
-        (f) => f.focus_state === 'active' && isSidecarSourced(f) && f.id !== id
-      );
-      for (const f of others) {
-        await supabase
-          .from('focus_items')
-          .update({ focus_state: 'paused', tags: { ...(f.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f)) } })
-          .eq('id', f.id);
-        insertFocusEvent(profileId, f.client_id, 'pause');
-      }
+      // Pause every OTHER active focus, any source — cross-surface
+      // arbitration binding rule (was sidecar-only via isSidecarSourced,
+      // which left extension actives running when switching from the
+      // phone).
+      await pauseOtherActives(id);
       await persistCurrent(id);
       const target = items.find((i) => i.id === id);
       const el = Number(target?.tags?._elapsedMs) || 0; // continue accumulated time
@@ -250,9 +377,10 @@ export function useFocus(
     pause: (id: string) => {
       const f = items.find((i) => i.id === id);
       if (f?.client_id) insertFocusEvent(profileId, f.client_id, 'pause');
+      // S4/#4: same unclamped freeze as pauseOtherActives above.
       return patch(id, {
         focus_state: 'paused',
-        tags: { ...(f?.tags || {}), _elapsedMs: Math.max(0, Date.now() - startedAtOf(f as FocusItem)) },
+        tags: frozenTagsFor(f as FocusItem),
       });
     },
     resume: (id: string) => {
@@ -272,7 +400,49 @@ export function useFocus(
         focus_state: 'completed',
         funnel_stage: 'resolved',
         completed_at: new Date().toISOString(),
+        // Fix Wave 3, item 2 (2026-07-20 spec): stash the pre-resolve stage
+        // so `unresolve` below can restore it exactly instead of guessing
+        // — the prior resolve path threw this information away entirely.
+        tags: { ...(f?.tags || {}), _preResolveStage: f?.funnel_stage || 'addressing' },
       });
+    },
+    // Fix Wave 3, item 2 (2026-07-20 spec) — un-resolve, ported from the
+    // extension's confirm-gated reopen pattern
+    // (`src/background/services/focusService.js` `applyStageTransition`,
+    // ~lines 716-720): changing a completed item's stage away from
+    // 'resolved' requires an explicit `confirmed` flag, returning
+    // `{ error, needsConfirm: true }` until the caller confirms. Restores
+    // `focus_state: 'paused'` (not 'active' — matches the extension, which
+    // never auto-resumes a reopened item) and `funnel_stage` to whatever was
+    // stashed at resolve time (defaulting to 'addressing' if this item
+    // predates the stash, same "best inferable guess" the spec calls for).
+    // Koda addition (2026-07-20 vet): stamps `tags._lastUnresolvedAt` so a
+    // focus resolved-and-reopened multiple times has a visible provenance
+    // trail rather than silent state flipping.
+    unresolve: async (
+      id: string,
+      confirmed = false
+    ): Promise<{ error?: string; needsConfirm?: boolean; ok?: boolean }> => {
+      const f = items.find((i) => i.id === id);
+      if (!f) return { error: 'Focus not found' };
+      const isResolved = f.focus_state === 'completed' || f.funnel_stage === 'resolved';
+      if (!isResolved) return { error: 'This focus is not resolved.' };
+      if (!confirmed) {
+        return { error: 'This focus is completed. Confirm to reopen.', needsConfirm: true };
+      }
+      // No focus_events row here (deliberately) — 'resume' would mislead
+      // computeIntervals into treating this as reopening a tracked run
+      // (this restores 'paused', not 'active'), and the spec doesn't call
+      // for a new 'unresolve' event kind. Provenance lives in tags instead
+      // (Koda addition, below), visible in the edit panel.
+      const restoredStage = f.tags?._preResolveStage || 'addressing';
+      await patch(id, {
+        focus_state: 'paused',
+        funnel_stage: restoredStage,
+        completed_at: null,
+        tags: { ...(f.tags || {}), _preResolveStage: null, _lastUnresolvedAt: new Date().toISOString() },
+      });
+      return { ok: true };
     },
     extend: (id: string, mins: number) => {
       const cur = items.find((i) => i.id === id);
@@ -297,7 +467,21 @@ export function useFocus(
       if (u.timerMinutes != null) updates.timer_minutes = u.timerMinutes;
       if (u.funnelStage != null) updates.funnel_stage = u.funnelStage;
       const nextTags = { ...(cur?.tags || {}), ...(u.tags || {}) };
-      if (u.startedAt) nextTags._startedAt = u.startedAt;
+      if (u.startedAt) {
+        nextTags._startedAt = u.startedAt;
+        // Koda N3: this is the ONE Sidecar writer that can move `_startedAt`
+        // without its banked partner, breaking the invariant `clampFrozenElapsed`
+        // relies on (`_startedAt` back-dated by exactly `_elapsedMs`). Left
+        // alone, a user-supplied start would leave a stale `_elapsedMs` behind
+        // and the derived run would be wrong in either direction.
+        //
+        // Setting the user's chosen start means "this focus has been running
+        // since then", so the whole implied span becomes banked and the current
+        // run restarts from now — which keeps the pair mutually consistent and
+        // keeps elapsed ticking correctly from the new value.
+        const impliedMs = Date.now() - new Date(u.startedAt).getTime();
+        if (Number.isFinite(impliedMs)) nextTags._elapsedMs = Math.max(0, impliedMs);
+      }
       updates.tags = nextTags;
       return patch(id, updates);
     },
@@ -334,36 +518,41 @@ export function useFocus(
   const backburner = notDone.filter((f) => f.tags?._backburner);
   const nonBB = notDone.filter((f) => !f.tags?._backburner);
 
-  // Current focus (B2/B2b — data-driven, not device-pin-dependent): an
-  // `active` focus always wins; else the most-recent `paused` (non-resolved)
-  // focus keeps showing — paused is not gone, so a Context View running on a
-  // different device shouldn't fall back to "no active focus" just because
-  // the pin lives in *this* device's AsyncStorage. Only truly empty (no
-  // active and no paused candidate — e.g. the last one was resolved) falls
-  // through to null, at which point the caller (ContextView) renders the
-  // pending queue as B2b's choose-from cards. `currentId` (the local pin) is
-  // a same-device tiebreaker only: within whichever tier is in play
-  // (active, then paused), the pinned item wins that tier if it qualifies —
-  // it never overrides the active-beats-paused precedence.
-  // Known limitation: within a tier, "most recent" is ordered by
-  // startedAtOf() (this reuses the same heuristic the pre-existing
-  // most-recent-active logic used) which reflects when a focus was last
-  // started/resumed, not when it was paused — there's no `_pausedAt`/
-  // `updated_at` on FocusItem to rank by actual pause time. With >1 paused
-  // candidate this can pick one that was started earlier but paused later
-  // over one started later but paused first. Acceptable for this pass (no
-  // schema change); revisit if multi-paused ordering becomes a real problem.
-  const activeCandidates = nonBB.filter((f) => f.focus_state === 'active');
+  // Current focus (B2/B2b, now cross-surface-arbitrated): an `active` focus
+  // always wins, and WHICH active row wins is now fully source-agnostic and
+  // device-agnostic — `pickMostRecentActive` (pure, exported above) always
+  // picks the active row with the latest `tags._startedAt` regardless of
+  // source or of this device's local pin. This is what makes two devices
+  // agree on the same current focus: previously `currentId` (the
+  // AsyncStorage pin) could win the active tier on ONE device while the
+  // other device's `currentId` picked a different active row, so phone and
+  // Context View could disagree about which of several actives was "the"
+  // current one.
+  // Else the most-recent `paused` (non-resolved) focus keeps showing —
+  // paused is not gone, so a Context View running on a different device
+  // shouldn't fall back to "no active focus" just because the pin lives in
+  // *this* device's AsyncStorage. Only truly empty (no active and no paused
+  // candidate — e.g. the last one was resolved) falls through to null, at
+  // which point the caller (ContextView) renders the pending queue as B2b's
+  // choose-from cards.
+  // `currentId` (the local pin) is now ONLY a same-device tiebreaker within
+  // the PAUSED tier (there's nothing to arbitrate in the active tier — it's
+  // a single winner by recency) — e.g. choosing which paused row stays "on
+  // top" for this device when nothing account-wide is active. This
+  // preserves the pause-pinning UX (a paused current stays where the user
+  // left it) without letting the pin override cross-surface active
+  // selection.
+  // Known limitation: within the paused tier, "most recent" (the fallback
+  // when the pin doesn't qualify) is ordered by startedAtOf() (reflects when
+  // a focus was last started/resumed, not when it was paused — there's no
+  // `_pausedAt`/`updated_at` on FocusItem to rank by actual pause time).
+  // With >1 paused candidate this can pick one that was started earlier but
+  // paused later over one started later but paused first. Acceptable for
+  // this pass (no schema change); revisit if multi-paused ordering becomes a
+  // real problem.
   const pausedCandidates = nonBB.filter((f) => f.focus_state === 'paused');
-  const pickTier = (tier: FocusItem[]): FocusItem | null =>
-    (currentId && tier.find((f) => f.id === currentId)) ||
-    tier.slice().sort((a, b) => startedAtOf(b) - startedAtOf(a))[0] ||
-    null;
-  const currentFocus: FocusItem | null = activeCandidates.length
-    ? pickTier(activeCandidates)
-    : pausedCandidates.length
-      ? pickTier(pausedCandidates)
-      : null;
+  const currentFocus: FocusItem | null =
+    pickMostRecentActive(nonBB) || pickPausedCurrent(pausedCandidates, currentId);
 
   const queue = nonBB
     .filter((f) => !currentFocus || f.id !== currentFocus.id)

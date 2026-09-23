@@ -21,6 +21,7 @@ import RecentScreen from '../screens/RecentScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ContextView from '../screens/ContextView';
 import SimpleScreen from '../screens/SimpleScreen';
+import FeedbackButton from '../components/FeedbackButton';
 import { useOwnDeviceStatus } from '../data/deviceStatus';
 import { colors } from '../lib/theme';
 
@@ -157,6 +158,7 @@ export default function Index() {
           <Pressable onPress={() => setSimpleMode(true)} style={styles.ctxBtn}>
             <Text style={styles.ctxBtnTxt}>✏️ Simple view</Text>
           </Pressable>
+          <FeedbackButton profileId={profile?.id ?? null} />
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {(profile?.display_name || 'T').charAt(0).toUpperCase()}
@@ -167,7 +169,10 @@ export default function Index() {
 
       {/* Active screen */}
       <View style={{ flex: 1 }}>
-        {tab === 'focus' && <FocusScreen />}
+        {/* Fix Wave 3, item 5b — device-kind gate for Phone Focus Mode
+            (PhoneFocusMode.tsx), threaded down from this same
+            useOwnDeviceStatus() read that ContextView already consumes. */}
+        {tab === 'focus' && <FocusScreen deviceKind={deviceStatus.deviceSettings?.kind} />}
         {tab === 'tasks' && <TasksScreen />}
         {tab === 'clock' && <ClockScreen />}
         {tab === 'recent' && <RecentScreen />}

@@ -5,7 +5,7 @@
   "start_url": "/sidecar/",
   "scope": "/sidecar/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0A0E14",
   "theme_color": "#0A0E14",
   "icons": [

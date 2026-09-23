@@ -20,7 +20,14 @@ export function createClockService(getStorage, setStorage, broadcastMessage) {
       clockedOutAt: null,
       breaks: [],
       onBreak: false,
-      breakStartedAt: null
+      breakStartedAt: null,
+      // Sync forensics S5 / bug #5: break-END had no timestamp of its own, so
+      // `last_clock_event_at` was derived as `breakStartedAt || clockedInAt`
+      // and jumped BACKWARDS to the shift start when a break ended. A sibling
+      // install still reading `on_break` was then strictly newer and dragged
+      // this install back onto break. Recording the break-end instant makes
+      // the published event time monotonic. See lastClockEventAt().
+      breakEndedAt: null
     };
     await setStorage({ clockSession: session });
     broadcastMessage({ type: 'CLOCK_SESSION_UPDATED' });
@@ -59,9 +66,13 @@ export function createClockService(getStorage, setStorage, broadcastMessage) {
 
     if (clockSession.onBreak) {
       // End break
-      clockSession.breaks.push({ start: clockSession.breakStartedAt, end: new Date().toISOString() });
+      const endedAt = new Date().toISOString();
+      clockSession.breaks.push({ start: clockSession.breakStartedAt, end: endedAt });
       clockSession.onBreak = false;
       clockSession.breakStartedAt = null;
+      // S5/#5: stamp the break-end so it can advance last_clock_event_at.
+      // Without this the published timestamp regressed to clockedInAt.
+      clockSession.breakEndedAt = endedAt;
     } else {
       // Start break
       clockSession.onBreak = true;
