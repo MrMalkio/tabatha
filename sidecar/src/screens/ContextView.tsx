@@ -11,7 +11,7 @@ import ProgressRing from '../components/ProgressRing';
 import { supabase } from '../lib/supabase';
 import { resolveContextViewSettings } from '../lib/contextViewSettings';
 import { computePomodoroState, DEFAULT_POMODORO_CONFIG } from '../lib/pomodoro';
-import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedMs } from '../lib/theme';
+import { colors, radius, FUNNEL_STAGES, priorityColor, formatTimer, formatElapsedDigits } from '../lib/theme';
 
 // Coarse "how long ago" for the last-checkpoint preview — matches the rest of
 // the view's compact, glanceable style (no seconds precision needed here).
@@ -32,6 +32,40 @@ function useTick(ms = 1000) {
     return () => clearInterval(iv);
   }, [ms]);
   return n;
+}
+
+type PhoneStatus = 'active' | 'away' | 'gone';
+
+/**
+ * Fix Wave 3, item 5a (2026-07-20 spec) — the "away vs gone" semantic split.
+ * `candidates` are OTHER devices' `browser_profile_status` rows with
+ * `metadata.focusAway === true`. A candidate whose most recent heartbeat
+ * (`lastHeartbeatAt`, written every 60s by `PhoneFocusMode.tsx` while
+ * visible, plus once on the visible→hidden transition — falling back to the
+ * older `awaySince` for pre-fix clients that haven't reloaded yet) is within
+ * `awayGraceMinMs` wins immediately as 'away' (nag, red overlay); a
+ * stale-only candidate (no heartbeat inside the grace window — the phone is
+ * truly gone, screen-locked/suspended/powered off, which can't run JS to say
+ * so explicitly) demotes to 'gone' (neutral "phone offline", no nag, a
+ * finished session rather than a deviation) unless a fresher 'away'
+ * candidate already won. Pure/exported for direct unit testing — the
+ * component can't be `import`ed under plain `node --test` (RN/expo module
+ * graph), so this is mirrored verbatim in
+ * sidecar/tests/phone-away-status.test.mjs.
+ */
+export function classifyPhoneAwayStatus(
+  candidates: Array<{ metadata?: { lastHeartbeatAt?: string | null; awaySince?: string | null } | null }>,
+  awayGraceMinMs: number,
+  now: number
+): PhoneStatus {
+  let status: PhoneStatus = 'active';
+  for (const r of candidates) {
+    const ref = r.metadata?.lastHeartbeatAt || r.metadata?.awaySince;
+    const ageMs = ref ? now - new Date(ref).getTime() : Infinity;
+    if (ageMs < awayGraceMinMs) return 'away'; // any fresh-away candidate wins immediately
+    status = 'gone';
+  }
+  return status;
 }
 
 function nowTime(d: Date): string {
@@ -76,8 +110,15 @@ export default function ContextView({
   const { currentFocus, queue } = useFocus(profile?.id ?? null, browserProfileId);
   const now = useTick();
   const { width } = useWindowDimensions();
-  const [shift, setShift] = useState<{ state: string; since: string | null } | null>(null);
-  const [phoneAway, setPhoneAway] = useState(false);
+  // `breakSince` (mig 010's `last_clock_event_at`) is the timestamp of the
+  // most recent clock-state transition — while `shift.state === 'on_break'`
+  // that transition WAS the break starting, so it doubles as break-start
+  // with no extra query (Fix 2, 2026-07-20). `since` (clocked_in_at) stays
+  // what it always was: the whole-shift start, used for the bar's shiftText.
+  const [shift, setShift] = useState<{ state: string; since: string | null; breakSince: string | null } | null>(null);
+  // Fix Wave 3, item 5a — three-way status (was a boolean). 'away' nags
+  // (red overlay); 'gone' is neutral (no nag — see classifyPhoneAwayStatus).
+  const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>('active');
 
   // Epic 9 — `contextView` key > legacy `sidecar` keys > defaults (design
   // doc §4). resolveContextViewSettings is the single source of truth for
@@ -117,8 +158,10 @@ export default function ContextView({
     return () => clearInterval(iv);
   }, [showCheckpoints, currentFocus?.client_id, reloadCp]);
 
-  // Personality Interrupts v0 (#182 Epic 10) — rides this same phoneAway signal.
-  useChaperoneOnPhoneAway(phoneAway, profile?.settings?.chaperone);
+  // Personality Interrupts v0 (#182 Epic 10) — rides this same phoneAway
+  // signal; 'gone' is deliberately excluded (no nag, so no chaperone line
+  // either — a truly-offline phone isn't "picking it up mid-focus").
+  useChaperoneOnPhoneAway(phoneStatus === 'away', profile?.settings?.chaperone);
 
   // Account-wide device status (live): the shift, plus the Phone Focus Mode
   // "away" signal from any OTHER device — which drives the red overlay.
@@ -134,14 +177,18 @@ export default function ContextView({
       const clocked = data
         .filter((r: any) => r.clock_state === 'clocked_in' || r.clock_state === 'on_break')
         .sort((a: any, b: any) => new Date(b.last_clock_event_at || 0).getTime() - new Date(a.last_clock_event_at || 0).getTime());
-      setShift(clocked[0] ? { state: clocked[0].clock_state, since: clocked[0].clocked_in_at } : null);
-      const away = data.some(
-        (r: any) =>
-          r.browser_profile_id !== browserProfileId &&
-          r.metadata?.focusAway === true &&
-          (!r.metadata?.awaySince || Date.now() - new Date(r.metadata.awaySince).getTime() < 30 * 60000)
+      setShift(
+        clocked[0]
+          ? { state: clocked[0].clock_state, since: clocked[0].clocked_in_at, breakSince: clocked[0].last_clock_event_at }
+          : null
       );
-      setPhoneAway(away);
+      // Fix Wave 3, item 5a — away vs gone, keyed off lastHeartbeatAt (with
+      // an awaySince fallback for pre-fix clients) instead of the old
+      // hardcoded 30-minute awaySince-only staleness check.
+      const candidates = data.filter(
+        (r: any) => r.browser_profile_id !== browserProfileId && r.metadata?.focusAway === true
+      );
+      setPhoneStatus(classifyPhoneAwayStatus(candidates, cv.awayGraceMin * 60000, Date.now()));
     };
     load();
     const ch = supabase
@@ -150,18 +197,19 @@ export default function ContextView({
       .subscribe();
     const iv = setInterval(load, 30000);
     return () => { alive = false; clearInterval(iv); try { supabase.removeChannel(ch); } catch {} };
-  }, [profile?.id, browserProfileId]);
+  }, [profile?.id, browserProfileId, cv.awayGraceMin]);
 
   // Red "put the phone down" overlay — slow fade-in by default, immediate if
   // configured. Fades back out quickly when the phone returns.
   const alertOpacity = useRef(new Animated.Value(0)).current;
+  const phoneAwayNag = phoneStatus === 'away';
   useEffect(() => {
     Animated.timing(alertOpacity, {
-      toValue: phoneAway ? 1 : 0,
-      duration: phoneAway ? (immediateAlert ? 0 : 7000) : 500,
+      toValue: phoneAwayNag ? 1 : 0,
+      duration: phoneAwayNag ? (immediateAlert ? 0 : 7000) : 500,
       useNativeDriver: false,
     }).start();
-  }, [phoneAway, immediateAlert, alertOpacity]);
+  }, [phoneAwayNag, immediateAlert, alertOpacity]);
 
   const cf = currentFocus;
   // B2b: when there's no current focus (active or paused), show the pending
@@ -197,6 +245,21 @@ export default function ContextView({
     shiftText = `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   }
 
+  // Fix 2 (2026-07-20) — Prominent On-Break Context View. `shiftOnBreak`
+  // (distinct from the pomodoro `onBreak` above — that's a phase within an
+  // active focus timer, this is the whole-shift clock state) replaces the
+  // main focus layout with a full-screen ambient break state instead of the
+  // previous amber-tint-only treatment. Exits instantly (no fade) the
+  // instant `shift.state` flips back — same tick-driven re-render as
+  // everything else here, so no extra animation/reduced-motion handling is
+  // needed for the transition itself.
+  const shiftOnBreak = shift?.state === 'on_break';
+  let breakElapsedText = '';
+  if (shiftOnBreak && shift?.breakSince) {
+    const s = Math.max(0, Math.floor((now - new Date(shift.breakSince).getTime()) / 1000));
+    breakElapsedText = `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+
   const big = Math.min(width * 0.14, 220);
 
   // SafeAreaView (Malkio, 2026-07-19): on a phone/PWA the status bar was
@@ -216,6 +279,16 @@ export default function ContextView({
           {cf?.tags?.client ? `${cf.tags.client}` : profile?.display_name || 'Tabatha'}
           {cf?.tags?.project ? ` · ${cf.tags.project}` : ''}
         </Text>
+        {/* Fix Wave 3, item 5a — 'gone' is a neutral, no-nag state distinct
+            from 'away': the phone stopped heartbeating (screen-locked,
+            suspended, or truly powered off) rather than actively wandering
+            off mid-focus. Small and muted by design — it's informational,
+            not an alert. */}
+        {phoneStatus === 'gone' && (
+          <View style={styles.goneChip}>
+            <Text style={styles.goneChipTxt}>📴 Phone offline</Text>
+          </View>
+        )}
         {cv.showDayCountdown && (
           <View style={styles.dayBox}>
             <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveTxt}>LIVE</Text></View>
@@ -228,7 +301,24 @@ export default function ContextView({
       </View>
 
       {/* main */}
-      {pending.length > 0 ? (
+      {shiftOnBreak ? (
+        // Fix 2 (2026-07-20): dedicated break state — replaces the focus
+        // layout entirely (not just an accent tint) while on break. Day
+        // countdown (top bar, above) and current time (footer, below) stay
+        // visible; the FocusTimeline is hidden below via `!shiftOnBreak`.
+        // The phone-away red overlay renders as a sibling further down and
+        // stays above this in all cases.
+        <View style={styles.breakWrap}>
+          <Text style={styles.breakEmoji}>☕</Text>
+          <Text style={styles.breakHeadline}>ON BREAK</Text>
+          {!!breakElapsedText && <Text style={styles.breakTimer}>{breakElapsedText}</Text>}
+          {cf && (
+            <Text style={styles.breakBackTo} numberOfLines={1}>
+              Back to: {cf.label}
+            </Text>
+          )}
+        </View>
+      ) : pending.length > 0 ? (
         <View style={styles.pendingWrap}>
           <Text style={styles.pendingHdr}>Choose a focus · {pending.length} pending</Text>
           <View style={styles.pendingGrid}>
@@ -255,14 +345,17 @@ export default function ContextView({
         <View style={styles.mainV2}>
           <View style={styles.titleCol} pointerEvents="none">
             <Text style={styles.eyebrow}>
-              {shift?.state === 'on_break' ? 'ON BREAK' : 'IN FOCUS'}
+              {/* Fix 2 (2026-07-20): the on_break case now renders the
+                  dedicated break-mode branch above instead of reaching this
+                  one, so this is unconditionally "IN FOCUS". */}
+              IN FOCUS
               {stage ? `   ·   ` : ''}
               <Text style={{ color: stage?.color }}>{stage ? `${stage.icon} ${stage.label}` : ''}</Text>
               {isOffComputer(cf) ? '   ·   🚶 off-computer' : ''}
             </Text>
             <Text style={[styles.focusLabelHuge, { fontSize: Math.min(width * 0.078, 128) }]} numberOfLines={3}>{cf.label}</Text>
             <View style={styles.metaRow}>
-              <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedMs(cfElapsed)}</Text> elapsed</Text>
+              <Text style={styles.meta}><Text style={styles.metaB}>{formatElapsedDigits(cfElapsed, cv.precision)}</Text> elapsed</Text>
               <Text style={[styles.metaP, { color: priorityColor(cf.priority || 5), borderColor: priorityColor(cf.priority || 5) }]}>P{cf.priority || 5}</Text>
             </View>
             {showCheckpoints && cpNotes.length > 0 && (() => {
@@ -301,7 +394,14 @@ export default function ContextView({
               // time + a phase-scoped progress fraction for the ring only.
               // `remaining`/`frac`/`accent`/`over` above stay goal-duration
               // based for the FocusTimeline below.
-              const displayRemaining = pomo ? pomo.phaseRemainingMs : remaining;
+              // Fix Wave 3, item 1 (2026-07-20 spec) — count-up display: when
+              // `cv.countDirection === 'up'`, the ring always shows elapsed
+              // digits climbing even though a `timer_minutes` target exists.
+              // Only the DISPLAY branches null here — `remaining`/`over`/
+              // `frac`/`accent` above are untouched, so "over" styling still
+              // kicks in at the same real target; just the digits shown
+              // switch from counting down to counting up.
+              const displayRemaining = pomo ? pomo.phaseRemainingMs : cv.countDirection === 'up' ? null : remaining;
               const ringFrac = pomo
                 ? (() => {
                     const phaseDur = pomo.phaseElapsedMs + pomo.phaseRemainingMs;
@@ -319,7 +419,10 @@ export default function ContextView({
                   ? 'FOCUS TIMER'
                   : 'IN FOCUS';
 
-              const timerStr = displayRemaining != null ? formatTimer(Math.abs(displayRemaining)) : formatElapsedMs(cfElapsed);
+              const timerStr =
+                displayRemaining != null
+                  ? formatTimer(Math.abs(displayRemaining))
+                  : formatElapsedDigits(cfElapsed, cv.precision);
               // Fit-to-ring (Malkio, 2026-07-19): at 5+ characters ("04:30",
               // "104:30") the text must SHRINK to stay inside the ring — the
               // ring sits at the viewport's right edge, so any text wider than
@@ -349,7 +452,7 @@ export default function ContextView({
       )}
 
       {/* bottom timeline (Plan 040 Epic 2) — checkpoints + focus_events start-nodes */}
-      {cv.showTimeline && cf && dur > 0 && (
+      {cv.showTimeline && !shiftOnBreak && cf && dur > 0 && (
         <FocusTimeline
           focus={cf}
           now={now}
@@ -359,6 +462,7 @@ export default function ContextView({
           durationMs={dur}
           over={over}
           overtimeMs={overtimeMs}
+          dayResetHour={resetHour}
         />
       )}
 
@@ -407,6 +511,14 @@ const styles = StyleSheet.create({
   shiftClk: { color: colors.textMuted, fontVariant: ['tabular-nums'], fontSize: 16 },
   ctx: { color: colors.textMuted, fontSize: 17, flex: 1, textAlign: 'center' },
   dayBox: { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1, justifyContent: 'flex-end' },
+  goneChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  goneChipTxt: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   live: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
   liveTxt: { color: colors.accent, fontSize: 12, fontWeight: '700', letterSpacing: 2 },
@@ -420,6 +532,22 @@ const styles = StyleSheet.create({
   // (huge top-left title, huge bottom-right ring); z-index keeps the title
   // readable over the ring's upper edge where they intersect.
   mainV2: { flex: 1, position: 'relative' },
+  // Fix 2 (2026-07-20) — Prominent On-Break Context View. A distinct
+  // full-screen ambient state, amber-dominant (vs. the small accent-tint
+  // this used to be limited to), replacing the focus layout entirely while
+  // `shift.state === 'on_break'`.
+  breakWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    backgroundColor: 'rgba(255, 167, 38, 0.06)',
+    borderRadius: radius.lg,
+  },
+  breakEmoji: { fontSize: 96 },
+  breakHeadline: { color: colors.amber, fontWeight: '800', fontSize: 56, letterSpacing: 2 },
+  breakTimer: { color: colors.amber, fontWeight: '700', fontSize: 40, fontVariant: ['tabular-nums'], opacity: 0.9 },
+  breakBackTo: { color: colors.textMuted, fontSize: 18, marginTop: 22, opacity: 0.7, maxWidth: '80%' },
   // QA fix (dev-cv harness, layout v2 first render): `titleCol` had no
   // `bottom`/`height`, so as an absolutely-positioned box it grew to its
   // natural content height instead of respecting `mainV2`'s flex-computed

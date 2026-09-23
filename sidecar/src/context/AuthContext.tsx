@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const { data: existing } = await supabase
         .from('browser_profiles')
-        .select('display_name')
+        .select('display_name, revoked_at, auth_session_id')
         .eq('profile_id', prof.id)
         .eq('local_id', localId)
         .maybeSingle();
@@ -220,6 +220,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             local_id: localId,
             machine_id: deviceId,
             last_seen_at: new Date().toISOString(),
+            // 0.13.5 — SESSION-AWARE reclaim (hardens 0.13.4, which cleared
+            // revoked_at unconditionally; audit finding 2026-07-21: session
+            // revocation is best-effort, so a surviving revoked session
+            // could un-revoke itself on next app load). A device row may
+            // only reclaim when the CURRENT GoTrue session differs from the
+            // one stamped on the row — i.e. the user genuinely signed in
+            // again after the revocation (the magic-link loop fix stays
+            // fixed: a fresh sign-in always mints a new session_id). A
+            // revoked row with a legacy NULL stamp also reclaims (pre-sid
+            // rows; recovery-friendly, and the row gets stamped below so
+            // it's a one-time grace).
+            ...(!existing?.revoked_at ||
+            (sessionId && existing?.auth_session_id !== sessionId)
+              ? { revoked_at: null }
+              : {}),
             ...(sessionId ? { auth_session_id: sessionId } : {}),
             ...namePatch,
           },

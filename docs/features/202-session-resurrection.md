@@ -1,7 +1,7 @@
 # Feature #202 — Session Resurrection
 
 > **Status:** 📋 Planned · **Version:** TBD **Depends On:** Focus Engine (core),
-> #172 History Queue Recovery, #184-persistent-focuses **Created:** 2026-05-19
+> #172 History Queue Recovery, #225-persistent-focuses **Created:** 2026-05-19
 > **Source:** User request — leverage Chrome's session restore with selective,
 > deferred recovery
 
@@ -350,7 +350,7 @@ New service in the decomposed architecture. Handlers:
 | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
 | **#172 History Queue Recovery**    | Resurrection is the_automatic_ version; #172 is the manual "go dig through history" version      |
 | **#184 Checkpoint Progress Notes** | CPNs written before death are preserved in the capsule — visible on Peek                         |
-| **#184 Persistent Focuses**        | Persistent focuses survive death automatically; resurrection handles the_tabs_ that go with them |
+| **#225 Persistent Focuses**        | Persistent focuses survive death automatically; resurrection handles the_tabs_ that go with them |
 | **#201 Follow-Through Score**      | A resurrected-and-completed focus counts toward follow-through; a dismissed one is "abandoned"   |
 | **Clock Service**                  | Clock state (elapsed, break) is captured and optionally resumed                                  |
 | **Chrome Tab Groups**              | Group metadata (title, color, collapsed state) is restored on resurrection                       |
@@ -384,7 +384,7 @@ New service in the decomposed architecture. Handlers:
 
 - #172 History Queue Recovery
 - #184 Checkpoint Progress Notes
-- #184 Persistent Focuses
+- #225 Persistent Focuses
 - #199 Morning Kickstart (could integrate — show Resurrection as part of morning
   flow)
 - #201 Follow-Through Score

@@ -1,4 +1,4 @@
-# Feature #215 — Body Doubling (Live Co-Working Pairing)
+# Feature #228 — Body Doubling (Live Co-Working Pairing)
 
 > **Status:** 🅿️ Scoped-later (own track, "down the timeline") · **Version:** TBD
 > **Depends On:** #182 Chaperone Mode (digital body-double sibling), Accounts/Org layer, Sidecar

@@ -57,7 +57,7 @@
 3. **#166 Off-Device Intent Tracking** — v0.3.0, depends on #117/#122, no work started.
 4. **#164 Mobile Triggers** (native phone-pickup/call-state/geofence/webhooks) — native-tier, parked for the native mobile build; web PWA covers only the visibility subset today.
 5. **Full agentic Chaperone** (#182 beyond the v0 slice) — Flux-tier; Hermes/OpenClaw engine work parked alongside the broader portfolio audit.
-6. **Body doubling (#215)** — human-powered accountability sibling of #182; parked by owner's call until the Plan 040 epic stack lands.
+6. **Body doubling (#228)** — human-powered accountability sibling of #182; parked by owner's call until the Plan 040 epic stack lands.
 7. **Privacy modes** (Full/Balanced/Minimal), including whether the companion inherits the extension's toggle or gets its own — explicitly deferred pending "desktop companion activity logging is mature."
 8. **Companion multi-machine support** — today one companion per user, no stable per-machine identifier beyond `local_id`; noted as "the next step" since v5.3.0, untouched since.
 9. **Unified Timeline** (merged browser+desktop activity view, `UnifiedTimeline.jsx`) — 🚧 partial in FEATURE-MATRIX; companion is the desktop data source, not fully built.

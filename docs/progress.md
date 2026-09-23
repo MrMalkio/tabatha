@@ -1144,3 +1144,170 @@ Fleet outcomes (all verified by CeeCee before ship):
 **Tooling defect found:** `asana-cli --query-json` is broken through its `.cmd`→PowerShell→python arg chain (embedded quotes mangled before `json.loads`), which blocks `opt_fields` and pagination — so Asana recon is a targeted spot-check, not an exhaustive enumeration, while >100 incomplete tasks exist.
 
 **Next steps (2 decisions, both prepared):** Malkio — **Q1** yes/no on B10 option 2 (float the bar; ~28px overlap trade-off); **Q2** plan-number collision 039/040/041, then the `||` fix and remote-verification of migration rows 025–060. Also worth deciding whether to repair or retire the silent triage agent. Full detail: `docs/taskrun/2026-08-11-morning-report.md`.
+---
+## 2026-07-25/26 — Nightly bug-fix TaskRun (CeeCee night-shift, direct execution)
+
+**Queue: empty, verified.** `docs/taskrun/nightly-bugfix-queue.md` doesn't exist because the
+6-hourly triage agent writes nothing when nothing is new. Confirmed against Asana directly:
+the only feedback submission since the last triage is `1216867448639741` ("[E2E test] Vail
+platform review"), an agent-generated test from last night's own run. TR-01–TR-19 closed
+2026-07-23; TR-20 closed 2026-07-23/24. Charter says skip quietly — so this was a short run
+on the one genuinely unworked leftover (TR-19's version-drift half) plus one find.
+
+**HEADLINE — the fleet had silently rolled back to 6.7.76.** Last night's report stated
+6.7.78 was live on the fleet channel. It was, then a later site deploy from the `staging`
+tree reverted it. Cache-busted baseline taken *before* any deploy of mine proves the
+rollback predates tonight: `update.xml` read 6.7.76 and `tabatha-6.7.78.crx` returned the
+404 HTML fallback, while the staff channel was still correctly 6.7.78 — the two channels
+disagreed all day. So the Koda-cleared clamp/elapsed fixes were not reaching managed Chromes.
+
+- **Root cause is structural:** the jbdka channel's state is files in the site tree and
+  `site:deploy` publishes a FULL snapshot, so deploying from any tree predating the newest
+  release downgrades the fleet with nothing failing and nothing logged. The 6.7.78 release
+  was cut from the `fix/sync-integrity-cluster` worktree; `staging` never carried those files.
+- **Restored + live-verified** (`c429abe`): `update.xml` → 6.7.78, crx serves `Cr24` at
+  556,353 bytes (byte-identical to the branch artifact), 6.7.76 retained for rollback.
+  Re-ran OPERATIONS §2.2b step 3 before publishing: crx_id `jbdkacccpknbiphigeabcdojemnhacjj`,
+  inner manifest version 6.7.78. Binaries only — the SOURCE merge is Malkio's call (Q1).
+- **Guard shipped:** `scripts/check-enterprise-channel.mjs`, wired into `site:deploy`,
+  fail-closed on dangling crx / non-CRX3 / wrong signing id / inner-version mismatch /
+  publishing a LOWER version than live. Proved against the real incident, not asserted:
+  simulating the staging tree with 6.7.78 live yields `✘ ROLLBACK …` and exit 1.
+  Hazard + guard documented in OPERATIONS §2.2b (`afbfcd0`).
+
+**TR-19 slice — `/show` badge drift automated** (`4b5bd4a`): `site/docs` was automated
+2026-07-24, but `site/show` stayed hand-maintained — `9ee9039` hand-synced 19 badges to
+v6.7.73 that night and they were stale a day later. `stamp-docs-version.mjs` now scans
+docs + show, the 12 nav badges carry the marker, and an unmarked badge now FAILS the build
+(the exact silent-drift mode). Live: `/show/` v6.7.73 → v6.7.76; `/docs/` unchanged;
+`/`, `/download`, `/sidecar/` 200; `/download`'s single-CSP invite-gate fix intact after the
+`_headers` redeploy. Deliberately NOT stamped: showcase mock UI (period-accurate props) and
+the curated "brand-faithful to vX" footer (Q2).
+
+**Also:** committed last night's untracked pair-watch evidence artifacts (`4ef6155`) after
+verifying they carry no secrets (env-var names only).
+
+**No version bump on any of the four commits** — all site/ops only, per the `9ee9039`
+precedent; a bump would also mint a 6.7.77 colliding with the unmerged clamp line and make
+the public badge advertise a version with no CRX behind it.
+
+**Gates:** 768/768 tests, `site:build` green, two deploys live-verified, tree clean, no
+`Co-Authored-By`, nothing pushed to protected remotes.
+
+**Next steps:** Malkio — Q1 merge `fix/sync-integrity-cluster` (6.7.78 source) into staging
+so the source line can rebuild what the fleet runs; Q2 the "brand-faithful" wording.
+Full detail: `docs/taskrun/2026-07-25-morning-report.md`, `docs/taskrun/2026-07-25-questions.md`.
+
+---
+
+## 2026-07-26/27 — Nightly TaskRun: registry + feature-number drift (CeeCee)
+
+**Goal:** work the vetted nightly-bugfix queue; skip quietly if empty.
+
+**Queue: empty, verified.** `docs/taskrun/nightly-bugfix-queue.md` absent again. Did not
+treat the missing file as proof — checked Asana directly: the newest task in Flux
+Development is `2026-07-25T21:06:21Z`, which *predates* last night's run, and no new
+feedback-widget submissions exist. `2026-07-22-queue.md` remains fully worked
+(TR-01–TR-19 closed 07-23, TR-20 fixed 07-25).
+
+**Channels re-verified first** (cache-busted), since last night found a silent rollback:
+fleet `update.xml` **6.7.78**, CRX `Cr24` at **556,353 bytes** (byte-identical to the
+recorded artifact), staff `update-channel/latest.json` **6.7.78**, and `/`, `/show/`,
+`/download`, `/docs/`, `/sidecar/` all 200. The preflight guard shipped last night is
+holding. Recorded so it isn't re-investigated: `/enterprise/latest.json` returning HTML is
+**not** a defect — that path never existed; the staff manifest lives on the
+`update-channel` branch. Companion manifest still 0.2.1 = known open item T1c.
+
+**Shipped — `6362467` (docs-only).** Chore `1216904312614852`: four feature numbers were
+each used by two docs. Earlier file keeps the number; later one reassigned via `git mv`:
+`184-persistent-focuses`→**225**, `185-focus-auto-resume-queue`→**226**,
+`186-asana-focus-linking`→**227**, `215-body-doubling`→**228**. Chose 225–228 because
+#220/#221/#224 are already claimed by open Asana tasks and the #160 gap may be a withdrawn
+feature. Every cross-reference re-pointed only after confirming which of the two features
+it meant.
+
+Koda's review caught a real contradiction: `FEATURES-REFERENCE.md` had one row covering
+both features under a single **WORKING** verdict whose evidence is entirely CPN, which
+would have contradicted the registry's `#225 unassigned` in the same commit. Split into
+#184 CPN (WORKING) and #225 Persistent Focuses (NOT FOUND) — confirmed no ongoing /
+"done for today" lifecycle exists in `src/`; plans 025 and 031 shipped the CPN half only.
+
+Plan registry: stray plan-046 row moved into the table, `Next available number` **046→047**
+(unblocks the sync-architecture plan). New standalone lint `npm run check:docs`
+(`scripts/check-doc-registry.mjs`) fails on duplicate feature numbers and a stale pointer;
+proved by injecting each failure and restoring. Deliberately **not** wired into `prebuild`.
+
+**Key finding (new, beyond the chore):** plan numbers **039, 040 and 041 are each used
+twice** — Cortex program/phase1/phase2 vs Sidecar-mobile / Sidecar-voice / Tabby-Watch.
+A Headbox Rule 9 violation nobody had flagged. Renumbering is a judgment call about which
+line's identity is cheaper to move, so it went to morning questions, not code; the lint
+prints it as `KNOWN DRIFT` (warn, exit 0) so it can't quietly persist.
+
+**No version bump** — docs-only, and a staging bump would mint a 6.7.77 colliding with the
+unmerged 6.7.77 on `fix/sync-integrity-cluster`. Same reasoning as last night.
+
+**Gates:** 768/768 tests, `check:docs` green, tree clean, no `Co-Authored-By`, nothing
+pushed to protected remotes.
+
+**Next steps:** Malkio — Q1 (new) decide which line keeps plan numbers 039/040/041;
+Q2 merge `fix/sync-integrity-cluster` into staging (still open); Q3 `/show`
+"brand-faithful" wording (still open). Full detail:
+`docs/taskrun/2026-07-26-morning-report.md`, `docs/taskrun/2026-07-26-questions.md`.
+
+## 2026-07-27/28 — Nightly bug-fix TaskRun: skip-quietly night (CeeCee)
+
+Third consecutive quiet night. **No product code touched, no builders dispatched, no Asana
+umbrella created** — the charter's skip-quietly path, taken deliberately rather than by
+default.
+
+**Queue emptiness proven three ways**, not inferred from the missing
+`nightly-bugfix-queue.md` (an absent file is ambiguous between "nothing filed" and "triage
+never ran"): (1) Asana queried directly — all 8 Flux Development tasks created since
+2026-07-25T21:00Z accounted for, and the only two newer than last night's run are Malkio's
+own intake specs #222 Notes System (`1216922774878600`) and the #220 harness-hook addendum
+(`1216922197879721`), both architectural and self-scoped to a proposed Plan 047, therefore
+out of scope for a small-safe-fixes mandate; no new feedback-widget submissions.
+(2) `2026-07-22-queue.md` TR-01–TR-19 re-verified from primary records — including TR-03,
+whose Koda BLOCK (unconditional dim for gatekeeper-disabled users; no SW round-trip timeout,
+strictly worse than pre-fix; top-level `const` throwing on re-injection) is closed at v6.7.68
+`c3681e9` — plus TR-01's dedup artifacts at `69c076e`; TR-18/19 are Malkio-gated questions,
+not unworked items. (3) `feedback-review-2026-07-23.md` TR-20 done and live (`218279c` is an
+ancestor of the deployed Sidecar line).
+
+**Release channels re-verified** (runs nightly regardless of queue state, since this check
+caught the silent fleet rollback on 07-25): fleet `update.xml` 6.7.78, fleet CRX `Cr24` /
+556,353 bytes byte-identical to the prior two nights, staff `latest.json` 6.7.78
+(sha256 `ce140fb4…`), all 5 site routes 200. Companion `/desktop/latest.json` still 0.2.1 =
+already-tracked T1c (lost signing key), not a new find.
+
+**Two environment gotchas recorded so they aren't re-debugged:** `curl` from the Bash tool
+returns exit `000` for every host — the Bash sandbox has no network; PowerShell
+`Invoke-WebRequest` works and carried all verification. And `asana-cli request --query-json`
+could not receive valid JSON through either shell's native-arg quoting; the Asana MCP read
+path worked, `asana-cli` stays correct for comment writes.
+
+**One known gap, stated as a choice:** the 07-22 queue file carries no inline done-markers;
+closure lives in the morning reports. Not retro-annotated — recording other agents' work
+from my reading of their reports would add hearsay to the record, not remove it.
+
+**No version bump** — nothing to bump, and a staging bump would still mint a 6.7.77
+colliding with the unmerged 6.7.77 on `fix/sync-integrity-cluster`. Committed on `staging`
+from a temporary worktree so the `docs/intake-2026-07-25-agent-layer-bugs` checkout was
+never moved off its branch.
+
+**Next steps:** Malkio — no new questions. The standing three are unchanged: plan-number
+collision 039/040/041 (`1216900494891551`), companion signing key (T1c), production
+promotion (still NO-GO from 07-24). Detail:
+`docs/taskrun/2026-07-27-morning-report.md`, `docs/taskrun/2026-07-26-questions.md`.
+
+## 2026-09-23 — Koda: Plan 050 source reconciliation and release preparation
+
+Goal: preserve all local work, reconcile source against live products, deploy only validated material. Used isolated `Koda/reconcile-20260923` worktree; all original dirty snapshots/Atlas backed up under the original repository's `.git/reconciliation-backups/2026-09-23`.
+
+Recovered current local documentation commits, local staging enterprise rollback guard/registry repairs, final shipped sync fixes, live Sidecar 0.13.14 source, preview harness, Atlas, and uncommitted SYSTEM-MAP history. Archived 22 colliding Sidecar specs with provenance. Preserved the original Headbox renumbering proposal and repaired migration rows without silently deciding historical plan identities.
+
+Key finding: 6.7.82 source was missing shipped 6.7.78 code. Reconciled candidate is 6.7.83; 833 extension tests, 166 Sidecar tests, production builds, version/changelog/docs checks and actual isolated Chrome smoke passed. Chrome smoke covers six pages, focus/clock lifecycle, storage/broadcast and reload persistence; it does not prove authenticated cross-device behavior.
+
+Security holds: pairing hardening returns tokens on consume failure and has fail-open attempt accounting/unowned leases; archived outside deployable paths. Rescued Asana actions use a shared PAT without caller-resource authorization; preserve source pending remediation. Org-hours UI remains excluded after prior privacy rejection. Supabase management credential returns 401, so no SQL/function deployment or ACL claim. Sidecar already matches live; no redundant Worker release.
+
+Next: finish release guard regression tests, commit artifacts, promote via PR, publish staff/enterprise/CWS channels and Pages, then record exact live versions/hashes and any external review delay in `docs/reconciliation/2026-09-23-reconciliation.md`.
