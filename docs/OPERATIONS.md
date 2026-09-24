@@ -153,9 +153,14 @@ What must be true for the update to land:
 
 1. Chrome is signed in to the Workspace account the force-install policy targets
    (`chrome://policy` lists `ExtensionInstallForcelist` with
-   `jbdkacccpknbiphigeabcdojemnhacjj;https://tabatha.pondocean.co/enterprise/update.xml`).
+   `jbdkacccpknbiphigeabcdojemnhacjj;https://tabatha.pondocean.co/enterprise/update.xml`,
+   plus `ExtensionSettings` `toolbar_pin: force_pinned`). The admin surface is
+   Google Admin → Devices → Chrome → Apps & extensions → Users & browsers,
+   Duck & Shark OU, app added **"From a custom URL"** (set up 2026-07-17). It is
+   NOT the Chrome Web Store item `piopncjac…` — that item exists (trusted
+   testers) but no org policy references it as of 2026-09-24.
    Workspace user policy never appears in the registry; the on-disk trace is
-   `User Data/<profile>/Policy/User`. A local interim policy works too:
+   `User Data/<profile>/Policy/User Policy`. A local interim policy works too:
    `HKCU\Software\Policies\Google\Chrome\ExtensionInstallForcelist` → `1` =
    the same `id;url` string (makes the extension non-removable until deleted).
 2. The install is `location: 7` (external-policy-download) in Secure Preferences.
@@ -180,8 +185,11 @@ consecutive failures spanning ≥60s it probes `chrome.storage.sync`; if that
 tiny write succeeds the disk has room and it calls `chrome.runtime.reload()`
 (30-min cooldown marker in `storage.sync`), and if the probe also fails it only
 keeps notifying with a disk-full message. Manual recovery on older builds: free
-space, then reload the extension. Nothing on disk is lost; only the changes made
-while poisoned were never written.
+space, then fully quit Chrome (⋮ → Exit, never `taskkill /F`) and relaunch. A
+policy-installed copy has no reload button on `chrome://extensions` and cannot be
+disabled, so a Chrome restart is the only manual way to reopen its storage;
+unpacked copies can use ↻. Nothing on disk is lost; only the changes made while
+poisoned were never written.
 
 This channel retires once the CWS item (§2.3) is published and the Workspace
 force-install is repointed to store id `piopncjacohahbkkmockjnpenhdbmmbc`.

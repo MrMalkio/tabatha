@@ -162,7 +162,7 @@ export function verdictsFor({
 
   if (log?.poisoned) {
     const e = log.errors[log.errors.length - 1];
-    add('fail', `chrome.storage.local is POISONED since ${e.at}: "${e.message}". Every write has failed since. Reload the extension (chrome://extensions → ↻) once the disk has room — or let 6.7.84+ self-heal.`);
+    add('fail', `chrome.storage.local is POISONED since ${e.at}: "${e.message}". Every write has failed since. Once the disk has room, fully quit Chrome (⋮ → Exit) and relaunch — a policy-installed copy has no reload button — or let 6.7.84+ self-heal.`);
   } else if (log && log.errors.length) {
     add('warn', `${log.errors.length} earlier LevelDB error(s), last at ${log.errors[log.errors.length - 1].at}; writes have succeeded since.`);
   }

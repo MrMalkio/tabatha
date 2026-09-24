@@ -4,6 +4,12 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.85] - Correct recovery steps for the org-installed extension - _2026-09-24_
+
+### Fixed
+
+- Recovery advice now says to restart Chrome instead of "reload the extension". The org-installed copy of Tabatha has no reload button and cannot be disabled, so a full Chrome restart is the only manual way to recover it. Applies to the storage-failure notification, `npm run fleet:check`, and the operations runbook, which now also records where the org install is configured.
+
 ## [v6.7.84] - Storage self-heals after a full disk; fleet-install diagnostic - _2026-09-24_
 
 ### Fixed

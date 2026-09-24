@@ -84,7 +84,7 @@ function notifyWriteFailure(err, now) {
   console.error('[Tabatha:storage] WRITE FAILED — state changes are NOT persisting:', msg);
   const message = isDiskFullError(err)
     ? 'Your disk is full, so changes are not saving. Free some space — Tabatha will reload itself and recover.'
-    : `Changes are not saving (${msg || 'unknown error'}). Reload the extension; if it persists, clear old logs/archives in Settings.`;
+    : `Changes are not saving (${msg || 'unknown error'}). Restart Chrome; if it persists, clear old logs/archives in Settings.`;
   try {
     chrome.notifications?.create?.('tabatha-storage-write-failure', {
       type: 'basic',
