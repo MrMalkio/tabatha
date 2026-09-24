@@ -1,3 +1,4 @@
+/* global chrome */
 // ════════════════════════════════════════════
 // Tabatha — Storage Service (canonical background storage layer)
 // Wraps chrome.storage.local. Constants are re-exported from
@@ -28,32 +29,113 @@ export async function getStorage(keys) {
 // swallowed the {error} responses, so the extension looked alive but no
 // state change persisted. "unlimitedStorage" now removes the cap; this
 // guard makes any future write failure LOUD instead of silent.
+//
+// 2026-09-23 disk-full outage — same shape, different cause. The machine ran
+// out of disk during a LevelDB compaction (the store's LOG records
+// "Compaction error: IO error: ... FILE_ERROR_NO_SPACE"). LevelDB latches that
+// as a background error, so every later chrome.storage.local write rejects
+// until the database is REOPENED — which only an extension reload or a Chrome
+// restart does. Reads keep working, the service worker keeps syncing its
+// frozen snapshot to the cloud, and every add/resolve/pause fails on save.
+// Freeing disk space alone does NOT recover it. So on repeated write failures
+// we self-heal: probe a DIFFERENT LevelDB (chrome.storage.sync) with a tiny
+// write. If the probe succeeds the disk has room and the local DB is merely
+// poisoned → chrome.runtime.reload() reopens it. If the probe also fails the
+// disk is still full → a reload gains nothing, so we only keep notifying, with
+// a disk-full message. A cooldown marker in storage.sync (which survives the
+// reload) prevents a reload loop.
 let _lastWriteFailureNoticeAt = 0;
 const WRITE_FAILURE_NOTICE_INTERVAL_MS = 10 * 60000;
 
-// Test seam: reset the notice throttle (node --test runs share module state).
+// Self-heal tuning (exported so tests pin the contract).
+export const WRITE_FAILURE_RELOAD_THRESHOLD = 3;          // consecutive failures…
+export const WRITE_FAILURE_RELOAD_MIN_AGE_MS = 60000;     // …spanning at least this long
+export const WRITE_FAILURE_RELOAD_COOLDOWN_MS = 30 * 60000;
+export const SELF_HEAL_MARKER_KEY = '_storageSelfHealReloadedAt';
+const SELF_HEAL_PROBE_KEY = '_storageHealthProbeAt';
+
+let _consecutiveWriteFailures = 0;
+let _firstWriteFailureAt = 0;
+let _selfHealInFlight = false;
+let _now = () => Date.now();
+
+export function isDiskFullError(err) {
+  return /NO_SPACE|no space|ENOSPC|disk full/i.test(err?.message || String(err));
+}
+
+// Test seams (node --test runs share module state).
 export function _resetWriteFailureNotice() {
   _lastWriteFailureNoticeAt = 0;
+  _consecutiveWriteFailures = 0;
+  _firstWriteFailureAt = 0;
+  _selfHealInFlight = false;
+}
+export function _setNowForTests(fn) {
+  _now = typeof fn === 'function' ? fn : () => Date.now();
+}
+export function _getWriteFailureState() {
+  return { consecutive: _consecutiveWriteFailures, firstAt: _firstWriteFailureAt };
+}
+
+function notifyWriteFailure(err, now) {
+  if (now - _lastWriteFailureNoticeAt <= WRITE_FAILURE_NOTICE_INTERVAL_MS) return;
+  _lastWriteFailureNoticeAt = now;
+  const msg = err?.message || err;
+  console.error('[Tabatha:storage] WRITE FAILED — state changes are NOT persisting:', msg);
+  const message = isDiskFullError(err)
+    ? 'Your disk is full, so changes are not saving. Free some space — Tabatha will reload itself and recover.'
+    : `Changes are not saving (${msg || 'unknown error'}). Reload the extension; if it persists, clear old logs/archives in Settings.`;
+  try {
+    chrome.notifications?.create?.('tabatha-storage-write-failure', {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title: 'Tabatha — storage write failed',
+      message,
+      requireInteraction: true
+    });
+  } catch { /* notifications best-effort */ }
+}
+
+// Resolves true when an extension reload was triggered.
+async function maybeSelfHeal(now) {
+  if (_selfHealInFlight) return false;
+  if (_consecutiveWriteFailures < WRITE_FAILURE_RELOAD_THRESHOLD) return false;
+  if (now - _firstWriteFailureAt < WRITE_FAILURE_RELOAD_MIN_AGE_MS) return false;
+  const sync = chrome.storage?.sync;
+  if (typeof sync?.get !== 'function' || typeof sync?.set !== 'function') return false;
+  if (typeof chrome.runtime?.reload !== 'function') return false;
+  _selfHealInFlight = true;
+  try {
+    // The probe: a tiny write to a different LevelDB. Still fails while the
+    // disk is full — and then a reload would only reopen into the same error.
+    await sync.set({ [SELF_HEAL_PROBE_KEY]: new Date(now).toISOString() });
+    const { [SELF_HEAL_MARKER_KEY]: last } = await sync.get(SELF_HEAL_MARKER_KEY);
+    const lastMs = last ? Date.parse(last) : 0;
+    if (Number.isFinite(lastMs) && lastMs > 0 && now - lastMs < WRITE_FAILURE_RELOAD_COOLDOWN_MS) return false;
+    await sync.set({ [SELF_HEAL_MARKER_KEY]: new Date(now).toISOString() });
+    console.warn('[Tabatha:storage] local storage is poisoned but the disk has room — reloading the extension to reopen it');
+    chrome.runtime.reload();
+    return true;
+  } catch (probeErr) {
+    console.warn('[Tabatha:storage] self-heal probe failed (disk still full?) — not reloading:', probeErr?.message || probeErr);
+    return false;
+  } finally {
+    _selfHealInFlight = false;
+  }
 }
 
 export async function setStorage(data) {
   try {
-    return await chrome.storage.local.set(data);
+    const result = await chrome.storage.local.set(data);
+    _consecutiveWriteFailures = 0;
+    _firstWriteFailureAt = 0;
+    return result;
   } catch (err) {
-    const now = Date.now();
-    if (now - _lastWriteFailureNoticeAt > WRITE_FAILURE_NOTICE_INTERVAL_MS) {
-      _lastWriteFailureNoticeAt = now;
-      console.error('[Tabatha:storage] WRITE FAILED — state changes are NOT persisting:', err?.message || err);
-      try {
-        chrome.notifications?.create?.('tabatha-storage-write-failure', {
-          type: 'basic',
-          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-          title: 'Tabatha — storage write failed',
-          message: `Changes are not saving (${err?.message || 'unknown error'}). Reload the extension; if it persists, clear old logs/archives in Settings.`,
-          requireInteraction: true
-        });
-      } catch { /* notifications best-effort */ }
-    }
+    const now = _now();
+    _consecutiveWriteFailures += 1;
+    if (!_firstWriteFailureAt) _firstWriteFailureAt = now;
+    notifyWriteFailure(err, now);
+    await maybeSelfHeal(now);
     throw err;
   }
 }

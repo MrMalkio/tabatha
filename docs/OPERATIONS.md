@@ -131,6 +131,58 @@ version is **lower** than what the live channel already serves. If you are
 releasing from a feature worktree, bring the crx + `update.xml` into whichever
 tree you deploy from, or the next unrelated site deploy will undo you.
 
+#### Client side: what must be true on a managed Chrome, and diagnosing a stuck install
+
+Publishing to this channel proves nothing about any given machine (2026-09-23:
+6.7.83 was live on the channel and verified, while the dev box sat on 6.7.56 —
+it had never taken a single channel update since its 2026-07-21 install). Before
+believing a release reached someone, run **on that machine**:
+
+```
+npm run fleet:check          # read-only; add --offline without network, --json for machines
+```
+
+`scripts/check-fleet-install.mjs` reports, per Chrome profile: every Tabatha
+extension entry (id, version, install kind, enabled/disabled and why — ghost
+duplicates included), the fleet install's on-disk version vs what the channel
+serves, whether the profile's cached cloud policy references the fleet id, disk
+free space, and whether `chrome.storage.local` is alive (newest write, WAL growth
+over a 20s window, and LevelDB's own `LOG`). Exit code 1 on any ✘.
+
+What must be true for the update to land:
+
+1. Chrome is signed in to the Workspace account the force-install policy targets
+   (`chrome://policy` lists `ExtensionInstallForcelist` with
+   `jbdkacccpknbiphigeabcdojemnhacjj;https://tabatha.pondocean.co/enterprise/update.xml`).
+   Workspace user policy never appears in the registry; the on-disk trace is
+   `User Data/<profile>/Policy/User`. A local interim policy works too:
+   `HKCU\Software\Policies\Google\Chrome\ExtensionInstallForcelist` → `1` =
+   the same `id;url` string (makes the extension non-removable until deleted).
+2. The install is `location: 7` (external-policy-download) in Secure Preferences.
+   Chrome polls a policy extension's update URL on its own cadence (hours);
+   force one with `chrome://extensions` → Developer mode → **Update**. A new
+   `Extensions/<id>/<version>_0/` directory is the proof; the version card is not.
+3. The inner manifest `key` of the CRX is irrelevant — Chrome rewrites it to the
+   signing key on install (the installed 6.7.56 manifest carries the jbdka key
+   even though the repo's pinned key resolves to the staff id). Do NOT "fix" the
+   repo key to match the fleet id; that would re-identify every staff install.
+
+**Storage poisoned by a full disk (2026-09-23, fixed in 6.7.84).** If the disk
+fills while LevelDB compacts the extension's store, its `LOG` records
+`Compaction error: IO error: … FILE_ERROR_NO_SPACE` and LevelDB latches the
+error: every later `chrome.storage.local` write rejects until the database is
+reopened, i.e. an extension reload or a Chrome restart. Reads still work, so the
+service worker keeps heartbeating and pushing its frozen snapshot every sync
+cycle (the cloud shows every row re-stamped with unchanged content), while every
+add / resolve / pause fails on save — "intents don't update". Freeing disk space
+alone does not recover it. From 6.7.84 `setStorage` self-heals: after 3
+consecutive failures spanning ≥60s it probes `chrome.storage.sync`; if that
+tiny write succeeds the disk has room and it calls `chrome.runtime.reload()`
+(30-min cooldown marker in `storage.sync`), and if the probe also fails it only
+keeps notifying with a disk-full message. Manual recovery on older builds: free
+space, then reload the extension. Nothing on disk is lost; only the changes made
+while poisoned were never written.
+
 This channel retires once the CWS item (§2.3) is published and the Workspace
 force-install is repointed to store id `piopncjacohahbkkmockjnpenhdbmmbc`.
 
