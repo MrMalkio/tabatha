@@ -667,3 +667,29 @@
   1. Find what regenerates `localId` (SW startup when the key read fails?) and make it durable ← **suggested**
   2. Reconcile duplicates server-side by machine_id
   3. Leave; cosmetic while single-writer
+
+## 2026-09-26 — Cloud keeps intents no live install holds (zombie Up Next rows)
+- **Noticed while:** diagnosing "Sidecar Up Next is full of outdated intents".
+- **What:** five paused `focus_items` rows on profile `4abda377` have no resolve event and belong to installs that stopped pushing them in July (`e428bd2a`, pre-re-identification; `59507265`, Sidecar web). The extension only upserts items it holds and never tombstones items it lost (re-identification rehydrate gaps, `mergeIntents` deleting the source locally, storage resets), so Sidecar shows them forever.
+- **Why it matters:** every surface that reads the cloud (Sidecar queue, Context View Up Next, Watch) shows stale intents; the list only grows.
+- **Options:**
+  1. One-off cleanup: mark the listed rows `completed` (needs Malkio's OK per row)
+  2. Server-side reconciliation: a row owned by a revoked/retired install, or by an install whose same-machine successor has pushed a full engine without it for N days, is auto-backburnered (reversible) rather than completed ← **suggested**
+  3. Extension pushes a per-cycle manifest of live ids so the server can flag rows it no longer holds
+
+## 2026-09-26 — mergeIntents deletes the source intent locally without telling the cloud
+- **Noticed while:** tracing how intents vanish from the extension but stay live in the cloud.
+- **What:** `focusService.mergeIntents` does `delete engine.items[sourceIntentId]` and never moves the source to history or marks it completed, so its cloud row stays `paused` permanently. Not proven to be the cause of today's five zombies (no merge events are logged anywhere), but it is a guaranteed zombie generator.
+- **Why it matters:** each merge leaves a stale Up Next entry on Sidecar/Context View/Watch.
+- **Options:**
+  1. On merge, push the source to history as `completed` with `mergedInto` ← **suggested**
+  2. Log a `merge` focus_event so merges are traceable
+  3. Both
+
+## 2026-09-26 — InBar inputs likely share the InPop keystroke bug on shortcut-heavy sites
+- **Noticed while:** fixing InPop typing (6.7.86).
+- **What:** InBar's key guard (`inbar.js`, "Prevent host page from stealing keyboard events") is a capture listener on the shadow HOST. Page listeners on `document` in the capture phase run before it, so on Gmail-style pages the pause-reason, note and edit inputs can still have their keys cancelled — the same mechanism reproduced for InPop. Not yet reproduced for InBar.
+- **Why it matters:** the same "field has focus but nothing types" failure in the bar itself.
+- **Options:**
+  1. Reproduce with the scratch Playwright harness (shortcut page + InBar pause-reason input), then apply the window-level isolation — note `shadowKeyIsolation.js` must stay single-entry or be duplicated into inbar.js (content-script chunking limit) ← **suggested**
+  2. Leave until reported

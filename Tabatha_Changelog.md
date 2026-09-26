@@ -4,6 +4,13 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.86] - Typing in the intent popup on shortcut-heavy sites; Pause for timed-out intents in the sidebar - _2026-09-26_
+
+### Fixed
+
+- The intent popup accepts typing on sites with keyboard shortcuts again (Gmail, Asana, GitHub and similar). Those sites couldn't tell you were typing in a text field inside the popup, treated every key as one of their shortcuts, and cancelled it — the field had focus but stayed empty. The popup now keeps its keystrokes to itself before the site sees them. Enter still submits.
+- The sidebar shows ⏸ Pause for an intent whose timer has run out. A timed-out ("drifted") intent previously showed neither Pause nor Resume in the sidebar, although the home page and the background both allow pausing it.
+
 ## [v6.7.85] - Correct recovery steps for the org-installed extension - _2026-09-24_
 
 ### Fixed
