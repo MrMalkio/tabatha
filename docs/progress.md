@@ -1358,3 +1358,19 @@ Plan 050 remains partial (6/7): inventory/recovery/validation/final ledger compl
 **Verification.** Full suite + guards + build below; ESLint: no new errors in touched files (gatekeeper 36→36, sidebar 19→19 pre-existing).
 
 **Next.** Malkio: say whether to close the five zombie rows; release 6.7.86 to the enterprise channel (pack with the fleet key, `site:check-enterprise`, deploy) — the fixes don't reach the org install until then; merge PR #43.
+
+## 2026-09-27 — Claude (Opus 5.5): Flux database outage root-caused and fixed; 6.7.86 + 6.7.87 released
+
+**Outage.** Supabase health: db/rest/auth UNHEALTHY, "Failed to connect to database" (project status still ACTIVE_HEALTHY). Org `Flux` is on the **free plan** (nano compute, 8 GB gp3). Supabase emailed "Flux is running out of Disk IO Budget" on 09-01, 09-09 and 09-21 ("your instance may become unresponsive"). The Hermes-org payment-failure emails and the 09-25 platform JWT incident are unrelated.
+
+**Root cause (in our code).** `syncService` re-upserted EVERY focus row (active + history, ~200) and every registry row on every sync — 5-min alarm plus debounced syncs after each mutation — whether or not anything changed (cloud showed all rows re-stamped each cycle). Identical-value UPDATEs still write tuples, indexes, WAL, realtime events and vacuum work, draining the IO budget.
+
+**Fix (6.7.87, `177ad45`).** `upsertRows` writes only rows whose content fingerprint changed since the last successful push (`src/utils/pushDelta.js`; ignores `synced_at`/`updated_at`/`last_seen_at`; per-table state recorded only after success; full resync every 24 h). Tests: `pushDelta` (9), `syncPushDelta` (3; 2 fail on the old code). 889/889.
+
+**Recovery.** Restarted via Management API `POST /v1/projects/{ref}/restart` (token `SUPABASE_ACCESS_TOKEN` in `.env.cortex.local`; the linked CLI crashed/timed out). RESTARTING → ACTIVE_HEALTHY, db healthy at 15:02 EDT. Closed the five zombie Up Next rows (Tabby work, SS component showcase, Reviewing TDP showcase, Avengers work, what's going on with malkio.com) — verified completed; Up Next now holds only the live extension's items.
+
+**Releases.** 6.7.86 (InPop typing, sidebar Pause) and 6.7.87 (sync writes) packed with the fleet key, `site:check-enterprise` passed, deployed, live `update.xml` → 6.7.87, served CRX byte-identical. Both on PR #43 (not yet merged — the site guard blocks a lower-version deploy from main until it is).
+
+**Also noticed.** Machine at 0.3 GB free RAM / 0.1 GB commit during the release (21 PowerShell, 80 node, 80 cmd, 117 conhost processes from other tools/agents) — first build died with a VirtualAlloc failure; succeeded with `NODE_OPTIONS=--max-old-space-size=768`. Supabase Management API `logs.all` endpoint is gone (410) — use `/analytics/endpoints/logs`.
+
+**Next.** Watch Disk IO in the dashboard for a day; if it doesn't fall, next suspects are the realtime publication on `focus_items` and `desktop_activity` volume. Merge PR #43. Consider a compute upgrade only if load stays high after 6.7.87 reaches all installs.
