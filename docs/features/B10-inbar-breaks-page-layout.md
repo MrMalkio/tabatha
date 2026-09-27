@@ -136,6 +136,17 @@ site-specific quirk.
 `position: fixed` and (b) does not have `<body>` filling the viewport at origin. Linear, Notion,
 Gmail, Slack web, GitHub's newer views, and most admin consoles fit that description.
 
+### Third confirmed repro — stitelerexteriors.com (Malkio, 2026-09-27, paired screenshots)
+
+A marketing site with a fixed left navigation panel (logo, menu, phone, social icons, and a
+"FREE QUOTE, CALL NOW!" block pinned at the bottom). With the InBar shown, the bottom of that fixed
+panel is cut off; hiding the InBar restores it. Same mechanism: the panel is `position: fixed`
+against the viewport, the `transform` on `<body>` re-anchors it to the pushed-down body, and its
+bottom slides under the viewport edge. Malkio's observation that this "was not always the case" and
+"affects different sites differently — sometimes it hides something, sometimes it moves something"
+matches the containing-block effect: the visible damage depends on how each site positions its
+fixed elements. Still blocked on the decision below.
+
 ## Interim workarounds (source-verified 2026-08-14, nightly TaskRun — CeeCee)
 
 The Stripe repro means a user can be stranded at a billing modal whose Cancel/Pause buttons are
