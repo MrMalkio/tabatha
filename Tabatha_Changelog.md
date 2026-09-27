@@ -4,6 +4,53 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.89] - Downloaded updates apply on their own when you step away - _2026-09-27_
+
+### Changed
+
+- **Updates install themselves when you're away.** Once Chrome has downloaded a newer Tabatha, it now switches over the next time your computer goes idle or locks, the moment Chrome would normally choose. You can still switch right away with **Update now** on the banner, and a Chrome restart still applies it too.
+
+## [v6.7.88] - Update banner with a real update button; sign-in reminders for Workspace users - _2026-09-27_
+
+### Added
+
+- **New version banner.** Home, the sidebar and Settings now say when a newer Tabatha is out ("Tabatha 6.7.89 is out.") or already downloaded ("Tabatha 6.7.89 is ready."). **Get it now** / **Update now** asks Chrome for the update and reloads into it once it has downloaded. If Chrome can't get it yet, the banner says why (still downloading, Chrome is limiting update checks, or a Chrome restart is needed). **Later** hides it for an hour. The banner sits above the page content and never covers it.
+- **Settings → Check for updates / Update and reload.** These replace the old reload button, which only restarted the running version and never downloaded a new one. Settings also shows your version and install channel (Workspace, Chrome Web Store or Staff). The plain reload is still available as a small secondary button.
+- **Sign-in reminders for Workspace installs.** If your organization installs Tabatha for you and you aren't signed in, you now see a reminder banner ("Sign in so your time and intents sync"), an amber **!** on the toolbar icon (only when no other badge is showing), and a notification at most every 3 hours between 08:00 and 20:00. **Remind me later** hides the banner for 2 hours. Reminders never block or disable anything, disappear as soon as you sign in, and never appear for Chrome Web Store or staff installs.
+
+### Changed
+
+- Tabatha now checks for updates itself: at startup, after an update, and every hour. Workspace installs also read the published version from the organization update feed, so the banner can appear before Chrome's own check (which runs every few hours) downloads the update. A downloaded update is applied when you click **Update now** or the next time Chrome restarts.
+
+## [v6.7.87] - Cloud Sync writes only what changed - _2026-09-27_
+
+### Fixed
+
+- Cloud Sync no longer rewrites every intent, every time. Each sync (every 5 minutes, plus after every change) used to re-send all of your intents — active and finished — and all project/client records, even when nothing had changed. That constant rewriting used up the database's disk capacity on its current plan until it stopped responding (the 2026-09-27 outage). Tabatha now sends only records that actually changed, plus one full refresh a day so the cloud always converges.
+
+## [v6.7.86] - Typing in the intent popup on shortcut-heavy sites; Pause for timed-out intents in the sidebar - _2026-09-26_
+
+### Fixed
+
+- The intent popup accepts typing on sites with keyboard shortcuts again (Gmail, Asana, GitHub and similar). Those sites couldn't tell you were typing in a text field inside the popup, treated every key as one of their shortcuts, and cancelled it — the field had focus but stayed empty. The popup now keeps its keystrokes to itself before the site sees them. Enter still submits.
+- The sidebar shows ⏸ Pause for an intent whose timer has run out. A timed-out ("drifted") intent previously showed neither Pause nor Resume in the sidebar, although the home page and the background both allow pausing it.
+
+## [v6.7.85] - Correct recovery steps for the org-installed extension - _2026-09-24_
+
+### Fixed
+
+- Recovery advice now says to restart Chrome instead of "reload the extension". The org-installed copy of Tabatha has no reload button and cannot be disabled, so a full Chrome restart is the only manual way to recover it. Applies to the storage-failure notification, `npm run fleet:check`, and the operations runbook, which now also records where the org install is configured.
+
+## [v6.7.84] - Storage self-heals after a full disk; fleet-install diagnostic - _2026-09-24_
+
+### Fixed
+
+- "Intents don't update when I resolve or add them" — root-caused to a full disk. When the machine ran out of space mid-compaction, the extension's storage database latched the error and rejected every later write (for 25+ hours) while reads and cloud sync kept working, so the extension looked alive but nothing saved. Tabatha now detects repeated write failures, checks whether the disk has room again, and reloads itself to reopen storage — with a 30-minute cooldown so it can never loop. While the disk is still full it says so plainly instead of the generic "reload the extension" advice.
+
+### Added
+
+- `npm run fleet:check` — a read-only, on-machine diagnostic for the enterprise install: every Tabatha extension entry and ghost duplicate, on-disk version vs the live channel, cached policy presence, disk free space, and whether storage is alive (including the latched-LevelDB-error case above). Documented in OPERATIONS.md §2.2b together with what must be true on a managed Chrome for updates to land.
+
 ## [v6.7.83] - Reconcile verified source and release safeguards - _2026-09-23_
 
 ### Fixed

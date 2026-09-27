@@ -22,3 +22,17 @@ export function isVersionNewer(current, candidate) {
   }
   return false; // equal
 }
+
+// Three-way comparator for manifest versions: -1 if a < b, 0 if equal,
+// 1 if a > b. Missing/malformed versions sort lowest (null < "0.0.1"), and two
+// missing versions compare equal — so a failed fetch never looks "newer".
+export function compareVersions(a, b) {
+  const hasA = !!a && String(a).trim() !== '';
+  const hasB = !!b && String(b).trim() !== '';
+  if (!hasA && !hasB) return 0;
+  if (!hasA) return -1;
+  if (!hasB) return 1;
+  if (isVersionNewer(a, b)) return -1;
+  if (isVersionNewer(b, a)) return 1;
+  return 0;
+}

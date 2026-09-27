@@ -283,5 +283,6 @@ export const SETTINGS_SEARCH_INDEX = [
 
   // ── About ──
   { id: 'about-version', section: 'about', label: 'Version', keywords: ['version', 'build', 'release'] },
+  { id: 'about-updates', section: 'about', label: 'Check for updates', keywords: ['update', 'upgrade', 'new version', 'reload', 'check for updates', 'install channel', 'workspace'] },
   { id: 'about-changelog', section: 'about', label: 'Changelog', keywords: ['changelog', "what's new", 'releases', 'history'] },
 ];

@@ -157,6 +157,7 @@ Wave 0 (pre-prod gate)
 ## Migration Status (Supabase Remote)
 
 > **Last verified:** 2026-07-10 — **All migrations 001–024 applied to the live Flux project (CLI push).** ⚠️ Correction: on 2026-07-10 the remote was found at 017 — the 2026-06-30 "018/019 applied + verified" record was inaccurate for the live project. 018–024 were applied together 2026-07-10 (all additive; 021 priority column pre-existed, IF NOT EXISTS skipped cleanly).
+> **Registry reconciled:** 2026-08-08 — files 025–060 below were recorded from `supabase/migrations/`. Remote applied status for those rows was not re-verified in this registry cleanup pass.
 > **Project:** Flux (`mtdgoahskcibjbhfvofx`)
 
 | #        | File                                        | Status                      | Introduced By                    |

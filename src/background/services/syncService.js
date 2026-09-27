@@ -16,6 +16,7 @@ import { rehydrateUserData, isRehydrateNeeded } from './dataRehydrate.js';
 import { getCompanionBrowserProfileId } from './companionInstallService.js';
 import { runLiveIngestAfterPush } from './focusIngestService.js';
 import { clampStoredElapsed } from '../../utils/elapsedClamp.js';
+import { selectChangedRows } from '../../utils/pushDelta.js';
 
 let deps = {};
 let syncTimeout = null;
@@ -374,10 +375,22 @@ async function writeRowsResilient({ rows, table, diagnosticKind, write }) {
   }
 }
 
+// 2026-09-27 Flux outage: every cycle used to re-upsert every row with
+// unchanged content, which drained the database's Disk IO budget until it
+// stopped responding. Only rows whose content changed since the last
+// successful push are written now (plus a daily full resync — see
+// src/utils/pushDelta.js). State is per table (own storage key) because
+// several tables are pushed in parallel.
+const pushDeltaKey = (table) => `_pushDelta:${table}`;
+
 async function upsertRows(supabase, table, rows, onConflict, diagnosticKind) {
   if (!rows.length) return true;
-  return writeRowsResilient({
-    rows,
+  let state;
+  try { state = (await getStorage(pushDeltaKey(table)))?.[pushDeltaKey(table)]; } catch { state = undefined; }
+  const { rows: changed, nextState } = selectChangedRows(rows, onConflict, state);
+  if (!changed.length) return true;
+  const ok = await writeRowsResilient({
+    rows: changed,
     table,
     diagnosticKind,
     write: (currentRows) => supabase
@@ -385,6 +398,12 @@ async function upsertRows(supabase, table, rows, onConflict, diagnosticKind) {
       .from(table)
       .upsert(currentRows, { onConflict })
   });
+  // Record what the cloud now holds only after a successful write, so a
+  // failed push is retried in full next cycle. Best-effort: never fail sync.
+  if (ok) {
+    try { await setStorage({ [pushDeltaKey(table)]: nextState }); } catch { /* retried as a full push */ }
+  }
+  return ok;
 }
 
 // Koda N2: the item's own FROZEN reference instant for the structural clamp.

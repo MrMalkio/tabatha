@@ -622,3 +622,74 @@
   1. Re-run the tabatha-desktop release pipeline for 0.3.10 with `tauri signer sign` (or re-invoke `tauri-action` with the signing key) to produce the `.sig`, then regenerate `site/desktop/latest.json` from that real signature ← **suggested**
   2. Change future desktop release scripts to always publish the `.sig` as a release asset so this manifest can be safely regenerated from CI without needing local key access
   3. Leave latest.json stale for now and rely entirely on the download page for manual updates (not recommended — users won't know a new version exists)
+
+## 2026-09-24 — Focus newest-wins merge can clobber unstamped local edits (latent multi-writer bug)
+- **Noticed while:** root-causing "intents don't update" (which turned out to be disk-full storage poisoning, not this).
+- **What:** `dataRehydrate.focusRefTime` = `updatedAt || completedAt || endedAt || syncedAt || createdAt`; the local copy carries the server's `synced_at` (`syncedAt: row.synced_at`), the comparator is `>=`, and nothing in `src/` ever stamps `updatedAt` on a focus item (only calendars, inbar notes and the outbox do). Any non-completing local edit (rename, stage, priority, sub-intent, backburner) therefore has ref time == the server's last stamp; when a second writer on the same profile re-pushes stale content (full upserts re-stamp every row each cycle), the next rehydrate applies the stale row over the edit. Single-writer today, so dormant; the 09-12 install re-identification triggered a full rehydrate under exactly these rules.
+- **Why it matters:** silent edit loss the moment a second install (staff machine, harness, phone-authored rows) shares a profile.
+- **Options:**
+  1. Stamp `updatedAt = now` in every focus mutation path and prefer it in the merge ← **suggested**
+  2. Change the comparator to `>` so equal stamps keep local
+  3. Push deltas (changed rows only) so the server stamp only moves when content changes
+
+## 2026-09-24 — Revoked Desktop Companion keeps writing desktop_activity
+- **Noticed while:** DB sweep for the storage-poisoning diagnosis.
+- **What:** `browser_profiles` row `00741d2e` ("Desktop Companion", machine OD) has `revoked_at = 2026-07-21`, yet `desktop_activity` rows under profile `4abda377` were written as recently as 2026-09-23 20:31 and the row's `last_seen_at` advanced to 09-23 17:32.
+- **Why it matters:** revocation is not enforced for companion writes — a revoked device keeps feeding activity.
+- **Options:**
+  1. RLS/RPC guard rejecting writes whose `browser_profile_id` has `revoked_at` set (extend migration 058's lifecycle guard to desktop_activity) ← **suggested**
+  2. Companion-side: stop when the profile row reports revoked
+  3. Un-revoke if the revocation was a mistake
+
+## 2026-09-24 — Fleet install never took a channel update after 6.7.56, despite cached policy
+- **Noticed while:** the same diagnosis; not the cause of the symptom.
+- **What:** Default profile: installed at 6.7.56 on 07-21, only `Extensions/jbdka…/6.7.56_0` exists. Profile 2: updated 6.7.22 → 6.7.53 → 6.7.56, then stopped. Cached cloud policy (`Default/Policy/User`, refreshed 09-23 15:58) references the fleet id and update.xml; the channel has advertised 6.7.69 → 6.7.83 since 07-23. The 6.7.56 → 6.7.83 CRX manifest diff is key order only (no new permissions, no `minimum_chrome_version`), so Chrome has no manifest reason to refuse. Chrome's update-check outcome isn't on disk. Updates provably worked through 6.7.56, so something about the releases after it makes Chrome skip them.
+- **Why it matters:** every enterprise release since July never reached the installs we can observe; `check-enterprise-channel` verifies the publish, not delivery.
+- **Options:**
+  1. Malkio: `chrome://extensions` → Developer mode → Update, then `chrome://extensions-internals` for the update error; `npm run fleet:check` after ← **suggested**
+  2. Compare the CRX3 headers of 6.7.56 vs 6.7.83 (signature algorithm / key proof) — the only remaining artifact difference
+  3. Accelerate the CWS repoint (§2.3) and retire this channel
+
+## 2026-09-24 — Storage write churn (~487 KB every ~25 s) observed on the 6.7.56 install
+- **Noticed while:** LevelDB LOG review (2026-08-13 sample: a Level-0 flush every ~25 s and a 2.7 MB compaction every ~2 min; the WAL then held only `cortexCaptureState`/`companionStatus` writes).
+- **What:** something rewrote a multi-hundred-KB value continuously; the on-disk store reached 21 MB with a 2.3 MB MANIFEST. Whether HEAD still does this is unverified (captureService's `STATE_KEY` is documented as a 3-field object, so the big value may be the ledger).
+- **Why it matters:** write amplification hastens exactly the disk-full failure that hit on 09-23.
+- **Options:**
+  1. Reproduce on 6.7.84 with `npm run fleet:check -- --window=60` and identify the key (the WAL is uncompressed) ← **suggested**
+  2. Cap/debounce the offending writer
+  3. Move large ledgers to IndexedDB/OPFS
+
+## 2026-09-24 — Install re-identified itself on 2026-09-12 03:30 UTC
+- **Noticed while:** DB sweep.
+- **What:** `browser_profiles` `e428bd2a` (local_id `59d48007`, "OD - Dev extension") last seen 03:29:28; `2b37076e` (local_id `4b0af0f0`) created 03:30:12 for the same extension store. The local install id changed without a reinstall (the 2026-06-04 "install identity not persisted" class), forcing a full rehydrate. Four more one-day installs on machine OD from 09-07/09-08.
+- **Why it matters:** ghost installs accumulate and each re-identification is a newest-wins merge over local state.
+- **Options:**
+  1. Find what regenerates `localId` (SW startup when the key read fails?) and make it durable ← **suggested**
+  2. Reconcile duplicates server-side by machine_id
+  3. Leave; cosmetic while single-writer
+
+## 2026-09-26 — Cloud keeps intents no live install holds (zombie Up Next rows)
+- **Noticed while:** diagnosing "Sidecar Up Next is full of outdated intents".
+- **What:** five paused `focus_items` rows on profile `4abda377` have no resolve event and belong to installs that stopped pushing them in July (`e428bd2a`, pre-re-identification; `59507265`, Sidecar web). The extension only upserts items it holds and never tombstones items it lost (re-identification rehydrate gaps, `mergeIntents` deleting the source locally, storage resets), so Sidecar shows them forever.
+- **Why it matters:** every surface that reads the cloud (Sidecar queue, Context View Up Next, Watch) shows stale intents; the list only grows.
+- **Options:**
+  1. One-off cleanup: mark the listed rows `completed` (needs Malkio's OK per row)
+  2. Server-side reconciliation: a row owned by a revoked/retired install, or by an install whose same-machine successor has pushed a full engine without it for N days, is auto-backburnered (reversible) rather than completed ← **suggested**
+  3. Extension pushes a per-cycle manifest of live ids so the server can flag rows it no longer holds
+
+## 2026-09-26 — mergeIntents deletes the source intent locally without telling the cloud
+- **Noticed while:** tracing how intents vanish from the extension but stay live in the cloud.
+- **What:** `focusService.mergeIntents` does `delete engine.items[sourceIntentId]` and never moves the source to history or marks it completed, so its cloud row stays `paused` permanently. Not proven to be the cause of today's five zombies (no merge events are logged anywhere), but it is a guaranteed zombie generator.
+- **Why it matters:** each merge leaves a stale Up Next entry on Sidecar/Context View/Watch.
+- **Options:**
+  1. On merge, push the source to history as `completed` with `mergedInto` ← **suggested**
+  2. Log a `merge` focus_event so merges are traceable
+  3. Both
+
+## 2026-09-26 — InBar inputs likely share the InPop keystroke bug on shortcut-heavy sites
+- **Noticed while:** fixing InPop typing (6.7.86).
+- **What:** InBar's key guard (`inbar.js`, "Prevent host page from stealing keyboard events") is a capture listener on the shadow HOST. Page listeners on `document` in the capture phase run before it, so on Gmail-style pages the pause-reason, note and edit inputs can still have their keys cancelled — the same mechanism reproduced for InPop. Not yet reproduced for InBar.
+- **Why it matters:** the same "field has focus but nothing types" failure in the bar itself.
+- **Options:**
+  1. Reproduce with the scratch Playwright harness (shortcut page + InBar pause-reason input), then apply the window-level isolation — note `shadowKeyIsolation.js` must stay single-entry or be duplicated into inbar.js (content-script chunking limit) ← **suggested**
+  2. Leave until reported

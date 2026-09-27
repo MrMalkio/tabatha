@@ -22,6 +22,9 @@ import { useInstallIdentity } from '../hooks/useInstallIdentity';
 import { TeamActivityPanel } from './TeamActivityPanel';
 import { ChangelogView } from '../components/ui/ChangelogView';
 import { SettingsSearch } from './SettingsSearch';
+import UpdateBanner from '../components/UpdateBanner';
+import SignInNudge from '../components/SignInNudge';
+import UpdateControls from '../components/UpdateControls';
 
 // FIX-11: Settings → About changelog view. Reads the same generated
 // changelog.json that the newtab "What's New" modal uses (Vite copies
@@ -924,12 +927,15 @@ function Settings() {
                   </button>
                   <button
                     onClick={() => chrome.runtime.reload()}
-                    title={pulseTarget === 'reload' ? 'Sync didn’t fix it — reload the extension to pick up new code' : 'Reload extension'}
+                    title={pulseTarget === 'reload' ? 'Sync didn’t fix it — reload the extension to pick up new code' : 'Reload extension (restarts this version — use “Update and reload” to get a new one)'}
                     style={{ padding: '3px 6px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '11px', color: 'var(--color-text-muted)', transition: 'all 0.15s', ...pulseStyle('reload') }}
                   >
                     ⟳
                   </button>
                 </div>
+                {/* 6.7.88: real update actions — the ⟳ above only restarts
+                    the running build and never downloads a new one. */}
+                <UpdateControls compact showReload={false} />
               </>
             );
           })()}
@@ -953,6 +959,9 @@ function Settings() {
       <div style={{ flex: 1, display: 'flex', minHeight: '100vh' }}>
         {/* Settings Panel */}
         <div style={{ flex: 1, padding: '24px 32px', maxWidth: '480px', overflowY: 'auto' }}>
+          {/* 6.7.88: non-blocking reminders — Workspace sign-in + new version. */}
+          <SignInNudge onSignIn={() => setActiveSection('sync')} />
+          <UpdateBanner />
           <motion.div key={activeSection} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
 
             {activeSection === 'appearance' && (
@@ -1987,6 +1996,9 @@ function Settings() {
               <div data-search-id="section-about">
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 16px' }}>About Tabatha</h2>
                 <div style={fieldRow} data-search-id="about-version"><span style={fieldLabel}>Version</span><span>v{chrome.runtime.getManifest?.()?.version || '?'}-α</span></div>
+                <div data-search-id="about-updates" style={{ marginBottom: '12px' }}>
+                  <UpdateControls />
+                </div>
                 <div style={fieldRow}><span style={fieldLabel}>Codename</span><span>Attention Operating System</span></div>
                 <div style={fieldRow}><span style={fieldLabel}>Ecosystem</span><span>Flux Family</span></div>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '16px', lineHeight: 1.5 }}>
