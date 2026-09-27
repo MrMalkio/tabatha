@@ -4,6 +4,35 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.87] - Cloud Sync writes only what changed - _2026-09-27_
+
+### Fixed
+
+- Cloud Sync no longer rewrites every intent, every time. Each sync (every 5 minutes, plus after every change) used to re-send all of your intents — active and finished — and all project/client records, even when nothing had changed. That constant rewriting used up the database's disk capacity on its current plan until it stopped responding (the 2026-09-27 outage). Tabatha now sends only records that actually changed, plus one full refresh a day so the cloud always converges.
+
+## [v6.7.86] - Typing in the intent popup on shortcut-heavy sites; Pause for timed-out intents in the sidebar - _2026-09-26_
+
+### Fixed
+
+- The intent popup accepts typing on sites with keyboard shortcuts again (Gmail, Asana, GitHub and similar). Those sites couldn't tell you were typing in a text field inside the popup, treated every key as one of their shortcuts, and cancelled it — the field had focus but stayed empty. The popup now keeps its keystrokes to itself before the site sees them. Enter still submits.
+- The sidebar shows ⏸ Pause for an intent whose timer has run out. A timed-out ("drifted") intent previously showed neither Pause nor Resume in the sidebar, although the home page and the background both allow pausing it.
+
+## [v6.7.85] - Correct recovery steps for the org-installed extension - _2026-09-24_
+
+### Fixed
+
+- Recovery advice now says to restart Chrome instead of "reload the extension". The org-installed copy of Tabatha has no reload button and cannot be disabled, so a full Chrome restart is the only manual way to recover it. Applies to the storage-failure notification, `npm run fleet:check`, and the operations runbook, which now also records where the org install is configured.
+
+## [v6.7.84] - Storage self-heals after a full disk; fleet-install diagnostic - _2026-09-24_
+
+### Fixed
+
+- "Intents don't update when I resolve or add them" — root-caused to a full disk. When the machine ran out of space mid-compaction, the extension's storage database latched the error and rejected every later write (for 25+ hours) while reads and cloud sync kept working, so the extension looked alive but nothing saved. Tabatha now detects repeated write failures, checks whether the disk has room again, and reloads itself to reopen storage — with a 30-minute cooldown so it can never loop. While the disk is still full it says so plainly instead of the generic "reload the extension" advice.
+
+### Added
+
+- `npm run fleet:check` — a read-only, on-machine diagnostic for the enterprise install: every Tabatha extension entry and ghost duplicate, on-disk version vs the live channel, cached policy presence, disk free space, and whether storage is alive (including the latched-LevelDB-error case above). Documented in OPERATIONS.md §2.2b together with what must be true on a managed Chrome for updates to land.
+
 ## [v6.7.83] - Reconcile verified source and release safeguards - _2026-09-23_
 
 ### Fixed

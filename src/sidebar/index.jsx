@@ -18,6 +18,7 @@ import { CheckpointTimeline } from '../components/CheckpointTimeline';
 import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 import DevicePausedBanner from '../components/DevicePausedBanner';
 import FeedbackWidget from '../components/FeedbackWidget';
+import { primaryFocusControl } from '../utils/focusControls';
 
 const CAT_ICONS = { work:'💼', media:'🎵', meeting:'📹', reference:'📚', messaging:'💬', email:'📧', learning:'🎓', entertainment:'🎮', unknown:'❓' };
 
@@ -513,9 +514,9 @@ function Sidebar() {
                   </div>
                   <div style={{ display:'flex', gap:'4px', marginTop:'8px', flexWrap:'wrap' }}>
                     <Tooltip text="Mark as resolved"><button onClick={() => actions.completeFocus(activeFocus.id)} style={btn('#66bb6a')}>✓ Resolved</button></Tooltip>
-                    {activeFocus.focusState === 'active' ? (
+                    {primaryFocusControl(activeFocus.focusState) === 'pause' ? (
                       <Tooltip text="Pause focus"><button onClick={() => actions.pauseFocus(activeFocus.id)} style={btn('#ffa726')}>⏸ Pause</button></Tooltip>
-                    ) : activeFocus.focusState === 'paused' ? (
+                    ) : primaryFocusControl(activeFocus.focusState) === 'resume' ? (
                       <Tooltip text="Resume focus"><button onClick={() => actions.resumeFocus(activeFocus.id)} style={btn('#66bb6a')}>▶ Resume</button></Tooltip>
                     ) : null}
                     {/* TR-08 (#207 parity): Backburner — same message InBar sends */}

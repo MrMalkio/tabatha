@@ -2,6 +2,8 @@
 // Injected at document_start to intercept browsing flow
 // Formal name: Intent-Popup (InPop)
 
+import { isolateShadowHostKeys } from '../utils/shadowKeyIsolation.js';
+
 (async () => {
   // Security fix wave (2026-07-21 audit, NOW #1) — HTML-escaping helper.
   // Duplicated (not imported) on purpose: gatekeeper.js and inbar.js are each
@@ -87,6 +89,16 @@
   });
   const shadow = host.attachShadow({ mode: 'closed' });
   document.documentElement.appendChild(host);
+
+  // 2026-09-26: keep InPop's keystrokes away from the page. Must be registered
+  // synchronously here, at document_start, so our window capture listener runs
+  // before any page script's. Without it, sites with single-key shortcuts
+  // (Gmail, Asana, GitHub…) see keys aimed at a non-input <div> and cancel
+  // them, so nothing can be typed into the intent field (reproduced on 6.7.83).
+  // The listener only acts on events targeted at our host, so leaving it
+  // registered after the gate closes is harmless.
+  let gateKeydown = null;
+  isolateShadowHostKeys(window, host, { onKeydown: (e) => gateKeydown?.(e) });
 
   // Becomes true once the full gate form is appended into `shadow`. Used to
   // decide whether a bail-out / error path should tear down the bare
@@ -667,8 +679,12 @@
     el.onclick = () => handlePresetClick(el.getAttribute('data-preset'));
   });
 
-  // Enter key
-  ctxInput.onkeydown = (e) => { if (e.key === 'Enter') shadow.getElementById('continue').click(); };
+  // Enter key. Routed through the window-level key isolation above: key events
+  // no longer reach ctxInput's own listeners, so an `onkeydown` here would
+  // never fire.
+  gateKeydown = (e) => {
+    if (e.key === 'Enter' && shadow.activeElement === ctxInput) shadow.getElementById('continue').click();
+  };
   } catch (err) {
     // TR-03 safety net: if anything above throws before the full gate is
     // appended, never leave the dimming placeholder stuck over the page.
