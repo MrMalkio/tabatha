@@ -2,6 +2,18 @@
   "generatedAt": null,
   "releases": [
     {
+      "version": "6.7.89",
+      "title": "Downloaded updates apply on their own when you step away",
+      "date": "2026-09-27",
+      "intro": "",
+      "sections": [
+        {
+          "label": "Changed",
+          "body": "- **Updates install themselves when you're away.** Once Chrome has downloaded a newer Tabatha, it now switches over the next time your computer goes idle or locks, the moment Chrome would normally choose. You can still switch right away with **Update now** on the banner, and a Chrome restart still applies it too."
+        }
+      ]
+    },
+    {
       "version": "6.7.88",
       "title": "Update banner with a real update button; sign-in reminders for Workspace users",
       "date": "2026-09-27",

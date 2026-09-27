@@ -15,8 +15,9 @@
 //                 updater swaps files; a reload applies them)
 //
 // NOTE: registering runtime.onUpdateAvailable defers Chrome's automatic
-// apply-when-idle. The UpdateBanner surfaces the ready version instead, and
-// Chrome still applies it on the next browser restart.
+// apply-when-idle. The UpdateBanner surfaces the ready version, an idle/locked
+// listener applies it when nobody is at the machine, and Chrome still applies
+// it on the next browser restart.
 //
 // Storage: chrome.storage.local['updateStatus'] = { currentVersion,
 //   publishedVersion, readyVersion, diskVersion, installType, source,
@@ -34,7 +35,8 @@ import {
   parseUpdateXmlVersion,
   parseLatestJsonVersion,
   normalizeUpdateStatus,
-  decideApplyAction
+  decideApplyAction,
+  shouldAutoApplyOnIdle
 } from '../../utils/updateDecision.js';
 
 export const UPDATE_CHECK_ALARM = 'tabatha-update-check';
@@ -369,6 +371,16 @@ export function registerUpdateServiceListeners() {
 
   chrome.runtime.onStartup?.addListener(() => {
     scheduleStartupCheck();
+  });
+
+  // Our onUpdateAvailable listener stops Chrome's own apply-when-idle, so do
+  // it here: when nobody is at the machine and a newer build is downloaded,
+  // reload onto it. The banner covers the case where the user is active.
+  chrome.idle?.onStateChanged?.addListener((idleState) => {
+    (async () => {
+      const status = await loadUpdateStatus();
+      if (shouldAutoApplyOnIdle({ idleState, status, currentVersion: runningVersion() })) reloadSoon();
+    })().catch(() => {});
   });
 
   ensureUpdateCheckAlarm();

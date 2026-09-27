@@ -15,6 +15,7 @@ import {
   describeUpdateResult,
   isSnoozed,
   makeSnooze,
+  shouldAutoApplyOnIdle,
   UPDATE_SNOOZE_MS
 } from '../src/utils/updateDecision.js';
 
@@ -189,4 +190,20 @@ test('describeUpdateResult gives the specified copy', () => {
   assert.match(describeUpdateResult({ reason: 'published_not_downloaded', version: '6.7.88', installType: 'development' }), /staff updater/);
   assert.equal(describeUpdateResult({ reason: 'no_update' }), "You're on the latest version.");
   assert.equal(describeUpdateResult({ action: 'reloading' }), 'Updating now…');
+});
+
+// Idle auto-apply: registering onUpdateAvailable stops Chrome applying a
+// downloaded update on its own, so we apply it when the machine goes idle.
+test('shouldAutoApplyOnIdle applies a ready newer build only when idle or locked', () => {
+  const status = { readyVersion: '6.7.89' };
+  assert.equal(shouldAutoApplyOnIdle({ idleState: 'idle', status, currentVersion: '6.7.88' }), true);
+  assert.equal(shouldAutoApplyOnIdle({ idleState: 'locked', status, currentVersion: '6.7.88' }), true);
+  assert.equal(shouldAutoApplyOnIdle({ idleState: 'active', status, currentVersion: '6.7.88' }), false);
+});
+
+test('shouldAutoApplyOnIdle ignores stale, missing, or disk-only versions', () => {
+  assert.equal(shouldAutoApplyOnIdle({ idleState: 'idle', status: { readyVersion: '6.7.88' }, currentVersion: '6.7.88' }), false);
+  assert.equal(shouldAutoApplyOnIdle({ idleState: 'idle', status: {}, currentVersion: '6.7.88' }), false);
+  assert.equal(shouldAutoApplyOnIdle({ idleState: 'idle', status: null, currentVersion: '6.7.88' }), false);
+  assert.equal(shouldAutoApplyOnIdle({ idleState: 'idle', status: { diskVersion: '6.7.89' }, currentVersion: '6.7.88', installType: 'development' }), true);
 });

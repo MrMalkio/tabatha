@@ -4,6 +4,12 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.89] - Downloaded updates apply on their own when you step away - _2026-09-27_
+
+### Changed
+
+- **Updates install themselves when you're away.** Once Chrome has downloaded a newer Tabatha, it now switches over the next time your computer goes idle or locks, the moment Chrome would normally choose. You can still switch right away with **Update now** on the banner, and a Chrome restart still applies it too.
+
 ## [v6.7.88] - Update banner with a real update button; sign-in reminders for Workspace users - _2026-09-27_
 
 ### Added

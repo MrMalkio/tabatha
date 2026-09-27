@@ -133,6 +133,20 @@ export function decideApplyAction({ installType, currentVersion, readyVersion, d
   return 'none';
 }
 
+// Registering runtime.onUpdateAvailable stops Chrome applying a downloaded
+// update on its own, so apply it ourselves when nobody is at the machine
+// (idle or locked) — the same moment Chrome would have chosen.
+export function shouldAutoApplyOnIdle({ idleState, status, currentVersion }) {
+  if (idleState !== 'idle' && idleState !== 'locked') return false;
+  if (!status) return false;
+  return decideApplyAction({
+    installType: status.installType,
+    currentVersion,
+    readyVersion: status.readyVersion,
+    diskVersion: status.diskVersion
+  }) === 'reload';
+}
+
 // Plain-language copy for every APPLY_UPDATE / CHECK_FOR_UPDATE outcome.
 export function describeUpdateResult(result = {}) {
   const v = result.version ? ` ${result.version}` : '';
