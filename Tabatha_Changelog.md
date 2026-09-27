@@ -4,6 +4,12 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.87] - Cloud Sync writes only what changed - _2026-09-27_
+
+### Fixed
+
+- Cloud Sync no longer rewrites every intent, every time. Each sync (every 5 minutes, plus after every change) used to re-send all of your intents — active and finished — and all project/client records, even when nothing had changed. That constant rewriting used up the database's disk capacity on its current plan until it stopped responding (the 2026-09-27 outage). Tabatha now sends only records that actually changed, plus one full refresh a day so the cloud always converges.
+
 ## [v6.7.86] - Typing in the intent popup on shortcut-heavy sites; Pause for timed-out intents in the sidebar - _2026-09-26_
 
 ### Fixed
