@@ -3,6 +3,20 @@
 > Continued from `v0_legacy/docs/progress.md` (Sessions 001-005).
 > This file tracks progress from v1.0.0-alpha onwards.
 
+## Session - 2026-09-27 (Update banner + Workspace sign-in reminders — v6.7.88)
+
+**Agent:** Claude (Opus 5.5) · **Branch:** `feat/update-banner-signin-nudge` (worktree `.claude/worktrees/update-banner`, off `origin/staging` 6.7.87)
+
+**Goal:** The in-app reload button never fetched a new version (owner stayed on 6.7.83 while 6.7.87 was out), and Workspace users can use Tabatha signed out, so nothing syncs.
+
+**Done:** `updateService` (channel-aware checks: requestUpdateCheck + enterprise update.xml for admin, requestUpdateCheck for store, latest.json + on-disk manifest for staff; onUpdateAvailable → ready; hourly alarm; CHECK_FOR_UPDATE / APPLY_UPDATE with clear reasons), `UpdateBanner` on Home/Sidebar/Settings, Settings update controls + channel label. `signInNudgeService` + `SignInNudge` banner for admin installs while signed out (badge only when free, notification ≤ 3 h in 08:00–20:00, all cleared on sign-in). Pure logic in `src/utils/updateDecision.js` / `src/utils/signInNudge.js`; 951/951 tests; build green. No new manifest permissions (`management.getSelf`, `runtime.requestUpdateCheck` and `action` badges need none; fetches are covered by `<all_urls>`).
+
+**Decision:** registering `runtime.onUpdateAvailable` defers Chrome's apply-when-idle; a downloaded update now applies via the banner's Update now or on the next Chrome restart.
+
+**Next:** merge PR → publish 6.7.88 to the enterprise channel → verify on the Workspace install that the banner appears and "Get it now" pulls 6.7.89.
+
+---
+
 ## Session - 2026-07-16 (Overlock contribution signing)
 
 Tabatha's configurable webhook output now signs the exact JSON request body with HMAC-SHA256.

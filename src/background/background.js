@@ -113,6 +113,15 @@ import {
 import { fireWebhook } from './webhooks.js';
 import { registerBootstrap, runRetentionCleanup } from './bootstrap.js';
 import { registerToolbarActionListeners } from './services/toolbarActionService.js';
+// 6.7.88: "New version available" + real update action.
+import * as updateService from './services/updateService.js';
+import { registerUpdateServiceListeners } from './services/updateService.js';
+// 6.7.88: non-blocking sign-in reminders for Workspace (policy) installs.
+import * as signInNudgeService from './services/signInNudgeService.js';
+import {
+  configureSignInNudgeService,
+  registerSignInNudgeListeners
+} from './services/signInNudgeService.js';
 
 async function setTabData(tabs) {
   const result = await setStorage({ tabs });
@@ -139,6 +148,7 @@ configureAsanaIntegrationService({ supabase });
 // Cloud writes (profile name via outbox; org/invite via direct RPC). The SW is
 // the single auth owner — page contexts route every mutation here.
 configureCloudWriteService({ supabase, triggerSync });
+configureSignInNudgeService({ supabase });
 
 configureNotificationService({
   getTabData,
@@ -235,6 +245,10 @@ const services = [
   agentSessionService,
   selfCorrectionService,
   contextReconcileService,
+  updateService,
+  // Must precede cloudWriteService: it only OBSERVES AUTH_STATE_CHANGED
+  // (returns undefined) and cloudWriteService owns the reply.
+  signInNudgeService,
   cloudWriteService,
   focusIngestService,
   deviceService,
@@ -301,6 +315,15 @@ registerBootstrap();
 // vs. tab-list popup) + the tab-list hotkey. Applies on startup + on any
 // settings change.
 registerToolbarActionListeners();
+
+// 6.7.88: update checks (startup / install / hourly alarm) + the
+// runtime.onUpdateAvailable listener. Registered synchronously at top level so
+// the wake-up event that delivers an update is never missed.
+registerUpdateServiceListeners();
+
+// 6.7.88: Workspace sign-in reminders (banner state, toolbar badge, 3-hourly
+// notification). No-ops for non-Workspace installs.
+registerSignInNudgeListeners();
 
 // Plan 038: backfill domain history from tabs that were already open when the
 // extension loaded (recordDomainVisit only fires on new navigations, not
