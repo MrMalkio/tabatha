@@ -1,4 +1,5 @@
 import { getStorage, setStorage } from './storageService.js';
+import { SIGNIN_NOTIFICATION_ID } from '../../utils/signInNudge.js';
 
 let injectedDeps = {};
 let notificationListenersRegistered = false;
@@ -71,6 +72,13 @@ export async function handleMessage(type, message, sender) {
 }
 
 async function handleNotificationClicked(notificationId) {
+  // 6.7.88: Workspace sign-in reminder → Settings → Sync & Account.
+  if (notificationId === SIGNIN_NOTIFICATION_ID) {
+    chrome.tabs.create({ url: chrome.runtime.getURL('settings.html#sync') });
+    chrome.notifications.clear(notificationId);
+    return;
+  }
+
   if (notificationId.startsWith('context-drift-') || notificationId.startsWith('focus-expired-') || notificationId.startsWith('nudge-')) {
     chrome.tabs.create({ url: chrome.runtime.getURL('home.html') });
     chrome.notifications.clear(notificationId);

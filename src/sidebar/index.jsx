@@ -17,6 +17,8 @@ import { isLiveConcurrent } from '../utils/stintReconciliation';
 import { CheckpointTimeline } from '../components/CheckpointTimeline';
 import { AbandonedStintsModal } from '../components/ui/AbandonedStintsModal';
 import DevicePausedBanner from '../components/DevicePausedBanner';
+import UpdateBanner from '../components/UpdateBanner';
+import SignInNudge from '../components/SignInNudge';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { primaryFocusControl } from '../utils/focusControls';
 
@@ -421,6 +423,10 @@ function Sidebar() {
         {/* Feature #222: soft self-rescue if THIS install got paused —
             never a hard block. */}
         <DevicePausedBanner compact />
+
+        {/* 6.7.88: non-blocking reminders — Workspace sign-in + new version. */}
+        <SignInNudge compact />
+        <UpdateBanner compact />
 
         {/* Clock status — compact */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'3px 0 5px' }}>

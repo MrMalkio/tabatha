@@ -4,6 +4,18 @@ All notable changes to the **Tabatha** extension will be documented in this
 file.
 
 ---
+## [v6.7.88] - Update banner with a real update button; sign-in reminders for Workspace users - _2026-09-27_
+
+### Added
+
+- **New version banner.** Home, the sidebar and Settings now say when a newer Tabatha is out ("Tabatha 6.7.89 is out.") or already downloaded ("Tabatha 6.7.89 is ready."). **Get it now** / **Update now** asks Chrome for the update and reloads into it once it has downloaded. If Chrome can't get it yet, the banner says why (still downloading, Chrome is limiting update checks, or a Chrome restart is needed). **Later** hides it for an hour. The banner sits above the page content and never covers it.
+- **Settings → Check for updates / Update and reload.** These replace the old reload button, which only restarted the running version and never downloaded a new one. Settings also shows your version and install channel (Workspace, Chrome Web Store or Staff). The plain reload is still available as a small secondary button.
+- **Sign-in reminders for Workspace installs.** If your organization installs Tabatha for you and you aren't signed in, you now see a reminder banner ("Sign in so your time and intents sync"), an amber **!** on the toolbar icon (only when no other badge is showing), and a notification at most every 3 hours between 08:00 and 20:00. **Remind me later** hides the banner for 2 hours. Reminders never block or disable anything, disappear as soon as you sign in, and never appear for Chrome Web Store or staff installs.
+
+### Changed
+
+- Tabatha now checks for updates itself: at startup, after an update, and every hour. Workspace installs also read the published version from the organization update feed, so the banner can appear before Chrome's own check (which runs every few hours) downloads the update. A downloaded update is applied when you click **Update now** or the next time Chrome restarts.
+
 ## [v6.7.87] - Cloud Sync writes only what changed - _2026-09-27_
 
 ### Fixed

@@ -40,6 +40,8 @@ import {
   handleFocusLiveIngestAlarm,
   FOCUS_LIVE_INGEST_ALARM
 } from './focusIngestService.js';
+import { handleUpdateCheckAlarm, UPDATE_CHECK_ALARM } from './updateService.js';
+import { handleSignInNudgeAlarm, SIGNIN_NUDGE_ALARM } from './signInNudgeService.js';
 
 // `session-snapshot` is also exported from bootstrap.js; redeclaring as a
 // local constant avoids the circular import.
@@ -123,6 +125,12 @@ async function handleAlarm(alarm) {
       // browser_profile_status) — see focusIngestService.js.
       case FOCUS_LIVE_INGEST_ALARM:
         return handleFocusLiveIngestAlarm();
+      // 6.7.88: hourly "is a new version out?" check.
+      case UPDATE_CHECK_ALARM:
+        return handleUpdateCheckAlarm();
+      // 6.7.88: Workspace sign-in reminder tick (badge + 3-hourly notification).
+      case SIGNIN_NUDGE_ALARM:
+        return handleSignInNudgeAlarm();
       default:
         return;
     }

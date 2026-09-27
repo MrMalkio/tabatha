@@ -35,6 +35,8 @@ import { logger } from '../services/logger';
 import CompanionStatus from '../components/CompanionStatus';
 import UnifiedTimeline from '../components/UnifiedTimeline';
 import DevicePausedBanner from '../components/DevicePausedBanner';
+import UpdateBanner from '../components/UpdateBanner';
+import SignInNudge from '../components/SignInNudge';
 import FeedbackWidget from '../components/FeedbackWidget';
 
 // B1: format an ISO timestamp into a `datetime-local` input value (local TZ).
@@ -1936,6 +1938,10 @@ function Home() {
         {/* Feature #222: soft self-rescue if THIS install got paused from
             Settings → Devices (or another device) — never a hard block. */}
         <DevicePausedBanner />
+
+        {/* 6.7.88: non-blocking reminders — Workspace sign-in + new version. */}
+        <SignInNudge />
+        <UpdateBanner />
 
         {/* Other browser-profile installs of this user — awareness chips */}
         <OtherProfilesStrip style={{ marginBottom: '8px' }} />
