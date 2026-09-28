@@ -34,6 +34,7 @@ Each cluster below has its own independent, expandable feature file so it can be
 | C13 | Environment & Mobile | Phase 5 | [C13-environment-mobile.md](./features/C13-environment-mobile.md) |
 | C14 | Agent Data Map & Governance | Phase 1 | [C14-agent-data-map-governance.md](./features/C14-agent-data-map-governance.md) |
 | C15 | Config & Interaction-Density Model | Phase 2 | [C15-config-interaction-density-model.md](./features/C15-config-interaction-density-model.md) |
+| C16 | Agent Access Kit (Settings redesign, copy-paste skills & prompts, "now" + time-window query) | Phase 2 (read-side) | [C16-agent-access-kit.md](./features/C16-agent-access-kit.md) |
 
 ## Docs sync convention
 
