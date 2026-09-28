@@ -4,6 +4,13 @@ Status: populated (Fable overnight, 2026-07-10)
 Parent: [Program Spec](./00-cortex-program-spec.md) §9 · Governance process: [C14](./features/C14-agent-data-map-governance.md)
 Last updated: 2026-07-10 (Fable overnight)
 
+> **Corrections as of 2026-09-28 (rows below not yet rewritten — C14 owns that):**
+> - Capture frames are **no longer written with `chrome.downloads`**. They go through the desktop companion (`CAPTURE_FRAME`, `captureService.js`) or, without it, to OPFS at `cortex/captures/<rel>`; `chrome.downloads` is deliberately not used for frames (`captureService.js:16-19`). Companion frames live under `%APPDATA%Tabatha Desktopcaptures<personal|org>YYYY-MM`.
+> - Ledger and digest exports go to the companion via `WRITE_EXPORT` (or buffer in `pendingCortexExports` when it is offline), **not** to Downloads. No nightly export had landed on the primary dev machine as of 2026-09-28.
+> - Migrations 022–026 (incl. `cortex_observations`, `cortex_capture_refs`) are **applied** on Flux; nothing in `syncService.js` writes `cortexLedger` to them, so they are expected to be empty.
+> - The companion SQLite (`%APPDATA%com.flux.tabatha-desktop	abatha_activity.db`) stores window titles verbatim, unredacted, and has no purge on `app_sessions`/clock tables.
+> - Agent-access work is specified in [C16](./features/C16-agent-access-kit.md).
+
 This is the **authoritative catalog** of every signal Tabatha/Cortex captures — Cortex-native and
 pre-Cortex alike: where it lives, which partition it belongs to, how long it is retained, its
 redaction state, and the access contract for downstream agents. **Every agent leveraging Tabatha
