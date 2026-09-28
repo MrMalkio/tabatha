@@ -147,6 +147,11 @@ bottom slides under the viewport edge. Malkio's observation that this "was not a
 matches the containing-block effect: the visible damage depends on how each site positions its
 fixed elements. Still blocked on the decision below.
 
+**Asana again (Malkio, 2026-09-28, paired screenshots, extension 6.7.83).** With the InBar shown,
+Asana's top bar and left navigation are pushed out of view and the task list starts mid-page; the
+same view without the InBar is complete. Confirms the defect is unchanged in 6.7.83 and still hits
+Malkio's main workspace daily.
+
 ## Interim workarounds (source-verified 2026-08-14, nightly TaskRun — CeeCee)
 
 The Stripe repro means a user can be stranded at a billing modal whose Cancel/Pause buttons are
